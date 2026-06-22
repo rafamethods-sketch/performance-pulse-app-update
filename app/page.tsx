@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ChevronRight,
@@ -471,7 +471,6 @@ function WeeklyLoadView() {
 }
 
 type PlanningBaseCategory = "strength" | "endurance" | "mixed" | "custom";
-type PeriodizationModel = "linear" | "block" | "undulating" | "hybrid" | "flexible";
 type SportModality =
   | "General"
   | "Powerlifting"
@@ -507,14 +506,6 @@ type PlanningFocus =
   | "Mixto - combate"
   | "Mixto - concurrente"
   | "Personalizado";
-type PlanningMetricGroup = {
-  label: "Carga interna" | "Carga externa" | "Wellness";
-  metrics: string[];
-};
-type PlanningConfig = {
-  metricGroups: PlanningMetricGroup[];
-  subtypes: Partial<Record<PeriodizationModel, string[]>>;
-};
 
 const sportModalities: SportModality[] = [
   "General",
@@ -541,18 +532,6 @@ const sportModalities: SportModality[] = [
   "HYROX",
   "Readaptacion",
   "Otro"
-];
-
-const planningFocusOptions: PlanningFocus[] = [
-  "Fuerza",
-  "Resistencia",
-  "Mixto - resistencia dominante",
-  "Mixto - fuerza dominante",
-  "Mixto - intermitente / equipo",
-  "Mixto - intermitente / raqueta",
-  "Mixto - combate",
-  "Mixto - concurrente",
-  "Personalizado"
 ];
 
 const suggestedFocusBySport: Record<SportModality, PlanningFocus> = {
@@ -594,126 +573,6 @@ const planningFocusBaseCategory: Record<PlanningFocus, PlanningBaseCategory> = {
   Resistencia: "endurance"
 };
 
-const periodizationLabels: Record<PeriodizationModel, string> = {
-  block: "Bloques",
-  flexible: "Flexible / personalizada",
-  hybrid: "Bloques + ondulante semanal",
-  linear: "Lineal",
-  undulating: "Ondulante"
-};
-
-const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
-  strength: {
-    metricGroups: [
-      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "dolor muscular"] },
-      {
-        label: "Carga externa",
-        metrics: ["%1RM", "e1RM", "velocidad", "perdida de velocidad", "volumen-carga", "series duras", "repeticiones efectivas"]
-      },
-      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
-    ],
-    subtypes: {
-      block: [
-        "ATR: Acumulacion -> Transmutacion -> Realizacion",
-        "Hipertrofia -> Fuerza -> Potencia",
-        "Volumen -> Intensificacion -> Pico",
-        "Low -> High -> Fast -> Long Force",
-        "Bloque personalizado"
-      ],
-      flexible: ["Flexible por readiness", "Personalizada por calendario", "Personalizada por respuesta individual"],
-      hybrid: [
-        "Hipertrofia -> fuerza -> potencia con ondulacion semanal",
-        "High / Low / Fast dentro de bloques",
-        "Bloques de fuerza con ondulacion semanal",
-        "Bloques con semana de descarga ondulante"
-      ],
-      linear: [
-        "Lineal clasica: volumen ↓ intensidad ↑",
-        "Lineal inversa: intensidad ↓ volumen ↑",
-        "Progresion por carga: kg ↑",
-        "Progresion por repeticiones: reps ↑",
-        "Progresion por densidad: descanso ↓",
-        "Lineal con taper"
-      ],
-      undulating: [
-        "Ondulante diaria",
-        "Ondulante semanal",
-        "Fuerza / potencia / volumen",
-        "High / Fast / Low",
-        "Flexible por readiness"
-      ]
-    }
-  },
-  endurance: {
-    metricGroups: [
-      { label: "Carga interna", metrics: ["RPE", "sRPE", "frecuencia cardiaca", "iTRIMP"] },
-      { label: "Carga externa", metrics: ["tiempo en zona", "ritmo", "potencia", "duracion", "distancia", "carga semanal"] },
-      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
-    ],
-    subtypes: {
-      block: [
-        "ATR resistencia",
-        "Bloque aerobico",
-        "Bloque umbral",
-        "Bloque VO2max",
-        "Bloque anaerobico",
-        "Bloque competitivo"
-      ],
-      flexible: ["Flexible por respuesta diaria", "Personalizada por disponibilidad", "Personalizada por competicion"],
-      hybrid: [
-        "Base -> umbral -> VO2max con ondulacion semanal",
-        "Bloques de intensidad con microciclo polarizado",
-        "Bloques de volumen con ondulacion semanal",
-        "Bloques competitivos con semana variable"
-      ],
-      linear: [
-        "Base -> especifico -> taper",
-        "Volumen progresivo",
-        "Intensidad progresiva",
-        "Lineal inversa",
-        "Base -> tempo -> umbral -> VO2max -> taper"
-      ],
-      undulating: ["Piramidal", "Polarizada", "Threshold", "HIIT-focused", "Mixta"]
-    }
-  },
-  mixed: {
-    metricGroups: [
-      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "frecuencia cardiaca"] },
-      {
-        label: "Carga externa",
-        metrics: ["tiempo en zona", "volumen-carga", "carga semanal", "duracion", "distancia", "rounds", "tiempo de trabajo", "potencia", "fuerza", "velocidad"]
-      },
-      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
-    ],
-    subtypes: {
-      block: ["Bloques alternos fuerza/resistencia", "Bloque fuerza -> bloque resistencia", "Bloque resistencia -> bloque fuerza"],
-      flexible: ["Personalizada por prioridad semanal", "Flexible por readiness", "Flexible por calendario"],
-      hybrid: [
-        "Bloques por capacidad con ondulacion semanal",
-        "Base / fuerza general -> fuerza maxima -> potencia -> especifico combate",
-        "Bloques concurrentes con microciclo ondulante",
-        "Bloques intermitentes con semana variable"
-      ],
-      linear: ["Base general -> especifico -> taper", "Progresion por prioridad principal", "Lineal con descarga"],
-      undulating: ["Ondulante por dias", "Fuerza alta / resistencia baja", "Resistencia alta / fuerza baja", "Mixta"]
-    }
-  },
-  custom: {
-    metricGroups: [
-      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "frecuencia cardiaca"] },
-      { label: "Carga externa", metrics: ["tiempo en zona", "volumen-carga", "carga semanal", "duracion"] },
-      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness", "notas subjetivas"] }
-    ],
-    subtypes: {
-      block: ["Bloques personalizados", "Bloques por prioridad", "Bloques por disponibilidad"],
-      flexible: ["Flexible / personalizada", "Flexible por readiness", "Flexible por calendario"],
-      hybrid: ["Bloques personalizados con ondulacion semanal", "Estructura combinada personalizada"],
-      linear: ["Lineal personalizada", "Progresion simple", "Lineal con descarga"],
-      undulating: ["Ondulante personalizada", "Variacion semanal", "Variacion por respuesta"]
-    }
-  }
-};
-
 const defaultMetricSelection: Record<PlanningBaseCategory, string[]> = {
   custom: ["RPE", "duracion", "notas subjetivas"],
   endurance: ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
@@ -721,34 +580,130 @@ const defaultMetricSelection: Record<PlanningBaseCategory, string[]> = {
   strength: ["%1RM", "RIR", "velocidad", "volumen-carga"]
 };
 
-const defaultMetricsByPlanningFocus: Partial<Record<PlanningFocus, string[]>> = {
-  "Mixto - combate": ["RPE", "rounds", "tiempo de trabajo", "potencia", "fuerza", "velocidad"],
-  "Mixto - concurrente": ["RPE", "tiempo en zona", "potencia", "volumen-carga", "carga semanal"],
-  "Mixto - resistencia dominante": ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
-  "Mixto - intermitente / equipo": ["RPE", "distancia", "tiempo de trabajo", "velocidad", "carga semanal"],
-  "Mixto - intermitente / raqueta": ["RPE", "tiempo de trabajo", "velocidad", "potencia", "carga semanal"]
+type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
+type WeeklyDistribution = "Lineal" | "Ondulante" | "Flexible" | "Personalizada";
+type EditablePlanningBlock = {
+  distribution: WeeklyDistribution;
+  duration: number;
+  id: string;
+  mainGoal: string;
+  metrics: string[];
+  name: string;
+  notes: string;
+  secondaryGoal: string;
 };
 
-const planningTargetOptions = {
-  fatigue: ["Baja", "Controlada", "Media", "Alta", "Descarga"],
-  intensity: ["Baja", "Media", "Media-alta", "Alta", "Muy alta"],
-  volume: ["Bajo", "Medio", "Alto", "Muy alto", "Descarga"]
+const planningEventTypes: PlanningEventType[] = [
+  "Competicion",
+  "Test",
+  "Pico de forma",
+  "Control / seguimiento",
+  "Sin evento definido"
+];
+
+const weeklyDistributionOptions: WeeklyDistribution[] = ["Lineal", "Ondulante", "Flexible", "Personalizada"];
+
+const planningAvailabilityOptions = [
+  { label: "2 dias / semana", value: 2 },
+  { label: "3 dias / semana", value: 3 },
+  { label: "4 dias / semana", value: 4 },
+  { label: "5 dias / semana", value: 5 },
+  { label: "6 dias / semana", value: 6 },
+  { label: "7 dias / semana", value: 7 },
+  { label: "Personalizado", value: 0 }
+];
+
+const blockGoalOptions: Record<PlanningBaseCategory, string[]> = {
+  custom: [
+    "desarrollo general",
+    "adherencia y tecnica",
+    "mejora de fuerza y capacidad aerobica",
+    "composicion corporal / salud metabolica",
+    "consolidacion",
+    "reevaluacion"
+  ],
+  endurance: [
+    "base aerobica",
+    "fuerza general",
+    "umbral / potencia aerobica",
+    "VO2max",
+    "ritmo especifico",
+    "bricks",
+    "tolerancia a la fatiga",
+    "puesta a punto",
+    "mantener intensidad"
+  ],
+  mixed: [
+    "fuerza general y base aerobica",
+    "tecnica con baja fatiga",
+    "fuerza maxima y potencia",
+    "capacidad anaerobica",
+    "resistencia especifica al round",
+    "sparring",
+    "velocidad / potencia",
+    "bajar fatiga"
+  ],
+  strength: [
+    "hipertrofia / volumen estructural",
+    "tecnica y tolerancia de carga",
+    "fuerza maxima",
+    "mantener volumen util",
+    "potencia",
+    "mantener fuerza maxima",
+    "puesta a punto",
+    "reducir fatiga"
+  ]
 };
 
-type PlanningPeakType = "Competicion" | "Pico de forma" | "Test principal" | "Control intermedio";
-type PlanningCalendarWeek = {
-  fatigue: string;
-  focus: string;
-  intensity: string;
-  metrics: string;
-  phase: string;
-  sessions: string;
-  volume: string;
-  week: number;
-  weekStart: string;
+const defaultBlockMetrics: Record<PlanningBaseCategory, string[]> = {
+  custom: ["RPE", "sRPE", "frecuencia cardiaca", "carga semanal"],
+  endurance: ["tiempo en zona", "ritmo", "potencia", "frecuencia cardiaca", "RPE", "duracion", "distancia", "carga semanal"],
+  mixed: ["RPE", "tiempo de trabajo", "rounds", "numero de esfuerzos", "sprints", "aceleraciones", "desaceleraciones", "saltos", "volumen-carga", "velocidad", "carga semanal"],
+  strength: ["%1RM", "e1RM", "RIR", "RPE", "velocidad", "perdida de velocidad", "volumen-carga", "series duras"]
 };
 
-const planningPeakTypes: PlanningPeakType[] = ["Competicion", "Pico de forma", "Test principal", "Control intermedio"];
+const blockTemplates: Record<PlanningBaseCategory, Record<string, { mainGoal: string; name: string; secondaryGoal: string }>> = {
+  custom: {
+    "Base / acumulacion": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
+    "Base breve": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
+    Desarrollo: { name: "Mejora de fuerza y capacidad", mainGoal: "mejora de fuerza y capacidad aerobica", secondaryGoal: "composicion corporal / salud metabolica" },
+    Especifico: { name: "Consolidacion", mainGoal: "consolidacion", secondaryGoal: "reevaluacion" },
+    "Puesta a punto": { name: "Reevaluacion / mantenimiento", mainGoal: "reevaluacion", secondaryGoal: "consolidacion" },
+    "Desarrollo general": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
+    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "mejora de fuerza y capacidad aerobica", secondaryGoal: "composicion corporal / salud metabolica" },
+    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "consolidacion", secondaryGoal: "reevaluacion" }
+  },
+  endurance: {
+    "Base / acumulacion": { name: "Base aerobica", mainGoal: "base aerobica", secondaryGoal: "fuerza general" },
+    "Base breve": { name: "Base breve", mainGoal: "base aerobica", secondaryGoal: "mantener volumen" },
+    Desarrollo: { name: "Desarrollo", mainGoal: "umbral / potencia aerobica", secondaryGoal: "mantener volumen" },
+    Especifico: { name: "Especifico", mainGoal: "ritmo especifico", secondaryGoal: "tolerancia a la fatiga" },
+    "Puesta a punto": { name: "Puesta a punto", mainGoal: "puesta a punto", secondaryGoal: "mantener intensidad" },
+    "Desarrollo general": { name: "Desarrollo general", mainGoal: "base aerobica", secondaryGoal: "fuerza general" },
+    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "umbral / potencia aerobica", secondaryGoal: "mantener volumen" },
+    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "puesta a punto", secondaryGoal: "mantener intensidad" }
+  },
+  mixed: {
+    "Base / acumulacion": { name: "Base / preparacion general", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
+    "Base breve": { name: "Base breve", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
+    Desarrollo: { name: "Desarrollo", mainGoal: "fuerza maxima y potencia", secondaryGoal: "capacidad anaerobica" },
+    Especifico: { name: "Especifico combate", mainGoal: "resistencia especifica al round", secondaryGoal: "velocidad / potencia" },
+    "Puesta a punto": { name: "Puesta a punto", mainGoal: "bajar fatiga", secondaryGoal: "mantener intensidad" },
+    "Desarrollo general": { name: "Desarrollo general", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
+    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "fuerza maxima y potencia", secondaryGoal: "capacidad anaerobica" },
+    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "bajar fatiga", secondaryGoal: "mantener intensidad" }
+  },
+  strength: {
+    "Base / acumulacion": { name: "Base / acumulacion", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
+    "Base breve": { name: "Base breve", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
+    Desarrollo: { name: "Desarrollo", mainGoal: "fuerza maxima", secondaryGoal: "mantener volumen util" },
+    Especifico: { name: "Potencia / especifico", mainGoal: "potencia", secondaryGoal: "mantener fuerza maxima" },
+    "Puesta a punto": { name: "Puesta a punto", mainGoal: "puesta a punto", secondaryGoal: "reducir fatiga" },
+    "Desarrollo general": { name: "Desarrollo general", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
+    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "fuerza maxima", secondaryGoal: "mantener volumen util" },
+    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "puesta a punto", secondaryGoal: "reducir fatiga" }
+  }
+};
 
 function parsePlanningDate(value: string) {
   if (!value) return null;
@@ -756,148 +711,84 @@ function parsePlanningDate(value: string) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatPlanningDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addPlanningDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function getPlanningWeeks(startDate: string, peakDate: string) {
-  const start = parsePlanningDate(startDate);
+function getPlanningWeeks(peakDate: string, eventType: PlanningEventType) {
+  if (eventType === "Sin evento definido") return 12;
+  const start = new Date();
   const peak = parsePlanningDate(peakDate);
   if (!start || !peak || peak <= start) return 0;
   const dayMs = 1000 * 60 * 60 * 24;
   return Math.max(1, Math.ceil((peak.getTime() - start.getTime()) / dayMs / 7));
 }
 
-function getPlanningPhase({
-  baseCategory,
-  model,
-  week,
-  totalWeeks
-}: {
-  baseCategory: PlanningBaseCategory;
-  model: PeriodizationModel;
-  totalWeeks: number;
-  week: number;
-}) {
-  const progress = week / Math.max(totalWeeks, 1);
-  const isEndurance = baseCategory === "endurance";
-  const isMixed = baseCategory === "mixed";
-  const base = isEndurance
-    ? ["Base aerobica", "Capacidad / umbral", "VO2max / especifico", "Taper"]
-    : isMixed
-      ? ["Base general", "Fuerza maxima / capacidad principal", "Potencia / especifico", "Taper"]
-      : ["Hipertrofia / acumulacion", "Fuerza maxima", "Potencia / realizacion", "Taper"];
-
-  if (model === "linear") {
-    if (progress < 0.7) return base[0];
-    if (progress < 0.9) return base[2];
-    return base[3];
-  }
-
-  if (model === "undulating") {
-    return week % 2 === 0 ? `${base[1]} ondulante` : `${base[0]} ondulante`;
-  }
-
-  if (model === "flexible") {
-    return "Flexible por readiness / calendario";
-  }
-
-  if (progress < 0.35) return base[0];
-  if (progress < 0.65) return base[1];
-  if (progress < 0.9) return base[2];
-  return base[3];
+function distributeBlockWeeks(totalWeeks: number, blockCount: number) {
+  const base = Math.floor(totalWeeks / blockCount);
+  const remainder = totalWeeks % blockCount;
+  return Array.from({ length: blockCount }, (_, index) => Math.max(1, base + (index < remainder ? 1 : 0)));
 }
 
-function getPlanningWeekLoad(week: number, totalWeeks: number, phase: string) {
-  const isTaper = phase.toLowerCase().includes("taper");
-  const loadWave = week % 4 === 0;
-
-  if (isTaper) {
-    return { fatigue: "Baja", intensity: "Alta", volume: "Descarga" };
-  }
-
-  if (loadWave) {
-    return { fatigue: "Controlada", intensity: "Media", volume: "Descarga" };
-  }
-
-  const progress = week / Math.max(totalWeeks, 1);
-  if (progress < 0.35) return { fatigue: "Media", intensity: "Media", volume: "Alto" };
-  if (progress < 0.7) return { fatigue: "Alta", intensity: "Alta", volume: "Medio" };
-  return { fatigue: "Controlada", intensity: "Muy alta", volume: "Bajo" };
+function getBlockPattern(totalWeeks: number, eventType: PlanningEventType) {
+  if (eventType === "Sin evento definido") return ["Desarrollo general", "Bloque prioritario", "Reevaluacion / mantenimiento"];
+  if (totalWeeks > 16) return ["Base / acumulacion", "Desarrollo", "Especifico", "Puesta a punto"];
+  if (totalWeeks >= 10) return ["Base breve", "Desarrollo", "Especifico", "Puesta a punto"];
+  if (totalWeeks >= 6) return ["Desarrollo", "Especifico", "Puesta a punto"];
+  return ["Especifico", "Puesta a punto"];
 }
 
-function generatePlanningCalendar({
+function generatePlanningBlocks({
   baseCategory,
-  metrics,
-  model,
-  peakDate,
-  planningFocus,
-  startDate,
-  trainingAvailability
+  eventType,
+  peakDate
 }: {
   baseCategory: PlanningBaseCategory;
-  metrics: string[];
-  model: PeriodizationModel;
+  eventType: PlanningEventType;
   peakDate: string;
-  planningFocus: PlanningFocus;
-  startDate: string;
-  trainingAvailability: TrainingAvailability;
 }) {
-  const start = parsePlanningDate(startDate);
-  const totalWeeks = getPlanningWeeks(startDate, peakDate);
-  if (!start || totalWeeks === 0) return [];
+  const totalWeeks = getPlanningWeeks(peakDate, eventType);
+  const pattern = getBlockPattern(totalWeeks || 12, eventType);
+  const durations = distributeBlockWeeks(totalWeeks || 12, pattern.length);
+  const metrics = defaultMetricSelection[baseCategory].filter((metric) => defaultBlockMetrics[baseCategory].includes(metric));
 
-  return Array.from({ length: totalWeeks }, (_, index) => {
-    const week = index + 1;
-    const phase = getPlanningPhase({ baseCategory, model, totalWeeks, week });
-    const load = getPlanningWeekLoad(week, totalWeeks, phase);
+  return pattern.map((phase, index) => {
+    const template = blockTemplates[baseCategory][phase] ?? blockTemplates.custom[phase];
+    const distribution: WeeklyDistribution = index === pattern.length - 1 ? "Flexible" : "Ondulante";
     return {
-      week,
-      weekStart: formatPlanningDate(addPlanningDays(start, index * 7)),
-      phase,
-      focus: planningFocus,
-      sessions: `${trainingAvailability.daysPerWeek} dias - ${recommendTrainingDistribution(trainingAvailability).name}`,
-      volume: load.volume,
-      intensity: load.intensity,
-      fatigue: load.fatigue,
-      metrics: metrics.join(" | ") || "Sin metricas"
+      distribution,
+      duration: durations[index],
+      id: `${phase}-${index}`,
+      mainGoal: template.mainGoal,
+      metrics: metrics.length > 0 ? metrics : defaultBlockMetrics[baseCategory].slice(0, 4),
+      name: template.name,
+      notes: index === pattern.length - 1 ? "Bajar fatiga y mantener sensaciones." : "Ajustar segun respuesta y disponibilidad.",
+      secondaryGoal: template.secondaryGoal
     };
   });
 }
 
 function downloadPlanningCalendarCsv({
-  calendar,
+  blocks,
   eventName,
   peakDate,
-  peakType
+  eventType
 }: {
-  calendar: PlanningCalendarWeek[];
+  blocks: EditablePlanningBlock[];
   eventName: string;
   peakDate: string;
-  peakType: PlanningPeakType;
+  eventType: PlanningEventType;
 }) {
-  if (calendar.length === 0 || typeof window === "undefined") return;
+  if (blocks.length === 0 || typeof window === "undefined") return;
 
-  const header = ["Semana", "Inicio", "Fase", "Enfoque", "Sesiones", "Volumen", "Intensidad", "Fatiga", "Metricas"];
-  const rows = calendar.map((week) => [
-    week.week,
-    week.weekStart,
-    week.phase,
-    week.focus,
-    week.sessions,
-    week.volume,
-    week.intensity,
-    week.fatigue,
-    week.metrics
+  const header = ["Bloque", "Duracion", "Objetivo principal", "Objetivo secundario", "Distribucion semanal", "Metricas", "Notas"];
+  const rows = blocks.map((block, index) => [
+    index + 1,
+    `${block.duration} semanas`,
+    block.mainGoal,
+    block.secondaryGoal,
+    block.distribution,
+    block.metrics.join(" | "),
+    block.notes
   ]);
   const csv = [
-    [`Evento`, eventName || peakType, `Fecha objetivo`, peakDate].join(","),
+    [`Evento`, eventName || eventType, `Fecha objetivo`, peakDate || "Sin fecha"].join(","),
     header.join(","),
     ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
   ].join("\n");
@@ -905,7 +796,7 @@ function downloadPlanningCalendarCsv({
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `planificacion-${(eventName || peakType).toLowerCase().replaceAll(" ", "-")}.csv`;
+  link.download = `planificacion-${(eventName || eventType).toLowerCase().replaceAll(" ", "-")}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -920,84 +811,63 @@ function PlanningView({
   const [sportModality, setSportModality] = useState<SportModality>("General");
   const [planningFocus, setPlanningFocus] = useState<PlanningFocus>(suggestedFocusBySport.General);
   const baseCategory = planningFocusBaseCategory[planningFocus];
-  const [periodizationModel, setPeriodizationModel] = useState<PeriodizationModel>("linear");
-  const [periodizationSubtype, setPeriodizationSubtype] = useState(planningConfig.custom.subtypes.linear?.[0] ?? "");
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(defaultMetricSelection.custom);
-  const [targetVolume, setTargetVolume] = useState("Medio");
-  const [targetIntensity, setTargetIntensity] = useState("Media-alta");
-  const [targetFatigue, setTargetFatigue] = useState("Controlada");
-  const [planningStartDate, setPlanningStartDate] = useState("");
+  const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
   const [planningPeakDate, setPlanningPeakDate] = useState("");
-  const [planningPeakType, setPlanningPeakType] = useState<PlanningPeakType>("Competicion");
   const [planningEventName, setPlanningEventName] = useState("");
-  const [notes, setNotes] = useState("");
+  const [availabilityOption, setAvailabilityOption] = useState(String(trainingAvailability.daysPerWeek));
+  const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>([]);
 
-  const currentConfig = planningConfig[baseCategory];
-  const subtypeOptions = currentConfig.subtypes[periodizationModel] ?? [];
   const recommendedDistribution = recommendTrainingDistribution(trainingAvailability);
-  const planningWeeks = getPlanningWeeks(planningStartDate, planningPeakDate);
-  const planningCalendar = generatePlanningCalendar({
-    baseCategory,
-    metrics: selectedMetrics,
-    model: periodizationModel,
-    peakDate: planningPeakDate,
-    planningFocus,
-    startDate: planningStartDate,
-    trainingAvailability
-  });
+  const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const selectedPlan = {
-    mainLoadMetrics: selectedMetrics,
-    notes,
+    blocks: planningBlocks,
     planningEventName,
     planningPeakDate,
-    planningPeakType,
+    planningEventType,
     planningWeeks,
-    periodizationModel,
-    periodizationSubtype,
-    planningFocus,
+    availabilityLabel: availabilityOption === "custom" ? "Personalizado" : `${trainingAvailability.daysPerWeek} dias / semana`,
     recommendedDistribution: recommendedDistribution.name,
     sportModality,
-    targetFatigue,
-    targetIntensity,
-    targetVolume
+    trainingAvailability
   };
-
-  function applyPlanningFocus(focus: PlanningFocus) {
-    const nextCategory = planningFocusBaseCategory[focus];
-    const nextConfig = planningConfig[nextCategory];
-    const nextSubtype = nextConfig.subtypes[periodizationModel]?.[0] ?? nextConfig.subtypes.linear?.[0] ?? "";
-    setPlanningFocus(focus);
-    setPeriodizationSubtype(nextSubtype);
-    setSelectedMetrics(defaultMetricsByPlanningFocus[focus] ?? defaultMetricSelection[nextCategory]);
-  }
 
   function handleSportModalityChange(modality: SportModality) {
     setSportModality(modality);
-    applyPlanningFocus(suggestedFocusBySport[modality]);
+    setPlanningFocus(suggestedFocusBySport[modality]);
   }
 
-  function handleFocusChange(focus: PlanningFocus) {
-    applyPlanningFocus(focus);
+  function generateBlocks() {
+    setPlanningBlocks(
+      generatePlanningBlocks({
+        baseCategory,
+        eventType: planningEventType,
+        peakDate: planningPeakDate
+      })
+    );
   }
 
-  function handleModelChange(model: PeriodizationModel) {
-    const nextSubtype = currentConfig.subtypes[model]?.[0] ?? "";
-    setPeriodizationModel(model);
-    setPeriodizationSubtype(nextSubtype);
+  function updateBlock(blockId: string, updates: Partial<EditablePlanningBlock>) {
+    setPlanningBlocks((blocks) =>
+      blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
+    );
   }
 
-  function toggleMetric(metric: string) {
-    setSelectedMetrics((current) =>
-      current.includes(metric)
-        ? current.filter((item) => item !== metric)
-        : [...current, metric]
+  function toggleBlockMetric(blockId: string, metric: string) {
+    setPlanningBlocks((blocks) =>
+      blocks.map((block) => {
+        if (block.id !== blockId) return block;
+        const metrics = block.metrics.includes(metric)
+          ? block.metrics.filter((item) => item !== metric)
+          : [...block.metrics, metric];
+        return { ...block, metrics };
+      })
     );
   }
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Estructura de planificacion</h2>
+        <h2 className="text-lg font-semibold text-ink">Planificacion</h2>
 
         <PlanningStep step="1" title="Modalidad deportiva">
           <select
@@ -1011,223 +881,208 @@ function PlanningView({
           </select>
         </PlanningStep>
 
-        <PlanningStep step="2" title="Enfoque de planificacion">
+        <PlanningStep step="2" title="Evento objetivo">
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => handleFocusChange(event.target.value as PlanningFocus)}
-            value={planningFocus}
+            onChange={(event) => setPlanningEventType(event.target.value as PlanningEventType)}
+            value={planningEventType}
           >
-            {planningFocusOptions.map((focus) => (
-              <option key={focus}>{focus}</option>
-            ))}
-          </select>
-          <p className="mt-2 rounded-md bg-sky px-3 py-2 text-xs font-medium text-ink/70">
-            Sugerido por modalidad: {suggestedFocusBySport[sportModality]}. Puedes modificarlo manualmente.
-          </p>
-        </PlanningStep>
-
-        <PlanningStep step="3" title="Modelo de planificacion">
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => handleModelChange(event.target.value as PeriodizationModel)}
-            value={periodizationModel}
-          >
-            {(Object.keys(periodizationLabels) as PeriodizationModel[]).map((model) => (
-              <option key={model} value={model}>{periodizationLabels[model]}</option>
+            {planningEventTypes.map((eventType) => (
+              <option key={eventType}>{eventType}</option>
             ))}
           </select>
         </PlanningStep>
 
-        <PlanningStep step="4" title="Estructura / distribucion del plan">
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setPeriodizationSubtype(event.target.value)}
-            value={periodizationSubtype}
-          >
-            {subtypeOptions.map((subtype) => (
-              <option key={subtype}>{subtype}</option>
-            ))}
-          </select>
-          {baseCategory === "endurance" && periodizationModel === "undulating" && (
-            <p className="mt-2 rounded-md bg-wheat px-3 py-2 text-xs font-medium text-ink/70">
-              Piramidal y polarizada son distribuciones de intensidad, no modelos puros.
+        {planningEventType !== "Sin evento definido" && (
+          <PlanningStep step="3" title="Fecha objetivo">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Nombre
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setPlanningEventName(event.target.value)}
+                  placeholder="Ej. Campeonato regional"
+                  value={planningEventName}
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Fecha objetivo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setPlanningPeakDate(event.target.value)}
+                  type="date"
+                  value={planningPeakDate}
+                />
+              </label>
+            </div>
+            <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
+              Semanas disponibles: {planningWeeks > 0 ? planningWeeks : "Selecciona una fecha valida"}
             </p>
-          )}
-        </PlanningStep>
+          </PlanningStep>
+        )}
 
-        <PlanningStep step="5" title="Frecuencia y distribucion semanal">
-          <div className="grid gap-3 sm:grid-cols-2">
+        {planningEventType === "Sin evento definido" && (
+          <PlanningStep step="3" title="Fecha objetivo">
             <label className="space-y-2 text-sm font-medium text-ink/75">
-              Dias por semana
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) =>
-                  setTrainingAvailability({
-                    ...trainingAvailability,
-                    daysPerWeek: Number(event.target.value)
-                  })
-                }
-                value={trainingAvailability.daysPerWeek}
-              >
-                {[1, 2, 3, 4, 5, 6].map((days) => (
-                  <option key={days} value={days}>{days}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Distribucion de dias
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) =>
-                  setTrainingAvailability({
-                    ...trainingAvailability,
-                    consecutiveDays: event.target.value === "consecutivos"
-                  })
-                }
-                value={trainingAvailability.consecutiveDays ? "consecutivos" : "alternos"}
-              >
-                <option value="consecutivos">Dias seguidos</option>
-                <option value="alternos">Dias alternos</option>
-              </select>
-            </label>
-          </div>
-          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
-            Distribucion recomendada: {recommendedDistribution.name}
-          </p>
-        </PlanningStep>
-
-        <PlanningStep step="6" title="Competicion / pico de forma">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Tipo de fecha objetivo
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setPlanningPeakType(event.target.value as PlanningPeakType)}
-                value={planningPeakType}
-              >
-                {planningPeakTypes.map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Nombre
+              Nombre del ciclo
               <input
                 className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                 onChange={(event) => setPlanningEventName(event.target.value)}
-                placeholder="Ej. Campeonato regional"
+                placeholder="Ej. Desarrollo general"
                 value={planningEventName}
               />
             </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Inicio de planificacion
-              <input
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setPlanningStartDate(event.target.value)}
-                type="date"
-                value={planningStartDate}
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Fecha objetivo
-              <input
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setPlanningPeakDate(event.target.value)}
-                type="date"
-                value={planningPeakDate}
-              />
-            </label>
-          </div>
-          <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-            Semanas disponibles: {planningWeeks > 0 ? planningWeeks : "Selecciona fechas validas"}
+            <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
+              Se generara un ciclo base de 12 semanas.
+            </p>
+          </PlanningStep>
+        )}
+
+        <PlanningStep step="4" title="Disponibilidad semanal">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => {
+              const nextOption = event.target.value;
+              setAvailabilityOption(nextOption);
+              const nextValue = Number(nextOption);
+              if (nextOption !== "custom" && nextValue > 0) {
+                setTrainingAvailability({ ...trainingAvailability, daysPerWeek: nextValue });
+              }
+            }}
+            value={availabilityOption}
+          >
+            {planningAvailabilityOptions.map((option) => (
+              <option key={option.label} value={option.value === 0 ? "custom" : option.value}>{option.label}</option>
+            ))}
+          </select>
+          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
+            Distribucion sugerida: {recommendedDistribution.name}
           </p>
+        </PlanningStep>
+
+        <PlanningStep step="5" title="Generar bloques automaticamente">
+          <button
+            className="h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/35"
+            disabled={planningEventType !== "Sin evento definido" && planningWeeks === 0}
+            onClick={generateBlocks}
+            type="button"
+          >
+            Generar bloques
+          </button>
         </PlanningStep>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="7" title="Metricas principales">
-          <div className="grid gap-3">
-            {currentConfig.metricGroups.map((group) => (
-              <div className="rounded-md border border-line bg-panel/30 p-3" key={group.label}>
-                <p className="mb-2 text-sm font-semibold text-ink">{group.label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {group.metrics.map((metric) => (
-                    <button
-                      className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                        selectedMetrics.includes(metric)
-                          ? "border-moss bg-mint text-moss"
-                          : "border-line bg-white text-ink/65"
-                      }`}
-                      key={metric}
-                      onClick={() => toggleMetric(metric)}
-                      type="button"
-                    >
-                      {metric}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </PlanningStep>
-
-        <PlanningStep step="8" title="Volumen, intensidad, fatiga y notas">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Volumen objetivo
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setTargetVolume(event.target.value)}
-                value={targetVolume}
-              >
-                {planningTargetOptions.volume.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Intensidad objetivo
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setTargetIntensity(event.target.value)}
-                value={targetIntensity}
-              >
-                {planningTargetOptions.intensity.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Fatiga objetivo
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setTargetFatigue(event.target.value)}
-                value={targetFatigue}
-              >
-                {planningTargetOptions.fatigue.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
-            Notas
-            <textarea
-              className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Contexto del deportista, competiciones, restricciones, preferencias..."
-              value={notes}
-            />
-          </label>
+        <PlanningStep step="6" title="Bloques editables">
+          {planningBlocks.length === 0 ? (
+            <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
+              Selecciona modalidad, evento, fecha y disponibilidad para generar una propuesta.
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {planningBlocks.map((block, index) => (
+                <section className="rounded-md border border-line bg-panel/25 p-4" key={block.id}>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="font-semibold text-ink">Bloque {index + 1}</h3>
+                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                      {block.duration} semanas
+                    </span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Nombre del bloque
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateBlock(block.id, { name: event.target.value })}
+                        value={block.name}
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Duracion en semanas
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                        min={1}
+                        onChange={(event) => updateBlock(block.id, { duration: Number(event.target.value) })}
+                        type="number"
+                        value={block.duration}
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Objetivo principal
+                      <select
+                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateBlock(block.id, { mainGoal: event.target.value })}
+                        value={block.mainGoal}
+                      >
+                        {blockGoalOptions[baseCategory].map((goal) => (
+                          <option key={goal}>{goal}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Objetivo secundario
+                      <select
+                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateBlock(block.id, { secondaryGoal: event.target.value })}
+                        value={block.secondaryGoal}
+                      >
+                        {blockGoalOptions[baseCategory].map((goal) => (
+                          <option key={goal}>{goal}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                      Distribucion semanal
+                      <select
+                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateBlock(block.id, { distribution: event.target.value as WeeklyDistribution })}
+                        value={block.distribution}
+                      >
+                        {weeklyDistributionOptions.map((distribution) => (
+                          <option key={distribution}>{distribution}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-medium text-ink/75">Metricas principales</p>
+                    <div className="flex flex-wrap gap-2">
+                      {defaultBlockMetrics[baseCategory].map((metric) => (
+                        <button
+                          className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                            block.metrics.includes(metric)
+                              ? "border-moss bg-mint text-moss"
+                              : "border-line bg-white text-ink/65"
+                          }`}
+                          key={metric}
+                          onClick={() => toggleBlockMetric(block.id, metric)}
+                          type="button"
+                        >
+                          {metric}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+                    Notas
+                    <textarea
+                      className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateBlock(block.id, { notes: event.target.value })}
+                      value={block.notes}
+                    />
+                  </label>
+                </section>
+              ))}
+            </div>
+          )}
         </PlanningStep>
 
         <PlanningSummary selectedPlan={selectedPlan} />
         <PlanningCalendarPreview
-          calendar={planningCalendar}
+          blocks={planningBlocks}
           eventName={planningEventName}
           peakDate={planningPeakDate}
-          peakType={planningPeakType}
+          eventType={planningEventType}
         />
       </section>
     </div>
@@ -1258,20 +1113,15 @@ function PlanningSummary({
   selectedPlan
 }: {
   selectedPlan: {
-    mainLoadMetrics: string[];
-    notes: string;
+    availabilityLabel: string;
+    blocks: EditablePlanningBlock[];
     planningEventName: string;
+    planningEventType: PlanningEventType;
     planningPeakDate: string;
-    planningPeakType: PlanningPeakType;
     planningWeeks: number;
-    periodizationModel: PeriodizationModel;
-    periodizationSubtype: string;
-    planningFocus: PlanningFocus;
     recommendedDistribution: string;
     sportModality: SportModality;
-    targetFatigue: string;
-    targetIntensity: string;
-    targetVolume: string;
+    trainingAvailability: TrainingAvailability;
   };
 }) {
   return (
@@ -1279,84 +1129,86 @@ function PlanningSummary({
       <h3 className="font-semibold">Resumen final</h3>
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <p className="rounded-md bg-white/10 px-3 py-2">Modalidad deportiva: {selectedPlan.sportModality}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Enfoque de planificacion: {selectedPlan.planningFocus}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">
-          Modelo de planificacion: {periodizationLabels[selectedPlan.periodizationModel]}
-        </p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          Estructura / distribucion: {selectedPlan.periodizationSubtype}
-        </p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          Distribucion semanal recomendada: {selectedPlan.recommendedDistribution}
-        </p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          Metricas principales: {selectedPlan.mainLoadMetrics.join(", ") || "Sin seleccionar"}
-        </p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Volumen: {selectedPlan.targetVolume}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Intensidad: {selectedPlan.targetIntensity}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Fatiga: {selectedPlan.targetFatigue}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          {selectedPlan.planningPeakType}: {selectedPlan.planningEventName || "Sin nombre"} · {selectedPlan.planningPeakDate || "Sin fecha"} · {selectedPlan.planningWeeks || 0} semanas
-        </p>
-        {selectedPlan.notes && (
-          <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Notas: {selectedPlan.notes}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Evento objetivo: {selectedPlan.planningEventType}</p>
+        {selectedPlan.planningEventType !== "Sin evento definido" && (
+          <p className="rounded-md bg-white/10 px-3 py-2">Fecha objetivo: {selectedPlan.planningPeakDate || "Sin fecha"}</p>
         )}
+        <p className="rounded-md bg-white/10 px-3 py-2">Semanas disponibles: {selectedPlan.planningWeeks || 0}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">
+          Disponibilidad semanal: {selectedPlan.availabilityLabel}
+        </p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
+          Distribucion semanal sugerida: {selectedPlan.recommendedDistribution}
+        </p>
+        {selectedPlan.planningEventName && (
+          <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Nombre: {selectedPlan.planningEventName}</p>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {selectedPlan.blocks.map((block, index) => (
+          <div className="rounded-md bg-white/10 px-3 py-3 text-sm" key={block.id}>
+            <p className="font-semibold">
+              {index + 1}. {block.name} - {block.duration} semanas
+            </p>
+            <p className="mt-2 text-white/80">Objetivo principal: {block.mainGoal}</p>
+            <p className="text-white/80">Objetivo secundario: {block.secondaryGoal}</p>
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
 function PlanningCalendarPreview({
-  calendar,
+  blocks,
   eventName,
-  peakDate,
-  peakType
+  eventType,
+  peakDate
 }: {
-  calendar: PlanningCalendarWeek[];
+  blocks: EditablePlanningBlock[];
   eventName: string;
+  eventType: PlanningEventType;
   peakDate: string;
-  peakType: PlanningPeakType;
 }) {
   return (
     <section className="mt-5 rounded-md border border-line bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="font-semibold text-ink">Calendario de periodizacion</h3>
+        <h3 className="font-semibold text-ink">Calendario descargable</h3>
         <button
           className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/35"
-          disabled={calendar.length === 0}
-          onClick={() => downloadPlanningCalendarCsv({ calendar, eventName, peakDate, peakType })}
+          disabled={blocks.length === 0}
+          onClick={() => downloadPlanningCalendarCsv({ blocks, eventName, eventType, peakDate })}
           type="button"
         >
           Descargar CSV
         </button>
       </div>
 
-      {calendar.length === 0 ? (
+      {blocks.length === 0 ? (
         <div className="mt-4 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-          Añade fecha de inicio y fecha objetivo para generar el calendario.
+          Genera bloques para crear el calendario descargable.
         </div>
       ) : (
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-panel/60 text-xs uppercase text-ink/55">
               <tr>
-                <th className="px-3 py-2">Semana</th>
-                <th className="px-3 py-2">Inicio</th>
-                <th className="px-3 py-2">Fase</th>
-                <th className="px-3 py-2">Sesiones</th>
-                <th className="px-3 py-2">Carga</th>
+                <th className="px-3 py-2">Bloque</th>
+                <th className="px-3 py-2">Duracion</th>
+                <th className="px-3 py-2">Objetivo principal</th>
+                <th className="px-3 py-2">Distribucion</th>
+                <th className="px-3 py-2">Metricas</th>
               </tr>
             </thead>
             <tbody>
-              {calendar.map((week) => (
-                <tr className="border-t border-line" key={week.week}>
-                  <td className="px-3 py-2 font-semibold text-ink">{week.week}</td>
-                  <td className="px-3 py-2 text-ink/70">{week.weekStart}</td>
-                  <td className="px-3 py-2 text-ink">{week.phase}</td>
-                  <td className="px-3 py-2 text-ink/70">{week.sessions}</td>
-                  <td className="px-3 py-2 text-ink/70">
-                    Vol. {week.volume} · Int. {week.intensity} · Fat. {week.fatigue}
-                  </td>
+              {blocks.map((block, index) => (
+                <tr className="border-t border-line" key={block.id}>
+                  <td className="px-3 py-2 font-semibold text-ink">{index + 1}. {block.name}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.duration} semanas</td>
+                  <td className="px-3 py-2 text-ink">{block.mainGoal}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.distribution}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.metrics.join(", ")}</td>
                 </tr>
               ))}
             </tbody>
@@ -1366,7 +1218,6 @@ function PlanningCalendarPreview({
     </section>
   );
 }
-
 type ProgressionPattern = {
   criteria: string[];
   levels: string[];
@@ -1527,7 +1378,7 @@ function ExerciseProgressionsView() {
                         type="button"
                       >
                         <Plus size={15} />
-                        {isSelected ? "Añadido" : "Añadir"}
+                        {isSelected ? "AÃ±adido" : "AÃ±adir"}
                       </button>
                     </td>
                   </tr>
@@ -3164,7 +3015,7 @@ function CoachCompletionMessage() {
 function MissedSessionReason() {
   return (
     <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-      <h4 className="font-semibold text-amber-900">Cuéntanos por que no se realizo</h4>
+      <h4 className="font-semibold text-amber-900">CuÃ©ntanos por que no se realizo</h4>
       <p className="mt-1 text-sm text-amber-800">
         Esta informacion ayuda al entrenador a ajustar la planificacion.
       </p>
