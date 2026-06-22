@@ -104,7 +104,7 @@ export default function ClientsPage() {
                 {activeSheet === "clients"
                   ? "Clientes"
                   : activeSheet === "training"
-                    ? "Mi entrenamiento"
+                    ? role === "coach" ? "Sesiones" : "Mi entrenamiento"
                   : activeSheet === "assessments"
                     ? "Valoraciones"
                   : activeSheet === "calendar"
@@ -129,10 +129,7 @@ export default function ClientsPage() {
 
           {activeSheet === "clients" ? (
             role === "coach" ? (
-              <CoachClientsView
-                setTrainingAvailability={setTrainingAvailability}
-                trainingAvailability={trainingAvailability}
-              />
+              <CoachClientsView />
             ) : (
               <AthleteClientForm
                 goalType={goalType}
@@ -275,13 +272,7 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   );
 }
 
-function CoachClientsView({
-  setTrainingAvailability,
-  trainingAvailability
-}: {
-  setTrainingAvailability: (availability: TrainingAvailability) => void;
-  trainingAvailability: TrainingAvailability;
-}) {
+function CoachClientsView() {
   return (
     <>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -289,49 +280,6 @@ function CoachClientsView({
           <StatCard key={stat.label} {...stat} />
         ))}
       </div>
-
-      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Disponibilidad de entrenamiento</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:w-[520px]">
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Dias por semana
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) =>
-                  setTrainingAvailability({
-                    ...trainingAvailability,
-                    daysPerWeek: Number(event.target.value)
-                  })
-                }
-                value={trainingAvailability.daysPerWeek}
-              >
-                {[1, 2, 3, 4, 5, 6].map((days) => (
-                  <option key={days} value={days}>{days}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Distribucion
-              <select
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) =>
-                  setTrainingAvailability({
-                    ...trainingAvailability,
-                    consecutiveDays: event.target.value === "consecutivos"
-                  })
-                }
-                value={trainingAvailability.consecutiveDays ? "consecutivos" : "alternos"}
-              >
-                <option value="consecutivos">Dias seguidos</option>
-                <option value="alternos">Dias alternos</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
 
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2591,11 +2539,66 @@ function calculateMuscleFatigue() {
   });
 }
 
+type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
+type CoachSessionQuantifier = {
+  fields: string[];
+  primary: string[];
+};
+
+const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> = {
+  Cardio: {
+    primary: ["sRPE", "iTRIMP", "tiempo en zona", "distancia", "ritmo/potencia"],
+    fields: [
+      "Duracion planificada",
+      "RPE esperado",
+      "FC media objetivo",
+      "FC maxima estimada",
+      "Tiempo Z1-Z2",
+      "Tiempo Z3-Z4",
+      "Distancia / metros",
+      "Ritmo, potencia o VAM/CSS/CP",
+      "Cadencia / brazada"
+    ]
+  },
+  Fuerza: {
+    primary: ["tonelaje", "series duras", "RPE/RIR", "volumen-carga", "velocidad"],
+    fields: [
+      "Ejercicio",
+      "Patron de movimiento",
+      "Series",
+      "Repeticiones",
+      "Carga",
+      "Descanso",
+      "RPE/RIR",
+      "Velocidad o perdida de velocidad",
+      "Observaciones"
+    ]
+  },
+  Mixta: {
+    primary: ["sRPE", "volumen-carga", "tiempo de trabajo", "rounds/esfuerzos", "carga semanal"],
+    fields: [
+      "Bloque de fuerza",
+      "Bloque metabolico",
+      "Duracion total",
+      "RPE esperado",
+      "Rounds / esfuerzos",
+      "Tiempo de trabajo",
+      "Volumen-carga",
+      "FC objetivo",
+      "Notas de transicion"
+    ]
+  }
+};
+
+const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
+
 function CoachTrainingPlanner() {
+  const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const plannedTonnage = plannedSession.strengthExercises.reduce(
     (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
     0
   );
+  const activeQuantifiers = coachSessionQuantifiers[sessionType];
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -2605,7 +2608,7 @@ function CoachTrainingPlanner() {
             <h2 className="text-lg font-semibold text-ink">Planificar sesion</h2>
           </div>
           <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
-            Objetivo: {plannedSession.strengthObjective}
+            {sessionType}
           </span>
         </div>
 
@@ -2625,6 +2628,18 @@ function CoachTrainingPlanner() {
               type="date"
             />
           </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Tipo de sesion
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSessionType(event.target.value as CoachSessionType)}
+              value={sessionType}
+            >
+              {Object.keys(coachSessionQuantifiers).map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </label>
           <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
             Nombre de la sesion
             <input
@@ -2642,6 +2657,7 @@ function CoachTrainingPlanner() {
           </label>
         </div>
 
+        {sessionType === "Fuerza" ? (
         <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-ink">Ejercicios de fuerza</h3>
@@ -2684,6 +2700,67 @@ function CoachTrainingPlanner() {
             </table>
           </div>
         </div>
+        ) : sessionType === "Cardio" ? (
+          <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Sesion de cardio</h3>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Modalidad
+                <select className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss">
+                  {cardioSessionModes.map((mode) => (
+                    <option key={mode}>{mode}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Duracion estimada
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 45 min" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Tiempo por zona
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. Z2 30 min + Z4 6x2 min" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Distancia / metros
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 8 km / 1800 m" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Intensidad externa
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="%VAM, %CP, %CSS, ritmo o potencia" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                FC estimada
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 145-165 ppm" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                Cadencia / brazada
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 176 ppm carrera / 34 brazadas min" />
+              </label>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Sesion mixta</h3>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Bloque de fuerza
+                <textarea className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss" placeholder="Ejercicios, series, reps, carga, RPE/RIR" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Bloque metabolico / especifico
+                <textarea className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss" placeholder="Rounds, esfuerzos, tiempos, pausas, distancia" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Duracion total
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 70 min" />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                RPE esperado
+                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 7/10" />
+              </label>
+            </div>
+          </div>
+        )}
 
         <button className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto" type="button">
           <Send size={18} />
@@ -2692,21 +2769,20 @@ function CoachTrainingPlanner() {
       </section>
 
       <aside className="rounded-md border border-line bg-ink p-5 text-white shadow-soft">
-        <h2 className="text-lg font-semibold">Datos que pedira la app</h2>
-        <p className="mt-2 text-sm text-white/65">
-          Al registrar la sesion se calculara carga interna y cuantificadores especificos.
-        </p>
+        <h2 className="text-lg font-semibold">Cuantificacion</h2>
         <div className="mt-5 grid gap-3">
           <div className="rounded-md bg-white/10 p-4">
-            <p className="text-sm font-semibold">Carga interna comun</p>
-            <p className="mt-1 text-sm text-white/65">Duracion, RPE, sRPE de sesion y wellness Hooper previo.</p>
+            <p className="text-sm font-semibold">Indices principales</p>
+            <p className="mt-1 text-sm text-white/65">{activeQuantifiers.primary.join(", ")}</p>
           </div>
-          {sessionQuantifiers.map((group) => (
-            <div className="rounded-md bg-white/10 p-4" key={group.type}>
-              <p className="text-sm font-semibold">{group.type}</p>
-              <p className="mt-1 text-sm text-white/65">{group.items.join(", ")}</p>
-            </div>
-          ))}
+          <div className="rounded-md bg-white/10 p-4">
+            <p className="text-sm font-semibold">Datos que pedira la app</p>
+            <p className="mt-1 text-sm text-white/65">{activeQuantifiers.fields.join(", ")}</p>
+          </div>
+          <div className="rounded-md bg-white/10 p-4">
+            <p className="text-sm font-semibold">Carga interna comun</p>
+            <p className="mt-1 text-sm text-white/65">Duracion, RPE, sRPE y wellness Hooper previo.</p>
+          </div>
         </div>
       </aside>
     </div>
