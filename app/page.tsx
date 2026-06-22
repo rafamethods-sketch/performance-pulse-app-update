@@ -470,18 +470,125 @@ function WeeklyLoadView() {
   );
 }
 
-type TrainingSystem = "strength" | "endurance" | "mixed";
+type PlanningBaseCategory = "strength" | "endurance" | "mixed" | "custom";
 type PeriodizationModel = "linear" | "block" | "undulating" | "flexible";
+type SportModality =
+  | "General"
+  | "Powerlifting"
+  | "Halterofilia"
+  | "Culturismo / hipertrofia"
+  | "Running"
+  | "Ciclismo"
+  | "Natacion"
+  | "Triatlon"
+  | "Trail"
+  | "Futbol"
+  | "Baloncesto"
+  | "Rugby"
+  | "Balonmano"
+  | "Tenis"
+  | "Padel"
+  | "Badminton"
+  | "Boxeo"
+  | "MMA"
+  | "Judo"
+  | "Kickboxing"
+  | "CrossFit"
+  | "HYROX"
+  | "Readaptacion"
+  | "Otro";
+type PlanningFocus =
+  | "Fuerza"
+  | "Resistencia"
+  | "Mixto - resistencia dominante"
+  | "Mixto - fuerza dominante"
+  | "Mixto - intermitente / equipo"
+  | "Mixto - intermitente / raqueta"
+  | "Mixto - combate"
+  | "Mixto - concurrente"
+  | "Personalizado";
 type PlanningConfig = {
   goals: string[];
   metricOptions: string[];
   subtypes: Partial<Record<PeriodizationModel, string[]>>;
 };
 
-const trainingSystemLabels: Record<TrainingSystem, string> = {
-  endurance: "Resistencia",
-  mixed: "Mixto",
-  strength: "Fuerza"
+const sportModalities: SportModality[] = [
+  "General",
+  "Powerlifting",
+  "Halterofilia",
+  "Culturismo / hipertrofia",
+  "Running",
+  "Ciclismo",
+  "Natacion",
+  "Triatlon",
+  "Trail",
+  "Futbol",
+  "Baloncesto",
+  "Rugby",
+  "Balonmano",
+  "Tenis",
+  "Padel",
+  "Badminton",
+  "Boxeo",
+  "MMA",
+  "Judo",
+  "Kickboxing",
+  "CrossFit",
+  "HYROX",
+  "Readaptacion",
+  "Otro"
+];
+
+const planningFocusOptions: PlanningFocus[] = [
+  "Fuerza",
+  "Resistencia",
+  "Mixto - resistencia dominante",
+  "Mixto - fuerza dominante",
+  "Mixto - intermitente / equipo",
+  "Mixto - intermitente / raqueta",
+  "Mixto - combate",
+  "Mixto - concurrente",
+  "Personalizado"
+];
+
+const suggestedFocusBySport: Record<SportModality, PlanningFocus> = {
+  Badminton: "Mixto - intermitente / raqueta",
+  Baloncesto: "Mixto - intermitente / equipo",
+  Balonmano: "Mixto - intermitente / equipo",
+  Boxeo: "Mixto - combate",
+  "Culturismo / hipertrofia": "Fuerza",
+  Ciclismo: "Resistencia",
+  CrossFit: "Mixto - concurrente",
+  Futbol: "Mixto - intermitente / equipo",
+  General: "Personalizado",
+  HYROX: "Mixto - concurrente",
+  Halterofilia: "Fuerza",
+  Judo: "Mixto - combate",
+  Kickboxing: "Mixto - combate",
+  MMA: "Mixto - combate",
+  Natacion: "Resistencia",
+  Otro: "Personalizado",
+  Padel: "Mixto - intermitente / raqueta",
+  Powerlifting: "Fuerza",
+  Readaptacion: "Personalizado",
+  Rugby: "Mixto - intermitente / equipo",
+  Running: "Resistencia",
+  Tenis: "Mixto - intermitente / raqueta",
+  Trail: "Resistencia",
+  Triatlon: "Mixto - resistencia dominante"
+};
+
+const planningFocusBaseCategory: Record<PlanningFocus, PlanningBaseCategory> = {
+  Fuerza: "strength",
+  "Mixto - combate": "mixed",
+  "Mixto - concurrente": "mixed",
+  "Mixto - fuerza dominante": "mixed",
+  "Mixto - intermitente / equipo": "mixed",
+  "Mixto - intermitente / raqueta": "mixed",
+  "Mixto - resistencia dominante": "mixed",
+  Personalizado: "custom",
+  Resistencia: "endurance"
 };
 
 const periodizationLabels: Record<PeriodizationModel, string> = {
@@ -491,7 +598,7 @@ const periodizationLabels: Record<PeriodizationModel, string> = {
   undulating: "Ondulante"
 };
 
-const planningConfig: Record<TrainingSystem, PlanningConfig> = {
+const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
   strength: {
     goals: [
       "Fuerza maxima",
@@ -587,6 +694,10 @@ const planningConfig: Record<TrainingSystem, PlanningConfig> = {
     goals: [
       "Concurrente fuerza + resistencia",
       "Rendimiento mixto",
+      "Preparacion para combate",
+      "Deporte intermitente",
+      "Resistencia dominante con fuerza de soporte",
+      "Fuerza dominante con acondicionamiento",
       "Salud general",
       "Mantenimiento",
       "Readaptacion"
@@ -598,7 +709,12 @@ const planningConfig: Record<TrainingSystem, PlanningConfig> = {
       "frecuencia cardiaca",
       "volumen-carga",
       "carga semanal",
-      "duracion"
+      "duracion",
+      "rounds",
+      "tiempo de trabajo",
+      "potencia",
+      "fuerza",
+      "velocidad"
     ],
     subtypes: {
       block: ["Bloques alternos fuerza/resistencia", "Bloque fuerza -> bloque resistencia", "Bloque resistencia -> bloque fuerza"],
@@ -606,53 +722,111 @@ const planningConfig: Record<TrainingSystem, PlanningConfig> = {
       linear: ["Base general -> especifico -> taper", "Progresion por prioridad principal", "Lineal con descarga"],
       undulating: ["Ondulante por dias", "Fuerza alta / resistencia baja", "Resistencia alta / fuerza baja", "Mixta"]
     }
+  },
+  custom: {
+    goals: [
+      "Rendimiento",
+      "Salud general",
+      "Mantenimiento",
+      "Readaptacion",
+      "Objetivo personalizado"
+    ],
+    metricOptions: [
+      "RPE",
+      "RIR",
+      "tiempo en zona",
+      "frecuencia cardiaca",
+      "volumen-carga",
+      "carga semanal",
+      "duracion",
+      "notas subjetivas"
+    ],
+    subtypes: {
+      block: ["Bloques personalizados", "Bloques por prioridad", "Bloques por disponibilidad"],
+      flexible: ["Flexible / personalizada", "Flexible por readiness", "Flexible por calendario"],
+      linear: ["Lineal personalizada", "Progresion simple", "Lineal con descarga"],
+      undulating: ["Ondulante personalizada", "Variacion semanal", "Variacion por respuesta"]
+    }
   }
 };
 
-const defaultMetricSelection: Record<TrainingSystem, string[]> = {
+const defaultMetricSelection: Record<PlanningBaseCategory, string[]> = {
+  custom: ["RPE", "duracion", "notas subjetivas"],
   endurance: ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
   mixed: ["RPE", "RIR", "tiempo en zona", "volumen-carga"],
   strength: ["%1RM", "RIR", "velocidad", "volumen-carga"]
 };
 
+const defaultMetricsByPlanningFocus: Partial<Record<PlanningFocus, string[]>> = {
+  "Mixto - combate": ["RPE", "rounds", "tiempo de trabajo", "potencia", "fuerza", "velocidad"],
+  "Mixto - concurrente": ["RPE", "tiempo en zona", "potencia", "volumen-carga", "carga semanal"],
+  "Mixto - resistencia dominante": ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
+  "Mixto - intermitente / equipo": ["RPE", "distancia", "tiempo de trabajo", "velocidad", "carga semanal"],
+  "Mixto - intermitente / raqueta": ["RPE", "tiempo de trabajo", "velocidad", "potencia", "carga semanal"]
+};
+
+const defaultGoalByPlanningFocus: Partial<Record<PlanningFocus, string>> = {
+  "Mixto - combate": "Preparacion para combate",
+  "Mixto - concurrente": "Concurrente fuerza + resistencia",
+  "Mixto - fuerza dominante": "Fuerza dominante con acondicionamiento",
+  "Mixto - intermitente / equipo": "Deporte intermitente",
+  "Mixto - intermitente / raqueta": "Deporte intermitente",
+  "Mixto - resistencia dominante": "Resistencia dominante con fuerza de soporte",
+  Personalizado: "Objetivo personalizado"
+};
+
 function PlanningView() {
-  const [trainingSystem, setTrainingSystem] = useState<TrainingSystem>("strength");
-  const [goal, setGoal] = useState(planningConfig.strength.goals[0]);
+  const [sportModality, setSportModality] = useState<SportModality>("General");
+  const [planningFocus, setPlanningFocus] = useState<PlanningFocus>(suggestedFocusBySport.General);
+  const baseCategory = planningFocusBaseCategory[planningFocus];
+  const [goal, setGoal] = useState(planningConfig.custom.goals[0]);
   const [periodizationModel, setPeriodizationModel] = useState<PeriodizationModel>("linear");
-  const [distributionSubtype, setDistributionSubtype] = useState(planningConfig.strength.subtypes.linear?.[0] ?? "");
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(defaultMetricSelection.strength);
+  const [periodizationSubtype, setPeriodizationSubtype] = useState(planningConfig.custom.subtypes.linear?.[0] ?? "");
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(defaultMetricSelection.custom);
   const [targetVolume, setTargetVolume] = useState("Medio");
   const [targetIntensity, setTargetIntensity] = useState("Media-alta");
   const [targetFatigue, setTargetFatigue] = useState("Controlada");
   const [notes, setNotes] = useState("");
 
-  const currentConfig = planningConfig[trainingSystem];
+  const currentConfig = planningConfig[baseCategory];
   const subtypeOptions = currentConfig.subtypes[periodizationModel] ?? [];
   const selectedPlan = {
-    distributionSubtype,
-    goal,
-    mainLoadMetric: selectedMetrics,
+    mainLoadMetrics: selectedMetrics,
     notes,
     periodizationModel,
+    periodizationSubtype,
+    planningFocus,
+    sportModality,
     targetFatigue,
     targetIntensity,
     targetVolume,
-    trainingSystem
+    goal
   };
 
-  function handleSystemChange(system: TrainingSystem) {
-    const nextConfig = planningConfig[system];
+  function applyPlanningFocus(focus: PlanningFocus) {
+    const nextCategory = planningFocusBaseCategory[focus];
+    const nextConfig = planningConfig[nextCategory];
+    const nextGoal = defaultGoalByPlanningFocus[focus] ?? nextConfig.goals[0];
     const nextSubtype = nextConfig.subtypes[periodizationModel]?.[0] ?? nextConfig.subtypes.linear?.[0] ?? "";
-    setTrainingSystem(system);
-    setGoal(nextConfig.goals[0]);
-    setDistributionSubtype(nextSubtype);
-    setSelectedMetrics(defaultMetricSelection[system]);
+    setPlanningFocus(focus);
+    setGoal(nextGoal);
+    setPeriodizationSubtype(nextSubtype);
+    setSelectedMetrics(defaultMetricsByPlanningFocus[focus] ?? defaultMetricSelection[nextCategory]);
+  }
+
+  function handleSportModalityChange(modality: SportModality) {
+    setSportModality(modality);
+    applyPlanningFocus(suggestedFocusBySport[modality]);
+  }
+
+  function handleFocusChange(focus: PlanningFocus) {
+    applyPlanningFocus(focus);
   }
 
   function handleModelChange(model: PeriodizationModel) {
     const nextSubtype = currentConfig.subtypes[model]?.[0] ?? "";
     setPeriodizationModel(model);
-    setDistributionSubtype(nextSubtype);
+    setPeriodizationSubtype(nextSubtype);
   }
 
   function toggleMetric(metric: string) {
@@ -668,24 +842,34 @@ function PlanningView() {
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Estructura de planificacion</h2>
 
-        <PlanningStep step="1" title="Sistema principal">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {(Object.keys(trainingSystemLabels) as TrainingSystem[]).map((system) => (
-              <button
-                className={`rounded-md border p-4 text-left transition ${
-                  trainingSystem === system ? "border-moss bg-mint" : "border-line bg-panel/35"
-                }`}
-                key={system}
-                onClick={() => handleSystemChange(system)}
-                type="button"
-              >
-                <span className="font-semibold text-ink">{trainingSystemLabels[system]}</span>
-              </button>
+        <PlanningStep step="1" title="Modalidad deportiva">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => handleSportModalityChange(event.target.value as SportModality)}
+            value={sportModality}
+          >
+            {sportModalities.map((modality) => (
+              <option key={modality}>{modality}</option>
             ))}
-          </div>
+          </select>
         </PlanningStep>
 
-        <PlanningStep step="2" title="Objetivo">
+        <PlanningStep step="2" title="Enfoque de planificacion">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => handleFocusChange(event.target.value as PlanningFocus)}
+            value={planningFocus}
+          >
+            {planningFocusOptions.map((focus) => (
+              <option key={focus}>{focus}</option>
+            ))}
+          </select>
+          <p className="mt-2 rounded-md bg-sky px-3 py-2 text-xs font-medium text-ink/70">
+            Sugerido por modalidad: {suggestedFocusBySport[sportModality]}. Puedes modificarlo manualmente.
+          </p>
+        </PlanningStep>
+
+        <PlanningStep step="3" title="Objetivo">
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setGoal(event.target.value)}
@@ -697,7 +881,7 @@ function PlanningView() {
           </select>
         </PlanningStep>
 
-        <PlanningStep step="3" title="Modelo de periodizacion">
+        <PlanningStep step="4" title="Modelo de periodizacion">
           <div className="grid gap-3 sm:grid-cols-2">
             {(Object.keys(periodizationLabels) as PeriodizationModel[]).map((model) => (
               <button
@@ -714,17 +898,17 @@ function PlanningView() {
           </div>
         </PlanningStep>
 
-        <PlanningStep step="4" title="Subtipo / distribucion">
+        <PlanningStep step="5" title="Subtipo / distribucion">
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setDistributionSubtype(event.target.value)}
-            value={distributionSubtype}
+            onChange={(event) => setPeriodizationSubtype(event.target.value)}
+            value={periodizationSubtype}
           >
             {subtypeOptions.map((subtype) => (
               <option key={subtype}>{subtype}</option>
             ))}
           </select>
-          {trainingSystem === "endurance" && periodizationModel === "undulating" && (
+          {baseCategory === "endurance" && periodizationModel === "undulating" && (
             <p className="mt-2 rounded-md bg-wheat px-3 py-2 text-xs font-medium text-ink/70">
               Piramidal y polarizada son distribuciones de intensidad, no modelos puros.
             </p>
@@ -733,7 +917,7 @@ function PlanningView() {
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="5" title="Metricas de control">
+        <PlanningStep step="6" title="Metricas principales">
           <div className="flex flex-wrap gap-2">
             {currentConfig.metricOptions.map((metric) => (
               <button
@@ -752,42 +936,44 @@ function PlanningView() {
           </div>
         </PlanningStep>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Volumen objetivo
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setTargetVolume(event.target.value)}
-              value={targetVolume}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Intensidad objetivo
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setTargetIntensity(event.target.value)}
-              value={targetIntensity}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Fatiga objetivo
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setTargetFatigue(event.target.value)}
-              value={targetFatigue}
-            />
-          </label>
-        </div>
+        <PlanningStep step="7" title="Volumen, intensidad, fatiga y notas">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Volumen objetivo
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setTargetVolume(event.target.value)}
+                value={targetVolume}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Intensidad objetivo
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setTargetIntensity(event.target.value)}
+                value={targetIntensity}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Fatiga objetivo
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setTargetFatigue(event.target.value)}
+                value={targetFatigue}
+              />
+            </label>
+          </div>
 
-        <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
-          Notas
-          <textarea
-            className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Contexto del deportista, competiciones, restricciones, preferencias..."
-            value={notes}
-          />
-        </label>
+          <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+            Notas
+            <textarea
+              className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Contexto del deportista, competiciones, restricciones, preferencias..."
+              value={notes}
+            />
+          </label>
+        </PlanningStep>
 
         <PlanningSummary selectedPlan={selectedPlan} />
       </section>
@@ -819,27 +1005,29 @@ function PlanningSummary({
   selectedPlan
 }: {
   selectedPlan: {
-    distributionSubtype: string;
     goal: string;
-    mainLoadMetric: string[];
+    mainLoadMetrics: string[];
     notes: string;
     periodizationModel: PeriodizationModel;
+    periodizationSubtype: string;
+    planningFocus: PlanningFocus;
+    sportModality: SportModality;
     targetFatigue: string;
     targetIntensity: string;
     targetVolume: string;
-    trainingSystem: TrainingSystem;
   };
 }) {
   return (
     <section className="mt-5 rounded-md border border-line bg-ink p-4 text-white">
       <h3 className="font-semibold">Resumen final</h3>
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <p className="rounded-md bg-white/10 px-3 py-2">Sistema: {trainingSystemLabels[selectedPlan.trainingSystem]}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Modalidad deportiva: {selectedPlan.sportModality}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Enfoque de planificacion: {selectedPlan.planningFocus}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Objetivo: {selectedPlan.goal}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Periodizacion: {periodizationLabels[selectedPlan.periodizationModel]}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Subtipo: {selectedPlan.distributionSubtype}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Subtipo: {selectedPlan.periodizationSubtype}</p>
         <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          Metricas principales: {selectedPlan.mainLoadMetric.join(", ") || "Sin seleccionar"}
+          Metricas principales: {selectedPlan.mainLoadMetrics.join(", ") || "Sin seleccionar"}
         </p>
         <p className="rounded-md bg-white/10 px-3 py-2">Volumen: {selectedPlan.targetVolume}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Intensidad: {selectedPlan.targetIntensity}</p>
