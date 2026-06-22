@@ -157,7 +157,12 @@ export default function ClientsPage() {
           ) : activeSheet === "weeklyLoad" ? (
             <WeeklyLoadView />
           ) : activeSheet === "planning" ? (
-            role === "coach" ? <PlanningView /> : <DecisionDashboardView />
+            role === "coach" ? (
+              <PlanningView
+                setTrainingAvailability={setTrainingAvailability}
+                trainingAvailability={trainingAvailability}
+              />
+            ) : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView /> : <DecisionDashboardView />
           ) : activeSheet === "routines" ? (
@@ -277,8 +282,6 @@ function CoachClientsView({
   setTrainingAvailability: (availability: TrainingAvailability) => void;
   trainingAvailability: TrainingAvailability;
 }) {
-  const distribution = recommendTrainingDistribution(trainingAvailability);
-
   return (
     <>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -291,9 +294,6 @@ function CoachClientsView({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Disponibilidad de entrenamiento</h2>
-            <p className="mt-1 text-sm text-ink/55">
-              Distribucion recomendada: {distribution.name}
-            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:w-[520px]">
             <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -507,8 +507,12 @@ type PlanningFocus =
   | "Mixto - combate"
   | "Mixto - concurrente"
   | "Personalizado";
+type PlanningMetricGroup = {
+  label: "Carga interna" | "Carga externa" | "Wellness";
+  metrics: string[];
+};
 type PlanningConfig = {
-  metricOptions: string[];
+  metricGroups: PlanningMetricGroup[];
   subtypes: Partial<Record<PeriodizationModel, string[]>>;
 };
 
@@ -600,16 +604,13 @@ const periodizationLabels: Record<PeriodizationModel, string> = {
 
 const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
   strength: {
-    metricOptions: [
-      "%1RM",
-      "e1RM",
-      "RIR",
-      "RPE",
-      "velocidad",
-      "perdida de velocidad",
-      "volumen-carga",
-      "series duras",
-      "repeticiones efectivas"
+    metricGroups: [
+      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "dolor muscular"] },
+      {
+        label: "Carga externa",
+        metrics: ["%1RM", "e1RM", "velocidad", "perdida de velocidad", "volumen-carga", "series duras", "repeticiones efectivas"]
+      },
+      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
     ],
     subtypes: {
       block: [
@@ -644,15 +645,10 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     }
   },
   endurance: {
-    metricOptions: [
-      "tiempo en zona",
-      "ritmo",
-      "potencia",
-      "frecuencia cardiaca",
-      "RPE",
-      "duracion",
-      "distancia",
-      "carga semanal"
+    metricGroups: [
+      { label: "Carga interna", metrics: ["RPE", "sRPE", "frecuencia cardiaca", "iTRIMP"] },
+      { label: "Carga externa", metrics: ["tiempo en zona", "ritmo", "potencia", "duracion", "distancia", "carga semanal"] },
+      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
     ],
     subtypes: {
       block: [
@@ -681,19 +677,13 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     }
   },
   mixed: {
-    metricOptions: [
-      "RPE",
-      "RIR",
-      "tiempo en zona",
-      "frecuencia cardiaca",
-      "volumen-carga",
-      "carga semanal",
-      "duracion",
-      "rounds",
-      "tiempo de trabajo",
-      "potencia",
-      "fuerza",
-      "velocidad"
+    metricGroups: [
+      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "frecuencia cardiaca"] },
+      {
+        label: "Carga externa",
+        metrics: ["tiempo en zona", "volumen-carga", "carga semanal", "duracion", "distancia", "rounds", "tiempo de trabajo", "potencia", "fuerza", "velocidad"]
+      },
+      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness"] }
     ],
     subtypes: {
       block: ["Bloques alternos fuerza/resistencia", "Bloque fuerza -> bloque resistencia", "Bloque resistencia -> bloque fuerza"],
@@ -709,15 +699,10 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     }
   },
   custom: {
-    metricOptions: [
-      "RPE",
-      "RIR",
-      "tiempo en zona",
-      "frecuencia cardiaca",
-      "volumen-carga",
-      "carga semanal",
-      "duracion",
-      "notas subjetivas"
+    metricGroups: [
+      { label: "Carga interna", metrics: ["RPE", "RIR", "sRPE", "frecuencia cardiaca"] },
+      { label: "Carga externa", metrics: ["tiempo en zona", "volumen-carga", "carga semanal", "duracion"] },
+      { label: "Wellness", metrics: ["Hooper", "sueño", "fatiga", "estres", "readiness", "notas subjetivas"] }
     ],
     subtypes: {
       block: ["Bloques personalizados", "Bloques por prioridad", "Bloques por disponibilidad"],
@@ -744,7 +729,19 @@ const defaultMetricsByPlanningFocus: Partial<Record<PlanningFocus, string[]>> = 
   "Mixto - intermitente / raqueta": ["RPE", "tiempo de trabajo", "velocidad", "potencia", "carga semanal"]
 };
 
-function PlanningView() {
+const planningTargetOptions = {
+  fatigue: ["Baja", "Controlada", "Media", "Alta", "Descarga"],
+  intensity: ["Baja", "Media", "Media-alta", "Alta", "Muy alta"],
+  volume: ["Bajo", "Medio", "Alto", "Muy alto", "Descarga"]
+};
+
+function PlanningView({
+  setTrainingAvailability,
+  trainingAvailability
+}: {
+  setTrainingAvailability: (availability: TrainingAvailability) => void;
+  trainingAvailability: TrainingAvailability;
+}) {
   const [sportModality, setSportModality] = useState<SportModality>("General");
   const [planningFocus, setPlanningFocus] = useState<PlanningFocus>(suggestedFocusBySport.General);
   const baseCategory = planningFocusBaseCategory[planningFocus];
@@ -758,12 +755,14 @@ function PlanningView() {
 
   const currentConfig = planningConfig[baseCategory];
   const subtypeOptions = currentConfig.subtypes[periodizationModel] ?? [];
+  const recommendedDistribution = recommendTrainingDistribution(trainingAvailability);
   const selectedPlan = {
     mainLoadMetrics: selectedMetrics,
     notes,
     periodizationModel,
     periodizationSubtype,
     planningFocus,
+    recommendedDistribution: recommendedDistribution.name,
     sportModality,
     targetFatigue,
     targetIntensity,
@@ -835,20 +834,15 @@ function PlanningView() {
         </PlanningStep>
 
         <PlanningStep step="3" title="Modelo de planificacion">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => handleModelChange(event.target.value as PeriodizationModel)}
+            value={periodizationModel}
+          >
             {(Object.keys(periodizationLabels) as PeriodizationModel[]).map((model) => (
-              <button
-                className={`rounded-md border p-3 text-left text-sm font-semibold transition ${
-                  periodizationModel === model ? "border-steel bg-sky text-ink" : "border-line bg-panel/35 text-ink/70"
-                }`}
-                key={model}
-                onClick={() => handleModelChange(model)}
-                type="button"
-              >
-                {periodizationLabels[model]}
-              </button>
+              <option key={model} value={model}>{periodizationLabels[model]}</option>
             ))}
-          </div>
+          </select>
         </PlanningStep>
 
         <PlanningStep step="4" title="Estructura / distribucion del plan">
@@ -867,53 +861,113 @@ function PlanningView() {
             </p>
           )}
         </PlanningStep>
+
+        <PlanningStep step="5" title="Frecuencia y distribucion semanal">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Dias por semana
+              <select
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) =>
+                  setTrainingAvailability({
+                    ...trainingAvailability,
+                    daysPerWeek: Number(event.target.value)
+                  })
+                }
+                value={trainingAvailability.daysPerWeek}
+              >
+                {[1, 2, 3, 4, 5, 6].map((days) => (
+                  <option key={days} value={days}>{days}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Distribucion de dias
+              <select
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) =>
+                  setTrainingAvailability({
+                    ...trainingAvailability,
+                    consecutiveDays: event.target.value === "consecutivos"
+                  })
+                }
+                value={trainingAvailability.consecutiveDays ? "consecutivos" : "alternos"}
+              >
+                <option value="consecutivos">Dias seguidos</option>
+                <option value="alternos">Dias alternos</option>
+              </select>
+            </label>
+          </div>
+          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
+            Distribucion recomendada: {recommendedDistribution.name}
+          </p>
+        </PlanningStep>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="5" title="Metricas principales">
-          <div className="flex flex-wrap gap-2">
-            {currentConfig.metricOptions.map((metric) => (
-              <button
-                className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                  selectedMetrics.includes(metric)
-                    ? "border-moss bg-mint text-moss"
-                    : "border-line bg-panel/35 text-ink/65"
-                }`}
-                key={metric}
-                onClick={() => toggleMetric(metric)}
-                type="button"
-              >
-                {metric}
-              </button>
+        <PlanningStep step="6" title="Metricas principales">
+          <div className="grid gap-3">
+            {currentConfig.metricGroups.map((group) => (
+              <div className="rounded-md border border-line bg-panel/30 p-3" key={group.label}>
+                <p className="mb-2 text-sm font-semibold text-ink">{group.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {group.metrics.map((metric) => (
+                    <button
+                      className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                        selectedMetrics.includes(metric)
+                          ? "border-moss bg-mint text-moss"
+                          : "border-line bg-white text-ink/65"
+                      }`}
+                      key={metric}
+                      onClick={() => toggleMetric(metric)}
+                      type="button"
+                    >
+                      {metric}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </PlanningStep>
 
-        <PlanningStep step="6" title="Volumen, intensidad, fatiga y notas">
+        <PlanningStep step="7" title="Volumen, intensidad, fatiga y notas">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Volumen objetivo
-              <input
+              <select
                 className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                 onChange={(event) => setTargetVolume(event.target.value)}
                 value={targetVolume}
-              />
+              >
+                {planningTargetOptions.volume.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </label>
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Intensidad objetivo
-              <input
+              <select
                 className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                 onChange={(event) => setTargetIntensity(event.target.value)}
                 value={targetIntensity}
-              />
+              >
+                {planningTargetOptions.intensity.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </label>
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Fatiga objetivo
-              <input
+              <select
                 className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                 onChange={(event) => setTargetFatigue(event.target.value)}
                 value={targetFatigue}
-              />
+              >
+                {planningTargetOptions.fatigue.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -963,6 +1017,7 @@ function PlanningSummary({
     periodizationModel: PeriodizationModel;
     periodizationSubtype: string;
     planningFocus: PlanningFocus;
+    recommendedDistribution: string;
     sportModality: SportModality;
     targetFatigue: string;
     targetIntensity: string;
@@ -980,6 +1035,9 @@ function PlanningSummary({
         </p>
         <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
           Estructura / distribucion: {selectedPlan.periodizationSubtype}
+        </p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
+          Distribucion semanal recomendada: {selectedPlan.recommendedDistribution}
         </p>
         <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
           Metricas principales: {selectedPlan.mainLoadMetrics.join(", ") || "Sin seleccionar"}
