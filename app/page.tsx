@@ -55,11 +55,14 @@ type TrainingAvailability = {
   consecutiveDays: boolean;
   daysPerWeek: number;
 };
+type TrainerClientPanel = "list" | "dashboard" | "details";
 
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [goalType, setGoalType] = useState<GoalType>("health");
   const [activeSheet, setActiveSheet] = useState<SheetId>("clients");
+  const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
+  const [selectedClientId, setSelectedClientId] = useState(coachClients[0]?.id ?? "");
   const [hooperDone, setHooperDone] = useState(false);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
@@ -92,17 +95,37 @@ export default function ClientsPage() {
     return <LoginCover onLogin={setRole} />;
   }
 
+  const selectedClient =
+    coachClients.find((client) => client.id === selectedClientId) ?? coachClients[0];
+
+  function handleSheetChange(sheet: SheetId) {
+    setActiveSheet(sheet);
+    if (sheet === "clients") {
+      setTrainerClientPanel("list");
+    }
+  }
+
+  function openClientPanel(clientId: string, panel: Exclude<TrainerClientPanel, "list">) {
+    setSelectedClientId(clientId);
+    setTrainerClientPanel(panel);
+    setActiveSheet("clients");
+  }
+
   return (
     <main className="min-h-screen lg:flex">
-      <Sidebar activeSheet={activeSheet} onSheetChange={setActiveSheet} role={role} />
+      <Sidebar activeSheet={activeSheet} onSheetChange={handleSheetChange} role={role} />
       <div className="min-w-0 flex-1">
-        <MobileNav activeSheet={activeSheet} onSheetChange={setActiveSheet} role={role} />
+        <MobileNav activeSheet={activeSheet} onSheetChange={handleSheetChange} role={role} />
         <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           <div className="flex min-w-0 flex-col gap-4 border-b border-line pb-4 sm:pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "clients"
-                  ? "Clientes"
+                  ? role === "coach" && trainerClientPanel === "dashboard"
+                    ? `Dashboard - ${selectedClient.name}`
+                    : role === "coach" && trainerClientPanel === "details"
+                      ? `Ficha inicial - ${selectedClient.name}`
+                      : "Clientes"
                   : activeSheet === "training"
                     ? role === "coach" ? "Sesiones" : "Mi entrenamiento"
                   : activeSheet === "assessments"
@@ -112,7 +135,7 @@ export default function ClientsPage() {
                   : activeSheet === "fatigue"
                     ? "Fatiga"
                   : activeSheet === "weeklyLoad"
-                    ? "Carga semanal"
+                    ? role === "coach" ? "Metricas" : "Carga semanal"
                   : activeSheet === "planning"
                     ? "Planificacion"
                   : activeSheet === "progressions"
@@ -129,7 +152,14 @@ export default function ClientsPage() {
 
           {activeSheet === "clients" ? (
             role === "coach" ? (
-              <CoachClientsView />
+              <CoachClientsView
+                client={selectedClient}
+                onBack={() => setTrainerClientPanel("list")}
+                onGoToSheet={handleSheetChange}
+                onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
+                onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+                panel={trainerClientPanel}
+              />
             ) : (
               <AthleteClientForm
                 goalType={goalType}
@@ -272,7 +302,43 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   );
 }
 
-function CoachClientsView() {
+type CoachClient = (typeof coachClients)[number];
+
+function CoachClientsView({
+  client,
+  onBack,
+  onGoToSheet,
+  onOpenDashboard,
+  onOpenDetails,
+  panel
+}: {
+  client: CoachClient;
+  onBack: () => void;
+  onGoToSheet: (sheet: SheetId) => void;
+  onOpenDashboard: (clientId: string) => void;
+  onOpenDetails: (clientId: string) => void;
+  panel: TrainerClientPanel;
+}) {
+  if (panel === "dashboard") {
+    return (
+      <ClientDashboardView
+        client={client}
+        onBack={onBack}
+        onGoToSheet={onGoToSheet}
+        onOpenDetails={() => onOpenDetails(client.id)}
+      />
+    );
+  }
+
+  if (panel === "details") {
+    return (
+      <ClientDetailsView
+        client={client}
+        onBack={() => onOpenDashboard(client.id)}
+      />
+    );
+  }
+
   return (
     <>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -309,13 +375,16 @@ function CoachClientsView() {
         <div className="mt-5 space-y-3">
           {coachClients.map((client) => (
             <article
-              className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center"
-              key={client.name}
+              className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1fr_auto_1fr_auto] lg:items-center"
+              key={client.id}
             >
               <div>
                 <h3 className="font-semibold text-ink">{client.name}</h3>
                 <p className="mt-1 text-sm text-ink/60">
-                  {client.age} anos - {client.sport}
+                  {client.age} anos - {client.modality ?? client.sport}
+                </p>
+                <p className="mt-1 text-xs font-medium text-ink/50">
+                  Ultima actividad: {client.lastActivity}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-sm">
@@ -326,13 +395,24 @@ function CoachClientsView() {
                   {client.status}
                 </span>
               </div>
-              <p className="text-sm font-medium text-moss">{client.loadMetric}</p>
-              <div className="flex items-center justify-between gap-3 lg:justify-end">
-                <span className="text-sm font-semibold text-moss">{client.readiness}%</span>
+              <div className="text-sm">
+                <p className="font-medium text-moss">{client.loadMetric}</p>
+                <p className="mt-1 text-ink/55">Evento: {client.nextEvent}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{client.readiness}%</span>
                 <button
-                  aria-label={`Abrir ${client.name}`}
-                  className="grid size-9 place-items-center rounded-md bg-ink text-white"
-                  title={`Abrir ${client.name}`}
+                  className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                  onClick={() => onOpenDashboard(client.id)}
+                  type="button"
+                >
+                  Ver dashboard
+                </button>
+                <button
+                  aria-label={`Detalles de ${client.name}`}
+                  className="grid size-9 place-items-center rounded-md border border-line bg-white text-ink/70"
+                  onClick={() => onOpenDetails(client.id)}
+                  title={`Detalles de ${client.name}`}
                   type="button"
                 >
                   <ChevronRight size={17} />
@@ -344,6 +424,156 @@ function CoachClientsView() {
       </section>
 
     </>
+  );
+}
+
+function ClientDashboardView({
+  client,
+  onBack,
+  onGoToSheet,
+  onOpenDetails
+}: {
+  client: CoachClient;
+  onBack: () => void;
+  onGoToSheet: (sheet: SheetId) => void;
+  onOpenDetails: () => void;
+}) {
+  return (
+    <div className="mt-6 grid gap-6">
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
+              Volver a clientes
+            </button>
+            <h2 className="text-xl font-semibold text-ink">{client.name}</h2>
+            <p className="mt-1 text-sm text-ink/60">
+              {client.modality} - {client.level} - {client.goalType}
+            </p>
+          </div>
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+            onClick={onOpenDetails}
+            type="button"
+          >
+            Detalles
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <article className="rounded-md bg-panel/55 p-4">
+            <p className="text-sm font-semibold text-ink">Estado actual</p>
+            <p className="mt-2 text-lg font-semibold text-moss">{client.status}</p>
+          </article>
+          <article className="rounded-md bg-panel/55 p-4">
+            <p className="text-sm font-semibold text-ink">Readiness</p>
+            <p className="mt-2 text-lg font-semibold text-moss">{client.readiness}%</p>
+          </article>
+          <article className="rounded-md bg-panel/55 p-4 md:col-span-2">
+            <p className="text-sm font-semibold text-ink">Proximo evento</p>
+            <p className="mt-2 text-sm text-ink/70">{client.nextEvent}</p>
+          </article>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <h3 className="font-semibold text-ink">Bloques activos</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {client.activeBlocks.map((block) => (
+              <p className="rounded-md bg-panel/55 px-3 py-3 text-sm font-medium text-ink/75" key={block}>
+                {block}
+              </p>
+            ))}
+          </div>
+
+          <h3 className="mt-6 font-semibold text-ink">Sesiones recientes</h3>
+          <div className="mt-4 grid gap-3">
+            {client.recentSessions.map((session) => (
+              <p className="rounded-md border border-line bg-white px-3 py-3 text-sm text-ink/70" key={session}>
+                {session}
+              </p>
+            ))}
+          </div>
+        </section>
+
+        <aside className="rounded-md border border-line bg-ink p-5 text-white shadow-soft">
+          <h3 className="font-semibold">Metricas principales</h3>
+          <div className="mt-4 grid gap-3">
+            {client.metrics.map((metric) => (
+              <p className="rounded-md bg-white/10 px-3 py-3 text-sm" key={metric}>
+                {metric}
+              </p>
+            ))}
+          </div>
+          <div className="mt-5 rounded-md bg-white/10 p-4">
+            <p className="text-sm font-semibold">Notas relevantes</p>
+            <p className="mt-2 text-sm text-white/70">{client.coachNotes}</p>
+          </div>
+        </aside>
+      </div>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <h3 className="font-semibold text-ink">Accesos rapidos</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("planning")} type="button">
+            Planificacion
+          </button>
+          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("training")} type="button">
+            Sesiones
+          </button>
+          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("weeklyLoad")} type="button">
+            Metricas
+          </button>
+          <button className="rounded-md border border-line bg-white px-4 py-3 text-sm font-semibold text-ink" onClick={onOpenDetails} type="button">
+            Ficha inicial
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ClientDetailsView({
+  client,
+  onBack
+}: {
+  client: CoachClient;
+  onBack: () => void;
+}) {
+  const details = [
+    ["Nombre", client.name],
+    ["Edad", `${client.age} anos`],
+    ["Modalidad deportiva", client.modality],
+    ["Nivel", client.level],
+    ["Objetivo / evento", client.nextEvent],
+    ["Disponibilidad semanal", client.availability],
+    ["Historial deportivo", client.history],
+    ["Lesiones / limitaciones", client.injuries],
+    ["Notas del entrenador", client.coachNotes]
+  ];
+
+  return (
+    <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
+            Volver al dashboard
+          </button>
+          <h2 className="text-xl font-semibold text-ink">Ficha inicial</h2>
+          <p className="mt-1 text-sm text-ink/60">{client.name}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {details.map(([label, value]) => (
+          <article className="rounded-md border border-line bg-panel/35 p-4" key={label}>
+            <p className="text-sm font-semibold text-ink">{label}</p>
+            <p className="mt-2 text-sm text-ink/70">{value}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -28,6 +28,7 @@ export function Sidebar({ activeSheet, onSheetChange, role }: SidebarProps) {
           .map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;
+          const label = role === "athlete" && item.id === "training" ? "Mi entrenamiento" : item.label;
           return (
             <button
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition ${
@@ -40,7 +41,7 @@ export function Sidebar({ activeSheet, onSheetChange, role }: SidebarProps) {
               type="button"
             >
               <Icon size={18} />
-              <span>{item.label}</span>
+              <span>{label}</span>
             </button>
           );
         })}

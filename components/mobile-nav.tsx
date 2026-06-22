@@ -29,19 +29,20 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
           .map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;
+          const label = role === "athlete" && item.id === "training" ? "Mi entrenamiento" : item.label;
           return (
             <button
-              aria-label={item.label}
+              aria-label={label}
               className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm transition max-[420px]:size-10 max-[420px]:justify-center max-[420px]:px-0 ${
                 isActive ? "bg-gradient-to-r from-steel to-moss text-white" : "bg-white text-ink/65"
               }`}
               key={item.label}
               onClick={() => item.id && onSheetChange(item.id)}
-              title={item.label}
+              title={label}
               type="button"
             >
               <Icon size={18} />
-              <span className="max-[420px]:hidden">{item.label}</span>
+              <span className="max-[420px]:hidden">{label}</span>
             </button>
           );
         })}

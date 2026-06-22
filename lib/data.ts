@@ -46,16 +46,16 @@ type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { id: "decision", label: "Dashboard", icon: Activity },
-  { id: "weeklyLoad", label: "Carga semanal", icon: LineChart },
-  { id: "planning", label: "Planificacion", icon: FileClock },
-  { id: "progressions", label: "Progresiones", icon: GitBranch },
   { id: "clients", label: "Clientes", icon: Users },
-  { id: "training", label: "Mi entrenamiento", icon: ClipboardList },
+  { id: "planning", label: "Planificacion", icon: FileClock },
+  { id: "training", label: "Sesiones", icon: ClipboardList },
+  { id: "weeklyLoad", label: "Metricas", icon: LineChart },
+  { id: "progressions", label: "Biblioteca", icon: GitBranch },
   { id: "assessments", label: "Valoraciones", icon: LineChart },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "fatigue", label: "Fatiga", icon: Activity },
   { id: "routines", label: "Rutinas", icon: Dumbbell },
+  { id: "decision", label: "Dashboard general", icon: Activity },
   { id: "messages", label: "Mensajes", icon: MessageSquareText }
 ];
 
@@ -68,31 +68,67 @@ export const coachStats = [
 
 export const coachClients = [
   {
+    id: "lucia-martin",
     name: "Lucia Martin",
     age: 31,
     sport: "Fuerza",
+    modality: "Powerlifting",
+    level: "Avanzada",
     goalType: "Rendimiento",
     status: "Datos completos",
+    nextEvent: "Test fuerza maxima - 12/09/2026",
+    lastActivity: "Fuerza tren inferior - hace 2 dias",
+    availability: "4 dias / semana",
+    history: "6 anos de entrenamiento de fuerza. Compite de forma recreativa.",
+    injuries: "Molestia intermitente rodilla izquierda.",
+    coachNotes: "Priorizar calidad tecnica y controlar fatiga de cuadriceps.",
     loadMetric: "ACWR 1.12 - monotonia 1.4",
-    readiness: 94
+    readiness: 94,
+    activeBlocks: ["Desarrollo fuerza maxima", "Potencia baja fatiga"],
+    recentSessions: ["Sentadilla 4x5 RPE 7", "Zona 2 35 min", "Peso muerto rumano 3x8"],
+    metrics: ["sRPE 1840 UA", "Hooper 7/20", "ACWR 1.12", "Strain moderado"]
   },
   {
+    id: "carlos-vega",
     name: "Carlos Vega",
     age: 38,
     sport: "Running",
+    modality: "Running",
+    level: "Intermedio",
     goalType: "Rendimiento",
     status: "Carga alta",
+    nextEvent: "10K popular - 18/10/2026",
+    lastActivity: "Intervalos umbral - ayer",
+    availability: "5 dias / semana",
+    history: "Corredor popular con 4 anos de experiencia.",
+    injuries: "Tendinopatia aquilea previa, actualmente controlada.",
+    coachNotes: "Vigilar ACWR y alternar dias intensos con rodajes suaves.",
     loadMetric: "ACWR 1.41 - strain alto",
-    readiness: 82
+    readiness: 82,
+    activeBlocks: ["Umbral / potencia aerobica", "Puesta a punto 10K"],
+    recentSessions: ["6x3 min Z4", "Rodaje Z2 50 min", "Fuerza general 45 min"],
+    metrics: ["sRPE 2320 UA", "Hooper 10/20", "ACWR 1.41", "Monotonia 1.8"]
   },
   {
+    id: "marta-ruiz",
     name: "Marta Ruiz",
     age: 29,
     sport: "Fitness salud",
+    modality: "General",
+    level: "Principiante",
     goalType: "Salud",
     status: "Faltan medidas",
+    nextEvent: "Control composicion corporal - sin fecha",
+    lastActivity: "Full body inicial - hace 4 dias",
+    availability: "3 dias / semana",
+    history: "Inicio reciente. Objetivo de adherencia y mejora general.",
+    injuries: "Sin lesiones relevantes declaradas.",
+    coachNotes: "Completar valoraciones iniciales y reforzar tecnica basica.",
     loadMetric: "ACWR 0.86 - monotonia estable",
-    readiness: 76
+    readiness: 76,
+    activeBlocks: ["Desarrollo general", "Adherencia y tecnica"],
+    recentSessions: ["Sentadilla silla 3x10", "Caminata 30 min", "Movilidad cadera"],
+    metrics: ["sRPE 980 UA", "Hooper 6/20", "ACWR 0.86", "Series duras 8"]
   }
 ];
 
