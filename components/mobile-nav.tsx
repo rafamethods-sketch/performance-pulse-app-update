@@ -9,7 +9,7 @@ type MobileNavProps = {
 
 export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-panel/95 px-4 py-3 backdrop-blur lg:hidden">
+    <header className="sticky top-0 z-20 border-b border-line bg-panel/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 lg:hidden">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="grid size-9 place-items-center rounded-md bg-gradient-to-br from-steel to-moss text-white">
@@ -23,7 +23,7 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
           </div>
         </div>
       </div>
-      <nav className="scrollbar-none flex gap-2 overflow-x-auto">
+      <nav className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
         {navItems
           .filter((item) => role === "coach" || !["planning", "progressions", "routines"].includes(item.id ?? ""))
           .map((item) => {
@@ -32,7 +32,7 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
           return (
             <button
               aria-label={item.label}
-              className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm transition ${
+              className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm transition max-[420px]:size-10 max-[420px]:justify-center max-[420px]:px-0 ${
                 isActive ? "bg-gradient-to-r from-steel to-moss text-white" : "bg-white text-ink/65"
               }`}
               key={item.label}
@@ -41,7 +41,7 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
               type="button"
             >
               <Icon size={18} />
-              <span>{item.label}</span>
+              <span className="max-[420px]:hidden">{item.label}</span>
             </button>
           );
         })}

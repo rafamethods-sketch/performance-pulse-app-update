@@ -95,12 +95,12 @@ export default function ClientsPage() {
   return (
     <main className="min-h-screen lg:flex">
       <Sidebar activeSheet={activeSheet} onSheetChange={setActiveSheet} role={role} />
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <MobileNav activeSheet={activeSheet} onSheetChange={setActiveSheet} role={role} />
-        <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 border-b border-line pb-5 xl:flex-row xl:items-center xl:justify-between">
+        <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <div className="flex min-w-0 flex-col gap-4 border-b border-line pb-4 sm:pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-ink">
+              <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "clients"
                   ? "Clientes"
                   : activeSheet === "training"
