@@ -303,6 +303,103 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 }
 
 type CoachClient = (typeof coachClients)[number];
+type ClientSessionRecord = CoachClient["sessionRecords"][number];
+type ClientAssessment = CoachClient["assessments"][number];
+type HooperValues = CoachClient["hooper"];
+
+function calculateSessionLoad(rpe: number, duration: number) {
+  return rpe * duration;
+}
+
+function calculateWeeklyLoad(sessions: ClientSessionRecord[]) {
+  return sessions.reduce((total, session) => total + calculateSessionLoad(session.rpe, session.duration), 0);
+}
+
+function calculateMonotony(dailyLoads: number[]) {
+  const activeLoads = dailyLoads.filter((load) => load > 0);
+  if (activeLoads.length < 2) return 0;
+
+  const average = activeLoads.reduce((total, load) => total + load, 0) / activeLoads.length;
+  const variance = activeLoads.reduce((total, load) => total + (load - average) ** 2, 0) / activeLoads.length;
+  const standardDeviation = Math.sqrt(variance);
+
+  return standardDeviation > 0 ? average / standardDeviation : average > 0 ? average : 0;
+}
+
+function calculateStrain(weeklyLoad: number, monotony: number) {
+  return weeklyLoad * monotony;
+}
+
+function calculateACWR(acuteLoad: number, chronicLoad: number) {
+  return chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
+}
+
+function calculateHooperIndex(values: HooperValues) {
+  return values.sleep + values.fatigue + values.stress + values.soreness + (values.mood ?? 0);
+}
+
+function getMonotonyStatus(value: number) {
+  if (value >= 2) return "Alto";
+  if (value >= 1.5) return "Vigilar";
+  return "Controlado";
+}
+
+function getAcwrStatus(value: number) {
+  if (value < 0.7 || value >= 1.5) return "Riesgo";
+  if (value < 0.8 || value > 1.3) return "Vigilar";
+  return "Controlado";
+}
+
+function getStrainStatus(value: number) {
+  if (value >= 3600) return "Alto";
+  if (value >= 2500) return "Vigilar";
+  return "Controlado";
+}
+
+function getHooperStatus(value: number) {
+  if (value >= 12) return "Alto";
+  if (value >= 9) return "Vigilar";
+  return "Controlado";
+}
+
+function getLoadTrend(currentLoad: number, chronicLoad: number) {
+  const difference = currentLoad - chronicLoad;
+  const sign = difference >= 0 ? "+" : "";
+  return `${sign}${difference.toFixed(0)} UA vs referencia`;
+}
+
+function getClientLoadData(client: CoachClient) {
+  const weeklyLoad = calculateWeeklyLoad(client.sessionRecords);
+  const monotony = calculateMonotony(client.dailyLoads);
+  const strain = calculateStrain(weeklyLoad, monotony);
+  const acwr = calculateACWR(weeklyLoad, client.chronicLoad);
+  const hooper = calculateHooperIndex(client.hooper);
+
+  return {
+    acwr,
+    acwrStatus: getAcwrStatus(acwr),
+    hooper,
+    hooperStatus: getHooperStatus(hooper),
+    monotony,
+    monotonyStatus: getMonotonyStatus(monotony),
+    strain,
+    strainStatus: getStrainStatus(strain),
+    weeklyLoad,
+    weeklyTrend: getLoadTrend(weeklyLoad, client.chronicLoad)
+  };
+}
+
+function clientStatusClass(status: string) {
+  switch (status) {
+    case "Alto":
+    case "Riesgo":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "Vigilar":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    default:
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+}
 
 function CoachClientsView({
   client,
@@ -438,99 +535,259 @@ function ClientDashboardView({
   onGoToSheet: (sheet: SheetId) => void;
   onOpenDetails: () => void;
 }) {
+  const loadData = getClientLoadData(client);
+
   return (
     <div className="mt-6 grid gap-6">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
-              Volver a clientes
-            </button>
-            <h2 className="text-xl font-semibold text-ink">{client.name}</h2>
-            <p className="mt-1 text-sm text-ink/60">
-              {client.modality} - {client.level} - {client.goalType}
-            </p>
-          </div>
-          <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
-            onClick={onOpenDetails}
-            type="button"
-          >
-            Detalles
+      <ClientHeader client={client} onBack={onBack} onOpenDetails={onOpenDetails} />
+      <LoadSummaryCards client={client} loadData={loadData} />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <WellnessCards client={client} loadData={loadData} />
+        <RiskControlCards client={client} loadData={loadData} />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <ActivePlanning client={client} />
+        <RecentSessions sessions={client.sessionRecords} />
+      </div>
+      <ClientAssessmentsSummary assessments={client.assessments} />
+      <QuickAccess onGoToSheet={onGoToSheet} onOpenDetails={onOpenDetails} />
+    </div>
+  );
+}
+
+function ClientHeader({
+  client,
+  onBack,
+  onOpenDetails
+}: {
+  client: CoachClient;
+  onBack: () => void;
+  onOpenDetails: () => void;
+}) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
+            Volver a clientes
           </button>
+          <h2 className="text-xl font-semibold text-ink">{client.name}</h2>
+          <p className="mt-1 text-sm text-ink/60">
+            {client.modality} - {client.level} - {client.goalType}
+          </p>
         </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <article className="rounded-md bg-panel/55 p-4">
-            <p className="text-sm font-semibold text-ink">Estado actual</p>
-            <p className="mt-2 text-lg font-semibold text-moss">{client.status}</p>
-          </article>
-          <article className="rounded-md bg-panel/55 p-4">
-            <p className="text-sm font-semibold text-ink">Readiness</p>
-            <p className="mt-2 text-lg font-semibold text-moss">{client.readiness}%</p>
-          </article>
-          <article className="rounded-md bg-panel/55 p-4 md:col-span-2">
-            <p className="text-sm font-semibold text-ink">Proximo evento</p>
-            <p className="mt-2 text-sm text-ink/70">{client.nextEvent}</p>
-          </article>
-        </div>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-          <h3 className="font-semibold text-ink">Bloques activos</h3>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {client.activeBlocks.map((block) => (
-              <p className="rounded-md bg-panel/55 px-3 py-3 text-sm font-medium text-ink/75" key={block}>
-                {block}
-              </p>
-            ))}
-          </div>
-
-          <h3 className="mt-6 font-semibold text-ink">Sesiones recientes</h3>
-          <div className="mt-4 grid gap-3">
-            {client.recentSessions.map((session) => (
-              <p className="rounded-md border border-line bg-white px-3 py-3 text-sm text-ink/70" key={session}>
-                {session}
-              </p>
-            ))}
-          </div>
-        </section>
-
-        <aside className="rounded-md border border-line bg-ink p-5 text-white shadow-soft">
-          <h3 className="font-semibold">Metricas principales</h3>
-          <div className="mt-4 grid gap-3">
-            {client.metrics.map((metric) => (
-              <p className="rounded-md bg-white/10 px-3 py-3 text-sm" key={metric}>
-                {metric}
-              </p>
-            ))}
-          </div>
-          <div className="mt-5 rounded-md bg-white/10 p-4">
-            <p className="text-sm font-semibold">Notas relevantes</p>
-            <p className="mt-2 text-sm text-white/70">{client.coachNotes}</p>
-          </div>
-        </aside>
+        <button
+          className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+          onClick={onOpenDetails}
+          type="button"
+        >
+          Detalles
+        </button>
       </div>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h3 className="font-semibold text-ink">Accesos rapidos</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
-          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("planning")} type="button">
-            Planificacion
-          </button>
-          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("training")} type="button">
-            Sesiones
-          </button>
-          <button className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => onGoToSheet("weeklyLoad")} type="button">
-            Metricas
-          </button>
-          <button className="rounded-md border border-line bg-white px-4 py-3 text-sm font-semibold text-ink" onClick={onOpenDetails} type="button">
-            Ficha inicial
-          </button>
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <ClientInfoCard label="Estado actual" value={client.status} />
+        <ClientInfoCard label="Readiness" value={`${client.readiness}%`} />
+        <ClientInfoCard className="md:col-span-2" label="Proximo evento" value={client.nextEvent} />
+      </div>
+    </section>
+  );
+}
+
+function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
+  return (
+    <article className={`rounded-md bg-panel/55 p-4 ${className}`}>
+      <p className="text-sm font-semibold text-ink">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-moss">{value}</p>
+    </article>
+  );
+}
+
+function LoadSummaryCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+  const cards = [
+    { label: "Carga diaria", value: `${calculateSessionLoad(client.sessionRecords[0].rpe, client.sessionRecords[0].duration)} UA`, detail: client.sessionRecords[0].summary, status: "Controlado" },
+    { label: "sRPE semanal", value: `${loadData.weeklyLoad.toFixed(0)} UA`, detail: loadData.weeklyTrend, status: loadData.acwrStatus },
+    { label: "Monotonia", value: loadData.monotony.toFixed(2), detail: "variabilidad de cargas", status: loadData.monotonyStatus },
+    { label: "Strain", value: loadData.strain.toFixed(0), detail: "carga semanal x monotonia", status: loadData.strainStatus }
+  ];
+
+  return (
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <article className={`rounded-md border p-4 ${clientStatusClass(card.status)}`} key={card.label}>
+          <p className="text-sm font-semibold">{card.label}</p>
+          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
+          <p className="mt-2 text-xs font-medium opacity-75">{card.detail}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function WellnessCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+  const hooperItems = [
+    ["Sueno", client.hooper.sleep],
+    ["Fatiga", client.hooper.fatigue],
+    ["Estres", client.hooper.stress],
+    ["DOMS", client.hooper.soreness],
+    ["Mood", client.hooper.mood ?? 0]
+  ];
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-ink">Fatiga / wellness</h3>
+          <p className="mt-1 text-sm text-ink/55">Ultimo registro Hooper del cliente.</p>
         </div>
-      </section>
-    </div>
+        <span className={`rounded-md border px-3 py-1 text-sm font-semibold ${clientStatusClass(loadData.hooperStatus)}`}>
+          {loadData.hooper}/25
+        </span>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-5">
+        {hooperItems.map(([label, value]) => (
+          <article className="rounded-md bg-panel/50 p-3 text-center" key={label}>
+            <p className="text-xs font-semibold text-ink/55">{label}</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{value}</p>
+          </article>
+        ))}
+      </div>
+      <p className="mt-4 rounded-md bg-mint px-3 py-3 text-sm font-medium text-moss">
+        Alerta: {loadData.hooperStatus === "Controlado" ? "mantener plan previsto" : "revisar carga antes de progresar"}
+      </p>
+    </section>
+  );
+}
+
+function RiskControlCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Riesgo / control</h3>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
+        <MetricPill label="Readiness" status={client.readiness < 80 ? "Vigilar" : "Controlado"} value={`${client.readiness}%`} />
+        <MetricPill label="Carga 7 dias" status={loadData.acwrStatus} value={`${loadData.weeklyLoad.toFixed(0)} UA`} />
+        <MetricPill label="Referencia 28 dias" status="Controlado" value={`${client.chronicLoad} UA`} />
+      </div>
+      <p className="mt-4 text-sm text-ink/60">{client.coachNotes}</p>
+    </section>
+  );
+}
+
+function MetricPill({ label, status, value }: { label: string; status: string; value: string }) {
+  return (
+    <article className={`rounded-md border p-3 ${clientStatusClass(status)}`}>
+      <p className="text-xs font-semibold opacity-75">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-xs font-semibold">{status}</p>
+    </article>
+  );
+}
+
+function ActivePlanning({ client }: { client: CoachClient }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Planificacion activa</h3>
+      <div className="mt-4 rounded-md bg-panel/55 p-4">
+        <p className="text-lg font-semibold text-ink">{client.planning.currentBlock}</p>
+        <p className="mt-1 text-sm text-ink/55">{client.planning.currentWeek} - {client.planning.distribution}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal} />
+          <ClientInfoCard label="Objetivo secundario" value={client.planning.secondaryGoal} />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {client.planning.nextSessions.map((session) => (
+          <p className="rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70" key={session}>
+            {session}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecentSessions({ sessions }: { sessions: ClientSessionRecord[] }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Sesiones recientes</h3>
+      <div className="mt-4 grid gap-3">
+        {sessions.map((session) => (
+          <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${session.summary}`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="font-semibold text-ink">{session.type}</p>
+                <p className="mt-1 text-sm text-ink/65">{session.summary}</p>
+              </div>
+              <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                {calculateSessionLoad(session.rpe, session.duration)} UA
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-ink/50">{session.date} - RPE {session.rpe} - {session.duration} min</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ClientAssessmentsSummary({ assessments }: { assessments: ClientAssessment[] }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-semibold text-ink">Valoraciones</h3>
+        <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" type="button">
+          Nueva valoracion
+        </button>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {assessments.map((assessment) => (
+          <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}`}>
+            <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
+            <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
+            <p className="mt-1 text-sm text-ink/65">{assessment.result}</p>
+            <div className="mt-3 flex items-center justify-between gap-2 text-xs text-ink/50">
+              <span>{assessment.date}</span>
+              <button className="font-semibold text-moss" type="button">{assessment.action}</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QuickAccess({
+  onGoToSheet,
+  onOpenDetails
+}: {
+  onGoToSheet: (sheet: SheetId) => void;
+  onOpenDetails: () => void;
+}) {
+  const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
+    { label: "Planificacion", sheet: "planning" },
+    { label: "Sesiones", sheet: "training" },
+    { label: "Metricas", sheet: "weeklyLoad" },
+    { label: "Valoraciones", sheet: "assessments" },
+    { label: "Ficha inicial", action: onOpenDetails }
+  ];
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Accesos rapidos</h3>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {quickLinks.map((link) => (
+          <button
+            className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white"
+            key={link.label}
+            onClick={() => (link.sheet ? onGoToSheet(link.sheet) : link.action?.())}
+            type="button"
+          >
+            {link.label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

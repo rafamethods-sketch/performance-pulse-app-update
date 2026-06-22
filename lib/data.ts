@@ -86,7 +86,29 @@ export const coachClients = [
     readiness: 94,
     activeBlocks: ["Desarrollo fuerza maxima", "Potencia baja fatiga"],
     recentSessions: ["Sentadilla 4x5 RPE 7", "Zona 2 35 min", "Peso muerto rumano 3x8"],
-    metrics: ["sRPE 1840 UA", "Hooper 7/20", "ACWR 1.12", "Strain moderado"]
+    metrics: ["sRPE 1840 UA", "Hooper 7/20", "ACWR 1.12", "Strain moderado"],
+    chronicLoad: 1640,
+    dailyLoads: [360, 0, 510, 290, 0, 460, 220],
+    hooper: { sleep: 1, fatigue: 2, stress: 1, soreness: 2, mood: 1 },
+    planning: {
+      currentBlock: "Desarrollo fuerza maxima",
+      currentWeek: "Semana 4 de 6",
+      primaryGoal: "fuerza maxima",
+      secondaryGoal: "mantener volumen util",
+      distribution: "ondulante",
+      nextSessions: ["Sentadilla pesada", "Banca tecnica", "Potencia baja fatiga"]
+    },
+    sessionRecords: [
+      { date: "2026-06-21", type: "Fuerza", duration: 72, rpe: 7, summary: "Sentadilla 4x5, RDL 3x8", notes: "Rodilla estable" },
+      { date: "2026-06-19", type: "Cardio", duration: 35, rpe: 4, summary: "Zona 2 suave", notes: "Recuperacion buena" },
+      { date: "2026-06-17", type: "Fuerza", duration: 64, rpe: 8, summary: "Banca + accesorios", notes: "Fatiga local pectoral" },
+      { date: "2026-06-15", type: "Fuerza", duration: 58, rpe: 5, summary: "Tecnica peso muerto", notes: "Baja carga" }
+    ],
+    assessments: [
+      { date: "2026-06-10", type: "Fuerza", name: "e1RM sentadilla", result: "102 kg", action: "Ver historial" },
+      { date: "2026-05-30", type: "Movilidad", name: "Dorsiflexion tobillo", result: "asimetria leve", action: "Anadir nueva" },
+      { date: "2026-05-18", type: "Cuestionarios", name: "Hooper basal", result: "6/20", action: "Ver historial" }
+    ]
   },
   {
     id: "carlos-vega",
@@ -107,7 +129,29 @@ export const coachClients = [
     readiness: 82,
     activeBlocks: ["Umbral / potencia aerobica", "Puesta a punto 10K"],
     recentSessions: ["6x3 min Z4", "Rodaje Z2 50 min", "Fuerza general 45 min"],
-    metrics: ["sRPE 2320 UA", "Hooper 10/20", "ACWR 1.41", "Monotonia 1.8"]
+    metrics: ["sRPE 2320 UA", "Hooper 10/20", "ACWR 1.41", "Monotonia 1.8"],
+    chronicLoad: 1645,
+    dailyLoads: [0, 620, 360, 610, 250, 480, 0],
+    hooper: { sleep: 2, fatigue: 3, stress: 2, soreness: 2, mood: 1 },
+    planning: {
+      currentBlock: "Umbral / potencia aerobica",
+      currentWeek: "Semana 3 de 5",
+      primaryGoal: "umbral",
+      secondaryGoal: "mantener fuerza general",
+      distribution: "flexible",
+      nextSessions: ["Rodaje Z2", "Intervalos umbral", "Fuerza general"]
+    },
+    sessionRecords: [
+      { date: "2026-06-21", type: "Running", duration: 46, rpe: 8, summary: "6x3 min Z4", notes: "FC alta al final" },
+      { date: "2026-06-20", type: "Running", duration: 50, rpe: 5, summary: "Rodaje Z2", notes: "Aquiles sin dolor" },
+      { date: "2026-06-18", type: "Fuerza", duration: 45, rpe: 6, summary: "Fuerza general", notes: "Volumen moderado" },
+      { date: "2026-06-16", type: "Running", duration: 52, rpe: 7, summary: "Tempo progresivo", notes: "Buenas sensaciones" }
+    ],
+    assessments: [
+      { date: "2026-06-12", type: "Resistencia", name: "Test 5 min", result: "3:54 min/km", action: "Ver historial" },
+      { date: "2026-06-01", type: "Antropometria", name: "Peso corporal", result: "74.2 kg", action: "Anadir nueva" },
+      { date: "2026-05-20", type: "Dolor / lesiones", name: "Aquiles", result: "1/10", action: "Ver historial" }
+    ]
   },
   {
     id: "marta-ruiz",
@@ -128,7 +172,28 @@ export const coachClients = [
     readiness: 76,
     activeBlocks: ["Desarrollo general", "Adherencia y tecnica"],
     recentSessions: ["Sentadilla silla 3x10", "Caminata 30 min", "Movilidad cadera"],
-    metrics: ["sRPE 980 UA", "Hooper 6/20", "ACWR 0.86", "Series duras 8"]
+    metrics: ["sRPE 980 UA", "Hooper 6/20", "ACWR 0.86", "Series duras 8"],
+    chronicLoad: 1140,
+    dailyLoads: [180, 0, 260, 0, 320, 0, 220],
+    hooper: { sleep: 1, fatigue: 1, stress: 2, soreness: 1, mood: 1 },
+    planning: {
+      currentBlock: "Desarrollo general",
+      currentWeek: "Semana 2 de 4",
+      primaryGoal: "adherencia y tecnica",
+      secondaryGoal: "mejora de fuerza y capacidad aerobica",
+      distribution: "lineal",
+      nextSessions: ["Full body basico", "Caminata progresiva", "Movilidad cadera"]
+    },
+    sessionRecords: [
+      { date: "2026-06-20", type: "Fuerza", duration: 42, rpe: 4, summary: "Sentadilla silla 3x10", notes: "Tecnica correcta" },
+      { date: "2026-06-18", type: "Cardio", duration: 30, rpe: 3, summary: "Caminata", notes: "Sin molestias" },
+      { date: "2026-06-16", type: "Movilidad", duration: 25, rpe: 2, summary: "Cadera y columna", notes: "Mejor control" }
+    ],
+    assessments: [
+      { date: "2026-06-08", type: "Inicial", name: "5STS", result: "13.8 s", action: "Ver historial" },
+      { date: "2026-06-08", type: "Movilidad", name: "Screen cadera", result: "restriccion leve", action: "Anadir nueva" },
+      { date: "2026-06-08", type: "Cuestionarios", name: "Calidad de vida", result: "pendiente", action: "Completar" }
+    ]
   }
 ];
 
