@@ -735,6 +735,181 @@ const planningTargetOptions = {
   volume: ["Bajo", "Medio", "Alto", "Muy alto", "Descarga"]
 };
 
+type PlanningPeakType = "Competicion" | "Pico de forma" | "Test principal" | "Control intermedio";
+type PlanningCalendarWeek = {
+  fatigue: string;
+  focus: string;
+  intensity: string;
+  metrics: string;
+  phase: string;
+  sessions: string;
+  volume: string;
+  week: number;
+  weekStart: string;
+};
+
+const planningPeakTypes: PlanningPeakType[] = ["Competicion", "Pico de forma", "Test principal", "Control intermedio"];
+
+function parsePlanningDate(value: string) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatPlanningDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addPlanningDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function getPlanningWeeks(startDate: string, peakDate: string) {
+  const start = parsePlanningDate(startDate);
+  const peak = parsePlanningDate(peakDate);
+  if (!start || !peak || peak <= start) return 0;
+  const dayMs = 1000 * 60 * 60 * 24;
+  return Math.max(1, Math.ceil((peak.getTime() - start.getTime()) / dayMs / 7));
+}
+
+function getPlanningPhase({
+  baseCategory,
+  model,
+  week,
+  totalWeeks
+}: {
+  baseCategory: PlanningBaseCategory;
+  model: PeriodizationModel;
+  totalWeeks: number;
+  week: number;
+}) {
+  const progress = week / Math.max(totalWeeks, 1);
+  const isEndurance = baseCategory === "endurance";
+  const isMixed = baseCategory === "mixed";
+  const base = isEndurance
+    ? ["Base aerobica", "Capacidad / umbral", "VO2max / especifico", "Taper"]
+    : isMixed
+      ? ["Base general", "Fuerza maxima / capacidad principal", "Potencia / especifico", "Taper"]
+      : ["Hipertrofia / acumulacion", "Fuerza maxima", "Potencia / realizacion", "Taper"];
+
+  if (model === "linear") {
+    if (progress < 0.7) return base[0];
+    if (progress < 0.9) return base[2];
+    return base[3];
+  }
+
+  if (model === "undulating") {
+    return week % 2 === 0 ? `${base[1]} ondulante` : `${base[0]} ondulante`;
+  }
+
+  if (model === "flexible") {
+    return "Flexible por readiness / calendario";
+  }
+
+  if (progress < 0.35) return base[0];
+  if (progress < 0.65) return base[1];
+  if (progress < 0.9) return base[2];
+  return base[3];
+}
+
+function getPlanningWeekLoad(week: number, totalWeeks: number, phase: string) {
+  const isTaper = phase.toLowerCase().includes("taper");
+  const loadWave = week % 4 === 0;
+
+  if (isTaper) {
+    return { fatigue: "Baja", intensity: "Alta", volume: "Descarga" };
+  }
+
+  if (loadWave) {
+    return { fatigue: "Controlada", intensity: "Media", volume: "Descarga" };
+  }
+
+  const progress = week / Math.max(totalWeeks, 1);
+  if (progress < 0.35) return { fatigue: "Media", intensity: "Media", volume: "Alto" };
+  if (progress < 0.7) return { fatigue: "Alta", intensity: "Alta", volume: "Medio" };
+  return { fatigue: "Controlada", intensity: "Muy alta", volume: "Bajo" };
+}
+
+function generatePlanningCalendar({
+  baseCategory,
+  metrics,
+  model,
+  peakDate,
+  planningFocus,
+  startDate,
+  trainingAvailability
+}: {
+  baseCategory: PlanningBaseCategory;
+  metrics: string[];
+  model: PeriodizationModel;
+  peakDate: string;
+  planningFocus: PlanningFocus;
+  startDate: string;
+  trainingAvailability: TrainingAvailability;
+}) {
+  const start = parsePlanningDate(startDate);
+  const totalWeeks = getPlanningWeeks(startDate, peakDate);
+  if (!start || totalWeeks === 0) return [];
+
+  return Array.from({ length: totalWeeks }, (_, index) => {
+    const week = index + 1;
+    const phase = getPlanningPhase({ baseCategory, model, totalWeeks, week });
+    const load = getPlanningWeekLoad(week, totalWeeks, phase);
+    return {
+      week,
+      weekStart: formatPlanningDate(addPlanningDays(start, index * 7)),
+      phase,
+      focus: planningFocus,
+      sessions: `${trainingAvailability.daysPerWeek} dias - ${recommendTrainingDistribution(trainingAvailability).name}`,
+      volume: load.volume,
+      intensity: load.intensity,
+      fatigue: load.fatigue,
+      metrics: metrics.join(" | ") || "Sin metricas"
+    };
+  });
+}
+
+function downloadPlanningCalendarCsv({
+  calendar,
+  eventName,
+  peakDate,
+  peakType
+}: {
+  calendar: PlanningCalendarWeek[];
+  eventName: string;
+  peakDate: string;
+  peakType: PlanningPeakType;
+}) {
+  if (calendar.length === 0 || typeof window === "undefined") return;
+
+  const header = ["Semana", "Inicio", "Fase", "Enfoque", "Sesiones", "Volumen", "Intensidad", "Fatiga", "Metricas"];
+  const rows = calendar.map((week) => [
+    week.week,
+    week.weekStart,
+    week.phase,
+    week.focus,
+    week.sessions,
+    week.volume,
+    week.intensity,
+    week.fatigue,
+    week.metrics
+  ]);
+  const csv = [
+    [`Evento`, eventName || peakType, `Fecha objetivo`, peakDate].join(","),
+    header.join(","),
+    ...rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `planificacion-${(eventName || peakType).toLowerCase().replaceAll(" ", "-")}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function PlanningView({
   setTrainingAvailability,
   trainingAvailability
@@ -751,14 +926,32 @@ function PlanningView({
   const [targetVolume, setTargetVolume] = useState("Medio");
   const [targetIntensity, setTargetIntensity] = useState("Media-alta");
   const [targetFatigue, setTargetFatigue] = useState("Controlada");
+  const [planningStartDate, setPlanningStartDate] = useState("");
+  const [planningPeakDate, setPlanningPeakDate] = useState("");
+  const [planningPeakType, setPlanningPeakType] = useState<PlanningPeakType>("Competicion");
+  const [planningEventName, setPlanningEventName] = useState("");
   const [notes, setNotes] = useState("");
 
   const currentConfig = planningConfig[baseCategory];
   const subtypeOptions = currentConfig.subtypes[periodizationModel] ?? [];
   const recommendedDistribution = recommendTrainingDistribution(trainingAvailability);
+  const planningWeeks = getPlanningWeeks(planningStartDate, planningPeakDate);
+  const planningCalendar = generatePlanningCalendar({
+    baseCategory,
+    metrics: selectedMetrics,
+    model: periodizationModel,
+    peakDate: planningPeakDate,
+    planningFocus,
+    startDate: planningStartDate,
+    trainingAvailability
+  });
   const selectedPlan = {
     mainLoadMetrics: selectedMetrics,
     notes,
+    planningEventName,
+    planningPeakDate,
+    planningPeakType,
+    planningWeeks,
     periodizationModel,
     periodizationSubtype,
     planningFocus,
@@ -902,10 +1095,57 @@ function PlanningView({
             Distribucion recomendada: {recommendedDistribution.name}
           </p>
         </PlanningStep>
+
+        <PlanningStep step="6" title="Competicion / pico de forma">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Tipo de fecha objetivo
+              <select
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setPlanningPeakType(event.target.value as PlanningPeakType)}
+                value={planningPeakType}
+              >
+                {planningPeakTypes.map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Nombre
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setPlanningEventName(event.target.value)}
+                placeholder="Ej. Campeonato regional"
+                value={planningEventName}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Inicio de planificacion
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setPlanningStartDate(event.target.value)}
+                type="date"
+                value={planningStartDate}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Fecha objetivo
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setPlanningPeakDate(event.target.value)}
+                type="date"
+                value={planningPeakDate}
+              />
+            </label>
+          </div>
+          <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
+            Semanas disponibles: {planningWeeks > 0 ? planningWeeks : "Selecciona fechas validas"}
+          </p>
+        </PlanningStep>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="6" title="Metricas principales">
+        <PlanningStep step="7" title="Metricas principales">
           <div className="grid gap-3">
             {currentConfig.metricGroups.map((group) => (
               <div className="rounded-md border border-line bg-panel/30 p-3" key={group.label}>
@@ -931,7 +1171,7 @@ function PlanningView({
           </div>
         </PlanningStep>
 
-        <PlanningStep step="7" title="Volumen, intensidad, fatiga y notas">
+        <PlanningStep step="8" title="Volumen, intensidad, fatiga y notas">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Volumen objetivo
@@ -983,6 +1223,12 @@ function PlanningView({
         </PlanningStep>
 
         <PlanningSummary selectedPlan={selectedPlan} />
+        <PlanningCalendarPreview
+          calendar={planningCalendar}
+          eventName={planningEventName}
+          peakDate={planningPeakDate}
+          peakType={planningPeakType}
+        />
       </section>
     </div>
   );
@@ -1014,6 +1260,10 @@ function PlanningSummary({
   selectedPlan: {
     mainLoadMetrics: string[];
     notes: string;
+    planningEventName: string;
+    planningPeakDate: string;
+    planningPeakType: PlanningPeakType;
+    planningWeeks: number;
     periodizationModel: PeriodizationModel;
     periodizationSubtype: string;
     planningFocus: PlanningFocus;
@@ -1045,10 +1295,74 @@ function PlanningSummary({
         <p className="rounded-md bg-white/10 px-3 py-2">Volumen: {selectedPlan.targetVolume}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Intensidad: {selectedPlan.targetIntensity}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Fatiga: {selectedPlan.targetFatigue}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
+          {selectedPlan.planningPeakType}: {selectedPlan.planningEventName || "Sin nombre"} · {selectedPlan.planningPeakDate || "Sin fecha"} · {selectedPlan.planningWeeks || 0} semanas
+        </p>
         {selectedPlan.notes && (
           <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Notas: {selectedPlan.notes}</p>
         )}
       </div>
+    </section>
+  );
+}
+
+function PlanningCalendarPreview({
+  calendar,
+  eventName,
+  peakDate,
+  peakType
+}: {
+  calendar: PlanningCalendarWeek[];
+  eventName: string;
+  peakDate: string;
+  peakType: PlanningPeakType;
+}) {
+  return (
+    <section className="mt-5 rounded-md border border-line bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="font-semibold text-ink">Calendario de periodizacion</h3>
+        <button
+          className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/35"
+          disabled={calendar.length === 0}
+          onClick={() => downloadPlanningCalendarCsv({ calendar, eventName, peakDate, peakType })}
+          type="button"
+        >
+          Descargar CSV
+        </button>
+      </div>
+
+      {calendar.length === 0 ? (
+        <div className="mt-4 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
+          Añade fecha de inicio y fecha objetivo para generar el calendario.
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-panel/60 text-xs uppercase text-ink/55">
+              <tr>
+                <th className="px-3 py-2">Semana</th>
+                <th className="px-3 py-2">Inicio</th>
+                <th className="px-3 py-2">Fase</th>
+                <th className="px-3 py-2">Sesiones</th>
+                <th className="px-3 py-2">Carga</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calendar.map((week) => (
+                <tr className="border-t border-line" key={week.week}>
+                  <td className="px-3 py-2 font-semibold text-ink">{week.week}</td>
+                  <td className="px-3 py-2 text-ink/70">{week.weekStart}</td>
+                  <td className="px-3 py-2 text-ink">{week.phase}</td>
+                  <td className="px-3 py-2 text-ink/70">{week.sessions}</td>
+                  <td className="px-3 py-2 text-ink/70">
+                    Vol. {week.volume} · Int. {week.intensity} · Fat. {week.fatigue}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
