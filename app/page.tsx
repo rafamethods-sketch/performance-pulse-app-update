@@ -471,7 +471,7 @@ function WeeklyLoadView() {
 }
 
 type PlanningBaseCategory = "strength" | "endurance" | "mixed" | "custom";
-type PeriodizationModel = "linear" | "block" | "undulating" | "flexible";
+type PeriodizationModel = "linear" | "block" | "undulating" | "hybrid" | "flexible";
 type SportModality =
   | "General"
   | "Powerlifting"
@@ -508,7 +508,6 @@ type PlanningFocus =
   | "Mixto - concurrente"
   | "Personalizado";
 type PlanningConfig = {
-  goals: string[];
   metricOptions: string[];
   subtypes: Partial<Record<PeriodizationModel, string[]>>;
 };
@@ -594,23 +593,13 @@ const planningFocusBaseCategory: Record<PlanningFocus, PlanningBaseCategory> = {
 const periodizationLabels: Record<PeriodizationModel, string> = {
   block: "Bloques",
   flexible: "Flexible / personalizada",
+  hybrid: "Bloques + ondulante semanal",
   linear: "Lineal",
   undulating: "Ondulante"
 };
 
 const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
   strength: {
-    goals: [
-      "Fuerza maxima",
-      "Hipertrofia / volumen estructural",
-      "Potencia",
-      "RFD / fuerza rapida",
-      "Fuerza reactiva",
-      "Braking / excentrica",
-      "Resistencia muscular local",
-      "Mantenimiento",
-      "Readaptacion"
-    ],
     metricOptions: [
       "%1RM",
       "e1RM",
@@ -631,6 +620,12 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
         "Bloque personalizado"
       ],
       flexible: ["Flexible por readiness", "Personalizada por calendario", "Personalizada por respuesta individual"],
+      hybrid: [
+        "Hipertrofia -> fuerza -> potencia con ondulacion semanal",
+        "High / Low / Fast dentro de bloques",
+        "Bloques de fuerza con ondulacion semanal",
+        "Bloques con semana de descarga ondulante"
+      ],
       linear: [
         "Lineal clasica: volumen ↓ intensidad ↑",
         "Lineal inversa: intensidad ↓ volumen ↑",
@@ -649,17 +644,6 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     }
   },
   endurance: {
-    goals: [
-      "Recuperacion",
-      "Base aerobica",
-      "Capacidad aerobica",
-      "Umbral",
-      "VO2max",
-      "Capacidad anaerobica",
-      "Repeated Sprint Ability",
-      "Competicion / puesta a punto",
-      "Mantenimiento"
-    ],
     metricOptions: [
       "tiempo en zona",
       "ritmo",
@@ -680,6 +664,12 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
         "Bloque competitivo"
       ],
       flexible: ["Flexible por respuesta diaria", "Personalizada por disponibilidad", "Personalizada por competicion"],
+      hybrid: [
+        "Base -> umbral -> VO2max con ondulacion semanal",
+        "Bloques de intensidad con microciclo polarizado",
+        "Bloques de volumen con ondulacion semanal",
+        "Bloques competitivos con semana variable"
+      ],
       linear: [
         "Base -> especifico -> taper",
         "Volumen progresivo",
@@ -691,17 +681,6 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     }
   },
   mixed: {
-    goals: [
-      "Concurrente fuerza + resistencia",
-      "Rendimiento mixto",
-      "Preparacion para combate",
-      "Deporte intermitente",
-      "Resistencia dominante con fuerza de soporte",
-      "Fuerza dominante con acondicionamiento",
-      "Salud general",
-      "Mantenimiento",
-      "Readaptacion"
-    ],
     metricOptions: [
       "RPE",
       "RIR",
@@ -719,18 +698,17 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     subtypes: {
       block: ["Bloques alternos fuerza/resistencia", "Bloque fuerza -> bloque resistencia", "Bloque resistencia -> bloque fuerza"],
       flexible: ["Personalizada por prioridad semanal", "Flexible por readiness", "Flexible por calendario"],
+      hybrid: [
+        "Bloques por capacidad con ondulacion semanal",
+        "Base / fuerza general -> fuerza maxima -> potencia -> especifico combate",
+        "Bloques concurrentes con microciclo ondulante",
+        "Bloques intermitentes con semana variable"
+      ],
       linear: ["Base general -> especifico -> taper", "Progresion por prioridad principal", "Lineal con descarga"],
       undulating: ["Ondulante por dias", "Fuerza alta / resistencia baja", "Resistencia alta / fuerza baja", "Mixta"]
     }
   },
   custom: {
-    goals: [
-      "Rendimiento",
-      "Salud general",
-      "Mantenimiento",
-      "Readaptacion",
-      "Objetivo personalizado"
-    ],
     metricOptions: [
       "RPE",
       "RIR",
@@ -744,6 +722,7 @@ const planningConfig: Record<PlanningBaseCategory, PlanningConfig> = {
     subtypes: {
       block: ["Bloques personalizados", "Bloques por prioridad", "Bloques por disponibilidad"],
       flexible: ["Flexible / personalizada", "Flexible por readiness", "Flexible por calendario"],
+      hybrid: ["Bloques personalizados con ondulacion semanal", "Estructura combinada personalizada"],
       linear: ["Lineal personalizada", "Progresion simple", "Lineal con descarga"],
       undulating: ["Ondulante personalizada", "Variacion semanal", "Variacion por respuesta"]
     }
@@ -765,21 +744,10 @@ const defaultMetricsByPlanningFocus: Partial<Record<PlanningFocus, string[]>> = 
   "Mixto - intermitente / raqueta": ["RPE", "tiempo de trabajo", "velocidad", "potencia", "carga semanal"]
 };
 
-const defaultGoalByPlanningFocus: Partial<Record<PlanningFocus, string>> = {
-  "Mixto - combate": "Preparacion para combate",
-  "Mixto - concurrente": "Concurrente fuerza + resistencia",
-  "Mixto - fuerza dominante": "Fuerza dominante con acondicionamiento",
-  "Mixto - intermitente / equipo": "Deporte intermitente",
-  "Mixto - intermitente / raqueta": "Deporte intermitente",
-  "Mixto - resistencia dominante": "Resistencia dominante con fuerza de soporte",
-  Personalizado: "Objetivo personalizado"
-};
-
 function PlanningView() {
   const [sportModality, setSportModality] = useState<SportModality>("General");
   const [planningFocus, setPlanningFocus] = useState<PlanningFocus>(suggestedFocusBySport.General);
   const baseCategory = planningFocusBaseCategory[planningFocus];
-  const [goal, setGoal] = useState(planningConfig.custom.goals[0]);
   const [periodizationModel, setPeriodizationModel] = useState<PeriodizationModel>("linear");
   const [periodizationSubtype, setPeriodizationSubtype] = useState(planningConfig.custom.subtypes.linear?.[0] ?? "");
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(defaultMetricSelection.custom);
@@ -799,17 +767,14 @@ function PlanningView() {
     sportModality,
     targetFatigue,
     targetIntensity,
-    targetVolume,
-    goal
+    targetVolume
   };
 
   function applyPlanningFocus(focus: PlanningFocus) {
     const nextCategory = planningFocusBaseCategory[focus];
     const nextConfig = planningConfig[nextCategory];
-    const nextGoal = defaultGoalByPlanningFocus[focus] ?? nextConfig.goals[0];
     const nextSubtype = nextConfig.subtypes[periodizationModel]?.[0] ?? nextConfig.subtypes.linear?.[0] ?? "";
     setPlanningFocus(focus);
-    setGoal(nextGoal);
     setPeriodizationSubtype(nextSubtype);
     setSelectedMetrics(defaultMetricsByPlanningFocus[focus] ?? defaultMetricSelection[nextCategory]);
   }
@@ -869,19 +834,7 @@ function PlanningView() {
           </p>
         </PlanningStep>
 
-        <PlanningStep step="3" title="Objetivo">
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setGoal(event.target.value)}
-            value={goal}
-          >
-            {currentConfig.goals.map((goalOption) => (
-              <option key={goalOption}>{goalOption}</option>
-            ))}
-          </select>
-        </PlanningStep>
-
-        <PlanningStep step="4" title="Modelo de periodizacion">
+        <PlanningStep step="3" title="Modelo de planificacion">
           <div className="grid gap-3 sm:grid-cols-2">
             {(Object.keys(periodizationLabels) as PeriodizationModel[]).map((model) => (
               <button
@@ -898,7 +851,7 @@ function PlanningView() {
           </div>
         </PlanningStep>
 
-        <PlanningStep step="5" title="Subtipo / distribucion">
+        <PlanningStep step="4" title="Estructura / distribucion del plan">
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setPeriodizationSubtype(event.target.value)}
@@ -917,7 +870,7 @@ function PlanningView() {
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="6" title="Metricas principales">
+        <PlanningStep step="5" title="Metricas principales">
           <div className="flex flex-wrap gap-2">
             {currentConfig.metricOptions.map((metric) => (
               <button
@@ -936,7 +889,7 @@ function PlanningView() {
           </div>
         </PlanningStep>
 
-        <PlanningStep step="7" title="Volumen, intensidad, fatiga y notas">
+        <PlanningStep step="6" title="Volumen, intensidad, fatiga y notas">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Volumen objetivo
@@ -1005,7 +958,6 @@ function PlanningSummary({
   selectedPlan
 }: {
   selectedPlan: {
-    goal: string;
     mainLoadMetrics: string[];
     notes: string;
     periodizationModel: PeriodizationModel;
@@ -1023,9 +975,12 @@ function PlanningSummary({
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <p className="rounded-md bg-white/10 px-3 py-2">Modalidad deportiva: {selectedPlan.sportModality}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Enfoque de planificacion: {selectedPlan.planningFocus}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Objetivo: {selectedPlan.goal}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Periodizacion: {periodizationLabels[selectedPlan.periodizationModel]}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Subtipo: {selectedPlan.periodizationSubtype}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">
+          Modelo de planificacion: {periodizationLabels[selectedPlan.periodizationModel]}
+        </p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
+          Estructura / distribucion: {selectedPlan.periodizationSubtype}
+        </p>
         <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
           Metricas principales: {selectedPlan.mainLoadMetrics.join(", ") || "Sin seleccionar"}
         </p>
