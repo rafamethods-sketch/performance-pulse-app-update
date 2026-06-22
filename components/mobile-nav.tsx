@@ -1,5 +1,5 @@
 import { Dumbbell } from "lucide-react";
-import { navItems, type SheetId, type UserRole } from "@/lib/data";
+import { coachMainNavIds, navItems, type SheetId, type UserRole } from "@/lib/data";
 
 type MobileNavProps = {
   activeSheet: SheetId;
@@ -25,7 +25,7 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
       </div>
       <nav className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
         {navItems
-          .filter((item) => role === "coach" || !["planning", "progressions", "routines"].includes(item.id ?? ""))
+          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : !["planning", "progressions", "routines"].includes(item.id ?? ""))
           .map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;

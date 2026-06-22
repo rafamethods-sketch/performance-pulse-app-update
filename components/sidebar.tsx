@@ -1,5 +1,5 @@
 import { Dumbbell } from "lucide-react";
-import { navItems, type SheetId, type UserRole } from "@/lib/data";
+import { coachMainNavIds, navItems, type SheetId, type UserRole } from "@/lib/data";
 
 type SidebarProps = {
   activeSheet: SheetId;
@@ -24,7 +24,7 @@ export function Sidebar({ activeSheet, onSheetChange, role }: SidebarProps) {
 
       <nav className="mt-8 space-y-1">
         {navItems
-          .filter((item) => role === "coach" || !["planning", "progressions", "routines"].includes(item.id ?? ""))
+          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : !["planning", "progressions", "routines"].includes(item.id ?? ""))
           .map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;

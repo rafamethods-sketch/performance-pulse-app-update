@@ -16,6 +16,18 @@ import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
 import { StatCard } from "@/components/stat-card";
+import {
+  acwrRanges,
+  calculateACWR,
+  calculateHooperIndex,
+  calculateMonotony,
+  calculateSessionLoad,
+  calculateStrain,
+  calculateWeeklyLoad,
+  getMetricStatus,
+  monotonyRanges,
+  strainRanges
+} from "@/lib/client-metrics";
 import { supabase } from "@/lib/supabase";
 import {
   assessmentCategories,
@@ -62,7 +74,7 @@ export default function ClientsPage() {
   const [goalType, setGoalType] = useState<GoalType>("health");
   const [activeSheet, setActiveSheet] = useState<SheetId>("clients");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
-  const [selectedClientId, setSelectedClientId] = useState(coachClients[0]?.id ?? "");
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [hooperDone, setHooperDone] = useState(false);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
@@ -96,7 +108,8 @@ export default function ClientsPage() {
   }
 
   const selectedClient =
-    coachClients.find((client) => client.id === selectedClientId) ?? coachClients[0];
+    coachClients.find((client) => client.id === selectedClientId) ?? null;
+  const needsActiveClient = role === "coach" && ["calendar", "training", "planning", "messages", "assessments", "weeklyLoad"].includes(activeSheet);
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
@@ -122,9 +135,9 @@ export default function ClientsPage() {
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
-                    ? `Dashboard - ${selectedClient.name}`
+                    ? `Dashboard - ${selectedClient?.name ?? "cliente"}`
                     : role === "coach" && trainerClientPanel === "details"
-                      ? `Ficha inicial - ${selectedClient.name}`
+                      ? `Ficha inicial - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "training"
                     ? role === "coach" ? "Sesiones" : "Mi entrenamiento"
@@ -139,7 +152,7 @@ export default function ClientsPage() {
                   : activeSheet === "planning"
                     ? "Planificacion"
                   : activeSheet === "progressions"
-                    ? "Progresiones"
+                    ? "Ejercicios"
                   : activeSheet === "routines"
                     ? "Rutinas"
                   : activeSheet === "messages"
@@ -150,7 +163,18 @@ export default function ClientsPage() {
 
           </div>
 
-          {activeSheet === "clients" ? (
+          {role === "coach" && activeSheet !== "clients" && selectedClient ? (
+            <ActiveClientBar
+              client={selectedClient}
+              onGoToSheet={handleSheetChange}
+              onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
+              onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+            />
+          ) : null}
+
+          {needsActiveClient && !selectedClient ? (
+            <SelectClientFirst onGoClients={() => handleSheetChange("clients")} />
+          ) : activeSheet === "clients" ? (
             role === "coach" ? (
               <CoachClientsView
                 client={selectedClient}
@@ -169,33 +193,34 @@ export default function ClientsPage() {
               />
             )
           ) : activeSheet === "training" ? (
-            role === "coach" ? <CoachTrainingPlanner /> : (
+            role === "coach" && selectedClient ? <CoachTrainingPlanner client={selectedClient} /> : (
               <AthleteTrainingView
                 hooperDone={hooperDone}
                 onCompleteHooper={() => setHooperDone(true)}
               />
             )
           ) : activeSheet === "assessments" ? (
-            <AssessmentsView />
+            <AssessmentsView client={role === "coach" ? selectedClient : null} />
           ) : activeSheet === "calendar" ? (
-            <CalendarView />
+            <CalendarView client={selectedClient} />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
-            <WeeklyLoadView />
+            <WeeklyLoadView client={role === "coach" ? selectedClient : null} />
           ) : activeSheet === "planning" ? (
-            role === "coach" ? (
+            role === "coach" && selectedClient ? (
               <PlanningView
+                client={selectedClient}
                 setTrainingAvailability={setTrainingAvailability}
                 trainingAvailability={trainingAvailability}
               />
             ) : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
-            role === "coach" ? <ExerciseProgressionsView /> : <DecisionDashboardView />
+            role === "coach" ? <ExerciseProgressionsView client={selectedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "routines" ? (
             role === "coach" ? <RoutinesView trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
           ) : activeSheet === "messages" ? (
-            <MessagesView />
+            <MessagesView client={selectedClient} />
           ) : (
             <DecisionDashboardView />
           )}
@@ -305,55 +330,17 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 type CoachClient = (typeof coachClients)[number];
 type ClientSessionRecord = CoachClient["sessionRecords"][number];
 type ClientAssessment = CoachClient["assessments"][number];
-type HooperValues = CoachClient["hooper"];
-
-function calculateSessionLoad(rpe: number, duration: number) {
-  return rpe * duration;
-}
-
-function calculateWeeklyLoad(sessions: ClientSessionRecord[]) {
-  return sessions.reduce((total, session) => total + calculateSessionLoad(session.rpe, session.duration), 0);
-}
-
-function calculateMonotony(dailyLoads: number[]) {
-  const activeLoads = dailyLoads.filter((load) => load > 0);
-  if (activeLoads.length < 2) return 0;
-
-  const average = activeLoads.reduce((total, load) => total + load, 0) / activeLoads.length;
-  const variance = activeLoads.reduce((total, load) => total + (load - average) ** 2, 0) / activeLoads.length;
-  const standardDeviation = Math.sqrt(variance);
-
-  return standardDeviation > 0 ? average / standardDeviation : average > 0 ? average : 0;
-}
-
-function calculateStrain(weeklyLoad: number, monotony: number) {
-  return weeklyLoad * monotony;
-}
-
-function calculateACWR(acuteLoad: number, chronicLoad: number) {
-  return chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
-}
-
-function calculateHooperIndex(values: HooperValues) {
-  return values.sleep + values.fatigue + values.stress + values.soreness + (values.mood ?? 0);
-}
 
 function getMonotonyStatus(value: number) {
-  if (value >= 2) return "Alto";
-  if (value >= 1.5) return "Vigilar";
-  return "Controlado";
+  return getMetricStatus(value, monotonyRanges);
 }
 
 function getAcwrStatus(value: number) {
-  if (value < 0.7 || value >= 1.5) return "Riesgo";
-  if (value < 0.8 || value > 1.3) return "Vigilar";
-  return "Controlado";
+  return getMetricStatus(value, acwrRanges);
 }
 
 function getStrainStatus(value: number) {
-  if (value >= 3600) return "Alto";
-  if (value >= 2500) return "Vigilar";
-  return "Controlado";
+  return getMetricStatus(value, strainRanges);
 }
 
 function getHooperStatus(value: number) {
@@ -401,6 +388,67 @@ function clientStatusClass(status: string) {
   }
 }
 
+function ActiveClientBar({
+  client,
+  onGoToSheet,
+  onOpenDashboard,
+  onOpenDetails
+}: {
+  client: CoachClient;
+  onGoToSheet: (sheet: SheetId) => void;
+  onOpenDashboard: (clientId: string) => void;
+  onOpenDetails: (clientId: string) => void;
+}) {
+  const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
+    { label: "Dashboard", action: () => onOpenDashboard(client.id) },
+    { label: "Calendario", sheet: "calendar" },
+    { label: "Sesiones", sheet: "training" },
+    { label: "Planificacion", sheet: "planning" },
+    { label: "Ejercicios", sheet: "progressions" },
+    { label: "Mensajes", sheet: "messages" },
+    { label: "Ficha inicial", action: () => onOpenDetails(client.id) },
+    { label: "Valoraciones", sheet: "assessments" }
+  ];
+
+  return (
+    <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-moss">Cliente activo</p>
+          <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
+          <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.status} - {client.nextEvent}</p>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 xl:flex-wrap xl:justify-end xl:pb-0">
+          {quickLinks.map((link) => (
+            <button
+              className="shrink-0 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm font-semibold text-ink/70 hover:bg-white"
+              key={link.label}
+              onClick={() => (link.sheet ? onGoToSheet(link.sheet) : link.action?.())}
+              type="button"
+            >
+              {link.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
+  return (
+    <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
+      <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
+        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificacion, mensajes y valoraciones pertenezcan al cliente activo.
+      </p>
+      <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
+        Ir a Clientes
+      </button>
+    </section>
+  );
+}
+
 function CoachClientsView({
   client,
   onBack,
@@ -409,7 +457,7 @@ function CoachClientsView({
   onOpenDetails,
   panel
 }: {
-  client: CoachClient;
+  client: CoachClient | null;
   onBack: () => void;
   onGoToSheet: (sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
@@ -417,6 +465,8 @@ function CoachClientsView({
   panel: TrainerClientPanel;
 }) {
   if (panel === "dashboard") {
+    if (!client) return <SelectClientFirst onGoClients={onBack} />;
+
     return (
       <ClientDashboardView
         client={client}
@@ -428,6 +478,8 @@ function CoachClientsView({
   }
 
   if (panel === "details") {
+    if (!client) return <SelectClientFirst onGoClients={onBack} />;
+
     return (
       <ClientDetailsView
         client={client}
@@ -539,12 +591,13 @@ function ClientDashboardView({
 
   return (
     <div className="mt-6 grid gap-6">
-      <ClientHeader client={client} onBack={onBack} onOpenDetails={onOpenDetails} />
+      <ClientHeader client={client} onBack={onBack} onGoToSheet={onGoToSheet} onOpenDetails={onOpenDetails} />
       <LoadSummaryCards client={client} loadData={loadData} />
       <div className="grid gap-6 xl:grid-cols-2">
         <WellnessCards client={client} loadData={loadData} />
         <RiskControlCards client={client} loadData={loadData} />
       </div>
+      <FatigueHeatmap client={client} loadData={loadData} />
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <ActivePlanning client={client} />
         <RecentSessions sessions={client.sessionRecords} />
@@ -558,10 +611,12 @@ function ClientDashboardView({
 function ClientHeader({
   client,
   onBack,
+  onGoToSheet,
   onOpenDetails
 }: {
   client: CoachClient;
   onBack: () => void;
+  onGoToSheet: (sheet: SheetId) => void;
   onOpenDetails: () => void;
 }) {
   return (
@@ -576,13 +631,22 @@ function ClientHeader({
             {client.modality} - {client.level} - {client.goalType}
           </p>
         </div>
-        <button
-          className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
-          onClick={onOpenDetails}
-          type="button"
-        >
-          Detalles
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+            onClick={onOpenDetails}
+            type="button"
+          >
+            Detalles
+          </button>
+          <button
+            className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+            onClick={() => onGoToSheet("assessments")}
+            type="button"
+          >
+            Valoraciones
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-4">
@@ -652,9 +716,67 @@ function WellnessCards({ client, loadData }: { client: CoachClient; loadData: Re
           </article>
         ))}
       </div>
+      <HooperTrendChart currentValue={loadData.hooper} />
       <p className="mt-4 rounded-md bg-mint px-3 py-3 text-sm font-medium text-moss">
         Alerta: {loadData.hooperStatus === "Controlado" ? "mantener plan previsto" : "revisar carga antes de progresar"}
       </p>
+    </section>
+  );
+}
+
+function HooperTrendChart({ currentValue }: { currentValue: number }) {
+  const values = [currentValue - 2, currentValue - 1, currentValue, currentValue + 1, currentValue, currentValue - 1, currentValue].map((value) => Math.max(value, 1));
+  const maxValue = Math.max(...values, 12);
+
+  return (
+    <div className="mt-4 flex h-24 items-end gap-2 rounded-md bg-panel/45 p-3">
+      {values.map((value, index) => (
+        <div className="flex flex-1 flex-col items-center gap-1" key={`${value}-${index}`}>
+          <div
+            className="w-full rounded-t bg-gradient-to-t from-moss to-steel"
+            style={{ height: `${Math.max(16, (value / maxValue) * 72)}px` }}
+          />
+          <span className="text-[10px] font-semibold text-ink/45">{index + 1}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FatigueHeatmap({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+  const days = ["L", "M", "X", "J", "V", "S", "D"];
+  const maxLoad = Math.max(...client.dailyLoads, 1);
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Mapa de fatiga</h3>
+          <p className="mt-1 text-sm text-ink/55">Carga diaria, Hooper y tendencia de riesgo del cliente activo.</p>
+        </div>
+        <span className={`rounded-md border px-3 py-1 text-sm font-semibold ${clientStatusClass(loadData.acwrStatus)}`}>
+          ACWR {loadData.acwr.toFixed(2)}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-7 gap-2">
+        {client.dailyLoads.map((load, index) => {
+          const intensity = load / maxLoad;
+          const colorClass = intensity > 0.8 ? "bg-red-100 text-red-800" : intensity > 0.45 ? "bg-amber-100 text-amber-800" : "bg-emerald-50 text-emerald-800";
+
+          return (
+            <article className={`rounded-md border border-line p-3 text-center ${colorClass}`} key={`${days[index]}-${load}`}>
+              <p className="text-xs font-semibold">{days[index]}</p>
+              <p className="mt-2 text-lg font-semibold">{load}</p>
+              <p className="mt-1 text-[11px] font-medium">UA</p>
+            </article>
+          );
+        })}
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <ClientInfoCard label="Hooper" value={`${loadData.hooper}/25`} />
+        <ClientInfoCard label="DOMS" value={`${client.hooper.soreness}/5`} />
+        <ClientInfoCard label="Sueno" value={`${client.hooper.sleep}/5`} />
+      </div>
     </section>
   );
 }
@@ -882,7 +1004,9 @@ function DecisionDashboardView() {
   );
 }
 
-function WeeklyLoadView() {
+function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
+  const loadData = client ? getClientLoadData(client) : null;
+
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -893,6 +1017,15 @@ function WeeklyLoadView() {
           Ultimas 6 semanas
         </span>
       </div>
+
+      {client && loadData ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <MetricPill label="sRPE semanal" status={loadData.acwrStatus} value={`${loadData.weeklyLoad.toFixed(0)} UA`} />
+          <MetricPill label="Monotonia" status={loadData.monotonyStatus} value={loadData.monotony.toFixed(2)} />
+          <MetricPill label="Strain" status={loadData.strainStatus} value={loadData.strain.toFixed(0)} />
+          <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <MetricChart chartType="bar" title="sRPE semanal" field="srpe" suffix=" UA" />
@@ -1237,9 +1370,11 @@ function downloadPlanningCalendarCsv({
 }
 
 function PlanningView({
+  client,
   setTrainingAvailability,
   trainingAvailability
 }: {
+  client: CoachClient;
   setTrainingAvailability: (availability: TrainingAvailability) => void;
   trainingAvailability: TrainingAvailability;
 }) {
@@ -1301,6 +1436,23 @@ function PlanningView({
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Planificacion activa de {client.name}</h2>
+            <p className="mt-1 text-sm text-ink/55">{client.planning.currentBlock} - {client.planning.currentWeek}</p>
+          </div>
+          <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
+            {client.planning.distribution}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal} />
+          <ClientInfoCard label="Objetivo secundario" value={client.planning.secondaryGoal} />
+          <ClientInfoCard label="Evento objetivo" value={client.nextEvent} />
+        </div>
+      </section>
+
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Planificacion</h2>
 
@@ -1740,7 +1892,7 @@ const progressionPatterns: ProgressionPattern[] = [
   }
 ];
 
-function ExerciseProgressionsView() {
+function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const [activePattern, setActivePattern] = useState(progressionPatterns[0].name);
   const [routineExercises, setRoutineExercises] = useState<string[]>([]);
   const selectedPattern =
@@ -1754,6 +1906,15 @@ function ExerciseProgressionsView() {
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
+      {client ? (
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+          <h2 className="text-lg font-semibold text-ink">Ejercicios recomendados para {client.name}</h2>
+          <p className="mt-2 text-sm text-ink/55">
+            Modalidad: {client.modality}. Nivel: {client.level}. Precauciones: {client.injuries}
+          </p>
+        </section>
+      ) : null}
+
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Patrones principales</h2>
         <div className="mt-5 grid gap-2">
@@ -2242,10 +2403,26 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
   );
 }
 
-function MessagesView() {
+function MessagesView({ client }: { client?: CoachClient | null }) {
   const [selectedThreadId, setSelectedThreadId] = useState(messageThreads[0].id);
+  const clientThreads = client
+    ? messageThreads.filter((thread) => thread.athlete === client.name)
+    : messageThreads;
+  const visibleThreads = clientThreads.length > 0 ? clientThreads : client ? [
+    {
+      athlete: client.name,
+      id: `client-${client.id}`,
+      lastMessage: client.coachNotes,
+      messages: [
+        { author: "coach", text: client.coachNotes, time: "Nota inicial" },
+        { author: "athlete", text: "Pendiente de nueva conversacion.", time: "Sistema" }
+      ],
+      status: client.status,
+      unread: 0
+    }
+  ] : messageThreads;
   const selectedThread =
-    messageThreads.find((thread) => thread.id === selectedThreadId) ?? messageThreads[0];
+    visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0];
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -2253,11 +2430,11 @@ function MessagesView() {
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Conversaciones</h2>
           <span className="rounded-md bg-mint px-2 py-1 text-xs font-medium text-moss">
-            {messageThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
+            {visibleThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
           </span>
         </div>
         <div className="mt-4 space-y-2">
-          {messageThreads.map((thread) => (
+          {visibleThreads.map((thread) => (
             <button
               className={`w-full rounded-md border p-3 text-left transition ${
                 selectedThreadId === thread.id
@@ -2434,7 +2611,7 @@ function decisionToneClass(status: string) {
   }
 }
 
-function AssessmentsView() {
+function AssessmentsView({ client }: { client?: CoachClient | null }) {
   const [selectedGoal, setSelectedGoal] = useState<AssessmentGoal>("Salud general");
   const [selectedTests, setSelectedTests] = useState<Record<string, string>>({});
   const posturalCategory = "Postural";
@@ -2460,6 +2637,30 @@ function AssessmentsView() {
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+      {client ? (
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Valoraciones de {client.name}</h2>
+              <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
+            </div>
+            <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" type="button">
+              Nueva valoracion
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {client.assessments.map((assessment) => (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}`}>
+                <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
+                <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
+                <p className="mt-1 text-sm text-ink/65">{assessment.result}</p>
+                <p className="mt-2 text-xs text-ink/45">{assessment.date}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Objetivo de la valoracion</h2>
 
@@ -2612,7 +2813,7 @@ function assessmentUnitForTest(testName: string) {
   return "texto";
 }
 
-function CalendarView() {
+function CalendarView({ client }: { client?: CoachClient | null }) {
   const [viewMode, setViewMode] = useState<CalendarViewMode>("Semana");
   const weekDays = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
   const weekDates = ["22", "23", "24", "25", "26", "27", "28"];
@@ -2641,9 +2842,26 @@ function CalendarView() {
         </div>
       </div>
 
+      {client ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <ClientInfoCard label="Evento objetivo" value={client.nextEvent} />
+          <ClientInfoCard label="Ultima sesion" value={client.lastActivity} />
+          <ClientInfoCard label="Valoracion reciente" value={client.assessments[0]?.name ?? "Sin valorar"} />
+        </div>
+      ) : null}
+
       {viewMode === "Dia" ? (
         <div className="mt-6 grid gap-3">
-          {todaySessions.map((session) => (
+          {client ? client.sessionRecords.map((session) => (
+            <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${session.summary}`}>
+              <p className="text-xs font-semibold text-clay">{session.date}</p>
+              <h4 className="mt-1 font-semibold text-ink">{session.type}</h4>
+              <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+              <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                {session.duration} min - RPE {session.rpe} - {calculateSessionLoad(session.rpe, session.duration)} UA
+              </p>
+            </article>
+          )) : todaySessions.map((session) => (
             <CalendarSessionCard key={`${session.day}-${session.time}-${session.athlete}`} session={session} />
           ))}
         </div>
@@ -3079,7 +3297,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 
 const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
 
-function CoachTrainingPlanner() {
+function CoachTrainingPlanner({ client }: { client: CoachClient }) {
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const plannedTonnage = plannedSession.strengthExercises.reduce(
     (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
@@ -3102,10 +3320,8 @@ function CoachTrainingPlanner() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
-            <select className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss">
-              {coachClients.map((client) => (
-                <option key={client.name}>{client.name}</option>
-              ))}
+            <select className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss" disabled value={client.name}>
+              <option>{client.name}</option>
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -3142,6 +3358,14 @@ function CoachTrainingPlanner() {
               defaultValue={plannedSession.objective}
             />
           </label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {["Sesiones guardadas", "Fuerza maxima tren inferior", "Potencia", "Base aerobica", "HIIT", "Tecnica", "Sparring", "Recuperacion", "Movilidad"].map((template) => (
+            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70" key={template} type="button">
+              {template}
+            </button>
+          ))}
         </div>
 
         {sessionType === "Fuerza" ? (
@@ -3269,6 +3493,16 @@ function CoachTrainingPlanner() {
           <div className="rounded-md bg-white/10 p-4">
             <p className="text-sm font-semibold">Carga interna comun</p>
             <p className="mt-1 text-sm text-white/65">Duracion, RPE, sRPE y wellness Hooper previo.</p>
+          </div>
+        </div>
+        <div className="mt-5 rounded-md bg-white/10 p-4">
+          <p className="text-sm font-semibold">Sesiones del cliente</p>
+          <div className="mt-3 grid gap-2">
+            {client.sessionRecords.map((session) => (
+              <p className="rounded-md bg-white/10 px-3 py-2 text-sm text-white/75" key={`${session.date}-${session.summary}`}>
+                {session.date} - {session.type} - {calculateSessionLoad(session.rpe, session.duration)} UA
+              </p>
+            ))}
           </div>
         </div>
       </aside>

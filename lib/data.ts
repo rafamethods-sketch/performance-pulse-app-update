@@ -4,7 +4,7 @@ import {
   ClipboardList,
   Dumbbell,
   FileClock,
-  GitBranch,
+  Library,
   LineChart,
   MessageSquareText,
   Users
@@ -47,17 +47,19 @@ type NavItem = {
 
 export const navItems: NavItem[] = [
   { id: "clients", label: "Clientes", icon: Users },
-  { id: "planning", label: "Planificacion", icon: FileClock },
-  { id: "training", label: "Sesiones", icon: ClipboardList },
-  { id: "weeklyLoad", label: "Metricas", icon: LineChart },
-  { id: "progressions", label: "Biblioteca", icon: GitBranch },
-  { id: "assessments", label: "Valoraciones", icon: LineChart },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
+  { id: "training", label: "Sesiones", icon: ClipboardList },
+  { id: "planning", label: "Planificacion", icon: FileClock },
+  { id: "progressions", label: "Ejercicios", icon: Library },
+  { id: "messages", label: "Mensajes", icon: MessageSquareText },
+  { id: "weeklyLoad", label: "Metricas", icon: LineChart },
+  { id: "assessments", label: "Valoraciones", icon: LineChart },
   { id: "fatigue", label: "Fatiga", icon: Activity },
   { id: "routines", label: "Rutinas", icon: Dumbbell },
-  { id: "decision", label: "Dashboard general", icon: Activity },
-  { id: "messages", label: "Mensajes", icon: MessageSquareText }
+  { id: "decision", label: "Dashboard general", icon: Activity }
 ];
+
+export const coachMainNavIds: SheetId[] = ["clients", "calendar", "training", "planning", "progressions", "messages"];
 
 export const coachStats = [
   { label: "Clientes registrados", value: "24", trend: "+3 este mes" },
