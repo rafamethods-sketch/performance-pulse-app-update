@@ -470,375 +470,386 @@ function WeeklyLoadView() {
   );
 }
 
-type PlanningFocus = "Fuerza" | "Resistencia" | "Mixto" | "Salud";
-type MesocyclePlan = {
-  block: string;
-  focus: string;
-  intensity: string;
-  load: string;
-  weeks: number;
+type TrainingSystem = "strength" | "endurance" | "mixed";
+type PeriodizationModel = "linear" | "block" | "undulating" | "flexible";
+type PlanningConfig = {
+  goals: string[];
+  metricOptions: string[];
+  subtypes: Partial<Record<PeriodizationModel, string[]>>;
+};
+
+const trainingSystemLabels: Record<TrainingSystem, string> = {
+  endurance: "Resistencia",
+  mixed: "Mixto",
+  strength: "Fuerza"
+};
+
+const periodizationLabels: Record<PeriodizationModel, string> = {
+  block: "Bloques",
+  flexible: "Flexible / personalizada",
+  linear: "Lineal",
+  undulating: "Ondulante"
+};
+
+const planningConfig: Record<TrainingSystem, PlanningConfig> = {
+  strength: {
+    goals: [
+      "Fuerza maxima",
+      "Hipertrofia / volumen estructural",
+      "Potencia",
+      "RFD / fuerza rapida",
+      "Fuerza reactiva",
+      "Braking / excentrica",
+      "Resistencia muscular local",
+      "Mantenimiento",
+      "Readaptacion"
+    ],
+    metricOptions: [
+      "%1RM",
+      "e1RM",
+      "RIR",
+      "RPE",
+      "velocidad",
+      "perdida de velocidad",
+      "volumen-carga",
+      "series duras",
+      "repeticiones efectivas"
+    ],
+    subtypes: {
+      block: [
+        "ATR: Acumulacion -> Transmutacion -> Realizacion",
+        "Hipertrofia -> Fuerza -> Potencia",
+        "Volumen -> Intensificacion -> Pico",
+        "Low -> High -> Fast -> Long Force",
+        "Bloque personalizado"
+      ],
+      flexible: ["Flexible por readiness", "Personalizada por calendario", "Personalizada por respuesta individual"],
+      linear: [
+        "Lineal clasica: volumen ↓ intensidad ↑",
+        "Lineal inversa: intensidad ↓ volumen ↑",
+        "Progresion por carga: kg ↑",
+        "Progresion por repeticiones: reps ↑",
+        "Progresion por densidad: descanso ↓",
+        "Lineal con taper"
+      ],
+      undulating: [
+        "Ondulante diaria",
+        "Ondulante semanal",
+        "Fuerza / potencia / volumen",
+        "High / Fast / Low",
+        "Flexible por readiness"
+      ]
+    }
+  },
+  endurance: {
+    goals: [
+      "Recuperacion",
+      "Base aerobica",
+      "Capacidad aerobica",
+      "Umbral",
+      "VO2max",
+      "Capacidad anaerobica",
+      "Repeated Sprint Ability",
+      "Competicion / puesta a punto",
+      "Mantenimiento"
+    ],
+    metricOptions: [
+      "tiempo en zona",
+      "ritmo",
+      "potencia",
+      "frecuencia cardiaca",
+      "RPE",
+      "duracion",
+      "distancia",
+      "carga semanal"
+    ],
+    subtypes: {
+      block: [
+        "ATR resistencia",
+        "Bloque aerobico",
+        "Bloque umbral",
+        "Bloque VO2max",
+        "Bloque anaerobico",
+        "Bloque competitivo"
+      ],
+      flexible: ["Flexible por respuesta diaria", "Personalizada por disponibilidad", "Personalizada por competicion"],
+      linear: [
+        "Base -> especifico -> taper",
+        "Volumen progresivo",
+        "Intensidad progresiva",
+        "Lineal inversa",
+        "Base -> tempo -> umbral -> VO2max -> taper"
+      ],
+      undulating: ["Piramidal", "Polarizada", "Threshold", "HIIT-focused", "Mixta"]
+    }
+  },
+  mixed: {
+    goals: [
+      "Concurrente fuerza + resistencia",
+      "Rendimiento mixto",
+      "Salud general",
+      "Mantenimiento",
+      "Readaptacion"
+    ],
+    metricOptions: [
+      "RPE",
+      "RIR",
+      "tiempo en zona",
+      "frecuencia cardiaca",
+      "volumen-carga",
+      "carga semanal",
+      "duracion"
+    ],
+    subtypes: {
+      block: ["Bloques alternos fuerza/resistencia", "Bloque fuerza -> bloque resistencia", "Bloque resistencia -> bloque fuerza"],
+      flexible: ["Personalizada por prioridad semanal", "Flexible por readiness", "Flexible por calendario"],
+      linear: ["Base general -> especifico -> taper", "Progresion por prioridad principal", "Lineal con descarga"],
+      undulating: ["Ondulante por dias", "Fuerza alta / resistencia baja", "Resistencia alta / fuerza baja", "Mixta"]
+    }
+  }
+};
+
+const defaultMetricSelection: Record<TrainingSystem, string[]> = {
+  endurance: ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
+  mixed: ["RPE", "RIR", "tiempo en zona", "volumen-carga"],
+  strength: ["%1RM", "RIR", "velocidad", "volumen-carga"]
 };
 
 function PlanningView() {
-  const today = new Date();
-  const defaultCompetitionDate = new Date(today);
-  defaultCompetitionDate.setDate(today.getDate() + 84);
-  const [competitionDate, setCompetitionDate] = useState(
-    defaultCompetitionDate.toISOString().slice(0, 10)
-  );
-  const [focus, setFocus] = useState<PlanningFocus>("Mixto");
-  const [sport, setSport] = useState("Fuerza");
-  const [priority, setPriority] = useState("A");
+  const [trainingSystem, setTrainingSystem] = useState<TrainingSystem>("strength");
+  const [goal, setGoal] = useState(planningConfig.strength.goals[0]);
+  const [periodizationModel, setPeriodizationModel] = useState<PeriodizationModel>("linear");
+  const [distributionSubtype, setDistributionSubtype] = useState(planningConfig.strength.subtypes.linear?.[0] ?? "");
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(defaultMetricSelection.strength);
+  const [targetVolume, setTargetVolume] = useState("Medio");
+  const [targetIntensity, setTargetIntensity] = useState("Media-alta");
+  const [targetFatigue, setTargetFatigue] = useState("Controlada");
+  const [notes, setNotes] = useState("");
 
-  const weeksRemaining = calculateWeeksRemaining(competitionDate);
-  const planningModel = choosePlanningModel(weeksRemaining, focus, priority, sport);
-  const mesocycles = buildMesocycles(weeksRemaining, focus, sport);
+  const currentConfig = planningConfig[trainingSystem];
+  const subtypeOptions = currentConfig.subtypes[periodizationModel] ?? [];
+  const selectedPlan = {
+    distributionSubtype,
+    goal,
+    mainLoadMetric: selectedMetrics,
+    notes,
+    periodizationModel,
+    targetFatigue,
+    targetIntensity,
+    targetVolume,
+    trainingSystem
+  };
+
+  function handleSystemChange(system: TrainingSystem) {
+    const nextConfig = planningConfig[system];
+    const nextSubtype = nextConfig.subtypes[periodizationModel]?.[0] ?? nextConfig.subtypes.linear?.[0] ?? "";
+    setTrainingSystem(system);
+    setGoal(nextConfig.goals[0]);
+    setDistributionSubtype(nextSubtype);
+    setSelectedMetrics(defaultMetricSelection[system]);
+  }
+
+  function handleModelChange(model: PeriodizationModel) {
+    const nextSubtype = currentConfig.subtypes[model]?.[0] ?? "";
+    setPeriodizationModel(model);
+    setDistributionSubtype(nextSubtype);
+  }
+
+  function toggleMetric(metric: string) {
+    setSelectedMetrics((current) =>
+      current.includes(metric)
+        ? current.filter((item) => item !== metric)
+        : [...current, metric]
+    );
+  }
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+    <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Competicion objetivo</h2>
+        <h2 className="text-lg font-semibold text-ink">Estructura de planificacion</h2>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-            Nombre de la competicion
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              defaultValue="Competicion principal"
-              type="text"
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Fecha
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setCompetitionDate(event.target.value)}
-              type="date"
-              value={competitionDate}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Deporte
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setSport(event.target.value)}
-              value={sport}
-            >
-              {sports.map((sportOption) => (
-                <option key={sportOption}>{sportOption}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Objetivo del ciclo
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setFocus(event.target.value as PlanningFocus)}
-              value={focus}
-            >
-              {(["Mixto", "Fuerza", "Resistencia", "Salud"] as PlanningFocus[]).map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Prioridad
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setPriority(event.target.value)}
-              value={priority}
-            >
-              <option>A</option>
-              <option>B</option>
-              <option>C</option>
-            </select>
-          </label>
-        </div>
+        <PlanningStep step="1" title="Sistema principal">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(Object.keys(trainingSystemLabels) as TrainingSystem[]).map((system) => (
+              <button
+                className={`rounded-md border p-4 text-left transition ${
+                  trainingSystem === system ? "border-moss bg-mint" : "border-line bg-panel/35"
+                }`}
+                key={system}
+                onClick={() => handleSystemChange(system)}
+                type="button"
+              >
+                <span className="font-semibold text-ink">{trainingSystemLabels[system]}</span>
+              </button>
+            ))}
+          </div>
+        </PlanningStep>
+
+        <PlanningStep step="2" title="Objetivo">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => setGoal(event.target.value)}
+            value={goal}
+          >
+            {currentConfig.goals.map((goalOption) => (
+              <option key={goalOption}>{goalOption}</option>
+            ))}
+          </select>
+        </PlanningStep>
+
+        <PlanningStep step="3" title="Modelo de periodizacion">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(Object.keys(periodizationLabels) as PeriodizationModel[]).map((model) => (
+              <button
+                className={`rounded-md border p-3 text-left text-sm font-semibold transition ${
+                  periodizationModel === model ? "border-steel bg-sky text-ink" : "border-line bg-panel/35 text-ink/70"
+                }`}
+                key={model}
+                onClick={() => handleModelChange(model)}
+                type="button"
+              >
+                {periodizationLabels[model]}
+              </button>
+            ))}
+          </div>
+        </PlanningStep>
+
+        <PlanningStep step="4" title="Subtipo / distribucion">
+          <select
+            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => setDistributionSubtype(event.target.value)}
+            value={distributionSubtype}
+          >
+            {subtypeOptions.map((subtype) => (
+              <option key={subtype}>{subtype}</option>
+            ))}
+          </select>
+          {trainingSystem === "endurance" && periodizationModel === "undulating" && (
+            <p className="mt-2 rounded-md bg-wheat px-3 py-2 text-xs font-medium text-ink/70">
+              Piramidal y polarizada son distribuciones de intensidad, no modelos puros.
+            </p>
+          )}
+        </PlanningStep>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <PlanningStep step="5" title="Metricas de control">
+          <div className="flex flex-wrap gap-2">
+            {currentConfig.metricOptions.map((metric) => (
+              <button
+                className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                  selectedMetrics.includes(metric)
+                    ? "border-moss bg-mint text-moss"
+                    : "border-line bg-panel/35 text-ink/65"
+                }`}
+                key={metric}
+                onClick={() => toggleMetric(metric)}
+                type="button"
+              >
+                {metric}
+              </button>
+            ))}
+          </div>
+        </PlanningStep>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md border border-line bg-mint p-4">
-            <p className="text-sm font-semibold text-moss">Semanas restantes</p>
-            <p className="mt-2 text-3xl font-semibold text-ink">{weeksRemaining}</p>
-          </div>
-          <div className="rounded-md border border-line bg-sky p-4 sm:col-span-2">
-            <p className="text-sm font-semibold text-steel">Modelo recomendado</p>
-            <p className="mt-2 text-xl font-semibold text-ink">{planningModel.name}</p>
-            <p className="mt-2 text-sm text-ink/65">{planningModel.reason}</p>
-          </div>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Volumen objetivo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setTargetVolume(event.target.value)}
+              value={targetVolume}
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Intensidad objetivo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setTargetIntensity(event.target.value)}
+              value={targetIntensity}
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Fatiga objetivo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setTargetFatigue(event.target.value)}
+              value={targetFatigue}
+            />
+          </label>
         </div>
-      </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Mesociclos propuestos</h2>
-            <p className="mt-1 text-sm text-ink/55">{sport} - prioridad {priority}</p>
-          </div>
-          <span className="rounded-md bg-wheat px-3 py-1 text-xs font-medium text-ink/70">
-            Ajustable
-          </span>
-        </div>
+        <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+          Notas
+          <textarea
+            className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Contexto del deportista, competiciones, restricciones, preferencias..."
+            value={notes}
+          />
+        </label>
 
-        <div className="mt-5 space-y-3">
-          {mesocycles.map((mesocycle, index) => (
-            <article className="rounded-md border border-line bg-panel/35 p-4" key={`${mesocycle.block}-${index}`}>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">
-                    Bloque {index + 1} - {mesocycle.weeks} semanas
-                  </p>
-                  <h3 className="mt-1 font-semibold text-ink">{mesocycle.block}</h3>
-                  <p className="mt-1 text-sm text-ink/60">{mesocycle.focus}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm lg:w-72">
-                  <span className="rounded-md bg-white px-3 py-2 text-ink/70">
-                    Carga: {mesocycle.load}
-                  </span>
-                  <span className="rounded-md bg-white px-3 py-2 text-ink/70">
-                    Intensidad: {mesocycle.intensity}
-                  </span>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
-        <h2 className="text-lg font-semibold text-ink">Criterios PubMed usados</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <p className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
-            La estructura se organiza en macro-ciclo, mesociclos y microciclos.
-          </p>
-          <p className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
-            Se reserva una fase final de puesta a punto antes de competiciones A.
-          </p>
-          <p className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
-            Si hay pocas semanas, se prioriza especificidad y reduccion de fatiga.
-          </p>
-        </div>
+        <PlanningSummary selectedPlan={selectedPlan} />
       </section>
     </div>
   );
 }
 
-function calculateWeeksRemaining(dateValue: string) {
-  const targetDate = new Date(`${dateValue}T12:00:00`);
-  const today = new Date();
-  const diff = targetDate.getTime() - today.getTime();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24 * 7)));
+function PlanningStep({
+  children,
+  step,
+  title
+}: {
+  children: React.ReactNode;
+  step: string;
+  title: string;
+}) {
+  return (
+    <div className="mt-5 first:mt-0">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid size-7 place-items-center rounded-md bg-ink text-xs font-semibold text-white">{step}</span>
+        <h3 className="font-semibold text-ink">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
 }
 
-function choosePlanningModel(weeks: number, focus: PlanningFocus, priority: string, sport: string) {
-  if (focus === "Salud" && sport === "Fuerza") {
-    return {
-      name: "Fuerza saludable progresiva",
-      reason: "Secuencia de hipertrofia, fuerza maxima y fuerza explosiva para crear base, mejorar capacidad neural y transferir a potencia."
-    };
-  }
-
-  if (weeks <= 4) {
-    return {
-      name: "Puesta a punto corta",
-      reason: "Quedan pocas semanas: mantener estimulos clave y reducir fatiga."
-    };
-  }
-
-  if (weeks <= 8) {
-    return {
-      name: priority === "A" ? "Concentrada con taper" : "Especifica corta",
-      reason: "El margen permite un bloque especifico y una descarga final."
-    };
-  }
-
-  if (weeks <= 16) {
-    return {
-      name: focus === "Fuerza" ? "Lineal ondulante" : "Mixta progresiva",
-      reason: "Hay tiempo para acumular, intensificar y llegar a una fase especifica."
-    };
-  }
-
-  return {
-    name: "Periodizacion por bloques",
-    reason: "Con muchas semanas, separar capacidades ayuda a concentrar estimulos."
+function PlanningSummary({
+  selectedPlan
+}: {
+  selectedPlan: {
+    distributionSubtype: string;
+    goal: string;
+    mainLoadMetric: string[];
+    notes: string;
+    periodizationModel: PeriodizationModel;
+    targetFatigue: string;
+    targetIntensity: string;
+    targetVolume: string;
+    trainingSystem: TrainingSystem;
   };
-}
-
-function buildMesocycles(weeks: number, focus: PlanningFocus, sport: string): MesocyclePlan[] {
-  if (focus === "Salud" && sport === "Fuerza") {
-    return buildHealthStrengthMesocycles(weeks);
-  }
-
-  if (weeks <= 4) {
-    return [
-      {
-        block: "Especificidad competitiva",
-        focus: "Mantener intensidad y practicar condiciones de competicion.",
-        intensity: "Alta",
-        load: "Media",
-        weeks: Math.max(1, weeks - 1)
-      },
-      {
-        block: "Taper",
-        focus: "Reducir volumen y mantener sensaciones.",
-        intensity: "Media-alta",
-        load: "Baja",
-        weeks: 1
-      }
-    ];
-  }
-
-  if (weeks <= 8) {
-    return [
-      {
-        block: "Base especifica",
-        focus: focus === "Resistencia" ? "Volumen aerobico y tecnica eficiente." : "Fuerza base y tolerancia al volumen.",
-        intensity: "Media",
-        load: "Alta",
-        weeks: Math.max(2, weeks - 4)
-      },
-      {
-        block: "Intensificacion",
-        focus: "Subir intensidad, preservar recuperacion y controlar monotonia.",
-        intensity: "Alta",
-        load: "Media-alta",
-        weeks: 2
-      },
-      {
-        block: "Taper",
-        focus: "Llegar fresco sin perder chispa.",
-        intensity: "Media-alta",
-        load: "Baja",
-        weeks: 2
-      }
-    ];
-  }
-
-  if (weeks <= 16) {
-    const accumulationWeeks = Math.round(weeks * 0.35);
-    const intensificationWeeks = Math.round(weeks * 0.3);
-    const realizationWeeks = Math.max(2, Math.round(weeks * 0.2));
-
-    return [
-      {
-        block: "Acumulacion",
-        focus: focus === "Fuerza" ? "Volumen tecnico y fuerza general." : "Volumen base y capacidad de trabajo.",
-        intensity: "Media",
-        load: "Alta",
-        weeks: accumulationWeeks
-      },
-      {
-        block: "Intensificacion",
-        focus: "Mayor intensidad, menos volumen y control de fatiga.",
-        intensity: "Alta",
-        load: "Media-alta",
-        weeks: intensificationWeeks
-      },
-      {
-        block: "Realizacion especifica",
-        focus: "Sesiones parecidas a la demanda competitiva.",
-        intensity: "Alta",
-        load: "Media",
-        weeks: realizationWeeks
-      },
-      {
-        block: "Taper",
-        focus: "Descargar volumen y mantener intensidad seleccionada.",
-        intensity: "Media-alta",
-        load: "Baja",
-        weeks: Math.max(1, weeks - (accumulationWeeks + intensificationWeeks + realizationWeeks))
-      }
-    ];
-  }
-
-  const blockWeeks = Math.round(weeks * 0.25);
-
-  return [
-    {
-      block: "Preparacion general",
-      focus: "Base fisica, tecnica y tolerancia progresiva.",
-      intensity: "Baja-media",
-      load: "Media-alta",
-      weeks: blockWeeks
-    },
-    {
-      block: "Acumulacion",
-      focus: "Volumen dirigido a las capacidades principales.",
-      intensity: "Media",
-      load: "Alta",
-      weeks: blockWeeks
-    },
-    {
-      block: "Transformacion",
-      focus: "Convertir la base en rendimiento especifico.",
-      intensity: "Alta",
-      load: "Media-alta",
-      weeks: blockWeeks
-    },
-    {
-      block: "Realizacion + taper",
-      focus: "Afinar, competir y reducir fatiga acumulada.",
-      intensity: "Alta seleccionada",
-      load: "Baja-media",
-      weeks: Math.max(1, weeks - blockWeeks * 3)
-    }
-  ];
-}
-
-function buildHealthStrengthMesocycles(weeks: number): MesocyclePlan[] {
-  if (weeks <= 4) {
-    return [
-      {
-        block: "Hipertrofia",
-        focus: "Base estructural, tecnica y tolerancia al volumen.",
-        intensity: "Media",
-        load: "Media-alta",
-        weeks: Math.max(1, weeks - 2)
-      },
-      {
-        block: "Fuerza maxima",
-        focus: "Subir carga con bajo volumen y buena recuperacion.",
-        intensity: "Alta",
-        load: "Media",
-        weeks: 1
-      },
-      {
-        block: "Fuerza explosiva",
-        focus: "Movimientos rapidos, baja fatiga y transferencia funcional.",
-        intensity: "Media-alta",
-        load: "Baja",
-        weeks: 1
-      }
-    ];
-  }
-
-  const hypertrophyWeeks = Math.max(2, Math.round(weeks * 0.45));
-  const maxStrengthWeeks = Math.max(2, Math.round(weeks * 0.35));
-  const explosiveWeeks = Math.max(1, weeks - hypertrophyWeeks - maxStrengthWeeks);
-
-  return [
-    {
-      block: "Hipertrofia",
-      focus: "Aumentar tolerancia al volumen, masa funcional y control tecnico.",
-      intensity: "Media",
-      load: "Alta",
-      weeks: hypertrophyWeeks
-    },
-    {
-      block: "Fuerza maxima",
-      focus: "Priorizar cargas altas, descanso amplio y baja perdida de velocidad.",
-      intensity: "Alta",
-      load: "Media",
-      weeks: maxStrengthWeeks
-    },
-    {
-      block: "Fuerza explosiva",
-      focus: "Convertir fuerza en potencia con volumen bajo y ejecucion rapida.",
-      intensity: "Media-alta",
-      load: "Baja-media",
-      weeks: explosiveWeeks
-    }
-  ];
+}) {
+  return (
+    <section className="mt-5 rounded-md border border-line bg-ink p-4 text-white">
+      <h3 className="font-semibold">Resumen final</h3>
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <p className="rounded-md bg-white/10 px-3 py-2">Sistema: {trainingSystemLabels[selectedPlan.trainingSystem]}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Objetivo: {selectedPlan.goal}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Periodizacion: {periodizationLabels[selectedPlan.periodizationModel]}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Subtipo: {selectedPlan.distributionSubtype}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
+          Metricas principales: {selectedPlan.mainLoadMetric.join(", ") || "Sin seleccionar"}
+        </p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Volumen: {selectedPlan.targetVolume}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Intensidad: {selectedPlan.targetIntensity}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Fatiga: {selectedPlan.targetFatigue}</p>
+        {selectedPlan.notes && (
+          <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Notas: {selectedPlan.notes}</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 type ProgressionPattern = {
