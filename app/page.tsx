@@ -257,23 +257,18 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(64,86,214,0.18),transparent_28rem),linear-gradient(135deg,#f6faff_0%,#d9f0ff_52%,#d8fff0_100%)]">
       <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
-        <div className="rounded-md border border-white/70 bg-white/65 p-5 shadow-soft backdrop-blur sm:p-8">
+        <div className="flex min-h-[42vh] flex-col items-center justify-center rounded-md border border-white/70 bg-white/45 p-6 shadow-soft backdrop-blur sm:p-10 lg:min-h-[58vh]">
           <Image
             alt="Rafa Methods"
-            className="h-auto w-full max-w-md"
-            height={768}
-            src="/rafa-methods-logo.png"
+            className="h-auto w-full max-w-lg"
+            height={333}
+            src="/rafa-methods-logo-clean.png"
             priority
-            width={1024}
+            width={1161}
           />
-          <div className="mt-8 max-w-xl">
-            <p className="text-sm font-semibold uppercase tracking-wide text-moss">
-              Train. Measure. Transform.
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold leading-tight text-ink sm:text-5xl">
-              Control de entrenamiento claro para entrenador y deportista.
-            </h1>
-          </div>
+          <p className="mt-6 text-center text-sm font-semibold uppercase tracking-[0.28em] text-ink/70 sm:text-base">
+            Train with intelligence
+          </p>
         </div>
 
         <section className="rounded-md border border-white/70 bg-white p-5 shadow-soft sm:p-6">
