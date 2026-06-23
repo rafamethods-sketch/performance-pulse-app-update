@@ -15,7 +15,6 @@ import { useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
-import { StatCard } from "@/components/stat-card";
 import {
   acwrRanges,
   calculateACWR,
@@ -42,7 +41,6 @@ import {
   athleteAdherence,
   coachClients,
   coachCompletionMessage,
-  coachStats,
   calendarSessions,
   cardioModes,
   cardioZones,
@@ -476,33 +474,45 @@ function CoachClientsView({
 
   return (
     <>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {coachStats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-ink/55">Clientes registrados</p>
+            <p className="mt-2 text-4xl font-semibold text-steel">{coachClients.length}</p>
+          </div>
+          <button
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-gradient-to-br from-steel to-moss px-4 text-sm font-semibold text-white transition hover:opacity-95"
+            type="button"
+          >
+            <Plus size={18} />
+            Anadir cliente
+          </button>
+        </div>
+      </section>
 
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Clientes registrados</h2>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               aria-label="Buscar cliente"
-              className="grid size-10 place-items-center rounded-md border border-line text-ink/70"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/70"
               title="Buscar cliente"
               type="button"
             >
               <Search size={18} />
+              Buscar
             </button>
             <button
               aria-label="Filtros"
-              className="grid size-10 place-items-center rounded-md border border-line text-ink/70"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/70"
               title="Filtros"
               type="button"
             >
               <Settings2 size={18} />
+              Filtrar
             </button>
           </div>
         </div>
