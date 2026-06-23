@@ -447,6 +447,86 @@ function CoachClientsView({
   onOpenDetails: (clientId: string) => void;
   panel: TrainerClientPanel;
 }) {
+  const [clients, setClients] = useState<CoachClient[]>(coachClients);
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [goalFilter, setGoalFilter] = useState<"all" | "Salud" | "Rendimiento">("all");
+  const [newClientDraft, setNewClientDraft] = useState({
+    age: 30,
+    goalType: "Rendimiento" as CoachClient["goalType"],
+    modality: "General",
+    name: ""
+  });
+  const healthClients = clients.filter((listedClient) => listedClient.goalType === "Salud").length;
+  const performanceClients = clients.filter((listedClient) => listedClient.goalType === "Rendimiento").length;
+  const healthPercent = clients.length > 0 ? Math.round((healthClients / clients.length) * 100) : 0;
+  const performancePercent = clients.length > 0 ? Math.round((performanceClients / clients.length) * 100) : 0;
+  const filteredClients = clients.filter((listedClient) => {
+    const matchesGoal = goalFilter === "all" || listedClient.goalType === goalFilter;
+    const query = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      query.length === 0 ||
+      [listedClient.name, listedClient.modality, listedClient.status, listedClient.nextEvent]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    return matchesGoal && matchesSearch;
+  });
+
+  function addClient() {
+    const name = newClientDraft.name.trim();
+    if (!name) return;
+
+    const id = name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || `cliente-${Date.now()}`;
+
+    const createdClient: CoachClient = {
+      ...coachClients[0],
+      activeBlocks: ["Ficha inicial pendiente"],
+      age: newClientDraft.age,
+      assessments: [],
+      availability: "Pendiente",
+      chronicLoad: 0,
+      coachNotes: "Nuevo cliente pendiente de completar ficha inicial.",
+      dailyLoads: [0, 0, 0, 0, 0, 0, 0],
+      goalType: newClientDraft.goalType,
+      history: "Pendiente de completar.",
+      hooper: { sleep: 0, fatigue: 0, stress: 0, soreness: 0, mood: 0 },
+      id,
+      injuries: "Pendiente de completar.",
+      lastActivity: "Sin sesiones registradas",
+      level: "Pendiente",
+      loadMetric: "Sin datos de carga",
+      metrics: ["Sin metricas registradas"],
+      modality: newClientDraft.modality,
+      name,
+      nextEvent: "Sin evento definido",
+      planning: {
+        currentBlock: "Sin planificacion",
+        currentWeek: "Pendiente",
+        distribution: "Pendiente",
+        nextSessions: [],
+        primaryGoal: "Pendiente",
+        secondaryGoal: "Pendiente"
+      },
+      readiness: 0,
+      recentSessions: [],
+      sessionRecords: [],
+      sport: newClientDraft.modality,
+      status: "Ficha pendiente"
+    };
+
+    setClients((currentClients) => [createdClient, ...currentClients]);
+    setNewClientDraft({ age: 30, goalType: "Rendimiento", modality: "General", name: "" });
+    setShowNewClientForm(false);
+  }
+
   if (panel === "dashboard") {
     if (!client) return <SelectClientFirst onGoClients={onBack} />;
 
@@ -475,19 +555,76 @@ function CoachClientsView({
   return (
     <>
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-ink/55">Clientes registrados</p>
-            <p className="mt-2 text-4xl font-semibold text-steel">{coachClients.length}</p>
+        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+          <div className="grid gap-3 md:grid-cols-3">
+            <ClientStatTile label="Clientes registrados" value={clients.length} />
+            <ClientStatTile label="Salud" percent={healthPercent} value={healthClients} />
+            <ClientStatTile label="Rendimiento" percent={performancePercent} value={performanceClients} />
           </div>
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-gradient-to-br from-steel to-moss px-4 text-sm font-semibold text-white transition hover:opacity-95"
+            onClick={() => setShowNewClientForm((current) => !current)}
             type="button"
           >
             <Plus size={18} />
             Anadir cliente
           </button>
         </div>
+
+        {showNewClientForm && (
+          <div className="mt-5 rounded-md border border-line bg-panel/45 p-4">
+            <h3 className="font-semibold text-ink">Nuevo cliente</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                Nombre
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, name: event.target.value }))}
+                  placeholder="Nombre completo"
+                  value={newClientDraft.name}
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Edad
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  min={1}
+                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, age: Number(event.target.value) }))}
+                  type="number"
+                  value={newClientDraft.age}
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Objetivo
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, goalType: event.target.value as CoachClient["goalType"] }))}
+                  value={newClientDraft.goalType}
+                >
+                  <option>Rendimiento</option>
+                  <option>Salud</option>
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                Modalidad deportiva
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, modality: event.target.value }))}
+                  placeholder="Ej. Running, fuerza, salud..."
+                  value={newClientDraft.modality}
+                />
+              </label>
+              <div className="flex items-end gap-2 md:col-span-2">
+                <button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={addClient} type="button">
+                  Guardar cliente
+                </button>
+                <button className="h-11 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink/70" onClick={() => setShowNewClientForm(false)} type="button">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -499,6 +636,7 @@ function CoachClientsView({
             <button
               aria-label="Buscar cliente"
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/70"
+              onClick={() => setShowSearch((current) => !current)}
               title="Buscar cliente"
               type="button"
             >
@@ -508,6 +646,7 @@ function CoachClientsView({
             <button
               aria-label="Filtros"
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/70"
+              onClick={() => setShowFilters((current) => !current)}
               title="Filtros"
               type="button"
             >
@@ -517,47 +656,85 @@ function CoachClientsView({
           </div>
         </div>
 
+        {(showSearch || showFilters) && (
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            {showSearch && (
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Buscar por nombre, deporte, estado o evento
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Ej. Lucia, running, carga alta..."
+                  value={searchTerm}
+                />
+              </label>
+            )}
+            {showFilters && (
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "Todos", value: "all" },
+                  { label: "Salud", value: "Salud" },
+                  { label: "Rendimiento", value: "Rendimiento" }
+                ].map((filter) => (
+                  <button
+                    className={`h-11 rounded-md px-4 text-sm font-semibold ${
+                      goalFilter === filter.value
+                        ? "bg-ink text-white"
+                        : "border border-line bg-white text-ink/70"
+                    }`}
+                    key={filter.value}
+                    onClick={() => setGoalFilter(filter.value as typeof goalFilter)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-5 space-y-3">
-          {coachClients.map((client) => (
+          {filteredClients.map((listedClient) => (
             <article
               className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1fr_auto_1fr_auto] lg:items-center"
-              key={client.id}
+              key={listedClient.id}
             >
               <div>
-                <h3 className="font-semibold text-ink">{client.name}</h3>
+                <h3 className="font-semibold text-ink">{listedClient.name}</h3>
                 <p className="mt-1 text-sm text-ink/60">
-                  {client.age} anos - {client.modality ?? client.sport}
+                  {listedClient.age} anos - {listedClient.modality ?? listedClient.sport}
                 </p>
                 <p className="mt-1 text-xs font-medium text-ink/50">
-                  Ultima actividad: {client.lastActivity}
+                  Ultima actividad: {listedClient.lastActivity}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="rounded-md bg-white px-3 py-1 text-ink/70">
-                  {client.goalType}
+                  {listedClient.goalType}
                 </span>
                 <span className="rounded-md bg-wheat px-3 py-1 text-ink/70">
-                  {client.status}
+                  {listedClient.status}
                 </span>
               </div>
               <div className="text-sm">
-                <p className="font-medium text-moss">{client.loadMetric}</p>
-                <p className="mt-1 text-ink/55">Evento: {client.nextEvent}</p>
+                <p className="font-medium text-moss">{listedClient.loadMetric}</p>
+                <p className="mt-1 text-ink/55">Evento: {listedClient.nextEvent}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{client.readiness}%</span>
+                <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{listedClient.readiness}%</span>
                 <button
                   className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                  onClick={() => onOpenDashboard(client.id)}
+                  onClick={() => onOpenDashboard(listedClient.id)}
                   type="button"
                 >
                   Ver dashboard
                 </button>
                 <button
-                  aria-label={`Detalles de ${client.name}`}
+                  aria-label={`Detalles de ${listedClient.name}`}
                   className="grid size-9 place-items-center rounded-md border border-line bg-white text-ink/70"
-                  onClick={() => onOpenDetails(client.id)}
-                  title={`Detalles de ${client.name}`}
+                  onClick={() => onOpenDetails(listedClient.id)}
+                  title={`Detalles de ${listedClient.name}`}
                   type="button"
                 >
                   <ChevronRight size={17} />
@@ -565,10 +742,31 @@ function CoachClientsView({
               </div>
             </article>
           ))}
+          {filteredClients.length === 0 && (
+            <div className="rounded-md border border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
+              No hay clientes que coincidan con la busqueda o el filtro.
+            </div>
+          )}
         </div>
       </section>
 
     </>
+  );
+}
+
+function ClientStatTile({ label, percent, value }: { label: string; percent?: number; value: number }) {
+  return (
+    <article className="rounded-md border border-line bg-panel/35 p-4">
+      <p className="text-sm font-semibold text-ink/55">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-4xl font-semibold text-steel">{value}</p>
+        {percent !== undefined && (
+          <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">
+            {percent}%
+          </span>
+        )}
+      </div>
+    </article>
   );
 }
 
