@@ -114,7 +114,7 @@ export default function ClientsPage() {
 
   const selectedClient =
     coachClients.find((client) => client.id === selectedClientId) ?? null;
-  const needsActiveClient = role === "coach" && ["calendar", "training", "planning", "messages", "assessments", "weeklyLoad"].includes(activeSheet);
+  const needsActiveClient = role === "coach" && ["training", "planning", "messages", "assessments", "weeklyLoad"].includes(activeSheet);
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
@@ -168,7 +168,7 @@ export default function ClientsPage() {
 
           </div>
 
-          {role === "coach" && activeSheet !== "clients" && selectedClient ? (
+          {role === "coach" && !["clients", "calendar"].includes(activeSheet) && selectedClient ? (
             <ActiveClientBar
               client={selectedClient}
               onGoToSheet={handleSheetChange}
@@ -207,7 +207,7 @@ export default function ClientsPage() {
           ) : activeSheet === "assessments" ? (
             <AssessmentsView client={role === "coach" ? selectedClient : null} />
           ) : activeSheet === "calendar" ? (
-            <CalendarView client={selectedClient} />
+            <CalendarView client={role === "coach" ? null : selectedClient} />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
@@ -2768,7 +2768,12 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-ink">Calendario de sesiones</h2>
+          <h2 className="text-lg font-semibold text-ink">
+            {client ? "Calendario del cliente" : "Mapa de sesiones planificadas"}
+          </h2>
+          <p className="mt-1 text-sm text-ink/55">
+            {client ? "Sesiones, valoraciones y eventos del deportista seleccionado." : "Vista global de sesiones, tests y eventos de todos los deportistas."}
+          </p>
         </div>
         <div className="grid grid-cols-3 rounded-md border border-line bg-panel/45 p-1">
           {(["Dia", "Semana", "Mes"] as CalendarViewMode[]).map((mode) => (
