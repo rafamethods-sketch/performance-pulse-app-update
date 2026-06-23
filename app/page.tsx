@@ -253,7 +253,7 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 
   return (
     <main className="min-h-screen bg-panel">
-      <section className="mx-auto grid min-h-screen max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+      <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
           <div className="flex items-center gap-3">
             <div className="grid size-11 place-items-center rounded-md bg-ink text-white">
@@ -265,12 +265,12 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
             </div>
           </div>
 
-          <h1 className="mt-10 max-w-2xl text-4xl font-semibold leading-tight text-ink sm:text-5xl">
+          <h1 className="mt-8 max-w-2xl text-3xl font-semibold leading-tight text-ink sm:mt-10 sm:text-5xl">
             Entrenamiento, carga y recuperacion en una sola app
           </h1>
         </div>
 
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
           <h2 className="text-xl font-semibold text-ink">Acceder</h2>
           <p className="mt-1 text-sm text-ink/55">Usa tu correo Gmail o entra en modo demo.</p>
 
@@ -294,7 +294,7 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
             <div className="h-px flex-1 bg-line" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <button
               className="rounded-md bg-ink px-4 py-4 text-left text-white transition hover:bg-ink/90"
               onClick={() => onLogin("coach")}
@@ -3306,8 +3306,8 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
   const activeQuantifiers = coachSessionQuantifiers[sessionType];
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[1.1fr_0.9fr] xl:gap-6">
+      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Planificar sesion</h2>
@@ -3479,7 +3479,7 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
         </button>
       </section>
 
-      <aside className="rounded-md border border-line bg-ink p-5 text-white shadow-soft">
+      <aside className="rounded-md border border-white/30 bg-gradient-to-br from-steel to-moss p-4 text-white shadow-soft sm:p-5">
         <h2 className="text-lg font-semibold">Cuantificacion</h2>
         <div className="mt-5 grid gap-3">
           <div className="rounded-md bg-white/10 p-4">
@@ -3574,8 +3574,8 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
   }
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[0.9fr_1.1fr] xl:gap-6">
+      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-ink">Test de wellness</h2>
@@ -3594,7 +3594,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 <p className="font-medium text-ink">{question.label}</p>
                 <span className="text-xs text-ink/55">{question.helper}</span>
               </div>
-              <div className="mt-3 grid grid-cols-5 gap-2">
+              <div className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <label
                     className="grid h-10 place-items-center rounded-md border border-line bg-white text-sm font-medium text-ink/70 has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white"
@@ -3619,9 +3619,9 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
         </button>
       </section>
 
-      <div className="space-y-6">
+      <div className="space-y-5 xl:space-y-6">
         <AdherenceCard />
-        <section className={`rounded-md border border-line p-5 shadow-soft ${hooperDone ? "bg-white" : "bg-white/60"}`}>
+        <section className={`rounded-md border border-line p-4 shadow-soft sm:p-5 ${hooperDone ? "bg-white" : "bg-white/60"}`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-ink">Sesion planificada</h2>
@@ -3650,7 +3650,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                   </span>
                 </div>
               </div>
-              <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+              <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 sm:p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <h4 className="font-semibold text-ink">Ajusta lo realizado antes de registrar</h4>
                   <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
@@ -3735,7 +3735,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 setsByPattern={performedSetsByPattern}
               />
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <button
                   className="flex h-11 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-white"
                   onClick={() => {
@@ -4311,7 +4311,7 @@ function AthleteClientForm({
 
         <div className="mt-6">
           <p className="text-sm font-medium text-ink/75">Objetivo principal</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
             <button
               className={`rounded-md border p-4 text-left transition ${
                 goalType === "health"
@@ -4346,7 +4346,7 @@ function AthleteClientForm({
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-3 sm:col-span-2">
             <p className="text-sm font-medium text-ink/75">Disponibilidad semanal</p>
-            <div className="grid gap-3 sm:grid-cols-[0.7fr_1.3fr]">
+            <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr]">
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Dias por semana
                 <select
@@ -4385,7 +4385,7 @@ function AthleteClientForm({
 
           <div className="space-y-3 sm:col-span-2">
             <p className="text-sm font-medium text-ink/75">Tipos de sesion habituales</p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {sessionQuantifiers.map((group) => (
                 <label
                   className="flex items-start gap-3 rounded-md border border-line bg-panel/35 p-4 text-sm text-ink/75"
