@@ -2780,30 +2780,6 @@ const calendarMonthNames = [
   "Diciembre"
 ];
 
-const initialGlobalCalendarEvents: GlobalCalendarEvent[] = [
-  {
-    athlete: "Lucia Martin",
-    date: "2026-09-12",
-    id: "lucia-test-fuerza",
-    title: "Test fuerza maxima",
-    type: "Test"
-  },
-  {
-    athlete: "Carlos Vega",
-    date: "2026-10-18",
-    id: "carlos-10k",
-    title: "10K popular",
-    type: "Competicion"
-  },
-  {
-    athlete: "Marta Ruiz",
-    date: "2026-07-15",
-    id: "marta-control-composicion",
-    title: "Control composicion corporal",
-    type: "Control / seguimiento"
-  }
-];
-
 function getCalendarEventTone(type: GlobalCalendarEvent["type"]) {
   switch (type) {
     case "Competicion":
@@ -2819,41 +2795,60 @@ function getCalendarEventTone(type: GlobalCalendarEvent["type"]) {
   }
 }
 
+function inferCalendarEventType(label: string): GlobalCalendarEvent["type"] {
+  const lower = label.toLowerCase();
+  if (lower.includes("compet") || lower.includes("10k") || lower.includes("carrera")) return "Competicion";
+  if (lower.includes("test")) return "Test";
+  if (lower.includes("pico")) return "Pico de forma";
+  return "Control / seguimiento";
+}
+
+function parseDateFromLabel(label: string) {
+  const match = label.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!match) return null;
+
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function buildGlobalCalendarEvents(): GlobalCalendarEvent[] {
+  const nextEvents = coachClients.flatMap((listedClient) => {
+    const date = parseDateFromLabel(listedClient.nextEvent);
+    if (!date) return [];
+
+    const title = listedClient.nextEvent.split(" - ")[0] || listedClient.nextEvent;
+    return [{
+      athlete: listedClient.name,
+      date,
+      id: `${listedClient.id}-next-event`,
+      title,
+      type: inferCalendarEventType(listedClient.nextEvent)
+    }];
+  });
+
+  const assessments = coachClients.flatMap((listedClient) =>
+    listedClient.assessments.map((assessment) => ({
+      athlete: listedClient.name,
+      date: assessment.date,
+      id: `${listedClient.id}-${assessment.date}-${assessment.name}`,
+      title: assessment.name,
+      type: assessment.type === "Fuerza" || assessment.type === "Resistencia" ? "Test" : "Control / seguimiento" as GlobalCalendarEvent["type"]
+    }))
+  );
+
+  return [...nextEvents, ...assessments];
+}
+
 function CalendarView({ client }: { client?: CoachClient | null }) {
   const [viewMode, setViewMode] = useState<CalendarViewMode>("Semana");
   const currentYear = new Date().getFullYear();
   const currentMonthIndex = new Date().getMonth();
-  const [globalEvents, setGlobalEvents] = useState<GlobalCalendarEvent[]>(initialGlobalCalendarEvents);
-  const [newEvent, setNewEvent] = useState({
-    athlete: coachClients[0]?.name ?? "",
-    date: `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-01`,
-    title: "",
-    type: "Competicion" as GlobalCalendarEvent["type"]
-  });
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentMonthIndex);
   const weekDays = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
   const weekDates = ["22", "23", "24", "25", "26", "27", "28"];
   const monthDays = Array.from({ length: 35 }, (_, index) => index + 1);
   const todaySessions = calendarSessions.filter((session) => session.day === "Lunes");
-  const yearMonths = Array.from(
-    { length: 12 - currentMonthIndex },
-    (_, index) => currentMonthIndex + index
-  );
-
-  function addGlobalEvent() {
-    if (!newEvent.title.trim() || !newEvent.date) return;
-
-    setGlobalEvents((events) => [
-      ...events,
-      {
-        athlete: newEvent.athlete,
-        date: newEvent.date,
-        id: `event-${Date.now()}`,
-        title: newEvent.title.trim(),
-        type: newEvent.type
-      }
-    ]);
-    setNewEvent((event) => ({ ...event, title: "" }));
-  }
+  const globalEvents = buildGlobalCalendarEvents();
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2889,57 +2884,10 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           <ClientInfoCard label="Valoracion reciente" value={client.assessments[0]?.name ?? "Sin valorar"} />
         </div>
       ) : (
-        <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-          <h3 className="font-semibold text-ink">Guardar fecha clave</h3>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_1fr_auto] md:items-end">
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Deportista
-              <select
-                className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setNewEvent((current) => ({ ...current, athlete: event.target.value }))}
-                value={newEvent.athlete}
-              >
-                {coachClients.map((listedClient) => (
-                  <option key={listedClient.id}>{listedClient.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Tipo
-              <select
-                className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setNewEvent((current) => ({ ...current, type: event.target.value as GlobalCalendarEvent["type"] }))}
-                value={newEvent.type}
-              >
-                <option>Competicion</option>
-                <option>Test</option>
-                <option>Pico de forma</option>
-                <option>Control / seguimiento</option>
-              </select>
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Fecha
-              <input
-                className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                min={`${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-01`}
-                onChange={(event) => setNewEvent((current) => ({ ...current, date: event.target.value }))}
-                type="date"
-                value={newEvent.date}
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Nombre
-              <input
-                className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setNewEvent((current) => ({ ...current, title: event.target.value }))}
-                placeholder="Ej. Campeonato, test 1RM..."
-                value={newEvent.title}
-              />
-            </label>
-            <button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={addGlobalEvent} type="button">
-              Guardar
-            </button>
-          </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <ClientInfoCard label="Fechas conectadas" value={`${globalEvents.length} eventos`} />
+          <ClientInfoCard label="Competiciones / tests" value={`${globalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
+          <ClientInfoCard label="Origen de datos" value="Ficha inicial y planificacion" />
         </div>
       )}
 
@@ -2959,16 +2907,16 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           ))}
         </div>
       ) : viewMode === "Semana" ? (
-        <div className="mt-6 overflow-x-auto">
-          <div className="grid min-w-[980px] grid-cols-7 overflow-hidden rounded-md border border-line">
+        <div className="mt-6">
+          <div className="grid gap-2 rounded-md border border-line bg-line p-2 md:grid-cols-7">
           {weekDays.map((day, index) => {
             const daySessions = calendarSessions.filter((session) => session.day === day);
 
             return (
-              <div className="min-h-72 border-r border-line bg-panel/35 p-3 last:border-r-0" key={day}>
+              <div className="min-h-44 rounded-md bg-panel/35 p-2 md:min-h-72 md:p-3" key={day}>
                 <div className="border-b border-line pb-3">
-                  <p className="text-sm font-semibold text-ink">{day}</p>
-                  <p className="mt-1 text-2xl font-semibold text-moss">{weekDates[index]}</p>
+                  <p className="text-xs font-semibold text-ink md:text-sm">{day}</p>
+                  <p className="mt-1 text-xl font-semibold text-moss md:text-2xl">{weekDates[index]}</p>
                 </div>
                 <div className="mt-3 space-y-2">
                   {daySessions.length > 0 ? (
@@ -3021,58 +2969,94 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
             </div>
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 xl:grid-cols-2">
-            {yearMonths.map((monthIndex) => {
-              const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
-              const firstDay = new Date(currentYear, monthIndex, 1).getDay();
-              const leadingEmptyDays = firstDay === 0 ? 6 : firstDay - 1;
-              const monthEvents = globalEvents.filter((event) => {
-                const eventDate = new Date(`${event.date}T00:00:00`);
-                return eventDate.getFullYear() === currentYear && eventDate.getMonth() === monthIndex;
-              });
-
-              return (
-                <section className="overflow-hidden rounded-md border border-line bg-panel/25" key={monthIndex}>
-                  <div className="flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-3">
-                    <h3 className="font-semibold text-ink">{calendarMonthNames[monthIndex]} {currentYear}</h3>
-                    <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                      {monthEvents.length} fechas
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-7 bg-ink text-center text-[11px] font-semibold uppercase text-white">
-                    {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
-                      <div className="p-2" key={day}>{day}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7">
-                    {Array.from({ length: leadingEmptyDays }).map((_, index) => (
-                      <div className="min-h-20 border-r border-t border-line bg-white/35 p-1" key={`empty-${index}`} />
-                    ))}
-                    {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => {
-                      const isoDate = `${currentYear}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                      const dayEvents = globalEvents.filter((event) => event.date === isoDate);
-
-                      return (
-                        <div className="min-h-20 border-r border-t border-line bg-white/65 p-1.5" key={day}>
-                          <p className="text-xs font-semibold text-ink/60">{day}</p>
-                          <div className="mt-1 space-y-1">
-                            {dayEvents.map((event) => (
-                              <div className={`rounded border px-1.5 py-1 text-[11px] font-semibold leading-tight ${getCalendarEventTone(event.type)}`} key={event.id}>
-                                <span className="block truncate">{event.title}</span>
-                                <span className="block truncate font-medium opacity-75">{event.athlete}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          <GlobalMonthCalendar
+            currentMonthIndex={currentMonthIndex}
+            currentYear={currentYear}
+            events={globalEvents}
+            selectedMonthIndex={selectedMonthIndex}
+            setSelectedMonthIndex={setSelectedMonthIndex}
+          />
         )
       )}
+    </section>
+  );
+}
+
+function GlobalMonthCalendar({
+  currentMonthIndex,
+  currentYear,
+  events,
+  selectedMonthIndex,
+  setSelectedMonthIndex
+}: {
+  currentMonthIndex: number;
+  currentYear: number;
+  events: GlobalCalendarEvent[];
+  selectedMonthIndex: number;
+  setSelectedMonthIndex: (monthIndex: number) => void;
+}) {
+  const daysInMonth = new Date(currentYear, selectedMonthIndex + 1, 0).getDate();
+  const firstDay = new Date(currentYear, selectedMonthIndex, 1).getDay();
+  const leadingEmptyDays = firstDay === 0 ? 6 : firstDay - 1;
+  const monthEvents = events.filter((event) => {
+    const eventDate = new Date(`${event.date}T00:00:00`);
+    return eventDate.getFullYear() === currentYear && eventDate.getMonth() === selectedMonthIndex;
+  });
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-md border border-line bg-panel/25">
+      <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">{calendarMonthNames[selectedMonthIndex]} {currentYear}</h3>
+          <p className="mt-1 text-sm text-ink/55">{monthEvents.length} fechas conectadas</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 disabled:opacity-40"
+            disabled={selectedMonthIndex <= currentMonthIndex}
+            onClick={() => setSelectedMonthIndex(Math.max(currentMonthIndex, selectedMonthIndex - 1))}
+            type="button"
+          >
+            Anterior
+          </button>
+          <button
+            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            disabled={selectedMonthIndex >= 11}
+            onClick={() => setSelectedMonthIndex(Math.min(11, selectedMonthIndex + 1))}
+            type="button"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 bg-ink text-center text-[11px] font-semibold uppercase text-white">
+        {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
+          <div className="p-2" key={day}>{day}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {Array.from({ length: leadingEmptyDays }).map((_, index) => (
+          <div className="min-h-20 border-r border-t border-line bg-white/35 p-1" key={`empty-${index}`} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => {
+          const isoDate = `${currentYear}-${String(selectedMonthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const dayEvents = events.filter((event) => event.date === isoDate);
+
+          return (
+            <div className="min-h-20 border-r border-t border-line bg-white/65 p-1.5" key={day}>
+              <p className="text-xs font-semibold text-ink/60">{day}</p>
+              <div className="mt-1 space-y-1">
+                {dayEvents.map((event) => (
+                  <div className={`rounded border px-1.5 py-1 text-[11px] font-semibold leading-tight ${getCalendarEventTone(event.type)}`} key={event.id}>
+                    <span className="block truncate">{event.title}</span>
+                    <span className="block truncate font-medium opacity-75">{event.athlete}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
