@@ -28,6 +28,13 @@ import {
   monotonyRanges,
   strainRanges
 } from "@/lib/client-metrics";
+import {
+  getPlanningMethodDescription,
+  getPlanningMethodLabel,
+  planningConfig,
+  type PlanningMethod,
+  type WeeklyDistribution
+} from "@/lib/planning-config";
 import { supabase } from "@/lib/supabase";
 import {
   assessmentCategories,
@@ -209,11 +216,7 @@ export default function ClientsPage() {
             <WeeklyLoadView client={role === "coach" ? selectedClient : null} />
           ) : activeSheet === "planning" ? (
             role === "coach" && selectedClient ? (
-              <PlanningView
-                client={selectedClient}
-                setTrainingAvailability={setTrainingAvailability}
-                trainingAvailability={trainingAvailability}
-              />
+              <PlanningView client={selectedClient} />
             ) : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={selectedClient} /> : <DecisionDashboardView />
@@ -484,6 +487,7 @@ function CoachClientsView({
       <ClientDetailsView
         client={client}
         onBack={() => onOpenDashboard(client.id)}
+        onSave={() => onGoToSheet("planning")}
       />
     );
   }
@@ -915,10 +919,12 @@ function QuickAccess({
 
 function ClientDetailsView({
   client,
-  onBack
+  onBack,
+  onSave
 }: {
   client: CoachClient;
   onBack: () => void;
+  onSave: () => void;
 }) {
   const details = [
     ["Nombre", client.name],
@@ -942,6 +948,9 @@ function ClientDetailsView({
           <h2 className="text-xl font-semibold text-ink">Ficha inicial</h2>
           <p className="mt-1 text-sm text-ink/60">{client.name}</p>
         </div>
+        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onSave} type="button">
+          Guardar ficha inicial
+        </button>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -1038,127 +1047,16 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   );
 }
 
-type PlanningBaseCategory = "strength" | "endurance" | "mixed" | "custom";
-type SportModality =
-  | "General"
-  | "Powerlifting"
-  | "Halterofilia"
-  | "Culturismo / hipertrofia"
-  | "Running"
-  | "Ciclismo"
-  | "Natacion"
-  | "Triatlon"
-  | "Trail"
-  | "Futbol"
-  | "Baloncesto"
-  | "Rugby"
-  | "Balonmano"
-  | "Tenis"
-  | "Padel"
-  | "Badminton"
-  | "Boxeo"
-  | "MMA"
-  | "Judo"
-  | "Kickboxing"
-  | "CrossFit"
-  | "HYROX"
-  | "Readaptacion"
-  | "Otro";
-type PlanningFocus =
-  | "Fuerza"
-  | "Resistencia"
-  | "Mixto - resistencia dominante"
-  | "Mixto - fuerza dominante"
-  | "Mixto - intermitente / equipo"
-  | "Mixto - intermitente / raqueta"
-  | "Mixto - combate"
-  | "Mixto - concurrente"
-  | "Personalizado";
-
-const sportModalities: SportModality[] = [
-  "General",
-  "Powerlifting",
-  "Halterofilia",
-  "Culturismo / hipertrofia",
-  "Running",
-  "Ciclismo",
-  "Natacion",
-  "Triatlon",
-  "Trail",
-  "Futbol",
-  "Baloncesto",
-  "Rugby",
-  "Balonmano",
-  "Tenis",
-  "Padel",
-  "Badminton",
-  "Boxeo",
-  "MMA",
-  "Judo",
-  "Kickboxing",
-  "CrossFit",
-  "HYROX",
-  "Readaptacion",
-  "Otro"
-];
-
-const suggestedFocusBySport: Record<SportModality, PlanningFocus> = {
-  Badminton: "Mixto - intermitente / raqueta",
-  Baloncesto: "Mixto - intermitente / equipo",
-  Balonmano: "Mixto - intermitente / equipo",
-  Boxeo: "Mixto - combate",
-  "Culturismo / hipertrofia": "Fuerza",
-  Ciclismo: "Resistencia",
-  CrossFit: "Mixto - concurrente",
-  Futbol: "Mixto - intermitente / equipo",
-  General: "Personalizado",
-  HYROX: "Mixto - concurrente",
-  Halterofilia: "Fuerza",
-  Judo: "Mixto - combate",
-  Kickboxing: "Mixto - combate",
-  MMA: "Mixto - combate",
-  Natacion: "Resistencia",
-  Otro: "Personalizado",
-  Padel: "Mixto - intermitente / raqueta",
-  Powerlifting: "Fuerza",
-  Readaptacion: "Personalizado",
-  Rugby: "Mixto - intermitente / equipo",
-  Running: "Resistencia",
-  Tenis: "Mixto - intermitente / raqueta",
-  Trail: "Resistencia",
-  Triatlon: "Mixto - resistencia dominante"
-};
-
-const planningFocusBaseCategory: Record<PlanningFocus, PlanningBaseCategory> = {
-  Fuerza: "strength",
-  "Mixto - combate": "mixed",
-  "Mixto - concurrente": "mixed",
-  "Mixto - fuerza dominante": "mixed",
-  "Mixto - intermitente / equipo": "mixed",
-  "Mixto - intermitente / raqueta": "mixed",
-  "Mixto - resistencia dominante": "mixed",
-  Personalizado: "custom",
-  Resistencia: "endurance"
-};
-
-const defaultMetricSelection: Record<PlanningBaseCategory, string[]> = {
-  custom: ["RPE", "duracion", "notas subjetivas"],
-  endurance: ["tiempo en zona", "potencia", "frecuencia cardiaca", "RPE"],
-  mixed: ["RPE", "RIR", "tiempo en zona", "volumen-carga"],
-  strength: ["%1RM", "RIR", "velocidad", "volumen-carga"]
-};
-
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
-type WeeklyDistribution = "Lineal" | "Ondulante" | "Flexible" | "Personalizada";
 type EditablePlanningBlock = {
-  distribution: WeeklyDistribution;
-  duration: number;
+  durationWeeks: number;
   id: string;
-  mainGoal: string;
-  metrics: string[];
+  mainMetrics: string[];
   name: string;
   notes: string;
-  secondaryGoal: string;
+  primaryObjective: string;
+  secondaryObjective: string;
+  weeklyDistribution: WeeklyDistribution;
 };
 
 const planningEventTypes: PlanningEventType[] = [
@@ -1169,109 +1067,7 @@ const planningEventTypes: PlanningEventType[] = [
   "Sin evento definido"
 ];
 
-const weeklyDistributionOptions: WeeklyDistribution[] = ["Lineal", "Ondulante", "Flexible", "Personalizada"];
-
-const planningAvailabilityOptions = [
-  { label: "2 dias / semana", value: 2 },
-  { label: "3 dias / semana", value: 3 },
-  { label: "4 dias / semana", value: 4 },
-  { label: "5 dias / semana", value: 5 },
-  { label: "6 dias / semana", value: 6 },
-  { label: "7 dias / semana", value: 7 },
-  { label: "Personalizado", value: 0 }
-];
-
-const blockGoalOptions: Record<PlanningBaseCategory, string[]> = {
-  custom: [
-    "desarrollo general",
-    "adherencia y tecnica",
-    "mejora de fuerza y capacidad aerobica",
-    "composicion corporal / salud metabolica",
-    "consolidacion",
-    "reevaluacion"
-  ],
-  endurance: [
-    "base aerobica",
-    "fuerza general",
-    "umbral / potencia aerobica",
-    "VO2max",
-    "ritmo especifico",
-    "bricks",
-    "tolerancia a la fatiga",
-    "puesta a punto",
-    "mantener intensidad"
-  ],
-  mixed: [
-    "fuerza general y base aerobica",
-    "tecnica con baja fatiga",
-    "fuerza maxima y potencia",
-    "capacidad anaerobica",
-    "resistencia especifica al round",
-    "sparring",
-    "velocidad / potencia",
-    "bajar fatiga"
-  ],
-  strength: [
-    "hipertrofia / volumen estructural",
-    "tecnica y tolerancia de carga",
-    "fuerza maxima",
-    "mantener volumen util",
-    "potencia",
-    "mantener fuerza maxima",
-    "puesta a punto",
-    "reducir fatiga"
-  ]
-};
-
-const defaultBlockMetrics: Record<PlanningBaseCategory, string[]> = {
-  custom: ["RPE", "sRPE", "frecuencia cardiaca", "carga semanal"],
-  endurance: ["tiempo en zona", "ritmo", "potencia", "frecuencia cardiaca", "RPE", "duracion", "distancia", "carga semanal"],
-  mixed: ["RPE", "tiempo de trabajo", "rounds", "numero de esfuerzos", "sprints", "aceleraciones", "desaceleraciones", "saltos", "volumen-carga", "velocidad", "carga semanal"],
-  strength: ["%1RM", "e1RM", "RIR", "RPE", "velocidad", "perdida de velocidad", "volumen-carga", "series duras"]
-};
-
-const blockTemplates: Record<PlanningBaseCategory, Record<string, { mainGoal: string; name: string; secondaryGoal: string }>> = {
-  custom: {
-    "Base / acumulacion": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
-    "Base breve": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
-    Desarrollo: { name: "Mejora de fuerza y capacidad", mainGoal: "mejora de fuerza y capacidad aerobica", secondaryGoal: "composicion corporal / salud metabolica" },
-    Especifico: { name: "Consolidacion", mainGoal: "consolidacion", secondaryGoal: "reevaluacion" },
-    "Puesta a punto": { name: "Reevaluacion / mantenimiento", mainGoal: "reevaluacion", secondaryGoal: "consolidacion" },
-    "Desarrollo general": { name: "Desarrollo general", mainGoal: "desarrollo general", secondaryGoal: "adherencia y tecnica" },
-    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "mejora de fuerza y capacidad aerobica", secondaryGoal: "composicion corporal / salud metabolica" },
-    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "consolidacion", secondaryGoal: "reevaluacion" }
-  },
-  endurance: {
-    "Base / acumulacion": { name: "Base aerobica", mainGoal: "base aerobica", secondaryGoal: "fuerza general" },
-    "Base breve": { name: "Base breve", mainGoal: "base aerobica", secondaryGoal: "mantener volumen" },
-    Desarrollo: { name: "Desarrollo", mainGoal: "umbral / potencia aerobica", secondaryGoal: "mantener volumen" },
-    Especifico: { name: "Especifico", mainGoal: "ritmo especifico", secondaryGoal: "tolerancia a la fatiga" },
-    "Puesta a punto": { name: "Puesta a punto", mainGoal: "puesta a punto", secondaryGoal: "mantener intensidad" },
-    "Desarrollo general": { name: "Desarrollo general", mainGoal: "base aerobica", secondaryGoal: "fuerza general" },
-    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "umbral / potencia aerobica", secondaryGoal: "mantener volumen" },
-    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "puesta a punto", secondaryGoal: "mantener intensidad" }
-  },
-  mixed: {
-    "Base / acumulacion": { name: "Base / preparacion general", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
-    "Base breve": { name: "Base breve", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
-    Desarrollo: { name: "Desarrollo", mainGoal: "fuerza maxima y potencia", secondaryGoal: "capacidad anaerobica" },
-    Especifico: { name: "Especifico combate", mainGoal: "resistencia especifica al round", secondaryGoal: "velocidad / potencia" },
-    "Puesta a punto": { name: "Puesta a punto", mainGoal: "bajar fatiga", secondaryGoal: "mantener intensidad" },
-    "Desarrollo general": { name: "Desarrollo general", mainGoal: "fuerza general y base aerobica", secondaryGoal: "tecnica con baja fatiga" },
-    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "fuerza maxima y potencia", secondaryGoal: "capacidad anaerobica" },
-    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "bajar fatiga", secondaryGoal: "mantener intensidad" }
-  },
-  strength: {
-    "Base / acumulacion": { name: "Base / acumulacion", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
-    "Base breve": { name: "Base breve", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
-    Desarrollo: { name: "Desarrollo", mainGoal: "fuerza maxima", secondaryGoal: "mantener volumen util" },
-    Especifico: { name: "Potencia / especifico", mainGoal: "potencia", secondaryGoal: "mantener fuerza maxima" },
-    "Puesta a punto": { name: "Puesta a punto", mainGoal: "puesta a punto", secondaryGoal: "reducir fatiga" },
-    "Desarrollo general": { name: "Desarrollo general", mainGoal: "hipertrofia / volumen estructural", secondaryGoal: "tecnica y tolerancia de carga" },
-    "Bloque prioritario": { name: "Bloque prioritario", mainGoal: "fuerza maxima", secondaryGoal: "mantener volumen util" },
-    "Reevaluacion / mantenimiento": { name: "Reevaluacion / mantenimiento", mainGoal: "puesta a punto", secondaryGoal: "reducir fatiga" }
-  }
-};
+const allPlanningMetrics = planningConfig.metricGroups.flatMap((group) => group.metrics);
 
 function parsePlanningDate(value: string) {
   if (!value) return null;
@@ -1286,50 +1082,6 @@ function getPlanningWeeks(peakDate: string, eventType: PlanningEventType) {
   if (!start || !peak || peak <= start) return 0;
   const dayMs = 1000 * 60 * 60 * 24;
   return Math.max(1, Math.ceil((peak.getTime() - start.getTime()) / dayMs / 7));
-}
-
-function distributeBlockWeeks(totalWeeks: number, blockCount: number) {
-  const base = Math.floor(totalWeeks / blockCount);
-  const remainder = totalWeeks % blockCount;
-  return Array.from({ length: blockCount }, (_, index) => Math.max(1, base + (index < remainder ? 1 : 0)));
-}
-
-function getBlockPattern(totalWeeks: number, eventType: PlanningEventType) {
-  if (eventType === "Sin evento definido") return ["Desarrollo general", "Bloque prioritario", "Reevaluacion / mantenimiento"];
-  if (totalWeeks > 16) return ["Base / acumulacion", "Desarrollo", "Especifico", "Puesta a punto"];
-  if (totalWeeks >= 10) return ["Base breve", "Desarrollo", "Especifico", "Puesta a punto"];
-  if (totalWeeks >= 6) return ["Desarrollo", "Especifico", "Puesta a punto"];
-  return ["Especifico", "Puesta a punto"];
-}
-
-function generatePlanningBlocks({
-  baseCategory,
-  eventType,
-  peakDate
-}: {
-  baseCategory: PlanningBaseCategory;
-  eventType: PlanningEventType;
-  peakDate: string;
-}) {
-  const totalWeeks = getPlanningWeeks(peakDate, eventType);
-  const pattern = getBlockPattern(totalWeeks || 12, eventType);
-  const durations = distributeBlockWeeks(totalWeeks || 12, pattern.length);
-  const metrics = defaultMetricSelection[baseCategory].filter((metric) => defaultBlockMetrics[baseCategory].includes(metric));
-
-  return pattern.map((phase, index) => {
-    const template = blockTemplates[baseCategory][phase] ?? blockTemplates.custom[phase];
-    const distribution: WeeklyDistribution = index === pattern.length - 1 ? "Flexible" : "Ondulante";
-    return {
-      distribution,
-      duration: durations[index],
-      id: `${phase}-${index}`,
-      mainGoal: template.mainGoal,
-      metrics: metrics.length > 0 ? metrics : defaultBlockMetrics[baseCategory].slice(0, 4),
-      name: template.name,
-      notes: index === pattern.length - 1 ? "Bajar fatiga y mantener sensaciones." : "Ajustar segun respuesta y disponibilidad.",
-      secondaryGoal: template.secondaryGoal
-    };
-  });
 }
 
 function downloadPlanningCalendarCsv({
@@ -1348,11 +1100,11 @@ function downloadPlanningCalendarCsv({
   const header = ["Bloque", "Duracion", "Objetivo principal", "Objetivo secundario", "Distribucion semanal", "Metricas", "Notas"];
   const rows = blocks.map((block, index) => [
     index + 1,
-    `${block.duration} semanas`,
-    block.mainGoal,
-    block.secondaryGoal,
-    block.distribution,
-    block.metrics.join(" | "),
+    `${block.durationWeeks} semanas`,
+    block.primaryObjective,
+    block.secondaryObjective,
+    block.weeklyDistribution,
+    block.mainMetrics.join(" | "),
     block.notes
   ]);
   const csv = [
@@ -1370,50 +1122,42 @@ function downloadPlanningCalendarCsv({
 }
 
 function PlanningView({
-  client,
-  setTrainingAvailability,
-  trainingAvailability
+  client
 }: {
   client: CoachClient;
-  setTrainingAvailability: (availability: TrainingAvailability) => void;
-  trainingAvailability: TrainingAvailability;
 }) {
-  const [sportModality, setSportModality] = useState<SportModality>("General");
-  const [planningFocus, setPlanningFocus] = useState<PlanningFocus>(suggestedFocusBySport.General);
-  const baseCategory = planningFocusBaseCategory[planningFocus];
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
   const [planningPeakDate, setPlanningPeakDate] = useState("");
   const [planningEventName, setPlanningEventName] = useState("");
-  const [availabilityOption, setAvailabilityOption] = useState(String(trainingAvailability.daysPerWeek));
+  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>("");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>([]);
-
-  const recommendedDistribution = recommendTrainingDistribution(trainingAvailability);
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
+  const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const selectedPlan = {
     blocks: planningBlocks,
+    clientName: client.name,
+    planningMethod,
     planningEventName,
     planningPeakDate,
     planningEventType,
-    planningWeeks,
-    availabilityLabel: availabilityOption === "custom" ? "Personalizado" : `${trainingAvailability.daysPerWeek} dias / semana`,
-    recommendedDistribution: recommendedDistribution.name,
-    sportModality,
-    trainingAvailability
+    planningWeeks
   };
 
-  function handleSportModalityChange(modality: SportModality) {
-    setSportModality(modality);
-    setPlanningFocus(suggestedFocusBySport[modality]);
-  }
-
-  function generateBlocks() {
-    setPlanningBlocks(
-      generatePlanningBlocks({
-        baseCategory,
-        eventType: planningEventType,
-        peakDate: planningPeakDate
-      })
-    );
+  function addMesocycle() {
+    const nextIndex = planningBlocks.length + 1;
+    setPlanningBlocks((blocks) => [
+      ...blocks,
+      {
+        durationWeeks: 4,
+        id: `mesocycle-${Date.now()}`,
+        mainMetrics: ["RPE", "sRPE"],
+        name: `Mesociclo ${nextIndex}`,
+        notes: "",
+        primaryObjective: "",
+        secondaryObjective: "",
+        weeklyDistribution: "Lineal"
+      }
+    ]);
   }
 
   function updateBlock(blockId: string, updates: Partial<EditablePlanningBlock>) {
@@ -1426,49 +1170,66 @@ function PlanningView({
     setPlanningBlocks((blocks) =>
       blocks.map((block) => {
         if (block.id !== blockId) return block;
-        const metrics = block.metrics.includes(metric)
-          ? block.metrics.filter((item) => item !== metric)
-          : [...block.metrics, metric];
-        return { ...block, metrics };
+        const mainMetrics = block.mainMetrics.includes(metric)
+          ? block.mainMetrics.filter((item) => item !== metric)
+          : [...block.mainMetrics, metric];
+        return { ...block, mainMetrics };
       })
     );
   }
 
+  function deleteBlock(blockId: string) {
+    setPlanningBlocks((blocks) => blocks.filter((block) => block.id !== blockId));
+  }
+
+  function moveBlock(blockId: string, direction: -1 | 1) {
+    setPlanningBlocks((blocks) => {
+      const index = blocks.findIndex((block) => block.id === blockId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= blocks.length) return blocks;
+      const nextBlocks = [...blocks];
+      const [movedBlock] = nextBlocks.splice(index, 1);
+      nextBlocks.splice(nextIndex, 0, movedBlock);
+      return nextBlocks;
+    });
+  }
+
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Planificacion activa de {client.name}</h2>
-            <p className="mt-1 text-sm text-ink/55">{client.planning.currentBlock} - {client.planning.currentWeek}</p>
+            <p className="text-xs font-semibold uppercase text-moss">Cliente</p>
+            <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
+            <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.nextEvent}</p>
           </div>
           <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
-            {client.planning.distribution}
+            {planningBlocks.length} mesociclos - {totalWeeks} semanas
           </span>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal} />
-          <ClientInfoCard label="Objetivo secundario" value={client.planning.secondaryGoal} />
-          <ClientInfoCard label="Evento objetivo" value={client.nextEvent} />
         </div>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Planificacion</h2>
-
-        <PlanningStep step="1" title="Modalidad deportiva">
+        <h2 className="text-lg font-semibold text-ink">Metodo de planificacion</h2>
+        <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
+          Metodo de planificacion
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => handleSportModalityChange(event.target.value as SportModality)}
-            value={sportModality}
+            onChange={(event) => setPlanningMethod(event.target.value as PlanningMethod)}
+            value={planningMethod}
           >
-            {sportModalities.map((modality) => (
-              <option key={modality}>{modality}</option>
+            {planningConfig.methodOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-        </PlanningStep>
+        </label>
+        {planningMethod && (
+          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
+            {getPlanningMethodDescription(planningMethod)}
+          </p>
+        )}
 
-        <PlanningStep step="2" title="Evento objetivo">
+        <PlanningStep step="1" title="Evento objetivo">
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setPlanningEventType(event.target.value as PlanningEventType)}
@@ -1481,7 +1242,7 @@ function PlanningView({
         </PlanningStep>
 
         {planningEventType !== "Sin evento definido" && (
-          <PlanningStep step="3" title="Fecha objetivo">
+          <PlanningStep step="2" title="Fecha objetivo">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Nombre
@@ -1509,7 +1270,7 @@ function PlanningView({
         )}
 
         {planningEventType === "Sin evento definido" && (
-          <PlanningStep step="3" title="Fecha objetivo">
+          <PlanningStep step="2" title="Nombre del ciclo">
             <label className="space-y-2 text-sm font-medium text-ink/75">
               Nombre del ciclo
               <input
@@ -1520,60 +1281,49 @@ function PlanningView({
               />
             </label>
             <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              Se generara un ciclo base de 12 semanas.
+              Planificacion sin fecha clave. El entrenador decide los mesociclos manualmente.
             </p>
           </PlanningStep>
         )}
 
-        <PlanningStep step="4" title="Disponibilidad semanal">
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => {
-              const nextOption = event.target.value;
-              setAvailabilityOption(nextOption);
-              const nextValue = Number(nextOption);
-              if (nextOption !== "custom" && nextValue > 0) {
-                setTrainingAvailability({ ...trainingAvailability, daysPerWeek: nextValue });
-              }
-            }}
-            value={availabilityOption}
-          >
-            {planningAvailabilityOptions.map((option) => (
-              <option key={option.label} value={option.value === 0 ? "custom" : option.value}>{option.label}</option>
-            ))}
-          </select>
-          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
-            Distribucion sugerida: {recommendedDistribution.name}
-          </p>
-        </PlanningStep>
-
-        <PlanningStep step="5" title="Generar bloques automaticamente">
+        <PlanningStep step="3" title="Mesociclos">
           <button
-            className="h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/35"
-            disabled={planningEventType !== "Sin evento definido" && planningWeeks === 0}
-            onClick={generateBlocks}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            onClick={addMesocycle}
             type="button"
           >
-            Generar bloques
+            <Plus size={18} />
+            Anadir mesociclo
           </button>
         </PlanningStep>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <PlanningStep step="6" title="Bloques editables">
+        <PlanningStep step="4" title="Mesociclos editables">
           {planningBlocks.length === 0 ? (
             <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-              Selecciona modalidad, evento, fecha y disponibilidad para generar una propuesta.
+              Pulsa + Anadir mesociclo para crear la estructura manualmente.
             </div>
           ) : (
             <div className="grid gap-4">
               {planningBlocks.map((block, index) => (
                 <section className="rounded-md border border-line bg-panel/25 p-4" key={block.id}>
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <h3 className="font-semibold text-ink">Bloque {index + 1}</h3>
-                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink/60">
-                      {block.duration} semanas
-                    </span>
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-ink">Bloque {index + 1} - {block.name}</h3>
+                      <p className="mt-1 text-sm text-ink/55">{block.durationWeeks} semanas - {block.weeklyDistribution}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === 0} onClick={() => moveBlock(block.id, -1)} type="button">
+                        Subir
+                      </button>
+                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === planningBlocks.length - 1} onClick={() => moveBlock(block.id, 1)} type="button">
+                        Bajar
+                      </button>
+                      <button className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" onClick={() => deleteBlock(block.id)} type="button">
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -1581,6 +1331,7 @@ function PlanningView({
                       <input
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                         onChange={(event) => updateBlock(block.id, { name: event.target.value })}
+                        placeholder={planningConfig.mesocycleNameExamples[0]}
                         value={block.name}
                       />
                     </label>
@@ -1589,43 +1340,49 @@ function PlanningView({
                       <input
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                         min={1}
-                        onChange={(event) => updateBlock(block.id, { duration: Number(event.target.value) })}
+                        onChange={(event) => updateBlock(block.id, { durationWeeks: Number(event.target.value) })}
                         type="number"
-                        value={block.duration}
+                        value={block.durationWeeks}
                       />
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75">
                       Objetivo principal
-                      <select
+                      <input
+                        list={`primary-objectives-${block.id}`}
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { mainGoal: event.target.value })}
-                        value={block.mainGoal}
-                      >
-                        {blockGoalOptions[baseCategory].map((goal) => (
-                          <option key={goal}>{goal}</option>
+                        onChange={(event) => updateBlock(block.id, { primaryObjective: event.target.value })}
+                        placeholder="Ej. Fuerza maxima"
+                        value={block.primaryObjective}
+                      />
+                      <datalist id={`primary-objectives-${block.id}`}>
+                        {planningConfig.primaryObjectiveExamples.map((goal) => (
+                          <option key={goal} value={goal} />
                         ))}
-                      </select>
+                      </datalist>
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75">
                       Objetivo secundario
-                      <select
+                      <input
+                        list={`secondary-objectives-${block.id}`}
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { secondaryGoal: event.target.value })}
-                        value={block.secondaryGoal}
-                      >
-                        {blockGoalOptions[baseCategory].map((goal) => (
-                          <option key={goal}>{goal}</option>
+                        onChange={(event) => updateBlock(block.id, { secondaryObjective: event.target.value })}
+                        placeholder="Ej. Tecnica"
+                        value={block.secondaryObjective}
+                      />
+                      <datalist id={`secondary-objectives-${block.id}`}>
+                        {planningConfig.secondaryObjectiveExamples.map((goal) => (
+                          <option key={goal} value={goal} />
                         ))}
-                      </select>
+                      </datalist>
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
                       Distribucion semanal
                       <select
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { distribution: event.target.value as WeeklyDistribution })}
-                        value={block.distribution}
+                        onChange={(event) => updateBlock(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
+                        value={block.weeklyDistribution}
                       >
-                        {weeklyDistributionOptions.map((distribution) => (
+                        {planningConfig.weeklyDistributionOptions.map((distribution) => (
                           <option key={distribution}>{distribution}</option>
                         ))}
                       </select>
@@ -1634,10 +1391,10 @@ function PlanningView({
                   <div className="mt-4">
                     <p className="mb-2 text-sm font-medium text-ink/75">Metricas principales</p>
                     <div className="flex flex-wrap gap-2">
-                      {defaultBlockMetrics[baseCategory].map((metric) => (
+                      {allPlanningMetrics.map((metric) => (
                         <button
                           className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                            block.metrics.includes(metric)
+                            block.mainMetrics.includes(metric)
                               ? "border-moss bg-mint text-moss"
                               : "border-line bg-white text-ink/65"
                           }`}
@@ -1700,33 +1457,29 @@ function PlanningSummary({
   selectedPlan
 }: {
   selectedPlan: {
-    availabilityLabel: string;
     blocks: EditablePlanningBlock[];
+    clientName: string;
+    planningMethod: PlanningMethod;
     planningEventName: string;
     planningEventType: PlanningEventType;
     planningPeakDate: string;
     planningWeeks: number;
-    recommendedDistribution: string;
-    sportModality: SportModality;
-    trainingAvailability: TrainingAvailability;
   };
 }) {
+  const totalWeeks = selectedPlan.blocks.reduce((total, block) => total + block.durationWeeks, 0);
+
   return (
     <section className="mt-5 rounded-md border border-line bg-ink p-4 text-white">
-      <h3 className="font-semibold">Resumen final</h3>
+      <h3 className="font-semibold">Resumen de planificacion</h3>
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <p className="rounded-md bg-white/10 px-3 py-2">Modalidad deportiva: {selectedPlan.sportModality}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Cliente: {selectedPlan.clientName}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Metodo: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Evento objetivo: {selectedPlan.planningEventType}</p>
         {selectedPlan.planningEventType !== "Sin evento definido" && (
           <p className="rounded-md bg-white/10 px-3 py-2">Fecha objetivo: {selectedPlan.planningPeakDate || "Sin fecha"}</p>
         )}
-        <p className="rounded-md bg-white/10 px-3 py-2">Semanas disponibles: {selectedPlan.planningWeeks || 0}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">
-          Disponibilidad semanal: {selectedPlan.availabilityLabel}
-        </p>
-        <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">
-          Distribucion semanal sugerida: {selectedPlan.recommendedDistribution}
-        </p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Numero de mesociclos: {selectedPlan.blocks.length}</p>
+        <p className="rounded-md bg-white/10 px-3 py-2">Duracion total: {totalWeeks} semanas</p>
         {selectedPlan.planningEventName && (
           <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Nombre: {selectedPlan.planningEventName}</p>
         )}
@@ -1736,10 +1489,11 @@ function PlanningSummary({
         {selectedPlan.blocks.map((block, index) => (
           <div className="rounded-md bg-white/10 px-3 py-3 text-sm" key={block.id}>
             <p className="font-semibold">
-              {index + 1}. {block.name} - {block.duration} semanas
+              {index + 1}. {block.name} - {block.durationWeeks} semanas
             </p>
-            <p className="mt-2 text-white/80">Objetivo principal: {block.mainGoal}</p>
-            <p className="text-white/80">Objetivo secundario: {block.secondaryGoal}</p>
+            <p className="mt-2 text-white/80">Objetivo principal: {block.primaryObjective || "Sin definir"}</p>
+            <p className="text-white/80">Objetivo secundario: {block.secondaryObjective || "Sin definir"}</p>
+            <p className="text-white/80">Metricas: {block.mainMetrics.join(", ") || "Sin definir"}</p>
           </div>
         ))}
       </div>
@@ -1774,7 +1528,7 @@ function PlanningCalendarPreview({
 
       {blocks.length === 0 ? (
         <div className="mt-4 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-          Genera bloques para crear el calendario descargable.
+          Anade mesociclos para crear el calendario descargable.
         </div>
       ) : (
         <div className="mt-4 overflow-x-auto">
@@ -1792,10 +1546,10 @@ function PlanningCalendarPreview({
               {blocks.map((block, index) => (
                 <tr className="border-t border-line" key={block.id}>
                   <td className="px-3 py-2 font-semibold text-ink">{index + 1}. {block.name}</td>
-                  <td className="px-3 py-2 text-ink/70">{block.duration} semanas</td>
-                  <td className="px-3 py-2 text-ink">{block.mainGoal}</td>
-                  <td className="px-3 py-2 text-ink/70">{block.distribution}</td>
-                  <td className="px-3 py-2 text-ink/70">{block.metrics.join(", ")}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.durationWeeks} semanas</td>
+                  <td className="px-3 py-2 text-ink">{block.primaryObjective || "Sin definir"}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.weeklyDistribution}</td>
+                  <td className="px-3 py-2 text-ink/70">{block.mainMetrics.join(", ")}</td>
                 </tr>
               ))}
             </tbody>
