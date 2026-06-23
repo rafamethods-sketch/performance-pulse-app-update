@@ -3,7 +3,6 @@
 import {
   ChevronRight,
   ClipboardCheck,
-  Dumbbell,
   Lock,
   Plus,
   Search,
@@ -11,6 +10,7 @@ import {
   Settings2,
   Unlock,
 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
@@ -255,34 +255,36 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   }
 
   return (
-    <main className="min-h-screen bg-panel">
-      <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-md bg-ink text-white">
-              <Dumbbell size={22} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-moss">Rafa Methods</p>
-              <p className="text-xs text-ink/55">Training intelligence</p>
-            </div>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(64,86,214,0.18),transparent_28rem),linear-gradient(135deg,#f6faff_0%,#d9f0ff_52%,#d8fff0_100%)]">
+      <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
+        <div className="rounded-md border border-white/70 bg-white/65 p-5 shadow-soft backdrop-blur sm:p-8">
+          <Image
+            alt="Rafa Methods"
+            className="h-auto w-full max-w-md"
+            height={768}
+            src="/rafa-methods-logo.png"
+            priority
+            width={1024}
+          />
+          <div className="mt-8 max-w-xl">
+            <p className="text-sm font-semibold uppercase tracking-wide text-moss">
+              Train. Measure. Transform.
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold leading-tight text-ink sm:text-5xl">
+              Control de entrenamiento claro para entrenador y deportista.
+            </h1>
           </div>
-
-          <h1 className="mt-8 max-w-2xl text-3xl font-semibold leading-tight text-ink sm:mt-10 sm:text-5xl">
-            Entrenamiento, carga y recuperacion en una sola app
-          </h1>
         </div>
 
-        <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <section className="rounded-md border border-white/70 bg-white p-5 shadow-soft sm:p-6">
           <h2 className="text-xl font-semibold text-ink">Acceder</h2>
-          <p className="mt-1 text-sm text-ink/55">Usa tu correo Gmail o entra en modo demo.</p>
 
           <button
-            className="mt-5 flex h-12 w-full items-center justify-center gap-3 rounded-md border border-line bg-white text-sm font-semibold text-ink transition hover:bg-panel"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-3 rounded-md bg-ink text-sm font-semibold text-white transition hover:bg-ink/90"
             onClick={handleGoogleLogin}
             type="button"
           >
-            <span className="grid size-6 place-items-center rounded-full bg-ink text-xs font-bold text-white">G</span>
+            <span className="grid size-6 place-items-center rounded-full bg-white text-xs font-bold text-ink">G</span>
             Continuar con Google
           </button>
           {authMessage && (
@@ -291,15 +293,9 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
             </p>
           )}
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-line" />
-            <span className="text-xs uppercase tracking-wide text-ink/40">demo</span>
-            <div className="h-px flex-1 bg-line" />
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             <button
-              className="rounded-md bg-ink px-4 py-4 text-left text-white transition hover:bg-ink/90"
+              className="rounded-md bg-gradient-to-br from-steel to-moss px-4 py-4 text-left text-white transition hover:opacity-95"
               onClick={() => onLogin("coach")}
               type="button"
             >
@@ -315,15 +311,6 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
               <span className="mt-2 block text-xs text-ink/55">Mi entrenamiento, Hooper y registro.</span>
             </button>
           </div>
-
-          <label className="mt-5 block space-y-2 text-sm font-medium text-ink/70">
-            Correo Gmail
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              placeholder="tuemail@gmail.com"
-              type="email"
-            />
-          </label>
         </section>
       </section>
     </main>
