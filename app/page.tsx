@@ -1751,6 +1751,7 @@ function PlanningCalendarPreview({
 }
 type ProgressionPattern = {
   criteria: string[];
+  guide: string;
   levels: string[];
   name: string;
   objective: string;
@@ -1761,6 +1762,7 @@ const progressionPatterns: ProgressionPattern[] = [
   {
     name: "Empuje tren inferior",
     objective: "Sentadilla, zancada y patrones dominantes de rodilla.",
+    guide: "Familia para seleccionar variantes de extension de rodilla. Ajusta el orden, nombres y criterios segun tu metodo.",
     warning: "Regresar si hay valgo dinamico, dolor anterior de rodilla o perdida de rango.",
     criteria: ["Rango estable", "Rodilla alineada", "RIR 2-4", "Dolor 0-2/10"],
     levels: [
@@ -1780,6 +1782,7 @@ const progressionPatterns: ProgressionPattern[] = [
   {
     name: "Traccion tren inferior",
     objective: "Bisagra de cadera, peso muerto y cadena posterior.",
+    guide: "Familia para bisagra, extension de cadera y cadena posterior. Dejamos la guia abierta para que adaptes progresiones.",
     warning: "Regresar si pierde columna neutra, no controla pelvis o aparece dolor lumbar.",
     criteria: ["Bisagra limpia", "Control lumbopelvico", "Isquios toleran carga", "Sin dolor irradiado"],
     levels: [
@@ -1799,6 +1802,7 @@ const progressionPatterns: ProgressionPattern[] = [
   {
     name: "Empuje tren superior",
     objective: "Press horizontal y vertical con control escapular.",
+    guide: "Familia para empujes horizontales y verticales. Puedes convertirla despues en subfamilias si te resulta mas comodo.",
     warning: "Regresar si hay dolor de hombro, compensacion lumbar o perdida de control escapular.",
     criteria: ["Escapula estable", "Rango sin dolor", "Costillas controladas", "RIR 2-3"],
     levels: [
@@ -1818,6 +1822,7 @@ const progressionPatterns: ProgressionPattern[] = [
   {
     name: "Traccion tren superior",
     objective: "Remo, dominada y fuerza dorsal escapular.",
+    guide: "Familia para remos, jalones y dominadas. La seleccion queda manual para respetar tu forma de programar.",
     warning: "Regresar si hay elevacion excesiva de hombros, dolor cervical o perdida de ritmo escapular.",
     criteria: ["Depresion escapular", "Cuello relajado", "Tiron simetrico", "Control excentrico"],
     levels: [
@@ -1838,9 +1843,10 @@ const progressionPatterns: ProgressionPattern[] = [
 
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const [activePattern, setActivePattern] = useState(progressionPatterns[0].name);
-  const [routineExercises, setRoutineExercises] = useState<string[]>([]);
   const selectedPattern =
     progressionPatterns.find((pattern) => pattern.name === activePattern) ?? progressionPatterns[0];
+  const [selectedExercise, setSelectedExercise] = useState(selectedPattern.levels[0]);
+  const [routineExercises, setRoutineExercises] = useState<string[]>([]);
   const addExerciseToRoutine = (exercise: string) => {
     setRoutineExercises((current) => current.includes(exercise) ? current : [...current, exercise]);
   };
@@ -1849,104 +1855,72 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   };
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-      {client ? (
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
-          <h2 className="text-lg font-semibold text-ink">Ejercicios recomendados para {client.name}</h2>
-          <p className="mt-2 text-sm text-ink/55">
-            Modalidad: {client.modality}. Nivel: {client.level}. Precauciones: {client.injuries}
-          </p>
-        </section>
-      ) : null}
-
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Patrones principales</h2>
-        <div className="mt-5 grid gap-2">
-          {progressionPatterns.map((pattern) => (
-            <button
-              className={`rounded-md border p-4 text-left transition ${
-                selectedPattern.name === pattern.name
-                  ? "border-moss bg-mint"
-                  : "border-line bg-panel/35 hover:bg-panel"
-              }`}
-              key={pattern.name}
-              onClick={() => setActivePattern(pattern.name)}
-              type="button"
-            >
-              <p className="font-semibold text-ink">{pattern.name}</p>
-              <p className="mt-1 text-sm text-ink/60">{pattern.objective}</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
+    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">{selectedPattern.name}</h2>
-            <p className="mt-1 text-sm text-ink/60">{selectedPattern.objective}</p>
-          </div>
-          <span className="rounded-md bg-wheat px-3 py-1 text-xs font-medium text-ink/70">
-            Fuerza
-          </span>
+          <h2 className="text-lg font-semibold text-ink">Biblioteca por familias</h2>
+          {client ? (
+            <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
+              {client.name}
+            </span>
+          ) : null}
         </div>
-
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-ink/50">
-              <tr>
-                <th className="px-3 py-2">Nivel</th>
-                <th className="px-3 py-2">Ejercicio</th>
-                <th className="px-3 py-2">Uso</th>
-                <th className="px-3 py-2">Rutina</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedPattern.levels.map((exercise, index) => {
-                const isSelected = routineExercises.includes(exercise);
-                return (
-                  <tr className="bg-panel/45" key={exercise}>
-                    <td className="rounded-l-md px-3 py-3 font-semibold text-moss">{index + 1}</td>
-                    <td className="px-3 py-3 font-medium text-ink">{exercise}</td>
-                    <td className="px-3 py-3 text-ink/65">{progressionLevelUse(index, selectedPattern.levels.length)}</td>
-                    <td className="rounded-r-md px-3 py-3">
-                      <button
-                        className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${
-                          isSelected ? "bg-mint text-moss" : "bg-ink text-white"
-                        }`}
-                        onClick={() => addExerciseToRoutine(exercise)}
-                        type="button"
-                      >
-                        <Plus size={15} />
-                        {isSelected ? "AÃ±adido" : "AÃ±adir"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="mt-4 rounded-md border border-line bg-panel/45 p-4">
+          <p className="text-sm font-semibold text-ink">{selectedPattern.objective}</p>
+          <p className="mt-2 text-sm text-ink/60">{selectedPattern.guide}</p>
         </div>
-
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-md border border-line bg-panel/35 p-4">
-            <h3 className="font-semibold text-ink">Criterios para progresar</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {selectedPattern.criteria.map((criterion) => (
-                <span className="rounded-md bg-white px-3 py-2 text-xs font-semibold text-moss" key={criterion}>
-                  {criterion}
-                </span>
+        <div className="mt-5 grid gap-4">
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Familia
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => {
+                const nextPattern = progressionPatterns.find((pattern) => pattern.name === event.target.value) ?? progressionPatterns[0];
+                setActivePattern(nextPattern.name);
+                setSelectedExercise(nextPattern.levels[0]);
+              }}
+              value={activePattern}
+            >
+              {progressionPatterns.map((pattern) => (
+                <option key={pattern.name}>{pattern.name}</option>
               ))}
-            </div>
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Ejercicio
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSelectedExercise(event.target.value)}
+              value={selectedExercise}
+            >
+              {selectedPattern.levels.map((exercise) => (
+                <option key={exercise}>{exercise}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            onClick={() => addExerciseToRoutine(selectedExercise)}
+            type="button"
+          >
+            <Plus size={16} />
+            Anadir a rutina
+          </button>
+        </div>
+        <div className="mt-5 rounded-md bg-mint p-4">
+          <p className="text-sm font-semibold text-moss">Guia abierta del entrenador</p>
+          <div className="mt-3 grid gap-2">
+            {selectedPattern.criteria.map((criterion) => (
+              <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70" key={criterion}>
+                {criterion}
+              </p>
+            ))}
           </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-            <h3 className="font-semibold text-amber-900">Criterio para regresar</h3>
-            <p className="mt-2 text-sm text-amber-800">{selectedPattern.warning}</p>
-          </div>
+          <p className="mt-3 text-sm text-moss/80">{selectedPattern.warning}</p>
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Rutina provisional</h2>
@@ -1982,46 +1956,8 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
           </div>
         )}
       </section>
-
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
-        <h2 className="text-lg font-semibold text-ink">Criterios PubMed usados</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <a
-            className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70 hover:bg-panel"
-            href="https://pubmed.ncbi.nlm.nih.gov/19204579/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            Progresion de carga, volumen y complejidad tecnica.
-          </a>
-          <a
-            className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70 hover:bg-panel"
-            href="https://pubmed.ncbi.nlm.nih.gov/28781339/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            Progresar segun tolerancia, control motor y fase del proceso.
-          </a>
-          <a
-            className="rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70 hover:bg-panel"
-            href="https://pubmed.ncbi.nlm.nih.gov/22777332/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            Control de tecnica, potencia y especificidad en ejercicios explosivos.
-          </a>
-        </div>
-      </section>
     </div>
   );
-}
-
-function progressionLevelUse(index: number, total: number) {
-  const ratio = index / Math.max(1, total - 1);
-  if (ratio < 0.25) return "Persona mayor / readaptacion";
-  if (ratio < 0.5) return "Base tecnica";
-  if (ratio < 0.75) return "Fuerza general";
-  return "Fuerza avanzada / potencia";
 }
 
 type RoutineTemplate = {
@@ -2765,6 +2701,21 @@ type GlobalCalendarEvent = {
   type: "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sesion";
 };
 
+const calendarShortMonths: Record<string, string> = {
+  Abr: "04",
+  Ago: "08",
+  Dic: "12",
+  Ene: "01",
+  Feb: "02",
+  Jul: "07",
+  Jun: "06",
+  Mar: "03",
+  May: "05",
+  Nov: "11",
+  Oct: "10",
+  Sep: "09"
+};
+
 const calendarMonthNames = [
   "Enero",
   "Febrero",
@@ -2790,6 +2741,8 @@ function getCalendarEventTone(type: GlobalCalendarEvent["type"]) {
       return "border-amber-200 bg-amber-50 text-amber-800";
     case "Control / seguimiento":
       return "border-moss/20 bg-mint text-moss";
+    case "Sesion":
+      return "border-steel/20 bg-sky text-steel";
     default:
       return "border-line bg-white text-ink/70";
   }
@@ -2811,7 +2764,16 @@ function parseDateFromLabel(label: string) {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
+function parseCalendarSessionDate(label: string, year: number) {
+  const [day, monthLabel] = label.split(" ");
+  const month = calendarShortMonths[monthLabel];
+  if (!day || !month) return null;
+
+  return `${year}-${month}-${day.padStart(2, "0")}`;
+}
+
 function buildGlobalCalendarEvents(): GlobalCalendarEvent[] {
+  const currentYear = new Date().getFullYear();
   const nextEvents = coachClients.flatMap((listedClient) => {
     const date = parseDateFromLabel(listedClient.nextEvent);
     if (!date) return [];
@@ -2836,7 +2798,20 @@ function buildGlobalCalendarEvents(): GlobalCalendarEvent[] {
     }))
   );
 
-  return [...nextEvents, ...assessments];
+  const plannedSessions = calendarSessions.flatMap((session) => {
+    const date = parseCalendarSessionDate(session.date, currentYear);
+    if (!date) return [];
+
+    return [{
+      athlete: session.athlete,
+      date,
+      id: `${session.athlete}-${session.date}-${session.time}-${session.title}`,
+      title: session.title,
+      type: "Sesion" as GlobalCalendarEvent["type"]
+    }];
+  });
+
+  return [...nextEvents, ...assessments, ...plannedSessions];
 }
 
 function CalendarView({ client }: { client?: CoachClient | null }) {
@@ -2844,11 +2819,18 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
   const currentYear = new Date().getFullYear();
   const currentMonthIndex = new Date().getMonth();
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentMonthIndex);
+  const [calendarClientFilter, setCalendarClientFilter] = useState("Todos");
   const weekDays = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
   const weekDates = ["22", "23", "24", "25", "26", "27", "28"];
   const monthDays = Array.from({ length: 35 }, (_, index) => index + 1);
-  const todaySessions = calendarSessions.filter((session) => session.day === "Lunes");
+  const visibleCalendarSessions = calendarClientFilter === "Todos"
+    ? calendarSessions
+    : calendarSessions.filter((session) => session.athlete === calendarClientFilter);
+  const todaySessions = visibleCalendarSessions.filter((session) => session.day === "Lunes");
   const globalEvents = buildGlobalCalendarEvents();
+  const filteredGlobalEvents = calendarClientFilter === "Todos"
+    ? globalEvents
+    : globalEvents.filter((event) => event.athlete === calendarClientFilter);
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2884,12 +2866,31 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           <ClientInfoCard label="Valoracion reciente" value={client.assessments[0]?.name ?? "Sin valorar"} />
         </div>
       ) : (
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <ClientInfoCard label="Fechas conectadas" value={`${globalEvents.length} eventos`} />
-          <ClientInfoCard label="Competiciones / tests" value={`${globalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
-          <ClientInfoCard label="Origen de datos" value="Ficha inicial y planificacion" />
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <ClientInfoCard label="Fechas conectadas" value={`${filteredGlobalEvents.length} eventos`} />
+          <ClientInfoCard label="Competiciones / tests" value={`${filteredGlobalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
+          <ClientInfoCard label="Sesiones planificadas" value={`${filteredGlobalEvents.filter((event) => event.type === "Sesion").length}`} />
+          <ClientInfoCard label="Origen de datos" value="Ficha inicial, sesiones y planificacion" />
         </div>
       )}
+
+      {!client ? (
+        <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <label className="block space-y-2 text-sm font-medium text-ink/75">
+            Filtrar por cliente
+            <select
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss sm:max-w-sm"
+              onChange={(event) => setCalendarClientFilter(event.target.value)}
+              value={calendarClientFilter}
+            >
+              <option>Todos</option>
+              {coachClients.map((listedClient) => (
+                <option key={listedClient.id}>{listedClient.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       {viewMode === "Dia" ? (
         <div className="mt-6 grid gap-3">
@@ -2910,7 +2911,7 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
         <div className="mt-6">
           <div className="grid gap-2 rounded-md border border-line bg-line p-2 md:grid-cols-7">
           {weekDays.map((day, index) => {
-            const daySessions = calendarSessions.filter((session) => session.day === day);
+            const daySessions = visibleCalendarSessions.filter((session) => session.day === day);
 
             return (
               <div className="min-h-44 rounded-md bg-panel/35 p-2 md:min-h-72 md:p-3" key={day}>
@@ -2972,7 +2973,7 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           <GlobalMonthCalendar
             currentMonthIndex={currentMonthIndex}
             currentYear={currentYear}
-            events={globalEvents}
+            events={filteredGlobalEvents}
             selectedMonthIndex={selectedMonthIndex}
             setSelectedMonthIndex={setSelectedMonthIndex}
           />
@@ -3434,6 +3435,9 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
     0
   );
   const activeQuantifiers = coachSessionQuantifiers[sessionType];
+  const fatigueAlerts = calculateMuscleFatigue()
+    .filter((item) => ["Rojo", "Naranja"].includes(item.status))
+    .slice(0, 4);
 
   return (
     <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[1.1fr_0.9fr] xl:gap-6">
@@ -3445,6 +3449,25 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
           <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
             {sessionType}
           </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-semibold text-amber-900">Lesiones / limitaciones</p>
+            <p className="mt-2 text-sm text-amber-800">{client.injuries || "Sin lesiones registradas."}</p>
+          </div>
+          <div className="rounded-md border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-semibold text-red-900">Fatiga muscular a vigilar</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {fatigueAlerts.length > 0 ? fatigueAlerts.map((item) => (
+                <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-red-700" key={item.muscle}>
+                  {item.muscle} {item.fatigueScore}%
+                </span>
+              )) : (
+                <span className="text-sm text-red-800">Sin grupos en alerta alta.</span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
