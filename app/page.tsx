@@ -3092,14 +3092,7 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           <ClientInfoCard label="Ultima sesion" value={client.lastActivity} />
           <ClientInfoCard label="Valoracion reciente" value={client.assessments[0]?.name ?? "Sin valorar"} />
         </div>
-      ) : (
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <ClientInfoCard label="Fechas conectadas" value={`${visibleGlobalEvents.length} eventos`} />
-          <ClientInfoCard label="Competiciones / tests" value={`${visibleGlobalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
-          <ClientInfoCard label="Sesiones planificadas" value={`${visibleGlobalEvents.filter((event) => event.type === "Sesion").length}`} />
-          <ClientInfoCard label="Origen de datos" value="Ficha inicial, sesiones y planificacion" />
-        </div>
-      )}
+      ) : null}
 
       {!client ? (
         <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -3629,6 +3622,7 @@ function calculateMuscleFatigue() {
 }
 
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
+type CoachSessionPanel = "planner" | "history" | null;
 type CoachSessionQuantifier = {
   fields: string[];
   primary: string[];
@@ -3682,6 +3676,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
 
 function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
+  const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>(null);
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? coachClients[0].id);
   const activeSessionClient =
     client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
@@ -3690,14 +3685,39 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
     (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
     0
   );
-  const activeQuantifiers = coachSessionQuantifiers[sessionType];
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
 
   return (
-    <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[1.1fr_0.9fr] xl:gap-6">
+    <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[0.45fr_1.55fr] xl:gap-6">
       <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Sesiones</h2>
+        <div className="mt-4 grid gap-3">
+          <button
+            className={`flex h-12 items-center justify-center rounded-md px-4 text-sm font-semibold ${
+              activeSessionPanel === "planner" ? "bg-ink text-white" : "border border-line bg-panel/45 text-ink/70"
+            }`}
+            onClick={() => setActiveSessionPanel("planner")}
+            type="button"
+          >
+            Planificar sesion
+          </button>
+          <button
+            className={`flex h-12 items-center justify-center rounded-md px-4 text-sm font-semibold ${
+              activeSessionPanel === "history" ? "bg-ink text-white" : "border border-line bg-panel/45 text-ink/70"
+            }`}
+            onClick={() => setActiveSessionPanel("history")}
+            type="button"
+          >
+            Sesiones anteriores
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        {activeSessionPanel === "planner" ? (
+        <>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Planificar sesion</h2>
@@ -3945,35 +3965,98 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
           <Send size={18} />
           Enviar al deportista
         </button>
+        </>
+        ) : activeSessionPanel === "history" ? (
+          <SessionHistoryPanel client={activeSessionClient} />
+        ) : (
+          <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
+            <p className="text-sm font-semibold text-ink/55">
+              Selecciona Planificar sesion o Sesiones anteriores.
+            </p>
+          </div>
+        )}
       </section>
+    </div>
+  );
+}
 
-      <aside className="rounded-md border border-white/30 bg-gradient-to-br from-steel to-moss p-4 text-white shadow-soft sm:p-5">
-        <h2 className="text-lg font-semibold">Cuantificacion</h2>
-        <div className="mt-5 grid gap-3">
-          <div className="rounded-md bg-white/10 p-4">
-            <p className="text-sm font-semibold">Indices principales</p>
-            <p className="mt-1 text-sm text-white/65">{activeQuantifiers.primary.join(", ")}</p>
-          </div>
-          <div className="rounded-md bg-white/10 p-4">
-            <p className="text-sm font-semibold">Datos que pedira la app</p>
-            <p className="mt-1 text-sm text-white/65">{activeQuantifiers.fields.join(", ")}</p>
-          </div>
-          <div className="rounded-md bg-white/10 p-4">
-            <p className="text-sm font-semibold">Carga interna comun</p>
-            <p className="mt-1 text-sm text-white/65">Duracion, RPE, sRPE y wellness Hooper previo.</p>
-          </div>
+function SessionHistoryPanel({ client }: { client: CoachClient }) {
+  const [selectedSessionKey, setSelectedSessionKey] = useState(
+    client.sessionRecords[0] ? `${client.sessionRecords[0].date}-${client.sessionRecords[0].summary}` : ""
+  );
+  const selectedSession =
+    client.sessionRecords.find((session) => `${session.date}-${session.summary}` === selectedSessionKey) ??
+    client.sessionRecords[0];
+
+  return (
+    <div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Sesiones anteriores</h2>
+          <p className="mt-1 text-sm text-ink/55">{client.name}</p>
         </div>
-        <div className="mt-5 rounded-md bg-white/10 p-4">
-          <p className="text-sm font-semibold">Sesiones del cliente</p>
-          <div className="mt-3 grid gap-2">
-            {activeSessionClient.sessionRecords.map((session) => (
-              <p className="rounded-md bg-white/10 px-3 py-2 text-sm text-white/75" key={`${session.date}-${session.summary}`}>
-                {session.date} - {session.type} - {calculateSessionLoad(session.rpe, session.duration)} UA
+        <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
+          {client.sessionRecords.length} sesiones
+        </span>
+      </div>
+
+      {client.sessionRecords.length > 0 ? (
+        <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="grid gap-2">
+            {client.sessionRecords.map((session) => {
+              const sessionKey = `${session.date}-${session.summary}`;
+              const load = calculateSessionLoad(session.rpe, session.duration);
+
+              return (
+                <button
+                  className={`rounded-md border p-3 text-left ${
+                    selectedSessionKey === sessionKey
+                      ? "border-moss bg-mint"
+                      : "border-line bg-panel/35 hover:bg-panel"
+                  }`}
+                  key={sessionKey}
+                  onClick={() => setSelectedSessionKey(sessionKey)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-ink">{session.type}</p>
+                      <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+                    </div>
+                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                      {load} UA
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink/50">{session.date} - RPE {session.rpe} - {session.duration} min</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedSession ? (
+            <article className="rounded-md border border-line bg-panel/35 p-4">
+              <p className="text-xs font-semibold uppercase text-moss">{selectedSession.date}</p>
+              <h3 className="mt-2 text-lg font-semibold text-ink">{selectedSession.type}</h3>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <ClientInfoCard label="Duracion" value={`${selectedSession.duration} min`} />
+                <ClientInfoCard label="RPE" value={`${selectedSession.rpe}/10`} />
+                <ClientInfoCard label="sRPE" value={`${calculateSessionLoad(selectedSession.rpe, selectedSession.duration)} UA`} />
+              </div>
+              <p className="mt-4 rounded-md bg-white px-3 py-3 text-sm font-medium text-ink/70">
+                {selectedSession.summary}
               </p>
-            ))}
-          </div>
+              <p className="mt-3 text-sm text-ink/60">{selectedSession.notes}</p>
+              <button className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" type="button">
+                Reutilizar como base
+              </button>
+            </article>
+          ) : null}
         </div>
-      </aside>
+      ) : (
+        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center text-sm text-ink/55">
+          Todavia no hay sesiones registradas para este deportista.
+        </div>
+      )}
     </div>
   );
 }
