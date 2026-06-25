@@ -168,13 +168,8 @@ export default function ClientsPage() {
 
           </div>
 
-          {role === "coach" && !["clients", "calendar"].includes(activeSheet) && selectedClient ? (
-            <ActiveClientBar
-              client={selectedClient}
-              onGoToSheet={handleSheetChange}
-              onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
-              onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
-            />
+          {role === "coach" && selectedClient ? (
+            <ActiveClientBar client={selectedClient} />
           ) : null}
 
           {needsActiveClient && !selectedClient ? (
@@ -371,49 +366,13 @@ function clientStatusClass(status: string) {
   }
 }
 
-function ActiveClientBar({
-  client,
-  onGoToSheet,
-  onOpenDashboard,
-  onOpenDetails
-}: {
-  client: CoachClient;
-  onGoToSheet: (sheet: SheetId) => void;
-  onOpenDashboard: (clientId: string) => void;
-  onOpenDetails: (clientId: string) => void;
-}) {
-  const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
-    { label: "Dashboard", action: () => onOpenDashboard(client.id) },
-    { label: "Calendario", sheet: "calendar" },
-    { label: "Sesiones", sheet: "training" },
-    { label: "Planificacion", sheet: "planning" },
-    { label: "Ejercicios", sheet: "progressions" },
-    { label: "Mensajes", sheet: "messages" },
-    { label: "Ficha inicial", action: () => onOpenDetails(client.id) },
-    { label: "Valoraciones", sheet: "assessments" }
-  ];
-
+function ActiveClientBar({ client }: { client: CoachClient }) {
   return (
-    <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-moss">Cliente activo</p>
-          <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
-          <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.status} - {client.nextEvent}</p>
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 xl:flex-wrap xl:justify-end xl:pb-0">
-          {quickLinks.map((link) => (
-            <button
-              className="shrink-0 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm font-semibold text-ink/70 hover:bg-white"
-              key={link.label}
-              onClick={() => (link.sheet ? onGoToSheet(link.sheet) : link.action?.())}
-              type="button"
-            >
-              {link.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <section className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-line bg-white px-4 py-3 shadow-soft">
+      <span className="text-sm font-semibold text-ink">{client.name}</span>
+      <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+        Activo
+      </span>
     </section>
   );
 }
@@ -3529,39 +3488,89 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
               Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
             </span>
           </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-ink/50">
-                <tr>
-                  <th className="px-3 py-2">Ejercicio</th>
-                  <th className="px-3 py-2">Patron</th>
-                  <th className="px-3 py-2">Musculo</th>
-                  <th className="px-3 py-2">Series</th>
-                  <th className="px-3 py-2">Reps</th>
-                  <th className="px-3 py-2">Carga</th>
-                  <th className="px-3 py-2">Descanso</th>
-                  <th className="px-3 py-2">RPE/RIR</th>
-                  <th className="px-3 py-2">Observaciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plannedSession.strengthExercises.map((exercise) => (
-                  <tr className="bg-white" key={exercise.name}>
-                    <td className="rounded-l-md px-3 py-2 font-medium text-ink">{exercise.name}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink/65">{exercise.pattern}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink/65">{exercise.muscleGroup}</td>
-                    <td className="px-3 py-2 text-ink/65">{exercise.sets}</td>
-                    <td className="px-3 py-2 text-ink/65">{exercise.reps}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink/65">{exercise.load} kg</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink/65">{exercise.rest}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink/65">
-                      RPE {exercise.targetRpe} / RIR {exercise.targetRir}
-                    </td>
-                    <td className="rounded-r-md px-3 py-2 text-ink/65">{exercise.observation}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-4 grid gap-3">
+            {plannedSession.strengthExercises.map((exercise) => (
+              <article className="rounded-md border border-line bg-white p-3" key={exercise.name}>
+                <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
+                  <div>
+                    <p className="font-semibold text-ink">{exercise.name}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-md bg-panel/70 px-2 py-1 text-xs font-semibold text-ink/65">
+                        {exercise.pattern}
+                      </span>
+                      <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                        {exercise.muscleGroup}
+                      </span>
+                    </div>
+                  </div>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Observaciones
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.observation}
+                    />
+                  </label>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Series
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.sets}
+                      min={0}
+                      type="number"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Reps
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.reps}
+                      min={0}
+                      type="number"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Carga
+                    <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
+                      <input
+                        className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
+                        defaultValue={exercise.load}
+                        min={0}
+                        type="number"
+                      />
+                      <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">kg</span>
+                    </div>
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Descanso
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.rest}
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    RPE
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.targetRpe}
+                      max={10}
+                      min={0}
+                      type="number"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    RIR
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      defaultValue={exercise.targetRir}
+                      min={0}
+                      type="number"
+                    />
+                  </label>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
         ) : sessionType === "Cardio" ? (
