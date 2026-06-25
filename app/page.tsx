@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import {
-  ChevronRight,
   ClipboardCheck,
   Lock,
   Plus,
@@ -80,6 +79,7 @@ export default function ClientsPage() {
   const [activeSheet, setActiveSheet] = useState<SheetId>("clients");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [scopedClientId, setScopedClientId] = useState("");
   const [hooperDone, setHooperDone] = useState(false);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
@@ -114,10 +114,12 @@ export default function ClientsPage() {
 
   const selectedClient =
     coachClients.find((client) => client.id === selectedClientId) ?? null;
-  const needsActiveClient = role === "coach" && ["training", "planning", "messages", "assessments", "weeklyLoad"].includes(activeSheet);
+  const scopedClient =
+    coachClients.find((client) => client.id === scopedClientId) ?? null;
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
+    setScopedClientId("");
     if (sheet === "clients") {
       setTrainerClientPanel("list");
     }
@@ -127,6 +129,11 @@ export default function ClientsPage() {
     setSelectedClientId(clientId);
     setTrainerClientPanel(panel);
     setActiveSheet("clients");
+  }
+
+  function openClientSheet(clientId: string, sheet: SheetId) {
+    setScopedClientId(clientId);
+    setActiveSheet(sheet);
   }
 
   return (
@@ -168,18 +175,17 @@ export default function ClientsPage() {
 
           </div>
 
-          {role === "coach" && selectedClient ? (
-            <ActiveClientBar client={selectedClient} />
+          {role === "coach" && ((activeSheet === "clients" && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
+            <ActiveClientBar client={scopedClient ?? selectedClient!} />
           ) : null}
 
-          {needsActiveClient && !selectedClient ? (
-            <SelectClientFirst onGoClients={() => handleSheetChange("clients")} />
-          ) : activeSheet === "clients" ? (
+          {activeSheet === "clients" ? (
             role === "coach" ? (
               <CoachClientsView
                 client={selectedClient}
                 onBack={() => setTrainerClientPanel("list")}
                 onGoToSheet={handleSheetChange}
+                onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
                 panel={trainerClientPanel}
@@ -193,30 +199,28 @@ export default function ClientsPage() {
               />
             )
           ) : activeSheet === "training" ? (
-            role === "coach" && selectedClient ? <CoachTrainingPlanner client={selectedClient} /> : (
+            role === "coach" ? <CoachTrainingPlanner client={scopedClient} /> : (
               <AthleteTrainingView
                 hooperDone={hooperDone}
                 onCompleteHooper={() => setHooperDone(true)}
               />
             )
           ) : activeSheet === "assessments" ? (
-            <AssessmentsView client={role === "coach" ? selectedClient : null} />
+            <AssessmentsView client={role === "coach" ? scopedClient : null} />
           ) : activeSheet === "calendar" ? (
             <CalendarView client={role === "coach" ? null : selectedClient} />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
-            <WeeklyLoadView client={role === "coach" ? selectedClient : null} />
+            <WeeklyLoadView client={role === "coach" ? scopedClient : null} />
           ) : activeSheet === "planning" ? (
-            role === "coach" && selectedClient ? (
-              <PlanningView client={selectedClient} />
-            ) : <DecisionDashboardView />
+            role === "coach" ? <PlanningView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
-            role === "coach" ? <ExerciseProgressionsView client={selectedClient} /> : <DecisionDashboardView />
+            role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "routines" ? (
             role === "coach" ? <RoutinesView trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
           ) : activeSheet === "messages" ? (
-            <MessagesView client={selectedClient} />
+            <MessagesView client={scopedClient} />
           ) : (
             <DecisionDashboardView />
           )}
@@ -308,6 +312,7 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 type CoachClient = (typeof coachClients)[number];
 type ClientSessionRecord = CoachClient["sessionRecords"][number];
 type ClientAssessment = CoachClient["assessments"][number];
+type DashboardDetailSection = "status" | "load" | "acwr" | "monotony" | "strain" | "hooper" | "fatigue-map";
 
 function getMonotonyStatus(value: number) {
   return getMetricStatus(value, monotonyRanges);
@@ -395,6 +400,7 @@ function CoachClientsView({
   client,
   onBack,
   onGoToSheet,
+  onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
   panel
@@ -402,6 +408,7 @@ function CoachClientsView({
   client: CoachClient | null;
   onBack: () => void;
   onGoToSheet: (sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   panel: TrainerClientPanel;
@@ -493,7 +500,7 @@ function CoachClientsView({
       <ClientDashboardView
         client={client}
         onBack={onBack}
-        onGoToSheet={onGoToSheet}
+        onOpenClientSheet={onOpenClientSheet}
         onOpenDetails={() => onOpenDetails(client.id)}
       />
     );
@@ -687,16 +694,37 @@ function CoachClientsView({
                   onClick={() => onOpenDashboard(listedClient.id)}
                   type="button"
                 >
-                  Ver dashboard
+                  Dashboard
+                </button>
+                <button
+                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                  onClick={() => onOpenClientSheet(listedClient.id, "planning")}
+                  type="button"
+                >
+                  Planificacion
+                </button>
+                <button
+                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                  onClick={() => onOpenClientSheet(listedClient.id, "training")}
+                  type="button"
+                >
+                  Sesiones
+                </button>
+                <button
+                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                  onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
+                  type="button"
+                >
+                  Valoraciones
                 </button>
                 <button
                   aria-label={`Detalles de ${listedClient.name}`}
-                  className="grid size-9 place-items-center rounded-md border border-line bg-white text-ink/70"
+                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
                   onClick={() => onOpenDetails(listedClient.id)}
                   title={`Detalles de ${listedClient.name}`}
                   type="button"
                 >
-                  <ChevronRight size={17} />
+                  Detalles
                 </button>
               </div>
             </article>
@@ -732,31 +760,40 @@ function ClientStatTile({ label, percent, value }: { label: string; percent?: nu
 function ClientDashboardView({
   client,
   onBack,
-  onGoToSheet,
+  onOpenClientSheet,
   onOpenDetails
 }: {
   client: CoachClient;
   onBack: () => void;
-  onGoToSheet: (sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
 }) {
+  const [dashboardDetail, setDashboardDetail] = useState<DashboardDetailSection | null>(null);
   const loadData = getClientLoadData(client);
 
   return (
     <div className="mt-6 grid gap-6">
-      <ClientHeader client={client} onBack={onBack} onGoToSheet={onGoToSheet} onOpenDetails={onOpenDetails} />
-      <LoadSummaryCards client={client} loadData={loadData} />
+      <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
+      <LoadSummaryCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
+      {dashboardDetail ? (
+        <DashboardDetailPanel
+          client={client}
+          loadData={loadData}
+          onClose={() => setDashboardDetail(null)}
+          section={dashboardDetail}
+        />
+      ) : null}
       <div className="grid gap-6 xl:grid-cols-2">
-        <WellnessCards client={client} loadData={loadData} />
-        <RiskControlCards client={client} loadData={loadData} />
+        <WellnessCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
+        <RiskControlCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
       </div>
-      <FatigueHeatmap client={client} loadData={loadData} />
+      <FatigueHeatmap client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <ActivePlanning client={client} />
-        <RecentSessions sessions={client.sessionRecords} />
+        <ActivePlanning client={client} onOpenClientSheet={onOpenClientSheet} />
+        <RecentSessions clientId={client.id} onOpenClientSheet={onOpenClientSheet} sessions={client.sessionRecords} />
       </div>
-      <ClientAssessmentsSummary assessments={client.assessments} />
-      <QuickAccess onGoToSheet={onGoToSheet} onOpenDetails={onOpenDetails} />
+      <ClientAssessmentsSummary assessments={client.assessments} clientId={client.id} onOpenClientSheet={onOpenClientSheet} />
+      <QuickAccess client={client} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
     </div>
   );
 }
@@ -764,12 +801,12 @@ function ClientDashboardView({
 function ClientHeader({
   client,
   onBack,
-  onGoToSheet,
+  onOpenClientSheet,
   onOpenDetails
 }: {
   client: CoachClient;
   onBack: () => void;
-  onGoToSheet: (sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
 }) {
   return (
@@ -794,7 +831,7 @@ function ClientHeader({
           </button>
           <button
             className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => onGoToSheet("assessments")}
+            onClick={() => onOpenClientSheet(client.id, "assessments")}
             type="button"
           >
             Valoraciones
@@ -820,12 +857,117 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
   );
 }
 
-function LoadSummaryCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+function DashboardDetailPanel({
+  client,
+  loadData,
+  onClose,
+  section
+}: {
+  client: CoachClient;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onClose: () => void;
+  section: DashboardDetailSection;
+}) {
+  const content: Record<DashboardDetailSection, { items: [string, string][]; title: string }> = {
+    "acwr": {
+      title: "Detalle ACWR",
+      items: [
+        ["Carga aguda", `${loadData.weeklyLoad.toFixed(0)} UA`],
+        ["Carga cronica", `${client.chronicLoad} UA`],
+        ["Ratio actual", loadData.acwr.toFixed(2)],
+        ["Interpretacion", loadData.acwrStatus]
+      ]
+    },
+    "fatigue-map": {
+      title: "Detalle mapa de fatiga",
+      items: [
+        ["Carga semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
+        ["Hooper", `${loadData.hooper}/25`],
+        ["DOMS", `${client.hooper.soreness}/5`],
+        ["Sueno", `${client.hooper.sleep}/5`]
+      ]
+    },
+    "hooper": {
+      title: "Detalle Hooper",
+      items: [
+        ["Sueno", `${client.hooper.sleep}/5`],
+        ["Fatiga", `${client.hooper.fatigue}/5`],
+        ["Estres", `${client.hooper.stress}/5`],
+        ["DOMS", `${client.hooper.soreness}/5`],
+        ["Estado de animo", `${client.hooper.mood ?? 0}/5`]
+      ]
+    },
+    "load": {
+      title: "Detalle sRPE semanal",
+      items: [
+        ["sRPE semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
+        ["Tendencia", loadData.weeklyTrend],
+        ["Sesiones recientes", client.sessionRecords.map((session) => `${session.type} ${calculateSessionLoad(session.rpe, session.duration)} UA`).join(" | ")]
+      ]
+    },
+    "monotony": {
+      title: "Detalle monotonia",
+      items: [
+        ["Cargas diarias", client.dailyLoads.join(" / ")],
+        ["Monotonia", loadData.monotony.toFixed(2)],
+        ["Estado", loadData.monotonyStatus]
+      ]
+    },
+    "status": {
+      title: "Detalle estado global",
+      items: [
+        ["Estado actual", client.status],
+        ["Readiness", `${client.readiness}%`],
+        ["Notas", client.coachNotes],
+        ["Indices implicados", `ACWR ${loadData.acwr.toFixed(2)}, Hooper ${loadData.hooper}/25, Strain ${loadData.strain.toFixed(0)}`]
+      ]
+    },
+    "strain": {
+      title: "Detalle strain",
+      items: [
+        ["Carga semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
+        ["Monotonia", loadData.monotony.toFixed(2)],
+        ["Strain", loadData.strain.toFixed(0)],
+        ["Estado", loadData.strainStatus]
+      ]
+    }
+  };
+  const selected = content[section];
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-moss">Clientes / {client.name} / Dashboard</p>
+          <h3 className="mt-1 text-lg font-semibold text-ink">{selected.title}</h3>
+        </div>
+        <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={onClose} type="button">
+          Cerrar
+        </button>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {selected.items.map(([label, value]) => (
+          <ClientInfoCard key={label} label={label} value={value} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LoadSummaryCards({
+  client,
+  loadData,
+  onOpenDetail
+}: {
+  client: CoachClient;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onOpenDetail: (section: DashboardDetailSection) => void;
+}) {
   const cards = [
-    { label: "Carga diaria", value: `${calculateSessionLoad(client.sessionRecords[0].rpe, client.sessionRecords[0].duration)} UA`, detail: client.sessionRecords[0].summary, status: "Controlado" },
-    { label: "sRPE semanal", value: `${loadData.weeklyLoad.toFixed(0)} UA`, detail: loadData.weeklyTrend, status: loadData.acwrStatus },
-    { label: "Monotonia", value: loadData.monotony.toFixed(2), detail: "variabilidad de cargas", status: loadData.monotonyStatus },
-    { label: "Strain", value: loadData.strain.toFixed(0), detail: "carga semanal x monotonia", status: loadData.strainStatus }
+    { label: "Estado global", value: client.status, detail: "estado actual del cliente", section: "status" as DashboardDetailSection, status: loadData.acwrStatus },
+    { label: "sRPE semanal", value: `${loadData.weeklyLoad.toFixed(0)} UA`, detail: loadData.weeklyTrend, section: "load" as DashboardDetailSection, status: loadData.acwrStatus },
+    { label: "Monotonia", value: loadData.monotony.toFixed(2), detail: "variabilidad de cargas", section: "monotony" as DashboardDetailSection, status: loadData.monotonyStatus },
+    { label: "Strain", value: loadData.strain.toFixed(0), detail: "carga semanal x monotonia", section: "strain" as DashboardDetailSection, status: loadData.strainStatus }
   ];
 
   return (
@@ -835,13 +977,24 @@ function LoadSummaryCards({ client, loadData }: { client: CoachClient; loadData:
           <p className="text-sm font-semibold">{card.label}</p>
           <p className="mt-2 text-2xl font-semibold">{card.value}</p>
           <p className="mt-2 text-xs font-medium opacity-75">{card.detail}</p>
+          <button className="mt-3 text-xs font-semibold underline" onClick={() => onOpenDetail(card.section)} type="button">
+            Ver detalle
+          </button>
         </article>
       ))}
     </section>
   );
 }
 
-function WellnessCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+function WellnessCards({
+  client,
+  loadData,
+  onOpenDetail
+}: {
+  client: CoachClient;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onOpenDetail: (section: DashboardDetailSection) => void;
+}) {
   const hooperItems = [
     ["Sueno", client.hooper.sleep],
     ["Fatiga", client.hooper.fatigue],
@@ -870,6 +1023,9 @@ function WellnessCards({ client, loadData }: { client: CoachClient; loadData: Re
         ))}
       </div>
       <HooperTrendChart currentValue={loadData.hooper} />
+      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("hooper")} type="button">
+        Ver detalle
+      </button>
       <p className="mt-4 rounded-md bg-mint px-3 py-3 text-sm font-medium text-moss">
         Alerta: {loadData.hooperStatus === "Controlado" ? "mantener plan previsto" : "revisar carga antes de progresar"}
       </p>
@@ -896,7 +1052,15 @@ function HooperTrendChart({ currentValue }: { currentValue: number }) {
   );
 }
 
-function FatigueHeatmap({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+function FatigueHeatmap({
+  client,
+  loadData,
+  onOpenDetail
+}: {
+  client: CoachClient;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onOpenDetail: (section: DashboardDetailSection) => void;
+}) {
   const days = ["L", "M", "X", "J", "V", "S", "D"];
   const maxLoad = Math.max(...client.dailyLoads, 1);
 
@@ -930,11 +1094,22 @@ function FatigueHeatmap({ client, loadData }: { client: CoachClient; loadData: R
         <ClientInfoCard label="DOMS" value={`${client.hooper.soreness}/5`} />
         <ClientInfoCard label="Sueno" value={`${client.hooper.sleep}/5`} />
       </div>
+      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("fatigue-map")} type="button">
+        Ver detalle
+      </button>
     </section>
   );
 }
 
-function RiskControlCards({ client, loadData }: { client: CoachClient; loadData: ReturnType<typeof getClientLoadData> }) {
+function RiskControlCards({
+  client,
+  loadData,
+  onOpenDetail
+}: {
+  client: CoachClient;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onOpenDetail: (section: DashboardDetailSection) => void;
+}) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
       <h3 className="font-semibold text-ink">Riesgo / control</h3>
@@ -945,6 +1120,9 @@ function RiskControlCards({ client, loadData }: { client: CoachClient; loadData:
         <MetricPill label="Referencia 28 dias" status="Controlado" value={`${client.chronicLoad} UA`} />
       </div>
       <p className="mt-4 text-sm text-ink/60">{client.coachNotes}</p>
+      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("acwr")} type="button">
+        Ver detalle ACWR
+      </button>
     </section>
   );
 }
@@ -959,7 +1137,13 @@ function MetricPill({ label, status, value }: { label: string; status: string; v
   );
 }
 
-function ActivePlanning({ client }: { client: CoachClient }) {
+function ActivePlanning({
+  client,
+  onOpenClientSheet
+}: {
+  client: CoachClient;
+  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
+}) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
       <h3 className="font-semibold text-ink">Planificacion activa</h3>
@@ -978,11 +1162,24 @@ function ActivePlanning({ client }: { client: CoachClient }) {
           </p>
         ))}
       </div>
+      {onOpenClientSheet ? (
+        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">
+          Ver detalle
+        </button>
+      ) : null}
     </section>
   );
 }
 
-function RecentSessions({ sessions }: { sessions: ClientSessionRecord[] }) {
+function RecentSessions({
+  clientId,
+  onOpenClientSheet,
+  sessions
+}: {
+  clientId?: string;
+  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
+  sessions: ClientSessionRecord[];
+}) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
       <h3 className="font-semibold text-ink">Sesiones recientes</h3>
@@ -1002,11 +1199,24 @@ function RecentSessions({ sessions }: { sessions: ClientSessionRecord[] }) {
           </article>
         ))}
       </div>
+      {clientId && onOpenClientSheet ? (
+        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(clientId, "training")} type="button">
+          Ver detalle
+        </button>
+      ) : null}
     </section>
   );
 }
 
-function ClientAssessmentsSummary({ assessments }: { assessments: ClientAssessment[] }) {
+function ClientAssessmentsSummary({
+  assessments,
+  clientId,
+  onOpenClientSheet
+}: {
+  assessments: ClientAssessment[];
+  clientId?: string;
+  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
+}) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1028,15 +1238,22 @@ function ClientAssessmentsSummary({ assessments }: { assessments: ClientAssessme
           </article>
         ))}
       </div>
+      {clientId && onOpenClientSheet ? (
+        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(clientId, "assessments")} type="button">
+          Ver detalle
+        </button>
+      ) : null}
     </section>
   );
 }
 
 function QuickAccess({
-  onGoToSheet,
+  client,
+  onOpenClientSheet,
   onOpenDetails
 }: {
-  onGoToSheet: (sheet: SheetId) => void;
+  client: CoachClient;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
 }) {
   const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
@@ -1055,7 +1272,7 @@ function QuickAccess({
           <button
             className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white"
             key={link.label}
-            onClick={() => (link.sheet ? onGoToSheet(link.sheet) : link.action?.())}
+            onClick={() => (link.sheet ? onOpenClientSheet(client.id, link.sheet) : link.action?.())}
             type="button"
           >
             {link.label}
@@ -1273,8 +1490,11 @@ function downloadPlanningCalendarCsv({
 function PlanningView({
   client
 }: {
-  client: CoachClient;
+  client?: CoachClient | null;
 }) {
+  const [selectedPlanningClientId, setSelectedPlanningClientId] = useState(client?.id ?? coachClients[0].id);
+  const activePlanningClient =
+    client ?? coachClients.find((listedClient) => listedClient.id === selectedPlanningClientId) ?? coachClients[0];
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
   const [planningPeakDate, setPlanningPeakDate] = useState("");
   const [planningEventName, setPlanningEventName] = useState("");
@@ -1284,7 +1504,7 @@ function PlanningView({
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const selectedPlan = {
     blocks: planningBlocks,
-    clientName: client.name,
+    clientName: activePlanningClient.name,
     planningMethod,
     planningEventName,
     planningPeakDate,
@@ -1349,8 +1569,24 @@ function PlanningView({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Cliente</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
-            <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.nextEvent}</p>
+            {client ? (
+              <>
+                <h2 className="mt-1 text-lg font-semibold text-ink">{activePlanningClient.name}</h2>
+                <p className="mt-1 text-sm text-ink/55">{activePlanningClient.modality} - {activePlanningClient.nextEvent}</p>
+              </>
+            ) : (
+              <select
+                className="mt-2 h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss sm:w-80"
+                onChange={(event) => setSelectedPlanningClientId(event.target.value)}
+                value={selectedPlanningClientId}
+              >
+                {coachClients.map((listedClient) => (
+                  <option key={listedClient.id} value={listedClient.id}>
+                    {listedClient.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
             {planningBlocks.length} mesociclos - {totalWeeks} semanas
@@ -2244,19 +2480,24 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
 
 function MessagesView({ client }: { client?: CoachClient | null }) {
   const [selectedThreadId, setSelectedThreadId] = useState(messageThreads[0].id);
+  const [selectedMessageClient, setSelectedMessageClient] = useState(client?.name ?? "Todos");
   const clientThreads = client
     ? messageThreads.filter((thread) => thread.athlete === client.name)
-    : messageThreads;
-  const visibleThreads = clientThreads.length > 0 ? clientThreads : client ? [
+    : selectedMessageClient === "Todos"
+      ? messageThreads
+      : messageThreads.filter((thread) => thread.athlete === selectedMessageClient);
+  const fallbackClient =
+    client ?? coachClients.find((listedClient) => listedClient.name === selectedMessageClient) ?? null;
+  const visibleThreads = clientThreads.length > 0 ? clientThreads : fallbackClient ? [
     {
-      athlete: client.name,
-      id: `client-${client.id}`,
-      lastMessage: client.coachNotes,
+      athlete: fallbackClient.name,
+      id: `client-${fallbackClient.id}`,
+      lastMessage: fallbackClient.coachNotes,
       messages: [
-        { author: "coach", text: client.coachNotes, time: "Nota inicial" },
+        { author: "coach", text: fallbackClient.coachNotes, time: "Nota inicial" },
         { author: "athlete", text: "Pendiente de nueva conversacion.", time: "Sistema" }
       ],
-      status: client.status,
+      status: fallbackClient.status,
       unread: 0
     }
   ] : messageThreads;
@@ -2272,6 +2513,24 @@ function MessagesView({ client }: { client?: CoachClient | null }) {
             {visibleThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
           </span>
         </div>
+        {!client ? (
+          <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+            Filtrar por cliente
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => {
+                setSelectedMessageClient(event.target.value);
+                setSelectedThreadId(messageThreads[0].id);
+              }}
+              value={selectedMessageClient}
+            >
+              <option>Todos</option>
+              {coachClients.map((listedClient) => (
+                <option key={listedClient.id}>{listedClient.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="mt-4 space-y-2">
           {visibleThreads.map((thread) => (
             <button
@@ -2779,6 +3038,9 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
   const currentMonthIndex = new Date().getMonth();
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentMonthIndex);
   const [calendarClientFilter, setCalendarClientFilter] = useState("Todos");
+  const [calendarDateFrom, setCalendarDateFrom] = useState("");
+  const [calendarDateTo, setCalendarDateTo] = useState("");
+  const [calendarEventTypeFilter, setCalendarEventTypeFilter] = useState<"Todos" | GlobalCalendarEvent["type"]>("Todos");
   const weekDays = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
   const weekDates = ["22", "23", "24", "25", "26", "27", "28"];
   const monthDays = Array.from({ length: 35 }, (_, index) => index + 1);
@@ -2790,6 +3052,12 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
   const filteredGlobalEvents = calendarClientFilter === "Todos"
     ? globalEvents
     : globalEvents.filter((event) => event.athlete === calendarClientFilter);
+  const visibleGlobalEvents = filteredGlobalEvents.filter((event) => {
+    const matchesType = calendarEventTypeFilter === "Todos" || event.type === calendarEventTypeFilter;
+    const matchesFrom = !calendarDateFrom || event.date >= calendarDateFrom;
+    const matchesTo = !calendarDateTo || event.date <= calendarDateTo;
+    return matchesType && matchesFrom && matchesTo;
+  });
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2826,19 +3094,21 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
         </div>
       ) : (
         <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <ClientInfoCard label="Fechas conectadas" value={`${filteredGlobalEvents.length} eventos`} />
-          <ClientInfoCard label="Competiciones / tests" value={`${filteredGlobalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
-          <ClientInfoCard label="Sesiones planificadas" value={`${filteredGlobalEvents.filter((event) => event.type === "Sesion").length}`} />
+          <ClientInfoCard label="Fechas conectadas" value={`${visibleGlobalEvents.length} eventos`} />
+          <ClientInfoCard label="Competiciones / tests" value={`${visibleGlobalEvents.filter((event) => ["Competicion", "Test"].includes(event.type)).length}`} />
+          <ClientInfoCard label="Sesiones planificadas" value={`${visibleGlobalEvents.filter((event) => event.type === "Sesion").length}`} />
           <ClientInfoCard label="Origen de datos" value="Ficha inicial, sesiones y planificacion" />
         </div>
       )}
 
       {!client ? (
         <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <p className="text-sm font-semibold text-ink">Filtrar</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
           <label className="block space-y-2 text-sm font-medium text-ink/75">
-            Filtrar por cliente
+            Cliente
             <select
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss sm:max-w-sm"
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => setCalendarClientFilter(event.target.value)}
               value={calendarClientFilter}
             >
@@ -2848,6 +3118,30 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
               ))}
             </select>
           </label>
+          <label className="block space-y-2 text-sm font-medium text-ink/75">
+            Tipo de evento
+            <select
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setCalendarEventTypeFilter(event.target.value as "Todos" | GlobalCalendarEvent["type"])}
+              value={calendarEventTypeFilter}
+            >
+              <option>Todos</option>
+              <option>Sesion</option>
+              <option>Competicion</option>
+              <option>Test</option>
+              <option>Pico de forma</option>
+              <option>Control / seguimiento</option>
+            </select>
+          </label>
+          <label className="block space-y-2 text-sm font-medium text-ink/75">
+            Desde
+            <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setCalendarDateFrom(event.target.value)} type="date" value={calendarDateFrom} />
+          </label>
+          <label className="block space-y-2 text-sm font-medium text-ink/75">
+            Hasta
+            <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setCalendarDateTo(event.target.value)} type="date" value={calendarDateTo} />
+          </label>
+          </div>
         </div>
       ) : null}
 
@@ -2932,7 +3226,7 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
           <GlobalMonthCalendar
             currentMonthIndex={currentMonthIndex}
             currentYear={currentYear}
-            events={filteredGlobalEvents}
+            events={visibleGlobalEvents}
             selectedMonthIndex={selectedMonthIndex}
             setSelectedMonthIndex={setSelectedMonthIndex}
           />
@@ -3387,7 +3681,10 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 
 const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
 
-function CoachTrainingPlanner({ client }: { client: CoachClient }) {
+function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
+  const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? coachClients[0].id);
+  const activeSessionClient =
+    client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const plannedTonnage = plannedSession.strengthExercises.reduce(
     (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
@@ -3413,7 +3710,7 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm font-semibold text-amber-900">Lesiones / limitaciones</p>
-            <p className="mt-2 text-sm text-amber-800">{client.injuries || "Sin lesiones registradas."}</p>
+            <p className="mt-2 text-sm text-amber-800">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
           </div>
           <div className="rounded-md border border-red-200 bg-red-50 p-4">
             <p className="text-sm font-semibold text-red-900">Fatiga muscular a vigilar</p>
@@ -3432,8 +3729,17 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
-            <select className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss" disabled value={client.name}>
-              <option>{client.name}</option>
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              disabled={Boolean(client)}
+              onChange={(event) => setSelectedSessionClientId(event.target.value)}
+              value={activeSessionClient.id}
+            >
+              {coachClients.map((listedClient) => (
+                <option key={listedClient.id} value={listedClient.id}>
+                  {listedClient.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -3660,7 +3966,7 @@ function CoachTrainingPlanner({ client }: { client: CoachClient }) {
         <div className="mt-5 rounded-md bg-white/10 p-4">
           <p className="text-sm font-semibold">Sesiones del cliente</p>
           <div className="mt-3 grid gap-2">
-            {client.sessionRecords.map((session) => (
+            {activeSessionClient.sessionRecords.map((session) => (
               <p className="rounded-md bg-white/10 px-3 py-2 text-sm text-white/75" key={`${session.date}-${session.summary}`}>
                 {session.date} - {session.type} - {calculateSessionLoad(session.rpe, session.duration)} UA
               </p>
