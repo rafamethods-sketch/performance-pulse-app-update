@@ -661,59 +661,57 @@ function CoachClientsView({
         )}
 
         <div className="mt-5 space-y-3">
-          {filteredClients.map((listedClient) => (
-            <article
-              className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1.1fr_1fr_auto] lg:items-start"
-              key={listedClient.id}
-            >
-              <div>
-                <h3 className="font-semibold text-ink">{listedClient.name}</h3>
-                <p className="mt-1 text-sm text-ink/60">
-                  {listedClient.age} anos - {listedClient.modality ?? listedClient.sport}
-                </p>
-                <p className="mt-1 text-xs font-medium text-ink/50">
-                  Ultima actividad: {listedClient.lastActivity}
-                </p>
-              </div>
-              <div className="text-sm">
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-md bg-white px-3 py-1 text-ink/70">
-                    {listedClient.goalType}
-                  </span>
-                  {listedClient.status !== "Datos completos" ? (
-                    <span className="rounded-md bg-wheat px-3 py-1 text-ink/70">
-                      {listedClient.status}
+          {filteredClients.map((listedClient) => {
+            const visibleBadges = [listedClient.goalType, listedClient.status].filter(
+              (badge) => badge && badge !== "Datos completos"
+            );
+
+            return (
+              <article
+                className="rounded-md border border-line bg-panel/45 p-4"
+                key={listedClient.id}
+              >
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h3 className="mr-1 font-semibold text-ink">{listedClient.name}</h3>
+                    {visibleBadges.map((badge) => (
+                      <span
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                          badge === listedClient.goalType ? "bg-white text-ink/70" : "bg-wheat text-ink/70"
+                        }`}
+                        key={badge}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                    <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                      {listedClient.readiness}%
                     </span>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-ink/55">Evento: {listedClient.nextEvent}</p>
-              </div>
-              <div className="grid gap-3 lg:justify-items-end">
-                <span className="w-fit rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{listedClient.readiness}%</span>
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
                   <button
-                    className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                    className="rounded-md bg-ink px-2.5 py-1.5 text-xs font-semibold text-white"
                     onClick={() => onOpenDashboard(listedClient.id)}
                     type="button"
                   >
                     Dashboard
                   </button>
                   <button
-                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenClientSheet(listedClient.id, "planning")}
                     type="button"
                   >
                     Planificacion
                   </button>
                   <button
-                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenClientSheet(listedClient.id, "training")}
                     type="button"
                   >
                     Sesiones
                   </button>
                   <button
-                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
                     type="button"
                   >
@@ -721,17 +719,24 @@ function CoachClientsView({
                   </button>
                   <button
                     aria-label={`Detalles de ${listedClient.name}`}
-                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenDetails(listedClient.id)}
                     title={`Detalles de ${listedClient.name}`}
                     type="button"
                   >
                     Detalles
                   </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+
+                <div className="mt-3 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
+                  <span>{listedClient.age} anos · {listedClient.modality ?? listedClient.sport}</span>
+                  <span>Ultima actividad: {listedClient.lastActivity}</span>
+                  <span>Evento: {listedClient.nextEvent}</span>
+                </div>
+              </article>
+            );
+          })}
           {filteredClients.length === 0 && (
             <div className="rounded-md border border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
               No hay clientes que coincidan con la busqueda o el filtro.
