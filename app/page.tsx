@@ -663,7 +663,7 @@ function CoachClientsView({
         <div className="mt-5 space-y-3">
           {filteredClients.map((listedClient) => (
             <article
-              className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1fr_auto_1fr_auto] lg:items-center"
+              className="grid gap-4 rounded-md border border-line bg-panel/45 p-4 lg:grid-cols-[1.1fr_1fr_auto] lg:items-start"
               key={listedClient.id}
             >
               <div>
@@ -675,57 +675,60 @@ function CoachClientsView({
                   Ultima actividad: {listedClient.lastActivity}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="rounded-md bg-white px-3 py-1 text-ink/70">
-                  {listedClient.goalType}
-                </span>
-                <span className="rounded-md bg-wheat px-3 py-1 text-ink/70">
-                  {listedClient.status}
-                </span>
-              </div>
               <div className="text-sm">
-                <p className="font-medium text-moss">{listedClient.loadMetric}</p>
-                <p className="mt-1 text-ink/55">Evento: {listedClient.nextEvent}</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-md bg-white px-3 py-1 text-ink/70">
+                    {listedClient.goalType}
+                  </span>
+                  {listedClient.status !== "Datos completos" ? (
+                    <span className="rounded-md bg-wheat px-3 py-1 text-ink/70">
+                      {listedClient.status}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-ink/55">Evento: {listedClient.nextEvent}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{listedClient.readiness}%</span>
-                <button
-                  className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                  onClick={() => onOpenDashboard(listedClient.id)}
-                  type="button"
-                >
-                  Dashboard
-                </button>
-                <button
-                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
-                  onClick={() => onOpenClientSheet(listedClient.id, "planning")}
-                  type="button"
-                >
-                  Planificacion
-                </button>
-                <button
-                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
-                  onClick={() => onOpenClientSheet(listedClient.id, "training")}
-                  type="button"
-                >
-                  Sesiones
-                </button>
-                <button
-                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
-                  onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
-                  type="button"
-                >
-                  Valoraciones
-                </button>
-                <button
-                  aria-label={`Detalles de ${listedClient.name}`}
-                  className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
-                  onClick={() => onOpenDetails(listedClient.id)}
-                  title={`Detalles de ${listedClient.name}`}
-                  type="button"
-                >
-                  Detalles
-                </button>
+              <div className="grid gap-3 lg:justify-items-end">
+                <span className="w-fit rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">{listedClient.readiness}%</span>
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  <button
+                    className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                    onClick={() => onOpenDashboard(listedClient.id)}
+                    type="button"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    onClick={() => onOpenClientSheet(listedClient.id, "planning")}
+                    type="button"
+                  >
+                    Planificacion
+                  </button>
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    onClick={() => onOpenClientSheet(listedClient.id, "training")}
+                    type="button"
+                  >
+                    Sesiones
+                  </button>
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
+                    type="button"
+                  >
+                    Valoraciones
+                  </button>
+                  <button
+                    aria-label={`Detalles de ${listedClient.name}`}
+                    className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                    onClick={() => onOpenDetails(listedClient.id)}
+                    title={`Detalles de ${listedClient.name}`}
+                    type="button"
+                  >
+                    Detalles
+                  </button>
+                </div>
               </div>
             </article>
           ))}
