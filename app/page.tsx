@@ -3631,6 +3631,19 @@ function calculateMuscleFatigue() {
 
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
 type CoachSessionPanel = "planner" | "history" | null;
+type PlannedStrengthExerciseDraft = {
+  id: string;
+  load: string;
+  muscleGroup: string;
+  name: string;
+  observation: string;
+  pattern: string;
+  reps: string;
+  rest: string;
+  sets: string;
+  targetRir: string;
+  targetRpe: string;
+};
 type CoachSessionQuantifier = {
   fields: string[];
   primary: string[];
@@ -3689,13 +3702,40 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   const activeSessionClient =
     client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
-  const plannedTonnage = plannedSession.strengthExercises.reduce(
-    (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
+  const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
+  const plannedTonnage = strengthExercises.reduce(
+    (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
   );
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
+  const addStrengthExercise = () => {
+    setStrengthExercises((current) => [
+      ...current,
+      {
+        id: `exercise-${Date.now()}-${current.length}`,
+        load: "",
+        muscleGroup: "",
+        name: "",
+        observation: "",
+        pattern: "",
+        reps: "",
+        rest: "",
+        sets: "",
+        targetRir: "",
+        targetRpe: ""
+      }
+    ]);
+  };
+  const updateStrengthExercise = (
+    exerciseId: string,
+    updates: Partial<PlannedStrengthExerciseDraft>
+  ) => {
+    setStrengthExercises((current) =>
+      current.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...updates } : exercise)
+    );
+  };
 
   return (
     <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[0.45fr_1.55fr] xl:gap-6">
@@ -3794,74 +3834,119 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             <input
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               defaultValue={plannedSession.title}
+              placeholder="Ej. Fuerza tren inferior + zona 2"
               type="text"
             />
           </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-            Objetivo
-            <textarea
-              className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
-              defaultValue={plannedSession.objective}
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Semana del bloque
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              min={1}
+              placeholder="3"
+              type="number"
             />
           </label>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {["Sesiones guardadas", "Fuerza maxima tren inferior", "Potencia", "Base aerobica", "HIIT", "Tecnica", "Sparring", "Recuperacion", "Movilidad"].map((template) => (
-            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70" key={template} type="button">
-              {template}
-            </button>
-          ))}
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Sesion nº
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              min={1}
+              placeholder="2"
+              type="number"
+            />
+          </label>
         </div>
 
         {sessionType === "Fuerza" ? (
         <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-ink">Ejercicios de fuerza</h3>
-            <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
-              Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
-            </span>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
+                Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
+              </span>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white"
+                onClick={addStrengthExercise}
+                type="button"
+              >
+                <Plus size={16} />
+                Anadir ejercicio
+              </button>
+            </div>
           </div>
           <div className="mt-4 grid gap-3">
-            {plannedSession.strengthExercises.map((exercise) => (
-              <article className="rounded-md border border-line bg-white p-3" key={exercise.name}>
+            {strengthExercises.length === 0 ? (
+              <div className="rounded-md border border-dashed border-line bg-white p-6 text-center">
+                <button
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                  onClick={addStrengthExercise}
+                  type="button"
+                >
+                  <Plus size={18} />
+                  Anadir ejercicio
+                </button>
+              </div>
+            ) : strengthExercises.map((exercise) => (
+              <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
                 <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
-                  <div>
-                    <p className="font-semibold text-ink">{exercise.name}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="rounded-md bg-panel/70 px-2 py-1 text-xs font-semibold text-ink/65">
-                        {exercise.pattern}
-                      </span>
-                      <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                        {exercise.muscleGroup}
-                      </span>
-                    </div>
-                  </div>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Nombre del ejercicio
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateStrengthExercise(exercise.id, { name: event.target.value })}
+                      placeholder="Ej. Sentadilla, press banca..."
+                      value={exercise.name}
+                    />
+                  </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     Observaciones
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.observation}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
+                      placeholder="Molestias, tecnica, ajustes..."
+                      value={exercise.observation}
                     />
                   </label>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-9">
+                  <label className="space-y-1 text-xs font-semibold text-ink/55 sm:col-span-2">
+                    Patron de movimiento
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateStrengthExercise(exercise.id, { pattern: event.target.value })}
+                      placeholder="Ej. Empuje tren inferior"
+                      value={exercise.pattern}
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Grupo muscular
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateStrengthExercise(exercise.id, { muscleGroup: event.target.value })}
+                      placeholder="Ej. Cuadriceps"
+                      value={exercise.muscleGroup}
+                    />
+                  </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     Series
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.sets}
                       min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
                       type="number"
+                      value={exercise.sets}
                     />
                   </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     Reps
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.reps}
                       min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
                       type="number"
+                      value={exercise.reps}
                     />
                   </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
@@ -3869,9 +3954,10 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                     <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
                       <input
                         className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
-                        defaultValue={exercise.load}
                         min={0}
+                        onChange={(event) => updateStrengthExercise(exercise.id, { load: event.target.value })}
                         type="number"
+                        value={exercise.load}
                       />
                       <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">kg</span>
                     </div>
@@ -3880,26 +3966,30 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                     Descanso
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.rest}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
+                      placeholder="Ej. 90 s"
+                      value={exercise.rest}
                     />
                   </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     RPE
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.targetRpe}
                       max={10}
                       min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
                       type="number"
+                      value={exercise.targetRpe}
                     />
                   </label>
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     RIR
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      defaultValue={exercise.targetRir}
                       min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
                       type="number"
+                      value={exercise.targetRir}
                     />
                   </label>
                 </div>
