@@ -3631,7 +3631,9 @@ function calculateMuscleFatigue() {
 
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
 type CoachSessionPanel = "planner" | "history" | null;
+type StrengthSessionBlock = "activation" | "auxiliary" | "main";
 type PlannedStrengthExerciseDraft = {
+  block: StrengthSessionBlock;
   id: string;
   load: string;
   muscleGroup: string;
@@ -3702,18 +3704,22 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   const activeSessionClient =
     client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
+  const [sessionDuration, setSessionDuration] = useState("");
+  const [sessionFinalRpe, setSessionFinalRpe] = useState("");
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
   );
+  const calculatedSrpe = Number(sessionDuration || 0) * Number(sessionFinalRpe || 0);
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
-  const addStrengthExercise = () => {
+  const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
       {
+        block,
         id: `exercise-${Date.now()}-${current.length}`,
         load: "",
         muscleGroup: "",
@@ -3734,6 +3740,145 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   ) => {
     setStrengthExercises((current) =>
       current.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...updates } : exercise)
+    );
+  };
+  const renderStrengthBlock = (block: StrengthSessionBlock, title: string, buttonLabel: string) => {
+    const blockExercises = strengthExercises.filter((exercise) => exercise.block === block);
+
+    return (
+      <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-semibold text-ink">{title}</h3>
+          <button
+            className="inline-flex w-fit items-center justify-center gap-2 rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white"
+            onClick={() => addStrengthExercise(block)}
+            type="button"
+          >
+            <Plus size={16} />
+            {buttonLabel}
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {blockExercises.length === 0 ? (
+            <div className="rounded-md border border-dashed border-line bg-white p-5 text-center">
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                onClick={() => addStrengthExercise(block)}
+                type="button"
+              >
+                <Plus size={18} />
+                {buttonLabel}
+              </button>
+            </div>
+          ) : blockExercises.map((exercise) => (
+            <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
+              <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Nombre del ejercicio
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { name: event.target.value })}
+                    placeholder="Nombre del ejercicio"
+                    value={exercise.name}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Observaciones
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
+                    placeholder="Notas del ejercicio"
+                    value={exercise.observation}
+                  />
+                </label>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-9">
+                <label className="space-y-1 text-xs font-semibold text-ink/55 sm:col-span-2">
+                  Patron de movimiento
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { pattern: event.target.value })}
+                    placeholder="Patron"
+                    value={exercise.pattern}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Grupo muscular
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { muscleGroup: event.target.value })}
+                    placeholder="Grupo"
+                    value={exercise.muscleGroup}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Series
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    min={0}
+                    onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
+                    type="number"
+                    value={exercise.sets}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Reps
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    min={0}
+                    onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
+                    type="number"
+                    value={exercise.reps}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Carga
+                  <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
+                    <input
+                      className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
+                      min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { load: event.target.value })}
+                      type="number"
+                      value={exercise.load}
+                    />
+                    <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">kg</span>
+                  </div>
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Descanso
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
+                    placeholder="Descanso"
+                    value={exercise.rest}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  RPE
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    max={10}
+                    min={0}
+                    onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
+                    type="number"
+                    value={exercise.targetRpe}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  RIR
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    min={0}
+                    onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
+                    type="number"
+                    value={exercise.targetRir}
+                  />
+                </label>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     );
   };
 
@@ -3794,7 +3939,9 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <h3 className="font-semibold text-ink">Datos de sesion</h3>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
             <select
@@ -3818,7 +3965,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Tipo de sesion
+            Disciplina / tipo de sesion
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => setSessionType(event.target.value as CoachSessionType)}
@@ -3828,15 +3975,6 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                 <option key={type}>{type}</option>
               ))}
             </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-            Nombre de la sesion
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              defaultValue={plannedSession.title}
-              placeholder="Ej. Fuerza tren inferior + zona 2"
-              type="text"
-            />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Semana del bloque
@@ -3848,7 +3986,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Sesion nº
+            Numero de sesion
             <input
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               min={1}
@@ -3856,147 +3994,83 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               type="number"
             />
           </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Bloque / mesociclo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              placeholder="Bloque actual"
+              type="text"
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            RPE objetivo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              max={10}
+              min={0}
+              placeholder="0-10"
+              type="number"
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Tiempo total sesion
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              min={0}
+              onChange={(event) => setSessionDuration(event.target.value)}
+              placeholder="min"
+              type="number"
+              value={sessionDuration}
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            RPE final
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              max={10}
+              min={0}
+              onChange={(event) => setSessionFinalRpe(event.target.value)}
+              placeholder="0-10"
+              type="number"
+              value={sessionFinalRpe}
+            />
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            sRPE
+            <input
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none"
+              readOnly
+              value={calculatedSrpe > 0 ? `${calculatedSrpe} UA` : ""}
+            />
+          </label>
         </div>
+        </section>
+
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Resumen / objetivo de la sesion
+            <textarea
+              className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+              defaultValue={plannedSession.title}
+              placeholder="Descripcion breve de la sesion"
+            />
+          </label>
+        </section>
 
         {sessionType === "Fuerza" ? (
-        <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-semibold text-ink">Ejercicios de fuerza</h3>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
-                Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
-              </span>
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white"
-                onClick={addStrengthExercise}
-                type="button"
-              >
-                <Plus size={16} />
-                Anadir ejercicio
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {strengthExercises.length === 0 ? (
-              <div className="rounded-md border border-dashed border-line bg-white p-6 text-center">
-                <button
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
-                  onClick={addStrengthExercise}
-                  type="button"
-                >
-                  <Plus size={18} />
-                  Anadir ejercicio
-                </button>
+          <>
+            <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="font-semibold text-ink">Bloques de fuerza</h3>
+                <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
+                  Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
+                </span>
               </div>
-            ) : strengthExercises.map((exercise) => (
-              <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
-                <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Nombre del ejercicio
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { name: event.target.value })}
-                      placeholder="Ej. Sentadilla, press banca..."
-                      value={exercise.name}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Observaciones
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
-                      placeholder="Molestias, tecnica, ajustes..."
-                      value={exercise.observation}
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-9">
-                  <label className="space-y-1 text-xs font-semibold text-ink/55 sm:col-span-2">
-                    Patron de movimiento
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { pattern: event.target.value })}
-                      placeholder="Ej. Empuje tren inferior"
-                      value={exercise.pattern}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Grupo muscular
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { muscleGroup: event.target.value })}
-                      placeholder="Ej. Cuadriceps"
-                      value={exercise.muscleGroup}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Series
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      min={0}
-                      onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
-                      type="number"
-                      value={exercise.sets}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Reps
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      min={0}
-                      onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
-                      type="number"
-                      value={exercise.reps}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Carga
-                    <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
-                      <input
-                        className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
-                        min={0}
-                        onChange={(event) => updateStrengthExercise(exercise.id, { load: event.target.value })}
-                        type="number"
-                        value={exercise.load}
-                      />
-                      <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">kg</span>
-                    </div>
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    Descanso
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
-                      placeholder="Ej. 90 s"
-                      value={exercise.rest}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    RPE
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      max={10}
-                      min={0}
-                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
-                      type="number"
-                      value={exercise.targetRpe}
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs font-semibold text-ink/55">
-                    RIR
-                    <input
-                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                      min={0}
-                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
-                      type="number"
-                      value={exercise.targetRir}
-                    />
-                  </label>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
+            </div>
+            {renderStrengthBlock("activation", "Activacion", "Anadir ejercicio de activacion")}
+            {renderStrengthBlock("main", "Bloque principal", "Anadir ejercicio")}
+            {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional", "Anadir ejercicio auxiliar")}
+          </>
         ) : sessionType === "Cardio" ? (
           <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
             <h3 className="font-semibold text-ink">Sesion de cardio</h3>
@@ -4058,6 +4132,30 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             </div>
           </div>
         )}
+
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Observaciones finales
+            <textarea
+              className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+              placeholder="Notas finales de la sesion"
+            />
+          </label>
+        </section>
+
+        <details className="mt-5 rounded-md border border-line bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-ink">
+            Escala RPE
+          </summary>
+          <div className="mt-3 grid gap-2 text-sm text-ink/65 sm:grid-cols-2">
+            <p className="rounded-md bg-panel/45 px-3 py-2">1-2: muy suave</p>
+            <p className="rounded-md bg-panel/45 px-3 py-2">3-4: suave / controlado</p>
+            <p className="rounded-md bg-panel/45 px-3 py-2">5-6: moderado</p>
+            <p className="rounded-md bg-panel/45 px-3 py-2">7-8: duro</p>
+            <p className="rounded-md bg-panel/45 px-3 py-2">9: muy duro</p>
+            <p className="rounded-md bg-panel/45 px-3 py-2">10: maximo</p>
+          </div>
+        </details>
 
         <button className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto" type="button">
           <Send size={18} />
