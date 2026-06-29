@@ -1993,12 +1993,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </span>
           ) : null}
         </div>
-        <div className="mt-4 rounded-md border border-line bg-panel/45 p-4">
-          <p className="text-sm font-semibold text-ink">{activePattern}</p>
-          <p className="mt-2 text-sm text-ink/60">
-            La progresion se deduce por el orden del ejercicio dentro de su familia y objetivo.
-          </p>
-        </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Patron
@@ -2017,7 +2011,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Familia / objetivo
+            Objetivo
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -2116,7 +2110,7 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
     acc[key] ??= {
       exercises: [],
       key,
-      label: `${exercise.family} - ${exercise.objective}`
+      label: exercise.objective
     };
     acc[key].exercises.push(exercise);
     return acc;
