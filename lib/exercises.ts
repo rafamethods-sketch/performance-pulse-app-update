@@ -45,358 +45,413 @@ export const exerciseObjectives: ExerciseObjective[] = [
   "Conditioning"
 ];
 
-export const exerciseLibrary: ExerciseDefinition[] = [
+type ExerciseSeed = Omit<ExerciseDefinition, "id" | "orderInFamily" | "pattern" | "family" | "objective">;
+
+type ExerciseGroupSeed = {
+  family: string;
+  objective: ExerciseObjective;
+  pattern: ExercisePattern;
+  slug: string;
+  exercises: ExerciseSeed[];
+};
+
+const exerciseGroups: ExerciseGroupSeed[] = [
   {
-    id: "squat-bilateral-strength-1",
-    name: "Sentadilla asistida con feedback manual",
+    slug: "squat-bilateral-control",
+    pattern: "Squat",
+    family: "Squat bilateral",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Sentadilla asistida con feedback manual", planeOrDirection: "Vertical", equipment: "Asistencia manual" },
+      { name: "Sit to stand asistido", planeOrDirection: "Vertical", equipment: "Silla / apoyo" },
+      { name: "Sentadilla a cajon", planeOrDirection: "Vertical", equipment: "Cajon" },
+      { name: "Sentadilla tempo peso corporal", planeOrDirection: "Vertical", equipment: "Peso corporal" }
+    ]
+  },
+  {
+    slug: "squat-bilateral-strength",
     pattern: "Squat",
     family: "Squat bilateral",
     objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Asistencia manual",
-    orderInFamily: 1
+    exercises: [
+      { name: "Goblet squat", planeOrDirection: "Vertical", equipment: "Kettlebell / mancuerna" },
+      { name: "Front squat", planeOrDirection: "Vertical", equipment: "Barra" },
+      { name: "Back squat", planeOrDirection: "Vertical", equipment: "Barra" },
+      { name: "Safety bar squat", planeOrDirection: "Vertical", equipment: "Barra safety" }
+    ]
   },
   {
-    id: "squat-bilateral-strength-2",
-    name: "Sentadilla a cajon",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Cajon",
-    orderInFamily: 2
-  },
-  {
-    id: "squat-bilateral-strength-3",
-    name: "Goblet squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Kettlebell / mancuerna",
-    orderInFamily: 3
-  },
-  {
-    id: "squat-bilateral-strength-4",
-    name: "Front squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Barra",
-    orderInFamily: 4
-  },
-  {
-    id: "squat-bilateral-strength-5",
-    name: "Back squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Barra",
-    orderInFamily: 5
-  },
-  {
-    id: "squat-bilateral-hypertrophy-1",
-    name: "Leg extension",
+    slug: "squat-bilateral-hypertrophy",
     pattern: "Squat",
     family: "Squat bilateral",
     objective: "Hipertrofia",
-    planeOrDirection: "Vertical",
-    equipment: "Maquina",
-    orderInFamily: 1
+    exercises: [
+      { name: "Leg extension", planeOrDirection: "Vertical", equipment: "Maquina" },
+      { name: "Prensa", planeOrDirection: "Vertical", equipment: "Maquina" },
+      { name: "Hack squat", planeOrDirection: "Vertical", equipment: "Maquina" },
+      { name: "Pendulum squat", planeOrDirection: "Vertical", equipment: "Maquina" }
+    ]
   },
   {
-    id: "squat-bilateral-hypertrophy-2",
-    name: "Prensa",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Hipertrofia",
-    planeOrDirection: "Vertical",
-    equipment: "Maquina",
-    orderInFamily: 2
-  },
-  {
-    id: "squat-bilateral-hypertrophy-3",
-    name: "Hack squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Hipertrofia",
-    planeOrDirection: "Vertical",
-    equipment: "Maquina",
-    orderInFamily: 3
-  },
-  {
-    id: "squat-bilateral-hypertrophy-4",
-    name: "Pendulum squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Hipertrofia",
-    planeOrDirection: "Vertical",
-    equipment: "Maquina",
-    orderInFamily: 4
-  },
-  {
-    id: "squat-bilateral-power-1",
-    name: "Countermovement jump",
+    slug: "squat-bilateral-power",
     pattern: "Squat",
     family: "Squat bilateral",
     objective: "Potencia",
-    planeOrDirection: "Vertical",
-    equipment: "Peso corporal",
-    orderInFamily: 1
+    exercises: [
+      { name: "Countermovement jump", planeOrDirection: "Vertical", equipment: "Peso corporal" },
+      { name: "Jump squat", planeOrDirection: "Vertical", equipment: "Peso corporal / carga ligera" },
+      { name: "Hang power clean", planeOrDirection: "Vertical", equipment: "Barra" },
+      { name: "Power clean", planeOrDirection: "Vertical", equipment: "Barra" }
+    ]
   },
   {
-    id: "squat-bilateral-power-2",
-    name: "Jump squat",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Potencia",
-    planeOrDirection: "Vertical",
-    equipment: "Peso corporal / carga ligera",
-    orderInFamily: 2
+    slug: "hinge-bilateral-control",
+    pattern: "Hinge",
+    family: "Hinge bilateral",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Bisagra con feedback manual", planeOrDirection: "Anteroposterior", equipment: "Asistencia manual" },
+      { name: "Bisagra con pared", planeOrDirection: "Anteroposterior", equipment: "Pared" },
+      { name: "Bisagra con palo", planeOrDirection: "Anteroposterior", equipment: "Palo" },
+      { name: "Puente de gluteo", planeOrDirection: "Sagital", equipment: "Peso corporal" }
+    ]
   },
   {
-    id: "squat-bilateral-power-3",
-    name: "Hang power clean",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Potencia",
-    planeOrDirection: "Vertical",
-    equipment: "Barra",
-    orderInFamily: 3
-  },
-  {
-    id: "squat-bilateral-power-4",
-    name: "Power clean",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Potencia",
-    planeOrDirection: "Vertical",
-    equipment: "Barra",
-    orderInFamily: 4
-  },
-  {
-    id: "squat-bilateral-power-5",
-    name: "Clean",
-    pattern: "Squat",
-    family: "Squat bilateral",
-    objective: "Potencia",
-    planeOrDirection: "Vertical",
-    equipment: "Barra",
-    orderInFamily: 5
-  },
-  {
-    id: "hinge-bilateral-strength-1",
-    name: "Bisagra con pared",
+    slug: "hinge-bilateral-strength",
     pattern: "Hinge",
     family: "Hinge bilateral",
     objective: "Fuerza base",
-    planeOrDirection: "Anteroposterior",
-    equipment: "Pared",
-    orderInFamily: 1
+    exercises: [
+      { name: "Peso muerto rumano con mancuernas", planeOrDirection: "Anteroposterior", equipment: "Mancuernas" },
+      { name: "Kettlebell deadlift", planeOrDirection: "Vertical", equipment: "Kettlebell" },
+      { name: "Trap bar deadlift", planeOrDirection: "Vertical", equipment: "Trap bar" },
+      { name: "Peso muerto rumano con barra", planeOrDirection: "Anteroposterior", equipment: "Barra" }
+    ]
   },
   {
-    id: "hinge-bilateral-strength-2",
-    name: "Peso muerto rumano con mancuernas",
+    slug: "hinge-bilateral-hypertrophy",
     pattern: "Hinge",
     family: "Hinge bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Anteroposterior",
-    equipment: "Mancuernas",
-    orderInFamily: 2
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Hip thrust en maquina", planeOrDirection: "Horizontal", equipment: "Maquina" },
+      { name: "Curl femoral sentado", planeOrDirection: "Sagital", equipment: "Maquina" },
+      { name: "Back extension", planeOrDirection: "Sagital", equipment: "Banco" },
+      { name: "Pull through en polea", planeOrDirection: "Anteroposterior", equipment: "Polea" }
+    ]
   },
   {
-    id: "hinge-bilateral-strength-3",
-    name: "Trap bar deadlift",
+    slug: "hinge-bilateral-power",
     pattern: "Hinge",
     family: "Hinge bilateral",
-    objective: "Fuerza base",
-    planeOrDirection: "Vertical",
-    equipment: "Trap bar",
-    orderInFamily: 3
-  },
-  {
-    id: "lunge-unilateral-strength-1",
-    name: "Split squat asistido",
-    pattern: "Lunge",
-    family: "Lunge estatico",
-    objective: "Fuerza base",
-    planeOrDirection: "Sagital",
-    equipment: "Apoyo externo",
-    orderInFamily: 1
-  },
-  {
-    id: "lunge-unilateral-strength-2",
-    name: "Split squat",
-    pattern: "Lunge",
-    family: "Lunge estatico",
-    objective: "Fuerza base",
-    planeOrDirection: "Sagital",
-    equipment: "Peso corporal",
-    orderInFamily: 2
-  },
-  {
-    id: "lunge-unilateral-strength-3",
-    name: "Bulgarian split squat",
-    pattern: "Lunge",
-    family: "Lunge estatico",
-    objective: "Fuerza base",
-    planeOrDirection: "Sagital",
-    equipment: "Banco / carga externa",
-    orderInFamily: 3
-  },
-  {
-    id: "gait-carry-conditioning-1",
-    name: "Farmer carry bilateral",
-    pattern: "Gait & Carry",
-    family: "Carry",
-    objective: "Conditioning",
-    planeOrDirection: "Lineal",
-    equipment: "Mancuernas / kettlebells",
-    orderInFamily: 1
-  },
-  {
-    id: "gait-carry-conditioning-2",
-    name: "Suitcase carry",
-    pattern: "Gait & Carry",
-    family: "Carry",
-    objective: "Conditioning",
-    planeOrDirection: "Lineal",
-    equipment: "Mancuerna / kettlebell",
-    orderInFamily: 2
-  },
-  {
-    id: "gait-carry-conditioning-3",
-    name: "Sled push",
-    pattern: "Gait & Carry",
-    family: "Locomocion cargada",
-    objective: "Conditioning",
-    planeOrDirection: "Horizontal",
-    equipment: "Trineo",
-    orderInFamily: 1
-  },
-  {
-    id: "push-horizontal-strength-1",
-    name: "Press pared",
-    pattern: "Push",
-    family: "Push horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Peso corporal",
-    orderInFamily: 1
-  },
-  {
-    id: "push-horizontal-strength-2",
-    name: "Flexion inclinada",
-    pattern: "Push",
-    family: "Push horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Banco / apoyo",
-    orderInFamily: 2
-  },
-  {
-    id: "push-horizontal-strength-3",
-    name: "Press banca",
-    pattern: "Push",
-    family: "Push horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Barra",
-    orderInFamily: 3
-  },
-  {
-    id: "pull-horizontal-strength-1",
-    name: "Remo con banda",
-    pattern: "Pull",
-    family: "Pull horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Banda elastica",
-    orderInFamily: 1
-  },
-  {
-    id: "pull-horizontal-strength-2",
-    name: "Remo en polea",
-    pattern: "Pull",
-    family: "Pull horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Polea",
-    orderInFamily: 2
-  },
-  {
-    id: "pull-horizontal-strength-3",
-    name: "Remo con barra",
-    pattern: "Pull",
-    family: "Pull horizontal",
-    objective: "Fuerza base",
-    planeOrDirection: "Horizontal",
-    equipment: "Barra",
-    orderInFamily: 3
-  },
-  {
-    id: "rotation-control-1",
-    name: "Pallof press isometrico",
-    pattern: "Rotation",
-    family: "Anti-rotacion",
-    objective: "Control motor / resistencia manual",
-    planeOrDirection: "Transversal",
-    equipment: "Banda / polea",
-    orderInFamily: 1
-  },
-  {
-    id: "rotation-control-2",
-    name: "Pallof press dinamico",
-    pattern: "Rotation",
-    family: "Anti-rotacion",
-    objective: "Control motor / resistencia manual",
-    planeOrDirection: "Transversal",
-    equipment: "Banda / polea",
-    orderInFamily: 2
-  },
-  {
-    id: "rotation-power-1",
-    name: "Rotational med ball throw",
-    pattern: "Rotation",
-    family: "Rotacion explosiva",
     objective: "Potencia",
-    planeOrDirection: "Transversal",
-    equipment: "Balon medicinal",
-    orderInFamily: 1
+    exercises: [
+      { name: "Kettlebell swing", planeOrDirection: "Anteroposterior", equipment: "Kettlebell" },
+      { name: "Broad jump", planeOrDirection: "Horizontal", equipment: "Peso corporal" },
+      { name: "Hang high pull", planeOrDirection: "Vertical", equipment: "Barra" },
+      { name: "Snatch pull", planeOrDirection: "Vertical", equipment: "Barra" }
+    ]
   },
   {
-    id: "core-control-1",
-    name: "Dead bug",
+    slug: "lunge-unilateral-control",
+    pattern: "Lunge",
+    family: "Lunge unilateral",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Split squat asistido", planeOrDirection: "Sagital", equipment: "Apoyo externo" },
+      { name: "Step back lunge asistido", planeOrDirection: "Sagital", equipment: "Apoyo externo" },
+      { name: "Split squat peso corporal", planeOrDirection: "Sagital", equipment: "Peso corporal" },
+      { name: "Step up bajo", planeOrDirection: "Vertical", equipment: "Cajon bajo" }
+    ]
+  },
+  {
+    slug: "lunge-unilateral-strength",
+    pattern: "Lunge",
+    family: "Lunge unilateral",
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Split squat con mancuernas", planeOrDirection: "Sagital", equipment: "Mancuernas" },
+      { name: "Reverse lunge con mancuernas", planeOrDirection: "Sagital", equipment: "Mancuernas" },
+      { name: "Bulgarian split squat", planeOrDirection: "Sagital", equipment: "Banco / carga externa" },
+      { name: "Front rack reverse lunge", planeOrDirection: "Sagital", equipment: "Barra" }
+    ]
+  },
+  {
+    slug: "lunge-unilateral-hypertrophy",
+    pattern: "Lunge",
+    family: "Lunge unilateral",
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Step up alto", planeOrDirection: "Vertical", equipment: "Cajon" },
+      { name: "Walking lunge", planeOrDirection: "Sagital", equipment: "Mancuernas" },
+      { name: "Bulgarian split squat en multipower", planeOrDirection: "Sagital", equipment: "Multipower" },
+      { name: "Prensa unilateral", planeOrDirection: "Vertical", equipment: "Maquina" }
+    ]
+  },
+  {
+    slug: "lunge-unilateral-power",
+    pattern: "Lunge",
+    family: "Lunge unilateral",
+    objective: "Potencia",
+    exercises: [
+      { name: "Split squat jump", planeOrDirection: "Vertical", equipment: "Peso corporal" },
+      { name: "Alternating lunge jump", planeOrDirection: "Vertical", equipment: "Peso corporal" },
+      { name: "Lateral bound", planeOrDirection: "Frontal", equipment: "Peso corporal" },
+      { name: "Step up jump", planeOrDirection: "Vertical", equipment: "Cajon" }
+    ]
+  },
+  {
+    slug: "gait-carry-control",
+    pattern: "Gait & Carry",
+    family: "Gait & Carry",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Marcha asistida con feedback manual", planeOrDirection: "Lineal", equipment: "Asistencia manual" },
+      { name: "Marcha en el sitio", planeOrDirection: "Lineal", equipment: "Peso corporal" },
+      { name: "Farmer hold bilateral", planeOrDirection: "Estatica", equipment: "Mancuernas / kettlebells" },
+      { name: "Farmer carry bilateral", planeOrDirection: "Lineal", equipment: "Mancuernas / kettlebells" }
+    ]
+  },
+  {
+    slug: "gait-carry-strength",
+    pattern: "Gait & Carry",
+    family: "Gait & Carry",
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Suitcase carry", planeOrDirection: "Lineal", equipment: "Mancuerna / kettlebell" },
+      { name: "Front rack carry", planeOrDirection: "Lineal", equipment: "Kettlebells" },
+      { name: "Trap bar carry", planeOrDirection: "Lineal", equipment: "Trap bar" },
+      { name: "Sled push pesado", planeOrDirection: "Horizontal", equipment: "Trineo" }
+    ]
+  },
+  {
+    slug: "gait-carry-hypertrophy",
+    pattern: "Gait & Carry",
+    family: "Gait & Carry",
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Sled push volumen", planeOrDirection: "Horizontal", equipment: "Trineo" },
+      { name: "Sled drag", planeOrDirection: "Horizontal", equipment: "Trineo" },
+      { name: "Stair climber loaded", planeOrDirection: "Vertical", equipment: "Maquina" },
+      { name: "Farmer carry tiempo bajo tension", planeOrDirection: "Lineal", equipment: "Mancuernas / kettlebells" }
+    ]
+  },
+  {
+    slug: "gait-carry-power",
+    pattern: "Gait & Carry",
+    family: "Gait & Carry",
+    objective: "Potencia",
+    exercises: [
+      { name: "A-skip", planeOrDirection: "Lineal", equipment: "Peso corporal" },
+      { name: "Pogo run", planeOrDirection: "Lineal", equipment: "Peso corporal" },
+      { name: "Sled sprint", planeOrDirection: "Horizontal", equipment: "Trineo" },
+      { name: "Resisted acceleration", planeOrDirection: "Horizontal", equipment: "Cinta / trineo" }
+    ]
+  },
+  {
+    slug: "push-horizontal-control",
+    pattern: "Push",
+    family: "Push horizontal",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Press manual supino", planeOrDirection: "Horizontal", equipment: "Resistencia manual" },
+      { name: "Press pared", planeOrDirection: "Horizontal", equipment: "Peso corporal" },
+      { name: "Flexion inclinada alta", planeOrDirection: "Horizontal", equipment: "Apoyo alto" },
+      { name: "Flexion inclinada baja", planeOrDirection: "Horizontal", equipment: "Banco" }
+    ]
+  },
+  {
+    slug: "push-horizontal-strength",
+    pattern: "Push",
+    family: "Push horizontal",
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Flexion", planeOrDirection: "Horizontal", equipment: "Peso corporal" },
+      { name: "Press mancuernas banco", planeOrDirection: "Horizontal", equipment: "Mancuernas" },
+      { name: "Press banca", planeOrDirection: "Horizontal", equipment: "Barra" },
+      { name: "Floor press", planeOrDirection: "Horizontal", equipment: "Barra / mancuernas" }
+    ]
+  },
+  {
+    slug: "push-horizontal-hypertrophy",
+    pattern: "Push",
+    family: "Push horizontal",
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Press maquina convergente", planeOrDirection: "Horizontal", equipment: "Maquina" },
+      { name: "Chest press", planeOrDirection: "Horizontal", equipment: "Maquina" },
+      { name: "Aperturas en polea", planeOrDirection: "Horizontal", equipment: "Polea" },
+      { name: "Pec deck", planeOrDirection: "Horizontal", equipment: "Maquina" }
+    ]
+  },
+  {
+    slug: "push-horizontal-power",
+    pattern: "Push",
+    family: "Push horizontal",
+    objective: "Potencia",
+    exercises: [
+      { name: "Chest pass balon medicinal", planeOrDirection: "Horizontal", equipment: "Balon medicinal" },
+      { name: "Plyo push up", planeOrDirection: "Horizontal", equipment: "Peso corporal" },
+      { name: "Bench throw", planeOrDirection: "Horizontal", equipment: "Barra / multipower" },
+      { name: "Push press", planeOrDirection: "Vertical", equipment: "Barra" }
+    ]
+  },
+  {
+    slug: "pull-horizontal-control",
+    pattern: "Pull",
+    family: "Pull horizontal",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Retraccion escapular asistida", planeOrDirection: "Horizontal", equipment: "Asistencia manual" },
+      { name: "Remo manual sentado", planeOrDirection: "Horizontal", equipment: "Resistencia manual" },
+      { name: "Remo con banda", planeOrDirection: "Horizontal", equipment: "Banda elastica" },
+      { name: "Remo TRX alto", planeOrDirection: "Horizontal", equipment: "TRX" }
+    ]
+  },
+  {
+    slug: "pull-horizontal-strength",
+    pattern: "Pull",
+    family: "Pull horizontal",
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Remo mancuerna apoyado", planeOrDirection: "Horizontal", equipment: "Mancuerna" },
+      { name: "Remo TRX bajo", planeOrDirection: "Horizontal", equipment: "TRX" },
+      { name: "Remo con barra", planeOrDirection: "Horizontal", equipment: "Barra" },
+      { name: "Dominada asistida con banda", planeOrDirection: "Vertical", equipment: "Banda elastica" }
+    ]
+  },
+  {
+    slug: "pull-horizontal-hypertrophy",
+    pattern: "Pull",
+    family: "Pull horizontal",
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Remo en polea", planeOrDirection: "Horizontal", equipment: "Polea" },
+      { name: "Remo maquina convergente", planeOrDirection: "Horizontal", equipment: "Maquina" },
+      { name: "Jalon al pecho", planeOrDirection: "Vertical", equipment: "Polea" },
+      { name: "Pullover en polea", planeOrDirection: "Sagital", equipment: "Polea" }
+    ]
+  },
+  {
+    slug: "pull-horizontal-power",
+    pattern: "Pull",
+    family: "Pull horizontal",
+    objective: "Potencia",
+    exercises: [
+      { name: "Med ball slam", planeOrDirection: "Vertical", equipment: "Balon medicinal" },
+      { name: "Explosive TRX row", planeOrDirection: "Horizontal", equipment: "TRX" },
+      { name: "High pull", planeOrDirection: "Vertical", equipment: "Barra" },
+      { name: "Power snatch from hang", planeOrDirection: "Vertical", equipment: "Barra" }
+    ]
+  },
+  {
+    slug: "rotation-control",
+    pattern: "Rotation",
+    family: "Rotation",
+    objective: "Control motor / resistencia manual",
+    exercises: [
+      { name: "Anti-rotacion manual", planeOrDirection: "Transversal", equipment: "Resistencia manual" },
+      { name: "Pallof press isometrico", planeOrDirection: "Transversal", equipment: "Banda / polea" },
+      { name: "Pallof press dinamico", planeOrDirection: "Transversal", equipment: "Banda / polea" },
+      { name: "Tall kneeling anti-rotacion", planeOrDirection: "Transversal", equipment: "Banda / polea" }
+    ]
+  },
+  {
+    slug: "rotation-strength",
+    pattern: "Rotation",
+    family: "Rotation",
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Cable chop", planeOrDirection: "Diagonal", equipment: "Polea" },
+      { name: "Cable lift", planeOrDirection: "Diagonal", equipment: "Polea" },
+      { name: "Landmine rotation", planeOrDirection: "Transversal", equipment: "Barra landmine" },
+      { name: "Half kneeling cable rotation", planeOrDirection: "Transversal", equipment: "Polea" }
+    ]
+  },
+  {
+    slug: "rotation-hypertrophy",
+    pattern: "Rotation",
+    family: "Rotation",
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Cable woodchop", planeOrDirection: "Diagonal", equipment: "Polea" },
+      { name: "Cable rotation", planeOrDirection: "Transversal", equipment: "Polea" },
+      { name: "Rotary torso machine", planeOrDirection: "Transversal", equipment: "Maquina" },
+      { name: "Landmine windshield", planeOrDirection: "Transversal", equipment: "Barra landmine" }
+    ]
+  },
+  {
+    slug: "rotation-power",
+    pattern: "Rotation",
+    family: "Rotation",
+    objective: "Potencia",
+    exercises: [
+      { name: "Rotational med ball throw", planeOrDirection: "Transversal", equipment: "Balon medicinal" },
+      { name: "Shot put throw", planeOrDirection: "Transversal", equipment: "Balon medicinal" },
+      { name: "Scoop toss", planeOrDirection: "Transversal", equipment: "Balon medicinal" },
+      { name: "Landmine rotational punch", planeOrDirection: "Transversal", equipment: "Barra landmine" }
+    ]
+  },
+  {
+    slug: "core-anti-extension-control",
     pattern: "Core",
     family: "Anti-extension",
     objective: "Control motor / resistencia manual",
-    planeOrDirection: "Sagital",
-    equipment: "Peso corporal",
-    orderInFamily: 1
+    exercises: [
+      { name: "Dead bug asistido", planeOrDirection: "Sagital", equipment: "Feedback manual" },
+      { name: "Dead bug", planeOrDirection: "Sagital", equipment: "Peso corporal" },
+      { name: "Plank", planeOrDirection: "Sagital", equipment: "Peso corporal" },
+      { name: "Body saw", planeOrDirection: "Sagital", equipment: "Peso corporal / sliders" }
+    ]
   },
   {
-    id: "core-control-2",
-    name: "Plank",
+    slug: "core-anti-extension-strength",
     pattern: "Core",
     family: "Anti-extension",
-    objective: "Control motor / resistencia manual",
-    planeOrDirection: "Sagital",
-    equipment: "Peso corporal",
-    orderInFamily: 2
+    objective: "Fuerza base",
+    exercises: [
+      { name: "Stability ball rollout", planeOrDirection: "Sagital", equipment: "Fitball" },
+      { name: "Ab wheel rollout", planeOrDirection: "Sagital", equipment: "Rueda abdominal" },
+      { name: "Long lever plank", planeOrDirection: "Sagital", equipment: "Peso corporal" },
+      { name: "Barbell rollout", planeOrDirection: "Sagital", equipment: "Barra" }
+    ]
   },
   {
-    id: "core-control-3",
-    name: "Ab wheel rollout",
+    slug: "core-hypertrophy",
     pattern: "Core",
     family: "Anti-extension",
-    objective: "Control motor / resistencia manual",
-    planeOrDirection: "Sagital",
-    equipment: "Rueda abdominal",
-    orderInFamily: 3
+    objective: "Hipertrofia",
+    exercises: [
+      { name: "Cable crunch", planeOrDirection: "Sagital", equipment: "Polea" },
+      { name: "Machine crunch", planeOrDirection: "Sagital", equipment: "Maquina" },
+      { name: "Weighted plank", planeOrDirection: "Sagital", equipment: "Disco" },
+      { name: "Hanging knee raise", planeOrDirection: "Sagital", equipment: "Barra" }
+    ]
+  },
+  {
+    slug: "core-power",
+    pattern: "Core",
+    family: "Anti-extension",
+    objective: "Potencia",
+    exercises: [
+      { name: "Med ball overhead slam", planeOrDirection: "Sagital", equipment: "Balon medicinal" },
+      { name: "Med ball sit-up throw", planeOrDirection: "Sagital", equipment: "Balon medicinal" },
+      { name: "Plank to sprint start", planeOrDirection: "Sagital", equipment: "Peso corporal" },
+      { name: "Explosive rollout return", planeOrDirection: "Sagital", equipment: "Rueda abdominal" }
+    ]
   }
 ];
+
+export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) =>
+  group.exercises.map((exercise, index) => ({
+    ...exercise,
+    id: `${group.slug}-${index + 1}`,
+    pattern: group.pattern,
+    family: group.family,
+    objective: group.objective,
+    orderInFamily: index + 1
+  }))
+);
 
 export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
