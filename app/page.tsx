@@ -33,6 +33,15 @@ import {
   type PlanningMethod,
   type WeeklyDistribution
 } from "@/lib/planning-config";
+import {
+  exerciseLibrary,
+  exercisePatterns,
+  getExerciseProgression,
+  getExerciseRegression,
+  getExercisesByPattern,
+  type ExerciseDefinition,
+  type ExercisePattern
+} from "@/lib/exercises";
 import { supabase } from "@/lib/supabase";
 import {
   assessmentCategories,
@@ -1952,103 +1961,19 @@ function PlanningCalendarPreview({
     </section>
   );
 }
-type ProgressionPattern = {
-  criteria: string[];
-  guide: string;
-  levels: string[];
-  name: string;
-  objective: string;
-  warning: string;
-};
-
-const progressionPatterns: ProgressionPattern[] = [
-  {
-    name: "Empuje tren inferior",
-    objective: "Sentadilla, zancada y patrones dominantes de rodilla.",
-    guide: "Familia para seleccionar variantes de extension de rodilla. Ajusta el orden, nombres y criterios segun tu metodo.",
-    warning: "Regresar si hay valgo dinamico, dolor anterior de rodilla o perdida de rango.",
-    criteria: ["Rango estable", "Rodilla alineada", "RIR 2-4", "Dolor 0-2/10"],
-    levels: [
-      "Sentadilla en silla con apoyo de manos",
-      "Sentadilla en silla sin apoyo",
-      "Sit to stand con tempo controlado",
-      "Box squat alto",
-      "Box squat bajo",
-      "Goblet squat",
-      "Split squat asistido",
-      "Split squat cargado",
-      "Front squat",
-      "Back squat",
-      "Jump squat con carga ligera"
-    ]
-  },
-  {
-    name: "Traccion tren inferior",
-    objective: "Bisagra de cadera, peso muerto y cadena posterior.",
-    guide: "Familia para bisagra, extension de cadera y cadena posterior. Dejamos la guia abierta para que adaptes progresiones.",
-    warning: "Regresar si pierde columna neutra, no controla pelvis o aparece dolor lumbar.",
-    criteria: ["Bisagra limpia", "Control lumbopelvico", "Isquios toleran carga", "Sin dolor irradiado"],
-    levels: [
-      "Puente de gluteo en suelo",
-      "Bisagra con pared",
-      "Bisagra con palo",
-      "Pull through con banda",
-      "Peso muerto rumano con mancuernas ligeras",
-      "Peso muerto rumano con mancuernas",
-      "Hip thrust",
-      "Peso muerto trap bar elevado",
-      "Peso muerto trap bar desde suelo",
-      "Peso muerto rumano con barra",
-      "Peso muerto convencional"
-    ]
-  },
-  {
-    name: "Empuje tren superior",
-    objective: "Press horizontal y vertical con control escapular.",
-    guide: "Familia para empujes horizontales y verticales. Puedes convertirla despues en subfamilias si te resulta mas comodo.",
-    warning: "Regresar si hay dolor de hombro, compensacion lumbar o perdida de control escapular.",
-    criteria: ["Escapula estable", "Rango sin dolor", "Costillas controladas", "RIR 2-3"],
-    levels: [
-      "Press pared",
-      "Flexion inclinada alta",
-      "Flexion inclinada baja",
-      "Press mancuernas en banco",
-      "Press maquina convergente",
-      "Press banca",
-      "Press landmine",
-      "Press hombro sentado con mancuernas",
-      "Press militar",
-      "Push press",
-      "Lanzamiento balon medicinal"
-    ]
-  },
-  {
-    name: "Traccion tren superior",
-    objective: "Remo, dominada y fuerza dorsal escapular.",
-    guide: "Familia para remos, jalones y dominadas. La seleccion queda manual para respetar tu forma de programar.",
-    warning: "Regresar si hay elevacion excesiva de hombros, dolor cervical o perdida de ritmo escapular.",
-    criteria: ["Depresion escapular", "Cuello relajado", "Tiron simetrico", "Control excentrico"],
-    levels: [
-      "Retracciones escapulares sentado",
-      "Remo con banda elastica",
-      "Remo en polea ligero",
-      "Jalon al pecho ligero",
-      "Remo mancuerna apoyado",
-      "Jalon al pecho",
-      "Remo en TRX inclinado",
-      "Remo con barra",
-      "Dominada asistida",
-      "Dominada",
-      "Dominada lastrada"
-    ]
-  }
-];
-
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [activePattern, setActivePattern] = useState(progressionPatterns[0].name);
-  const selectedPattern =
-    progressionPatterns.find((pattern) => pattern.name === activePattern) ?? progressionPatterns[0];
-  const [selectedExercise, setSelectedExercise] = useState(selectedPattern.levels[0]);
+  const [activePattern, setActivePattern] = useState<ExercisePattern>(exercisePatterns[0]);
+  const patternExercises = getExercisesByPattern(activePattern);
+  const familyGroups = getExerciseFamilyGroups(patternExercises);
+  const [selectedFamilyKey, setSelectedFamilyKey] = useState("");
+  const selectedFamilyGroup =
+    familyGroups.find((group) => group.key === selectedFamilyKey) ?? familyGroups[0];
+  const [selectedExerciseId, setSelectedExerciseId] = useState("");
+  const selectedExercise =
+    selectedFamilyGroup?.exercises.find((exercise) => exercise.id === selectedExerciseId) ??
+    selectedFamilyGroup?.exercises[0];
+  const regression = selectedExercise ? getExerciseRegression(selectedExercise.id) : null;
+  const progression = selectedExercise ? getExerciseProgression(selectedExercise.id) : null;
   const [routineExercises, setRoutineExercises] = useState<string[]>([]);
   const addExerciseToRoutine = (exercise: string) => {
     setRoutineExercises((current) => current.includes(exercise) ? current : [...current, exercise]);
@@ -2069,23 +1994,40 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
           ) : null}
         </div>
         <div className="mt-4 rounded-md border border-line bg-panel/45 p-4">
-          <p className="text-sm font-semibold text-ink">{selectedPattern.objective}</p>
-          <p className="mt-2 text-sm text-ink/60">{selectedPattern.guide}</p>
+          <p className="text-sm font-semibold text-ink">{activePattern}</p>
+          <p className="mt-2 text-sm text-ink/60">
+            La progresion se deduce por el orden del ejercicio dentro de su familia y objetivo.
+          </p>
         </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Familia
+            Patron
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
-                const nextPattern = progressionPatterns.find((pattern) => pattern.name === event.target.value) ?? progressionPatterns[0];
-                setActivePattern(nextPattern.name);
-                setSelectedExercise(nextPattern.levels[0]);
+                setActivePattern(event.target.value as ExercisePattern);
+                setSelectedFamilyKey("");
+                setSelectedExerciseId("");
               }}
               value={activePattern}
             >
-              {progressionPatterns.map((pattern) => (
-                <option key={pattern.name}>{pattern.name}</option>
+              {exercisePatterns.map((pattern) => (
+                <option key={pattern}>{pattern}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Familia / objetivo
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => {
+                setSelectedFamilyKey(event.target.value);
+                setSelectedExerciseId("");
+              }}
+              value={selectedFamilyGroup?.key ?? ""}
+            >
+              {familyGroups.map((group) => (
+                <option key={group.key} value={group.key}>{group.label}</option>
               ))}
             </select>
           </label>
@@ -2093,17 +2035,20 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             Ejercicio
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setSelectedExercise(event.target.value)}
-              value={selectedExercise}
+              onChange={(event) => setSelectedExerciseId(event.target.value)}
+              value={selectedExercise?.id ?? ""}
             >
-              {selectedPattern.levels.map((exercise) => (
-                <option key={exercise}>{exercise}</option>
+              {selectedFamilyGroup?.exercises.map((exercise) => (
+                <option key={exercise.id} value={exercise.id}>
+                  {exercise.orderInFamily}. {exercise.name}
+                </option>
               ))}
             </select>
           </label>
           <button
             className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
-            onClick={() => addExerciseToRoutine(selectedExercise)}
+            disabled={!selectedExercise}
+            onClick={() => selectedExercise && addExerciseToRoutine(selectedExercise.name)}
             type="button"
           >
             <Plus size={16} />
@@ -2111,15 +2056,15 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
           </button>
         </div>
         <div className="mt-5 rounded-md bg-mint p-4">
-          <p className="text-sm font-semibold text-moss">Guia abierta del entrenador</p>
-          <div className="mt-3 grid gap-2">
-            {selectedPattern.criteria.map((criterion) => (
-              <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70" key={criterion}>
-                {criterion}
-              </p>
-            ))}
+          <p className="text-sm font-semibold text-moss">Relacion dentro de la familia</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70">
+              Regresion: {regression?.name ?? "Sin ejercicio anterior"}
+            </p>
+            <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70">
+              Progresion: {progression?.name ?? "Sin ejercicio siguiente"}
+            </p>
           </div>
-          <p className="mt-3 text-sm text-moss/80">{selectedPattern.warning}</p>
         </div>
       </section>
 
@@ -2161,6 +2106,41 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
       </section>
     </div>
   );
+}
+
+function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
+  const grouped = exercises.reduce<
+    Record<string, { exercises: ExerciseDefinition[]; key: string; label: string }>
+  >((acc, exercise) => {
+    const key = `${exercise.family}__${exercise.objective}`;
+    acc[key] ??= {
+      exercises: [],
+      key,
+      label: `${exercise.family} - ${exercise.objective}`
+    };
+    acc[key].exercises.push(exercise);
+    return acc;
+  }, {});
+
+  return Object.values(grouped).map((group) => ({
+    ...group,
+    exercises: [...group.exercises].sort((a, b) => a.orderInFamily - b.orderInFamily)
+  }));
+}
+
+function getRoutineExerciseAlternatives(pattern: string) {
+  const mappedPatterns: Record<string, ExercisePattern[]> = {
+    "Empuje tren inferior": ["Squat", "Lunge"],
+    "Empuje tren superior": ["Push"],
+    "Traccion tren inferior": ["Hinge"],
+    "Traccion tren superior": ["Pull"]
+  };
+  const patterns = mappedPatterns[pattern] ?? [];
+  const names = exerciseLibrary
+    .filter((exercise) => patterns.includes(exercise.pattern))
+    .map((exercise) => exercise.name);
+
+  return names.length > 0 ? names : [];
 }
 
 type RoutineTemplate = {
@@ -2443,8 +2423,9 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
             </thead>
             <tbody>
               {routineExercises.map((exercise, index) => {
-                const pattern = progressionPatterns.find((item) => item.name === exercise.pattern);
-                const alternatives = pattern?.levels ?? [exercise.exercise];
+                const alternatives = getRoutineExerciseAlternatives(exercise.pattern);
+                const selectableAlternatives =
+                  alternatives.length > 0 ? alternatives : [exercise.exercise];
 
                 return (
                   <tr className="bg-panel/45" key={`${exercise.pattern}-${index}`}>
@@ -2460,7 +2441,7 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
                         onChange={(event) => updateRoutineExercise(index, event.target.value)}
                         value={exercise.exercise}
                       >
-                        {alternatives.map((alternative) => (
+                        {selectableAlternatives.map((alternative) => (
                           <option key={alternative}>{alternative}</option>
                         ))}
                       </select>
