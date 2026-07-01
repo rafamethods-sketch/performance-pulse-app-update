@@ -34,11 +34,19 @@ import {
   type WeeklyDistribution
 } from "@/lib/planning-config";
 import {
+  calculateWeeklyFatigueMap,
+  calculateWeeklyPercentageByPattern,
+  calculateWeeklySetsByBlock,
+  calculateWeeklySetsByExercise,
+  calculateWeeklySetsByPattern,
+  exerciseBlocks,
   exerciseLibrary,
   exercisePatterns,
+  getExerciseById,
   getExerciseProgression,
   getExerciseRegression,
   getExercisesByPattern,
+  type ExerciseBlock,
   type ExerciseDefinition,
   type ExercisePattern
 } from "@/lib/exercises";
@@ -1398,6 +1406,15 @@ function DecisionDashboardView() {
 
 function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const loadData = client ? getClientLoadData(client) : null;
+  const weeklyExerciseEntries = getMockWeeklyExerciseEntries();
+  const setsByPattern = calculateWeeklySetsByPattern(weeklyExerciseEntries);
+  const percentageByPattern = calculateWeeklyPercentageByPattern(weeklyExerciseEntries);
+  const setsByBlock = calculateWeeklySetsByBlock(weeklyExerciseEntries);
+  const setsByExercise = calculateWeeklySetsByExercise(weeklyExerciseEntries);
+  const fatigueMap = calculateWeeklyFatigueMap(weeklyExerciseEntries);
+  const totalWeeklySets = Object.values(setsByPattern).reduce((total, sets) => total + sets, 0);
+  const maxPatternSets = Math.max(1, ...Object.values(setsByPattern));
+  const fatigueEntries = Object.entries(fatigueMap).sort(([, a], [, b]) => b - a).slice(0, 8);
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -1426,8 +1443,89 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         <MetricChart chartType="line" title="ACWR EWMA" field="acwr" />
         <MetricChart chartType="points" title="Hooper" field="hooper" suffix="/20" />
       </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-md border border-line bg-panel/35 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold text-ink">Distribucion de series por patron</h3>
+            <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-ink">
+              {totalWeeklySets} series
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {Object.entries(setsByPattern).map(([pattern, sets]) => (
+              <div className="grid gap-2" key={pattern}>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-ink">{pattern}</span>
+                  <span className="text-ink/65">
+                    {sets} sets - {percentageByPattern[pattern].toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
+                    style={{ width: `${(sets / maxPatternSets) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-md border border-line bg-panel/35 p-4">
+          <h3 className="font-semibold text-ink">Fatiga muscular acumulada</h3>
+          <div className="mt-4 grid gap-2">
+            {fatigueEntries.map(([muscle, score]) => (
+              <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm" key={muscle}>
+                <span className="font-medium text-ink/70">{formatFatigueKey(muscle)}</span>
+                <span className="font-semibold text-ink">{score.toFixed(1)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <section className="rounded-md border border-line bg-white p-4">
+          <h3 className="font-semibold text-ink">Series por bloque</h3>
+          <div className="mt-3 grid gap-2">
+            {Object.entries(setsByBlock).map(([block, sets]) => (
+              <p className="flex justify-between rounded-md bg-panel/45 px-3 py-2 text-sm" key={block}>
+                <span className="text-ink/70">{block}</span>
+                <span className="font-semibold text-ink">{sets}</span>
+              </p>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-md border border-line bg-white p-4">
+          <h3 className="font-semibold text-ink">Series por ejercicio</h3>
+          <div className="mt-3 grid gap-2">
+            {Object.entries(setsByExercise).map(([exercise, sets]) => (
+              <p className="flex justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={exercise}>
+                <span className="text-ink/70">{exercise}</span>
+                <span className="font-semibold text-ink">{sets}</span>
+              </p>
+            ))}
+          </div>
+        </section>
+      </div>
     </section>
   );
+}
+
+function getMockWeeklyExerciseEntries() {
+  return [
+    { exerciseName: "Back squat", sets: 4 },
+    { exerciseName: "Goblet squat", sets: 3 },
+    { exerciseName: "Peso muerto rumano con mancuernas", sets: 4 },
+    { exerciseName: "Press banca", sets: 4 },
+    { exerciseName: "Remo con barra", sets: 3 },
+    { exerciseName: "Plank", sets: 3 }
+  ].flatMap((entry) => {
+    const exercise = exerciseLibrary.find((item) => item.name === entry.exerciseName);
+    return exercise ? [{ exerciseId: exercise.id, sets: entry.sets }] : [];
+  });
 }
 
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
@@ -3654,12 +3752,13 @@ type CoachSessionPanel = "planner" | "history" | null;
 type StrengthSessionBlock = "activation" | "auxiliary" | "main";
 type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
+  blockFilter: ExerciseBlock | "";
+  equipmentFilter: string;
+  exerciseId: string;
   id: string;
   load: string;
-  muscleGroup: string;
-  name: string;
   observation: string;
-  pattern: string;
+  patternFilter: ExercisePattern | "";
   reps: string;
   rest: string;
   sets: string;
@@ -3735,17 +3834,21 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
+  const exerciseEquipmentOptions = Array.from(
+    new Set(exerciseLibrary.flatMap((exercise) => exercise.equipment))
+  ).sort((a, b) => a.localeCompare(b));
   const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
       {
         block,
+        blockFilter: "",
+        equipmentFilter: "",
+        exerciseId: "",
         id: `exercise-${Date.now()}-${current.length}`,
         load: "",
-        muscleGroup: "",
-        name: "",
         observation: "",
-        pattern: "",
+        patternFilter: "",
         reps: "",
         rest: "",
         sets: "",
@@ -3790,17 +3893,33 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                 {buttonLabel}
               </button>
             </div>
-          ) : blockExercises.map((exercise) => (
+          ) : blockExercises.map((exercise) => {
+            const filteredLibraryExercises = exerciseLibrary.filter((libraryExercise) => {
+              const matchesPattern = !exercise.patternFilter || libraryExercise.pattern === exercise.patternFilter;
+              const matchesBlock = !exercise.blockFilter || libraryExercise.block === exercise.blockFilter;
+              const matchesEquipment =
+                !exercise.equipmentFilter || libraryExercise.equipment.includes(exercise.equipmentFilter);
+              return matchesPattern && matchesBlock && matchesEquipment;
+            });
+            const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
+
+            return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
               <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Nombre del ejercicio
-                  <input
+                  Ejercicio
+                  <select
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { name: event.target.value })}
-                    placeholder="Nombre del ejercicio"
-                    value={exercise.name}
-                  />
+                    onChange={(event) => updateStrengthExercise(exercise.id, { exerciseId: event.target.value })}
+                    value={exercise.exerciseId}
+                  >
+                    <option value="">Seleccionar ejercicio</option>
+                    {filteredLibraryExercises.map((libraryExercise) => (
+                      <option key={libraryExercise.id} value={libraryExercise.id}>
+                        {libraryExercise.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Observaciones
@@ -3812,25 +3931,74 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                   />
                 </label>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-9">
-                <label className="space-y-1 text-xs font-semibold text-ink/55 sm:col-span-2">
-                  Patron de movimiento
-                  <input
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Filtrar por patron
+                  <select
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { pattern: event.target.value })}
-                    placeholder="Patron"
-                    value={exercise.pattern}
-                  />
+                    onChange={(event) =>
+                      updateStrengthExercise(exercise.id, {
+                        exerciseId: "",
+                        patternFilter: event.target.value as ExercisePattern | ""
+                      })
+                    }
+                    value={exercise.patternFilter}
+                  >
+                    <option value="">Todos</option>
+                    {exercisePatterns.map((pattern) => (
+                      <option key={pattern} value={pattern}>{pattern}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Grupo muscular
-                  <input
+                  Filtrar por bloque
+                  <select
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { muscleGroup: event.target.value })}
-                    placeholder="Grupo"
-                    value={exercise.muscleGroup}
-                  />
+                    onChange={(event) =>
+                      updateStrengthExercise(exercise.id, {
+                        blockFilter: event.target.value as ExerciseBlock | "",
+                        exerciseId: ""
+                      })
+                    }
+                    value={exercise.blockFilter}
+                  >
+                    <option value="">Todos</option>
+                    {exerciseBlocks.map((exerciseBlock) => (
+                      <option key={exerciseBlock} value={exerciseBlock}>{exerciseBlock}</option>
+                    ))}
+                  </select>
                 </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Filtrar por material
+                  <select
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) =>
+                      updateStrengthExercise(exercise.id, {
+                        equipmentFilter: event.target.value,
+                        exerciseId: ""
+                      })
+                    }
+                    value={exercise.equipmentFilter}
+                  >
+                    <option value="">Todos</option>
+                    {exerciseEquipmentOptions.map((equipment) => (
+                      <option key={equipment} value={equipment}>{equipment}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {selectedLibraryExercise ? (
+                <div className="mt-3 rounded-md bg-mint px-3 py-3 text-sm text-moss">
+                  <p className="font-semibold">
+                    {selectedLibraryExercise.pattern} - {selectedLibraryExercise.block}
+                  </p>
+                  <p className="mt-1 text-moss/80">
+                    Principales: {selectedLibraryExercise.primaryMuscles.join(", ") || "pendiente"} - Secundarios:{" "}
+                    {selectedLibraryExercise.secondaryMuscles.join(", ") || "pendiente"}
+                  </p>
+                </div>
+              ) : null}
+              <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Series
                   <input
@@ -3896,7 +4064,8 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                 </label>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
     );

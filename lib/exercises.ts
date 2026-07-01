@@ -42,6 +42,12 @@ export type ExerciseDefinition = {
   technicalDescription: string;
 };
 
+export type WeeklyExerciseSetInput = {
+  exerciseId: string;
+  isWarmUp?: boolean;
+  sets: number;
+};
+
 type ExerciseSeed = Omit<ExerciseDefinition, "block" | "id" | "pattern" | "rank">;
 
 type ExerciseGroupSeed = {
@@ -511,6 +517,10 @@ export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
 }
 
+export function getExerciseById(exerciseId: string) {
+  return exerciseLibrary.find((exercise) => exercise.id === exerciseId) ?? null;
+}
+
 export function getExercisesByBlock(block: ExerciseBlock) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.block === block));
 }
@@ -521,6 +531,58 @@ export function getExercisesByEquipment(equipment: string) {
       exercise.equipment.some((item) => item.toLowerCase() === equipment.toLowerCase())
     )
   );
+}
+
+export function calculateWeeklySetsByPattern(entries: WeeklyExerciseSetInput[]) {
+  return getWorkingSetEntries(entries).reduce<Record<string, number>>((acc, entry) => {
+    const exercise = getExerciseById(entry.exerciseId);
+    if (!exercise) return acc;
+    acc[exercise.pattern] = (acc[exercise.pattern] ?? 0) + entry.sets;
+    return acc;
+  }, {});
+}
+
+export function calculateWeeklyPercentageByPattern(entries: WeeklyExerciseSetInput[]) {
+  const setsByPattern = calculateWeeklySetsByPattern(entries);
+  const totalSets = Object.values(setsByPattern).reduce((total, sets) => total + sets, 0);
+
+  return Object.fromEntries(
+    Object.entries(setsByPattern).map(([pattern, sets]) => [
+      pattern,
+      totalSets > 0 ? (sets / totalSets) * 100 : 0
+    ])
+  );
+}
+
+export function calculateWeeklySetsByBlock(entries: WeeklyExerciseSetInput[]) {
+  return getWorkingSetEntries(entries).reduce<Record<string, number>>((acc, entry) => {
+    const exercise = getExerciseById(entry.exerciseId);
+    if (!exercise) return acc;
+    acc[exercise.block] = (acc[exercise.block] ?? 0) + entry.sets;
+    return acc;
+  }, {});
+}
+
+export function calculateWeeklySetsByExercise(entries: WeeklyExerciseSetInput[]) {
+  return getWorkingSetEntries(entries).reduce<Record<string, number>>((acc, entry) => {
+    const exercise = getExerciseById(entry.exerciseId);
+    if (!exercise) return acc;
+    acc[exercise.name] = (acc[exercise.name] ?? 0) + entry.sets;
+    return acc;
+  }, {});
+}
+
+export function calculateWeeklyFatigueMap(entries: WeeklyExerciseSetInput[]) {
+  return getWorkingSetEntries(entries).reduce<Record<string, number>>((acc, entry) => {
+    const exercise = getExerciseById(entry.exerciseId);
+    if (!exercise) return acc;
+
+    Object.entries(exercise.fatigueMap).forEach(([muscle, value]) => {
+      acc[muscle] = (acc[muscle] ?? 0) + entry.sets * value;
+    });
+
+    return acc;
+  }, {});
 }
 
 export function getExerciseRegression(exerciseId: string) {
@@ -570,6 +632,10 @@ function createGenericExercise(name: string, equipment: string[]): ExerciseSeed 
     secondaryMuscles: [],
     fatigueMap: {}
   };
+}
+
+function getWorkingSetEntries(entries: WeeklyExerciseSetInput[]) {
+  return entries.filter((entry) => !entry.isWarmUp && entry.sets > 0);
 }
 
 function getComparableBlockExercises(exercise: ExerciseDefinition) {
