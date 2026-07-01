@@ -2034,7 +2034,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             >
               {selectedFamilyGroup?.exercises.map((exercise) => (
                 <option key={exercise.id} value={exercise.id}>
-                  {exercise.orderInFamily}. {exercise.name}
+                  {exercise.rank}. {exercise.name}
                 </option>
               ))}
             </select>
@@ -2106,7 +2106,7 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
   const grouped = exercises.reduce<
     Record<string, { exercises: ExerciseDefinition[]; key: string; label: string }>
   >((acc, exercise) => {
-    const key = `${exercise.family}__${exercise.block}`;
+    const key = `${exercise.pattern}__${exercise.block}`;
     acc[key] ??= {
       exercises: [],
       key,
@@ -2118,13 +2118,13 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
 
   return Object.values(grouped).map((group) => ({
     ...group,
-    exercises: [...group.exercises].sort((a, b) => a.orderInFamily - b.orderInFamily)
+    exercises: [...group.exercises].sort((a, b) => a.rank - b.rank)
   }));
 }
 
 function getRoutineExerciseAlternatives(pattern: string) {
   const mappedPatterns: Record<string, ExercisePattern[]> = {
-    "Empuje tren inferior": ["Squat / Vertical Push", "Lunge"],
+    "Empuje tren inferior": ["Squat / Vertical Force", "Lunge"],
     "Empuje tren superior": ["Push"],
     "Traccion tren inferior": ["Hinge"],
     "Traccion tren superior": ["Pull"]
