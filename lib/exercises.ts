@@ -1,5 +1,5 @@
 export type ExercisePattern =
-  | "Squat"
+  | "Squat / Vertical Push"
   | "Hinge"
   | "Lunge"
   | "Gait & Carry"
@@ -15,7 +15,16 @@ export type ExerciseObjective =
   | "Potencia"
   | "Conditioning";
 
+export type ExerciseBlock =
+  | "Control / tolerancia"
+  | "Fuerza base"
+  | "Hipertrofia"
+  | "Potencia"
+  | "Pliometría"
+  | "Conditioning";
+
 export type ExerciseDefinition = {
+  block: ExerciseBlock;
   equipment: string;
   family: string;
   id: string;
@@ -27,7 +36,7 @@ export type ExerciseDefinition = {
 };
 
 export const exercisePatterns: ExercisePattern[] = [
-  "Squat",
+  "Squat / Vertical Push",
   "Hinge",
   "Lunge",
   "Gait & Carry",
@@ -45,9 +54,19 @@ export const exerciseObjectives: ExerciseObjective[] = [
   "Conditioning"
 ];
 
-type ExerciseSeed = Omit<ExerciseDefinition, "id" | "orderInFamily" | "pattern" | "family" | "objective">;
+export const exerciseBlocks: ExerciseBlock[] = [
+  "Control / tolerancia",
+  "Fuerza base",
+  "Hipertrofia",
+  "Potencia",
+  "Pliometría",
+  "Conditioning"
+];
+
+type ExerciseSeed = Omit<ExerciseDefinition, "block" | "id" | "orderInFamily" | "pattern" | "family" | "objective">;
 
 type ExerciseGroupSeed = {
+  block?: ExerciseBlock;
   family: string;
   objective: ExerciseObjective;
   pattern: ExercisePattern;
@@ -57,51 +76,70 @@ type ExerciseGroupSeed = {
 
 const exerciseGroups: ExerciseGroupSeed[] = [
   {
-    slug: "squat-bilateral-control",
-    pattern: "Squat",
-    family: "Squat bilateral",
+    slug: "squat-vertical-push-control",
+    pattern: "Squat / Vertical Push",
+    family: "Squat / Vertical Push",
+    block: "Control / tolerancia",
     objective: "Control motor / resistencia manual",
     exercises: [
-      { name: "Sentadilla asistida con feedback manual", planeOrDirection: "Vertical", equipment: "Asistencia manual" },
-      { name: "Sit to stand asistido", planeOrDirection: "Vertical", equipment: "Silla / apoyo" },
-      { name: "Sentadilla a cajon", planeOrDirection: "Vertical", equipment: "Cajon" },
-      { name: "Sentadilla tempo peso corporal", planeOrDirection: "Vertical", equipment: "Peso corporal" }
+      { name: "Triple flexo-extension en supino con resistencia manual", planeOrDirection: "Vertical", equipment: "Manual" },
+      { name: "Sentadilla asistida con feedback manual", planeOrDirection: "Vertical", equipment: "Manual / soporte" },
+      { name: "Wall sit iso", planeOrDirection: "Vertical", equipment: "Peso corporal / pared" },
+      { name: "Spanish squat", planeOrDirection: "Vertical", equipment: "Banda / soporte" }
     ]
   },
   {
-    slug: "squat-bilateral-strength",
-    pattern: "Squat",
-    family: "Squat bilateral",
+    slug: "squat-vertical-push-strength",
+    pattern: "Squat / Vertical Push",
+    family: "Squat / Vertical Push",
+    block: "Fuerza base",
     objective: "Fuerza base",
     exercises: [
-      { name: "Goblet squat", planeOrDirection: "Vertical", equipment: "Kettlebell / mancuerna" },
+      { name: "Sit to Stand", planeOrDirection: "Vertical", equipment: "Peso corporal / cajon" },
+      { name: "Goblet squat", planeOrDirection: "Vertical", equipment: "Mancuerna / kettlebell" },
+      { name: "Smith squat", planeOrDirection: "Vertical", equipment: "Multipower" },
       { name: "Front squat", planeOrDirection: "Vertical", equipment: "Barra" },
-      { name: "Back squat", planeOrDirection: "Vertical", equipment: "Barra" },
-      { name: "Safety bar squat", planeOrDirection: "Vertical", equipment: "Barra safety" }
+      { name: "Back squat", planeOrDirection: "Vertical", equipment: "Barra" }
     ]
   },
   {
-    slug: "squat-bilateral-hypertrophy",
-    pattern: "Squat",
-    family: "Squat bilateral",
+    slug: "squat-vertical-push-hypertrophy",
+    pattern: "Squat / Vertical Push",
+    family: "Squat / Vertical Push",
+    block: "Hipertrofia",
     objective: "Hipertrofia",
     exercises: [
       { name: "Leg extension", planeOrDirection: "Vertical", equipment: "Maquina" },
-      { name: "Prensa", planeOrDirection: "Vertical", equipment: "Maquina" },
+      { name: "Leg press", planeOrDirection: "Vertical", equipment: "Maquina" },
       { name: "Hack squat", planeOrDirection: "Vertical", equipment: "Maquina" },
       { name: "Pendulum squat", planeOrDirection: "Vertical", equipment: "Maquina" }
     ]
   },
   {
-    slug: "squat-bilateral-power",
-    pattern: "Squat",
-    family: "Squat bilateral",
+    slug: "squat-vertical-push-power",
+    pattern: "Squat / Vertical Push",
+    family: "Squat / Vertical Push",
+    block: "Potencia",
     objective: "Potencia",
     exercises: [
       { name: "Countermovement jump", planeOrDirection: "Vertical", equipment: "Peso corporal" },
-      { name: "Jump squat", planeOrDirection: "Vertical", equipment: "Peso corporal / carga ligera" },
-      { name: "Hang power clean", planeOrDirection: "Vertical", equipment: "Barra" },
-      { name: "Power clean", planeOrDirection: "Vertical", equipment: "Barra" }
+      { name: "Squat jump", planeOrDirection: "Vertical", equipment: "Peso corporal" },
+      { name: "Box jump", planeOrDirection: "Vertical", equipment: "Peso corporal / cajon" },
+      { name: "Jump squat con carga", planeOrDirection: "Vertical", equipment: "Mancuerna / barra" }
+    ]
+  },
+  {
+    slug: "squat-vertical-push-plyometrics",
+    pattern: "Squat / Vertical Push",
+    family: "Squat / Vertical Push",
+    block: "Pliometría",
+    objective: "Potencia",
+    exercises: [
+      { name: "Drop landing", planeOrDirection: "Vertical", equipment: "Peso corporal / cajon" },
+      { name: "Pogo jump bilateral", planeOrDirection: "Vertical", equipment: "Peso corporal" },
+      { name: "Low hurdle hop", planeOrDirection: "Vertical", equipment: "Peso corporal / vallas bajas" },
+      { name: "Depth jump", planeOrDirection: "Vertical", equipment: "Peso corporal / cajon" },
+      { name: "Drop jump", planeOrDirection: "Vertical", equipment: "Peso corporal / cajon" }
     ]
   },
   {
@@ -445,6 +483,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
 export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) =>
   group.exercises.map((exercise, index) => ({
     ...exercise,
+    block: group.block ?? getBlockForObjective(group.objective),
     id: `${group.slug}-${index + 1}`,
     pattern: group.pattern,
     family: group.family,
@@ -452,6 +491,12 @@ export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((gro
     orderInFamily: index + 1
   }))
 );
+
+function getBlockForObjective(objective: ExerciseObjective): ExerciseBlock {
+  if (objective === "Control motor / resistencia manual") return "Control / tolerancia";
+  if (objective === "Conditioning") return "Conditioning";
+  return objective;
+}
 
 export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
@@ -489,6 +534,7 @@ function getComparableFamilyExercises(exercise: ExerciseDefinition) {
       (item) =>
         item.pattern === exercise.pattern &&
         item.family === exercise.family &&
+        item.block === exercise.block &&
         item.objective === exercise.objective
     )
   );
@@ -498,6 +544,7 @@ function sortExercises(exercises: ExerciseDefinition[]) {
   return [...exercises].sort((a, b) =>
     a.pattern.localeCompare(b.pattern) ||
     a.family.localeCompare(b.family) ||
+    exerciseBlocks.indexOf(a.block) - exerciseBlocks.indexOf(b.block) ||
     a.objective.localeCompare(b.objective) ||
     a.orderInFamily - b.orderInFamily
   );

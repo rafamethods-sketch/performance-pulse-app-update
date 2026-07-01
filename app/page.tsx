@@ -2011,7 +2011,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Objetivo
+            Bloque
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -2106,11 +2106,11 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
   const grouped = exercises.reduce<
     Record<string, { exercises: ExerciseDefinition[]; key: string; label: string }>
   >((acc, exercise) => {
-    const key = `${exercise.family}__${exercise.objective}`;
+    const key = `${exercise.family}__${exercise.block}`;
     acc[key] ??= {
       exercises: [],
       key,
-      label: exercise.objective
+      label: exercise.block
     };
     acc[key].exercises.push(exercise);
     return acc;
@@ -2124,7 +2124,7 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
 
 function getRoutineExerciseAlternatives(pattern: string) {
   const mappedPatterns: Record<string, ExercisePattern[]> = {
-    "Empuje tren inferior": ["Squat", "Lunge"],
+    "Empuje tren inferior": ["Squat / Vertical Push", "Lunge"],
     "Empuje tren superior": ["Push"],
     "Traccion tren inferior": ["Hinge"],
     "Traccion tren superior": ["Pull"]
