@@ -1974,13 +1974,9 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
     selectedFamilyGroup?.exercises[0];
   const regression = selectedExercise ? getExerciseRegression(selectedExercise.id) : null;
   const progression = selectedExercise ? getExerciseProgression(selectedExercise.id) : null;
-  const [routineExercises, setRoutineExercises] = useState<string[]>([]);
-  const addExerciseToRoutine = (exercise: string) => {
-    setRoutineExercises((current) => current.includes(exercise) ? current : [...current, exercise]);
-  };
-  const removeExerciseFromRoutine = (exercise: string) => {
-    setRoutineExercises((current) => current.filter((item) => item !== exercise));
-  };
+  const fatigueEntries = selectedExercise
+    ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
+    : [];
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -2039,15 +2035,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               ))}
             </select>
           </label>
-          <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
-            disabled={!selectedExercise}
-            onClick={() => selectedExercise && addExerciseToRoutine(selectedExercise.name)}
-            type="button"
-          >
-            <Plus size={16} />
-            Anadir a rutina
-          </button>
         </div>
         <div className="mt-5 rounded-md bg-mint p-4">
           <p className="text-sm font-semibold text-moss">Relacion dentro de la familia</p>
@@ -2063,43 +2050,101 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        {selectedExercise ? (
           <div>
-            <h2 className="text-lg font-semibold text-ink">Rutina provisional</h2>
-            <p className="mt-1 text-sm text-ink/55">{routineExercises.length} ejercicios seleccionados</p>
-          </div>
-          <button
-            className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/65"
-            onClick={() => setRoutineExercises([])}
-            type="button"
-          >
-            Vaciar
-          </button>
-        </div>
-
-        {routineExercises.length > 0 ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {routineExercises.map((exercise) => (
-              <div className="flex items-center justify-between gap-3 rounded-md bg-panel/60 px-3 py-2" key={exercise}>
-                <span className="text-sm font-medium text-ink">{exercise}</span>
-                <button
-                  className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-clay"
-                  onClick={() => removeExerciseFromRoutine(exercise)}
-                  type="button"
-                >
-                  Quitar
-                </button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">{selectedExercise.name}</h2>
+                <p className="mt-1 text-sm text-ink/55">
+                  {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
+                </p>
               </div>
-            ))}
+              <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
+                {selectedExercise.equipment.join(" / ")}
+              </span>
+            </div>
+
+            <div className="mt-5 rounded-md bg-panel/45 p-4">
+              <h3 className="text-sm font-semibold text-ink">Descripcion tecnica</h3>
+              <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-md border border-line p-4">
+                <h3 className="text-sm font-semibold text-ink">Errores a evitar</h3>
+                <div className="mt-3 grid gap-2">
+                  {selectedExercise.errorsToAvoid.map((error) => (
+                    <p className="rounded-md bg-panel/55 px-3 py-2 text-sm text-ink/70" key={error}>
+                      {error}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-line p-4">
+                <h3 className="text-sm font-semibold text-ink">Musculos implicados</h3>
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
+                  <p className="mt-1 text-sm text-ink/70">
+                    {selectedExercise.primaryMuscles.join(", ") || "Pendiente de completar"}
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase text-ink/45">Secundarios</p>
+                  <p className="mt-1 text-sm text-ink/70">
+                    {selectedExercise.secondaryMuscles.join(", ") || "Pendiente de completar"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-md border border-line p-4">
+              <h3 className="text-sm font-semibold text-ink">Mapa de fatiga</h3>
+              {fatigueEntries.length > 0 ? (
+                <div className="mt-3 grid gap-2">
+                  {fatigueEntries.map(([muscle, value]) => (
+                    <div className="grid grid-cols-[130px_1fr_42px] items-center gap-3" key={muscle}>
+                      <span className="text-sm font-medium text-ink/65">{formatFatigueKey(muscle)}</span>
+                      <span className="h-2 overflow-hidden rounded-full bg-panel">
+                        <span
+                          className="block h-full rounded-full bg-gradient-to-r from-moss to-steel"
+                          style={{ width: `${Math.round(value * 100)}%` }}
+                        />
+                      </span>
+                      <span className="text-right text-sm font-semibold text-ink">{value.toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
+                  Pendiente de completar para este ejercicio.
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/50">
-            Selecciona ejercicios de las progresiones para crear una rutina base.
+            Selecciona un ejercicio para ver su ficha.
           </div>
         )}
       </section>
     </div>
   );
+}
+
+function formatFatigueKey(key: string) {
+  const labels: Record<string, string> = {
+    adductors: "Aductores",
+    calves: "Gemelos",
+    core: "Core",
+    glutes: "Gluteos",
+    hamstrings: "Isquios",
+    hipFlexors: "Flexores cadera",
+    quadriceps: "Cuadriceps",
+    spinalErectors: "Erectores"
+  };
+
+  return labels[key] ?? key;
 }
 
 function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
