@@ -1518,7 +1518,7 @@ function getMockWeeklyExerciseEntries() {
   return [
     { exerciseName: "Back squat", sets: 4 },
     { exerciseName: "Goblet squat", sets: 3 },
-    { exerciseName: "Peso muerto rumano con mancuernas", sets: 4 },
+    { exerciseName: "Romanian deadlift", sets: 4 },
     { exerciseName: "Press banca", sets: 4 },
     { exerciseName: "Remo con barra", sets: 3 },
     { exerciseName: "Plank", sets: 3 }
@@ -2269,7 +2269,7 @@ function getRoutineExerciseAlternatives(pattern: string) {
   const mappedPatterns: Record<string, ExercisePattern[]> = {
     "Empuje tren inferior": ["Squat / Vertical Force", "Lunge"],
     "Empuje tren superior": ["Push"],
-    "Traccion tren inferior": ["Hinge"],
+    "Traccion tren inferior": ["Hinge / Horizontal Force"],
     "Traccion tren superior": ["Pull"]
   };
   const patterns = mappedPatterns[pattern] ?? [];

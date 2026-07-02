@@ -1,6 +1,6 @@
 export type ExercisePattern =
   | "Squat / Vertical Force"
-  | "Hinge"
+  | "Hinge / Horizontal Force"
   | "Lunge"
   | "Gait & Carry"
   | "Push"
@@ -59,7 +59,7 @@ type ExerciseGroupSeed = {
 
 export const exercisePatterns: ExercisePattern[] = [
   "Squat / Vertical Force",
-  "Hinge",
+  "Hinge / Horizontal Force",
   "Lunge",
   "Gait & Carry",
   "Push",
@@ -333,30 +333,281 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("hinge-bilateral-control", "Hinge", "Control / tolerancia", [
-    ["Bisagra con feedback manual", ["Asistencia manual"]],
-    ["Bisagra con pared", ["Pared"]],
-    ["Bisagra con palo", ["Palo"]],
-    ["Puente de gluteo", ["Peso corporal"]]
-  ]),
-  legacyGroup("hinge-bilateral-strength", "Hinge", "Fuerza base", [
-    ["Peso muerto rumano con mancuernas", ["Mancuernas"]],
-    ["Kettlebell deadlift", ["Kettlebell"]],
-    ["Trap bar deadlift", ["Trap bar"]],
-    ["Peso muerto rumano con barra", ["Barra"]]
-  ]),
-  legacyGroup("hinge-bilateral-hypertrophy", "Hinge", "Hipertrofia", [
-    ["Hip thrust en maquina", ["Maquina"]],
-    ["Curl femoral sentado", ["Maquina"]],
-    ["Back extension", ["Banco"]],
-    ["Pull through en polea", ["Polea"]]
-  ]),
-  legacyGroup("hinge-bilateral-power", "Hinge", "Potencia", [
-    ["Kettlebell swing", ["Kettlebell"]],
-    ["Broad jump", ["Peso corporal"]],
-    ["Hang high pull", ["Barra"]],
-    ["Snatch pull", ["Barra"]]
-  ]),
+  {
+    slug: "hinge-horizontal-force-control",
+    pattern: "Hinge / Horizontal Force",
+    block: "Control / tolerancia",
+    exercises: [
+      squatExercise({
+        name: "Puente de gluteo con resistencia manual",
+        equipment: ["Manual"],
+        technicalDescription:
+          "En supino, empuja la cadera hacia arriba contra resistencia manual suave. Mantén pelvis estable, costillas controladas y extension de cadera sin compensar con la zona lumbar.",
+        errorsToAvoid: ["Arquear la zona lumbar", "Empujar con tirones", "Perder alineacion de rodillas"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.7, hamstrings: 0.4, core: 0.2, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip hinge con feedback manual",
+        equipment: ["Manual", "Soporte"],
+        technicalDescription:
+          "Practica la bisagra llevando la cadera atras con feedback manual o soporte. Mantén columna neutra, pelvis controlada y peso repartido en el pie.",
+        errorsToAvoid: ["Flexionar demasiado las rodillas", "Redondear la espalda", "Perder la pelvis neutra"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.5, hamstrings: 0.5, spinalErectors: 0.3, core: 0.2, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip hinge con palo",
+        equipment: ["Peso corporal", "Palo"],
+        technicalDescription:
+          "Coloca el palo en contacto con cabeza, espalda y sacro mientras haces la bisagra. Busca movimiento desde la cadera sin perder los puntos de contacto.",
+        errorsToAvoid: ["Separar el palo de la espalda", "Convertirlo en sentadilla", "Mirar al frente en exceso"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core"],
+        fatigueMap: { glutes: 0.4, hamstrings: 0.4, spinalErectors: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Wall hinge drill",
+        equipment: ["Peso corporal", "Pared"],
+        technicalDescription:
+          "De espaldas a una pared, lleva la cadera atras hasta tocarla manteniendo columna neutra. Controla el recorrido y evita que las rodillas dominen el movimiento.",
+        errorsToAvoid: ["Alejarse demasiado de la pared", "Redondear la espalda", "Levantar los talones"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core"],
+        fatigueMap: { glutes: 0.4, hamstrings: 0.4, spinalErectors: 0.2, core: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "hinge-horizontal-force-strength",
+    pattern: "Hinge / Horizontal Force",
+    block: "Fuerza base",
+    exercises: [
+      squatExercise({
+        name: "Glute bridge",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "En supino, eleva la cadera hasta alinear tronco y muslos. Mantén pelvis estable, empuje desde talones y pausa breve arriba sin hiperextender la zona lumbar.",
+        errorsToAvoid: ["Arquear la espalda", "Empujar solo con puntas", "Bajar sin control"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.4, core: 0.2, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip thrust",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Apoya la espalda en banco y extiende la cadera hasta una posicion estable. Mantén menton recogido, pelvis controlada y empuje simetrico con los pies.",
+        errorsToAvoid: ["Hiperextender lumbar", "Perder la retroversion final", "Separar rodillas sin control"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Aductores", "Core", "Erectores espinales"],
+        fatigueMap: { glutes: 1, hamstrings: 0.5, adductors: 0.3, core: 0.3, spinalErectors: 0.2 }
+      }),
+      squatExercise({
+        name: "Kettlebell deadlift",
+        equipment: ["Kettlebell"],
+        technicalDescription:
+          "Coloca la kettlebell entre los pies y levanta desde una bisagra estable. Mantén espalda neutra, brazos largos y la carga cerca del cuerpo.",
+        errorsToAvoid: ["Tirar con brazos", "Redondear espalda", "Alejar la carga del cuerpo"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, spinalErectors: 0.4, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        name: "Romanian deadlift",
+        equipment: ["Mancuernas", "Barra"],
+        technicalDescription:
+          "Desciende la carga con rodillas desbloqueadas y cadera atras, manteniendola cerca del cuerpo. Sube extendiendo la cadera sin perder columna neutra.",
+        errorsToAvoid: ["Redondear espalda", "Convertirlo en sentadilla", "Alejar la carga"],
+        primaryMuscles: ["Isquios", "Gluteo mayor"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
+        fatigueMap: { hamstrings: 1, glutes: 0.8, spinalErectors: 0.5, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        name: "Peso muerto con barra hexagonal",
+        equipment: ["Barra hexagonal"],
+        technicalDescription:
+          "Colocate dentro de la barra hexagonal y levanta empujando el suelo con tronco estable. Mantén la carga centrada, cadera y hombros subiendo coordinados.",
+        errorsToAvoid: ["Perder tension inicial", "Levantar cadera antes que hombros", "Bloquear con extension lumbar"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Cuadriceps", "Erectores espinales", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.8, quadriceps: 0.5, spinalErectors: 0.5, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        name: "Conventional deadlift",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Levanta la barra desde el suelo manteniendola cerca de las piernas. Fija tronco, empuja el suelo y extiende cadera y rodilla sin perder posicion.",
+        errorsToAvoid: ["Redondear lumbar", "Tirar con la barra lejos", "Bloquear con hiperextension"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Erectores espinales"],
+        secondaryMuscles: ["Cuadriceps", "Core", "Aductores", "Gemelos"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.9, spinalErectors: 0.7, quadriceps: 0.4, core: 0.4, adductors: 0.3, calves: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "hinge-horizontal-force-hypertrophy",
+    pattern: "Hinge / Horizontal Force",
+    block: "Hipertrofia",
+    exercises: [
+      squatExercise({
+        name: "Back extension",
+        equipment: ["Banco 45", "Banco romano"],
+        technicalDescription:
+          "En banco de extension, flexiona desde la cadera y vuelve extendiendo sin hiperextender lumbar. Mantén control del rango y tension en gluteos e isquios.",
+        errorsToAvoid: ["Subir con tiron lumbar", "Hiperextender al final", "Perder control del descenso"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, spinalErectors: 0.5, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip thrust machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Ajusta la maquina y extiende la cadera contra la resistencia guiada. Mantén pelvis controlada, pausa arriba y descenso sin perder tension.",
+        errorsToAvoid: ["Hiperextender lumbar", "Recortar rango", "Empujar de forma asimetrica"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Aductores", "Core"],
+        fatigueMap: { glutes: 1, hamstrings: 0.4, adductors: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Lying leg curl",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Flexiona las rodillas en maquina tumbado manteniendo cadera estable. Controla la subida, aprieta en el final y baja sin soltar la carga.",
+        errorsToAvoid: ["Levantar la pelvis", "Balancear la carga", "Soltar la bajada"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { hamstrings: 1, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Seated leg curl",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Flexiona las rodillas sentado con el muslo fijado y control de la pelvis. Mantén tension continua y evita compensar con el tronco.",
+        errorsToAvoid: ["Mover la cadera", "Rebotar al final", "Usar rango parcial sin criterio"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { hamstrings: 1, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Romanian deadlift unilateral",
+        equipment: ["Mancuerna", "Kettlebell"],
+        technicalDescription:
+          "Realiza una bisagra a una pierna con carga contralateral o ipsilateral. Mantén pelvis estable, espalda neutra y control del apoyo.",
+        errorsToAvoid: ["Abrir la cadera", "Perder equilibrio", "Redondear la espalda"],
+        primaryMuscles: ["Isquios", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Core", "Erectores espinales", "Gemelos"],
+        fatigueMap: { hamstrings: 0.9, glutes: 0.8, adductors: 0.4, core: 0.4, spinalErectors: 0.3, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Nordic curl",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Fija los pies y controla el descenso del tronco desde las rodillas. Mantén cadera extendida y usa asistencia si necesitas conservar calidad.",
+        errorsToAvoid: ["Flexionar la cadera", "Caer sin control", "Perder alineacion tronco-muslo"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gluteo mayor", "Gemelos", "Core"],
+        fatigueMap: { hamstrings: 1, glutes: 0.4, calves: 0.3, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "hinge-horizontal-force-power",
+    pattern: "Hinge / Horizontal Force",
+    block: "Potencia",
+    exercises: [
+      squatExercise({
+        name: "Hip thrust explosivo",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Realiza el hip thrust con intencion maxima de velocidad manteniendo control arriba. Usa una carga que permita extension potente sin perder tecnica.",
+        errorsToAvoid: ["Usar carga demasiado alta", "Hiperextender lumbar", "Perder velocidad"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.5, core: 0.3, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip thrust con salto",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde puente o hip thrust, extiende la cadera de forma explosiva para despegar ligeramente. Aterriza controlando pelvis y rodillas.",
+        errorsToAvoid: ["Aterrizar sin control", "Arquear lumbar", "Perder alineacion de rodillas"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Core", "Gemelos"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.5, core: 0.3, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Kettlebell swing",
+        equipment: ["Kettlebell"],
+        technicalDescription:
+          "Proyecta la kettlebell con una bisagra explosiva de cadera. Mantén brazos relajados, columna neutra y recepcion de la carga con cadera atras.",
+        errorsToAvoid: ["Hacer una sentadilla", "Tirar con brazos", "Perder timing de cadera"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.8, spinalErectors: 0.4, core: 0.3, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Broad jump",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Salta horizontalmente proyectando la cadera y aterriza con control. Busca extension potente, braceo coordinado y recepcion estable.",
+        errorsToAvoid: ["Aterrizar con rodillas dentro", "Caer hacia delante", "Perder control del tronco"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Gemelos"],
+        secondaryMuscles: ["Cuadriceps", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.8, calves: 0.7, quadriceps: 0.4, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        name: "Romanian Deadlift + Contralateral Step-up",
+        equipment: ["Mancuerna", "Cajon"],
+        technicalDescription:
+          "Combina una bisagra rumana unilateral con subida contralateral al cajon. Mantén pelvis estable, control del apoyo y transicion potente hacia el step-up.",
+        errorsToAvoid: ["Girar la pelvis", "Perder equilibrio", "Acelerar sin control"],
+        primaryMuscles: ["Gluteo mayor", "Isquios"],
+        secondaryMuscles: ["Cuadriceps", "Aductores", "Core", "Gemelos"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.8, quadriceps: 0.4, adductors: 0.4, core: 0.4, calves: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "hinge-horizontal-force-plyometrics",
+    pattern: "Hinge / Horizontal Force",
+    block: "Pliometria",
+    exercises: [
+      squatExercise({
+        name: "Broad jump landing",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza un salto horizontal y centra la tarea en absorber la recepcion. Mantén cadera atras, rodillas alineadas y control de tronco al caer.",
+        errorsToAvoid: ["Caer con rodillas dentro", "No frenar la inercia", "Aterrizar rigido"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Gemelos"],
+        secondaryMuscles: ["Cuadriceps", "Aductores", "Core"],
+        fatigueMap: { glutes: 0.7, hamstrings: 0.7, calves: 0.6, quadriceps: 0.4, adductors: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Repeated broad jump",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Encadena saltos horizontales repetidos manteniendo ritmo y recepciones estables. Reutiliza la fuerza horizontal sin perder alineacion ni control.",
+        errorsToAvoid: ["Frenarse demasiado", "Perder estabilidad", "Buscar distancia a costa de tecnica"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Gemelos"],
+        secondaryMuscles: ["Cuadriceps", "Core", "Aductores"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.8, calves: 0.8, quadriceps: 0.4, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        name: "Horizontal hurdle hop",
+        equipment: ["Vallas bajas"],
+        technicalDescription:
+          "Supera vallas bajas con saltos horizontales reactivos y contactos controlados. Mantén rigidez util, direccion estable y recepcion rapida.",
+        errorsToAvoid: ["Saltar demasiado alto", "Perder ritmo", "Colapsar al aterrizar"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Gemelos"],
+        secondaryMuscles: ["Cuadriceps", "Aductores", "Core"],
+        fatigueMap: { glutes: 0.7, hamstrings: 0.7, calves: 0.9, quadriceps: 0.4, adductors: 0.3, core: 0.3 }
+      })
+    ]
+  },
   legacyGroup("lunge-unilateral-control", "Lunge", "Control / tolerancia", [
     ["Split squat asistido", ["Apoyo externo"]],
     ["Step back lunge asistido", ["Apoyo externo"]],
