@@ -560,7 +560,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { glutes: 0.9, hamstrings: 0.8, calves: 0.7, quadriceps: 0.4, core: 0.3, adductors: 0.3 }
       }),
       squatExercise({
-        name: "Romanian Deadlift + Contralateral Step-up",
+        name: "Romanian deadlift + Step up contralateral",
         equipment: ["Mancuerna", "Cajon"],
         technicalDescription:
           "Combina una bisagra rumana unilateral con subida contralateral al cajon. Mantén pelvis estable, control del apoyo y transicion potente hacia el step-up.",
