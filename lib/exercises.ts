@@ -1,7 +1,7 @@
 export type ExercisePattern =
   | "Squat / Vertical Force"
   | "Hinge / Horizontal Force"
-  | "Lunge"
+  | "Lunge / Unilateral Force"
   | "Gait & Carry"
   | "Push"
   | "Pull"
@@ -60,7 +60,7 @@ type ExerciseGroupSeed = {
 export const exercisePatterns: ExercisePattern[] = [
   "Squat / Vertical Force",
   "Hinge / Horizontal Force",
-  "Lunge",
+  "Lunge / Unilateral Force",
   "Gait & Carry",
   "Push",
   "Pull",
@@ -608,30 +608,271 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("lunge-unilateral-control", "Lunge", "Control / tolerancia", [
-    ["Split squat asistido", ["Apoyo externo"]],
-    ["Step back lunge asistido", ["Apoyo externo"]],
-    ["Split squat peso corporal", ["Peso corporal"]],
-    ["Step up bajo", ["Cajon bajo"]]
-  ]),
-  legacyGroup("lunge-unilateral-strength", "Lunge", "Fuerza base", [
-    ["Split squat con mancuernas", ["Mancuernas"]],
-    ["Reverse lunge con mancuernas", ["Mancuernas"]],
-    ["Bulgarian split squat", ["Banco", "Carga externa"]],
-    ["Front rack reverse lunge", ["Barra"]]
-  ]),
-  legacyGroup("lunge-unilateral-hypertrophy", "Lunge", "Hipertrofia", [
-    ["Step up alto", ["Cajon"]],
-    ["Walking lunge", ["Mancuernas"]],
-    ["Bulgarian split squat en multipower", ["Multipower"]],
-    ["Prensa unilateral", ["Maquina"]]
-  ]),
-  legacyGroup("lunge-unilateral-power", "Lunge", "Potencia", [
-    ["Split squat jump", ["Peso corporal"]],
-    ["Alternating lunge jump", ["Peso corporal"]],
-    ["Lateral bound", ["Peso corporal"]],
-    ["Step up jump", ["Cajon"]]
-  ]),
+  {
+    slug: "lunge-unilateral-force-control",
+    pattern: "Lunge / Unilateral Force",
+    block: "Control / tolerancia",
+    exercises: [
+      squatExercise({
+        name: "Split stance hold con resistencia manual",
+        equipment: ["Manual"],
+        technicalDescription:
+          "Mantén una posicion de split stance mientras recibes resistencia manual suave. Busca pelvis estable, pie completo apoyado y rodilla alineada sin perder equilibrio.",
+        errorsToAvoid: ["Colapsar la rodilla hacia dentro", "Inclinar la pelvis", "Perder presion del pie delantero"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.5, glutes: 0.5, adductors: 0.4, hamstrings: 0.2, calves: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Split squat iso asistido",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Mantén una posicion baja de split squat con ayuda de un soporte si hace falta. Controla pelvis, rodilla y pie, respirando sin dolor ni compensaciones.",
+        errorsToAvoid: ["Apoyarse demasiado en el soporte", "Cerrar la rodilla", "Perder verticalidad del tronco"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.7, glutes: 0.6, adductors: 0.4, hamstrings: 0.2, calves: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Assisted split squat",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Realiza un split squat con soporte para guiar el equilibrio. Desciende controlando rodilla y pelvis, y sube empujando el suelo con el pie delantero.",
+        errorsToAvoid: ["Tirar del soporte", "Perder alineacion frontal", "Acortar el rango sin control"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.7, glutes: 0.7, adductors: 0.4, hamstrings: 0.3, calves: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Step-down controlado",
+        equipment: ["Cajon", "Step"],
+        technicalDescription:
+          "Desde un cajon o step, baja una pierna de forma lenta manteniendo pelvis nivelada y rodilla alineada. Toca el suelo con control y vuelve sin impulsarte.",
+        errorsToAvoid: ["Dejar caer la pelvis", "Colapsar la rodilla", "Bajar demasiado rapido"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.6, adductors: 0.5, calves: 0.3, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "lunge-unilateral-force-strength",
+    pattern: "Lunge / Unilateral Force",
+    block: "Fuerza base",
+    exercises: [
+      squatExercise({
+        name: "Split squat",
+        equipment: ["Peso corporal", "Mancuernas"],
+        technicalDescription:
+          "En posicion de zancada estatica, baja y sube controlando pelvis, rodilla y apoyo del pie delantero. Mantén tronco estable y empuje equilibrado.",
+        errorsToAvoid: ["Rebotar abajo", "Cerrar la rodilla", "Apoyar el peso solo en la pierna trasera"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.9, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.2, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Reverse lunge",
+        equipment: ["Peso corporal", "Mancuernas"],
+        technicalDescription:
+          "Da un paso atras y desciende hasta una zancada estable. Vuelve empujando con la pierna delantera y manteniendo control de rodilla y pelvis.",
+        errorsToAvoid: ["Dar un paso demasiado corto", "Perder equilibrio", "Impulsarse con la pierna trasera"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Walking lunge",
+        equipment: ["Mancuernas"],
+        technicalDescription:
+          "Avanza alternando zancadas con control de pelvis y rodilla en cada apoyo. Mantén pasos estables, tronco firme y ritmo sin perder tecnica.",
+        errorsToAvoid: ["Acelerar sin control", "Cruzar los pies", "Perder alineacion de rodilla"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.9, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.4, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Step-up",
+        equipment: ["Cajon", "Mancuernas"],
+        technicalDescription:
+          "Sube a un cajon empujando principalmente con la pierna apoyada arriba. Mantén pelvis estable, rodilla alineada y bajada controlada.",
+        errorsToAvoid: ["Impulsarse con la pierna de abajo", "Dejar caer la pelvis", "Perder control en la bajada"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.3, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "lunge-unilateral-force-hypertrophy",
+    pattern: "Lunge / Unilateral Force",
+    block: "Hipertrofia",
+    exercises: [
+      squatExercise({
+        name: "Unilateral leg press",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Empuja la plataforma con una pierna manteniendo pelvis estable y rodilla alineada. Controla la bajada y usa un rango que permita tension sin dolor.",
+        errorsToAvoid: ["Despegar la pelvis", "Cerrar la rodilla", "Bloquear bruscamente"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Gemelos"],
+        fatigueMap: { quadriceps: 1, glutes: 0.7, adductors: 0.4, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Smith split squat",
+        equipment: ["Multipower"],
+        technicalDescription:
+          "Realiza un split squat guiado en multipower, manteniendo apoyo firme y recorrido controlado. Ajusta la posicion para acumular tension sin perder alineacion.",
+        errorsToAvoid: ["Colocar los pies mal respecto a la barra", "Relajar el tronco", "Rebotar abajo"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 1, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.2, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Front foot elevated split squat",
+        equipment: ["Mancuernas", "Plataforma"],
+        technicalDescription:
+          "Coloca el pie delantero elevado y desciende en split squat aumentando el rango util. Mantén rodilla alineada, pelvis estable y carga controlada.",
+        errorsToAvoid: ["Perder profundidad controlada", "Cerrar la rodilla", "Inclinarse sin control"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 1, glutes: 0.8, adductors: 0.5, hamstrings: 0.3, calves: 0.2, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Bulgarian split squat",
+        equipment: ["Mancuernas", "Banco"],
+        technicalDescription:
+          "Apoya el pie trasero en un banco y baja con control sobre la pierna delantera. Mantén pelvis estable, rodilla alineada y empuje completo del pie.",
+        errorsToAvoid: ["Apoyar demasiado peso atras", "Perder equilibrio", "Cerrar rodilla delantera"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 1, glutes: 0.9, adductors: 0.5, hamstrings: 0.3, calves: 0.2, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Deficit split squat",
+        equipment: ["Mancuernas", "Plataformas"],
+        technicalDescription:
+          "Realiza un split squat desde plataformas para aumentar el rango. Controla la profundidad, mantén pelvis estable y evita perder tension abajo.",
+        errorsToAvoid: ["Usar deficit excesivo", "Rebotar en el fondo", "Perder alineacion frontal"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 1, glutes: 0.9, adductors: 0.5, hamstrings: 0.3, calves: 0.2, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "lunge-unilateral-force-power",
+    pattern: "Lunge / Unilateral Force",
+    block: "Potencia",
+    exercises: [
+      squatExercise({
+        name: "Explosive step-up",
+        equipment: ["Cajon"],
+        technicalDescription:
+          "Sube al cajon con intencion explosiva desde una pierna, manteniendo pelvis estable y bajada controlada. La velocidad no debe comprometer la alineacion.",
+        errorsToAvoid: ["Impulsarse con la pierna de abajo", "Perder control de rodilla", "Caer pesado"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor"],
+        secondaryMuscles: ["Gemelos", "Aductores", "Core", "Isquios"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, calves: 0.5, adductors: 0.4, core: 0.3, hamstrings: 0.3 }
+      }),
+      squatExercise({
+        name: "Step-up jump",
+        equipment: ["Cajon"],
+        technicalDescription:
+          "Desde el cajon, realiza una subida con salto buscando potencia unilateral. Aterriza y baja con control, manteniendo pelvis y rodilla estables.",
+        errorsToAvoid: ["Buscar altura sin control", "Colapsar rodilla", "Bajar del cajon con impacto excesivo"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Core", "Isquios"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, calves: 0.6, adductors: 0.4, core: 0.3, hamstrings: 0.3 }
+      }),
+      squatExercise({
+        name: "Split squat jump",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde split squat, salta verticalmente y aterriza en la misma posicion. Mantén tronco firme, rodilla alineada y recepcion controlada.",
+        errorsToAvoid: ["Aterrizar con rodilla hacia dentro", "Perder postura", "Hundir la pelvis sin control"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, calves: 0.7, adductors: 0.4, hamstrings: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Lunge jump",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Alterna zancadas con salto, cambiando apoyos en el aire. Mantén ritmo, alineacion de rodilla y recepcion estable en cada repeticion.",
+        errorsToAvoid: ["Perder equilibrio", "Aterrizar estrecho", "Colapsar pelvis o rodilla"],
+        primaryMuscles: ["Cuadriceps", "Gluteo mayor", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        fatigueMap: { quadriceps: 0.8, glutes: 0.8, calves: 0.7, adductors: 0.4, hamstrings: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Lateral push-off",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Empuja lateralmente desde una pierna para desplazar el cuerpo con rapidez. Mantén cadera estable, pie activo y control del apoyo antes de repetir.",
+        errorsToAvoid: ["Cruzar apoyos sin control", "Perder pelvis estable", "Caer sobre el borde del pie"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Aductores"],
+        secondaryMuscles: ["Gemelos", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.7, adductors: 0.5, calves: 0.5, hamstrings: 0.3, core: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "lunge-unilateral-force-plyometrics",
+    pattern: "Lunge / Unilateral Force",
+    block: "Pliometria",
+    exercises: [
+      squatExercise({
+        name: "Lateral bound landing",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Salta lateralmente y centra la tarea en aterrizar estable sobre una pierna. Controla pelvis, rodilla y pie antes de reiniciar.",
+        errorsToAvoid: ["Caer con rodilla dentro", "No estabilizar antes de repetir", "Inclinar el tronco en exceso"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Aductores"],
+        secondaryMuscles: ["Gemelos", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.7, adductors: 0.5, calves: 0.5, hamstrings: 0.3, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Skater bound",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Encadena saltos laterales tipo patinador con recepcion unilateral. Reutiliza la fuerza lateral manteniendo pelvis estable y contacto controlado.",
+        errorsToAvoid: ["Perder ritmo", "Caer con apoyo inestable", "Cruzar demasiado la pierna libre"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Aductores"],
+        secondaryMuscles: ["Gemelos", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.9, quadriceps: 0.8, adductors: 0.5, calves: 0.6, hamstrings: 0.4, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Alternating bounds",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza bounds alternos avanzando de una pierna a otra. Mantén proyeccion, recepcion activa y alineacion de rodilla en cada apoyo.",
+        errorsToAvoid: ["Buscar distancia perdiendo control", "Aterrizar rigido", "Perder estabilidad de pelvis"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.8, calves: 0.7, adductors: 0.4, hamstrings: 0.4, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Single-leg bound",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Salta y aterriza con la misma pierna, controlando fuerza unilateral y rigidez de apoyo. Mantén pelvis estable y contacto eficiente.",
+        errorsToAvoid: ["Colapsar al aterrizar", "Perder control del pie", "Repetir sin estabilidad"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.8, calves: 0.8, adductors: 0.4, hamstrings: 0.4, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Lateral hurdle hop",
+        equipment: ["Vallas bajas"],
+        technicalDescription:
+          "Salta lateralmente sobre vallas bajas con apoyos reactivos. Mantén ritmo, control de pelvis y rodillas alineadas en cada contacto.",
+        errorsToAvoid: ["Saltar demasiado alto", "Aterrizar sin control", "Perder ritmo lateral"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Gemelos"],
+        secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.7, calves: 0.8, adductors: 0.5, hamstrings: 0.3, core: 0.4 }
+      })
+    ]
+  },
   legacyGroup("gait-carry-control", "Gait & Carry", "Control / tolerancia", [
     ["Marcha asistida con feedback manual", ["Asistencia manual"]],
     ["Marcha en el sitio", ["Peso corporal"]],

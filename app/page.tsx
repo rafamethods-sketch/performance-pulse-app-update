@@ -2267,7 +2267,7 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
 
 function getRoutineExerciseAlternatives(pattern: string) {
   const mappedPatterns: Record<string, ExercisePattern[]> = {
-    "Empuje tren inferior": ["Squat / Vertical Force", "Lunge"],
+    "Empuje tren inferior": ["Squat / Vertical Force", "Lunge / Unilateral Force"],
     "Empuje tren superior": ["Push"],
     "Traccion tren inferior": ["Hinge / Horizontal Force"],
     "Traccion tren superior": ["Pull"]
