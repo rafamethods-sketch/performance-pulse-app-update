@@ -2235,11 +2235,14 @@ function formatFatigueKey(key: string) {
     adductors: "Aductores",
     calves: "Gemelos",
     core: "Core",
+    forearms: "Antebrazos",
     glutes: "Gluteos",
     hamstrings: "Isquios",
     hipFlexors: "Flexores cadera",
     quadriceps: "Cuadriceps",
-    spinalErectors: "Erectores"
+    spinalErectors: "Erectores",
+    traps: "Trapecio",
+    upperBack: "Upper back"
   };
 
   return labels[key] ?? key;

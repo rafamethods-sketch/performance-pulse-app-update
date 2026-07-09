@@ -2,6 +2,7 @@ export type ExercisePattern =
   | "Squat / Vertical Force"
   | "Hinge / Horizontal Force"
   | "Lunge / Unilateral Force"
+  | "Olympic derivatives"
   | "Gait & Carry"
   | "Push"
   | "Pull"
@@ -26,7 +27,10 @@ export type FatigueMapKey =
   | "calves"
   | "hipFlexors"
   | "core"
-  | "spinalErectors";
+  | "spinalErectors"
+  | "traps"
+  | "forearms"
+  | "upperBack";
 
 export type ExerciseDefinition = {
   block: ExerciseBlock;
@@ -61,6 +65,7 @@ export const exercisePatterns: ExercisePattern[] = [
   "Squat / Vertical Force",
   "Hinge / Horizontal Force",
   "Lunge / Unilateral Force",
+  "Olympic derivatives",
   "Gait & Carry",
   "Push",
   "Pull",
@@ -873,6 +878,113 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
+  {
+    slug: "olympic-derivatives-power",
+    pattern: "Olympic derivatives",
+    block: "Potencia",
+    exercises: [
+      squatExercise({
+        name: "Jump shrug desde hang",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde posicion hang, realiza una triple extension explosiva y termina con un encogimiento alto sin recepcion. Mantén la barra cerca, brazos largos hasta la extension y control del apoyo.",
+        errorsToAvoid: ["Tirar con brazos demasiado pronto", "Alejar la barra", "No terminar la extension"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Cuadriceps", "Trapecio"],
+        secondaryMuscles: ["Gemelos", "Erectores espinales", "Core", "Antebrazos"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, quadriceps: 0.7, traps: 0.6, calves: 0.4, spinalErectors: 0.4, core: 0.3, forearms: 0.2 }
+      }),
+      squatExercise({
+        name: "Hang clean pull",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde hang, tira de la barra con extension potente de cadera, rodilla y tobillo sin recibirla. Mantén trayectoria vertical cercana y hombros sobre la barra antes de acelerar.",
+        errorsToAvoid: ["Iniciar con brazos", "Golpear la barra hacia delante", "Perder posicion del tronco"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Cuadriceps", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, quadriceps: 0.7, traps: 0.7, spinalErectors: 0.4, core: 0.3, calves: 0.4, forearms: 0.3, upperBack: 0.4 }
+      }),
+      squatExercise({
+        name: "Hang high pull",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde hang, acelera la barra con triple extension y continua el tiron alto manteniendo codos arriba y fuera. La barra debe viajar cerca del cuerpo sin perder equilibrio.",
+        errorsToAvoid: ["Remar antes de extender", "Bajar codos", "Alejar la barra"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Cuadriceps", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Gemelos", "Erectores espinales", "Core", "Antebrazos"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, quadriceps: 0.7, traps: 0.8, upperBack: 0.6, calves: 0.4, spinalErectors: 0.4, core: 0.3, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Clean pull desde suelo",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Tira desde el suelo pasando por rodilla con control y acelera hacia una extension completa. Mantén la barra cerca, espalda firme y transicion fluida al segundo tiron.",
+        errorsToAvoid: ["Subir la cadera demasiado pronto", "Rodear la rodilla con la barra", "Perder la espalda neutra"],
+        primaryMuscles: ["Gluteo mayor", "Isquios", "Cuadriceps", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.8, quadriceps: 0.8, traps: 0.7, spinalErectors: 0.5, core: 0.4, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
+      }),
+      squatExercise({
+        name: "Hang muscle clean",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde hang, extiende potente y recibe la barra en rack sin caida profunda. Mantén la barra cerca, codos rapidos y postura estable al finalizar.",
+        errorsToAvoid: ["Recibir con codos bajos", "Separar la barra", "Convertirlo en curl"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Isquios", "Erectores espinales", "Core", "Antebrazos", "Gemelos"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.7, traps: 0.7, upperBack: 0.5, hamstrings: 0.6, spinalErectors: 0.4, core: 0.4, forearms: 0.3, calves: 0.3 }
+      }),
+      squatExercise({
+        name: "Hang power clean",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde hang, realiza triple extension y recibe la barra en posicion power con codos rapidos. Mantén recepcion estable, pies activos y barra cercana.",
+        errorsToAvoid: ["Saltar hacia delante", "Recibir con codos lentos", "Perder rigidez del tronco"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Isquios", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.9, quadriceps: 0.8, hamstrings: 0.7, traps: 0.7, spinalErectors: 0.5, core: 0.4, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
+      }),
+      squatExercise({
+        name: "Power clean",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde el suelo, acelera la barra y recibela en posicion power. Coordina salida, transicion por rodilla, segundo tiron y recepcion estable con codos altos.",
+        errorsToAvoid: ["Tirar temprano con brazos", "Recibir bajo o inestable", "Alejar la barra"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Isquios", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.7, quadriceps: 0.8, traps: 0.7, spinalErectors: 0.5, calves: 0.4, core: 0.4, forearms: 0.3, upperBack: 0.5 }
+      }),
+      squatExercise({
+        name: "Clean",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde el suelo, tira y recibe la barra en una sentadilla frontal mas profunda. Mantén trayectoria cercana, codos rapidos y estabilidad en la recepcion.",
+        errorsToAvoid: ["Colapsar en la recepcion", "Perder codos altos", "Separar la barra del cuerpo"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Isquios", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.9, quadriceps: 0.9, hamstrings: 0.7, traps: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
+      }),
+      squatExercise({
+        name: "Hang power snatch",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde hang, realiza triple extension y recibe la barra por encima de la cabeza en posicion power. Mantén trayectoria cercana, bloqueo estable y control overhead.",
+        errorsToAvoid: ["Recibir con hombros inestables", "Alejar la barra", "Perder velocidad bajo la barra"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Isquios", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.7, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.4, core: 0.5, calves: 0.4, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Power snatch",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde el suelo, acelera la barra y recibela por encima de la cabeza en posicion power. Coordina salida, tiron y recepcion overhead estable.",
+        errorsToAvoid: ["Perder la barra hacia delante", "Recibir sin bloqueo estable", "Romper la posicion de espalda en la salida"],
+        primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Isquios", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
+        fatigueMap: { glutes: 0.8, quadriceps: 0.8, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3 }
+      })
+    ]
+  },
   legacyGroup("gait-carry-control", "Gait & Carry", "Control / tolerancia", [
     ["Marcha asistida con feedback manual", ["Asistencia manual"]],
     ["Marcha en el sitio", ["Peso corporal"]],
@@ -943,7 +1055,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ["Med ball slam", ["Balon medicinal"]],
     ["Explosive TRX row", ["TRX"]],
     ["High pull", ["Barra"]],
-    ["Power snatch from hang", ["Barra"]]
+    ["Explosive band row", ["Banda elastica"]]
   ]),
   legacyGroup("rotation-control", "Rotation", "Control / tolerancia", [
     ["Anti-rotacion manual", ["Resistencia manual"]],
