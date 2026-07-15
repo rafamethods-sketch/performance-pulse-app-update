@@ -2239,6 +2239,7 @@ function formatFatigueKey(key: string) {
     glutes: "Gluteos",
     hamstrings: "Isquios",
     hipFlexors: "Flexores cadera",
+    obliques: "Oblicuos",
     quadriceps: "Cuadriceps",
     spinalErectors: "Erectores",
     traps: "Trapecio",

@@ -11,6 +11,7 @@ export type ExercisePattern =
 
 export type ExerciseBlock =
   | "Control / tolerancia"
+  | "Reeducación de la marcha"
   | "Fuerza base"
   | "Hipertrofia"
   | "Potencia"
@@ -27,6 +28,7 @@ export type FatigueMapKey =
   | "calves"
   | "hipFlexors"
   | "core"
+  | "obliques"
   | "spinalErectors"
   | "traps"
   | "forearms"
@@ -75,6 +77,7 @@ export const exercisePatterns: ExercisePattern[] = [
 
 export const exerciseBlocks: ExerciseBlock[] = [
   "Control / tolerancia",
+  "Reeducación de la marcha",
   "Fuerza base",
   "Hipertrofia",
   "Potencia",
@@ -985,30 +988,187 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("gait-carry-control", "Gait & Carry", "Control / tolerancia", [
-    ["Marcha asistida con feedback manual", ["Asistencia manual"]],
-    ["Marcha en el sitio", ["Peso corporal"]],
-    ["Farmer hold bilateral", ["Mancuernas", "Kettlebells"]],
-    ["Farmer carry bilateral", ["Mancuernas", "Kettlebells"]]
-  ]),
-  legacyGroup("gait-carry-strength", "Gait & Carry", "Fuerza base", [
-    ["Suitcase carry", ["Mancuerna", "Kettlebell"]],
-    ["Front rack carry", ["Kettlebells"]],
-    ["Trap bar carry", ["Trap bar"]],
-    ["Sled push pesado", ["Trineo"]]
-  ]),
-  legacyGroup("gait-carry-hypertrophy", "Gait & Carry", "Hipertrofia", [
-    ["Sled push volumen", ["Trineo"]],
-    ["Sled drag", ["Trineo"]],
-    ["Stair climber loaded", ["Maquina"]],
-    ["Farmer carry tiempo bajo tension", ["Mancuernas", "Kettlebells"]]
-  ]),
-  legacyGroup("gait-carry-power", "Gait & Carry", "Potencia", [
-    ["A-skip", ["Peso corporal"]],
-    ["Pogo run", ["Peso corporal"]],
-    ["Sled sprint", ["Trineo"]],
-    ["Resisted acceleration", ["Cinta", "Trineo"]]
-  ]),
+  {
+    slug: "gait-carry-gait-reeducation",
+    pattern: "Gait & Carry",
+    block: "Reeducación de la marcha",
+    exercises: [
+      squatExercise({
+        name: "Talon-punta con pasos normales",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Camina apoyando talon y transicionando hacia la punta con pasos naturales. Mantén ritmo estable, mirada al frente y apoyo controlado en cada pisada.",
+        errorsToAvoid: ["Arrastrar los pies", "Perder equilibrio", "Acelerar sin controlar el apoyo"],
+        primaryMuscles: ["Gemelos", "Tibial anterior"],
+        secondaryMuscles: ["Gluteo medio", "Core", "Cuadriceps"],
+        fatigueMap: { calves: 0.4, glutes: 0.2, core: 0.2, quadriceps: 0.2 }
+      }),
+      squatExercise({
+        name: "Talon-punta con pasos largos",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza pasos largos manteniendo la secuencia talon-punta y controlando la pelvis. Debe verse una zancada amplia sin perder postura ni apoyo del pie.",
+        errorsToAvoid: ["Sobrepasar la zancada perdiendo control", "Colapsar la rodilla", "Inclinar el tronco en exceso"],
+        primaryMuscles: ["Gemelos", "Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Cuadriceps", "Core"],
+        fatigueMap: { calves: 0.5, glutes: 0.4, hamstrings: 0.3, quadriceps: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Talon-punta con pasos cortos",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Camina con pasos cortos y precisos manteniendo la transicion talon-punta. Busca control, simetria y ritmo constante sin bloquear rodillas.",
+        errorsToAvoid: ["Dar pasos rigidos", "Mirar continuamente al suelo", "Perder la secuencia de apoyo"],
+        primaryMuscles: ["Gemelos", "Tibial anterior"],
+        secondaryMuscles: ["Core", "Gluteo medio"],
+        fatigueMap: { calves: 0.4, core: 0.2, glutes: 0.2, quadriceps: 0.1 }
+      }),
+      squatExercise({
+        name: "Talon-punta con pasos lentos",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Avanza lentamente exagerando el control de cada fase del apoyo. Mantén equilibrio, respiracion tranquila y transicion limpia desde talon hasta punta.",
+        errorsToAvoid: ["Caer sobre el pie", "Compensar con balanceo de tronco", "Perder control al despegar"],
+        primaryMuscles: ["Gemelos", "Tibial anterior"],
+        secondaryMuscles: ["Core", "Gluteo medio", "Cuadriceps"],
+        fatigueMap: { calves: 0.5, core: 0.3, glutes: 0.3, quadriceps: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "gait-carry-strength",
+    pattern: "Gait & Carry",
+    block: "Fuerza base",
+    exercises: [
+      squatExercise({
+        name: "Farmer hold",
+        equipment: ["Mancuernas", "Kettlebells"],
+        technicalDescription:
+          "Sostén carga a ambos lados con postura alta, hombros estables y agarre firme. Mantén costillas controladas y pies apoyados sin balancearte.",
+        errorsToAvoid: ["Encoger hombros sin control", "Arquear la zona lumbar", "Perder simetria de carga"],
+        primaryMuscles: ["Antebrazos", "Trapecio"],
+        secondaryMuscles: ["Core", "Upper back", "Gluteos"],
+        fatigueMap: { forearms: 1, traps: 0.8, core: 0.6, upperBack: 0.5, glutes: 0.2 }
+      }),
+      squatExercise({
+        name: "Suitcase hold",
+        equipment: ["Mancuerna", "Kettlebell"],
+        technicalDescription:
+          "Sostén una carga a un lado manteniendo tronco vertical y pelvis nivelada. Debe verse resistencia a la inclinacion lateral sin compensar con el hombro.",
+        errorsToAvoid: ["Inclinarse hacia la carga", "Elevar un hombro", "Rotar el tronco"],
+        primaryMuscles: ["Oblicuos", "Antebrazos"],
+        secondaryMuscles: ["Trapecio", "Core", "Gluteos"],
+        fatigueMap: { core: 0.9, obliques: 1, forearms: 0.9, traps: 0.6, glutes: 0.2 }
+      }),
+      squatExercise({
+        name: "Farmer carry",
+        equipment: ["Mancuernas", "Kettlebells"],
+        technicalDescription:
+          "Camina con carga bilateral manteniendo postura alta, pasos regulares y agarre firme. La carga no debe alterar el ritmo ni la posicion del tronco.",
+        errorsToAvoid: ["Dar pasos desordenados", "Perder hombros estables", "Balancear las cargas"],
+        primaryMuscles: ["Antebrazos", "Trapecio", "Core"],
+        secondaryMuscles: ["Upper back", "Gluteos", "Gemelos"],
+        fatigueMap: { forearms: 1, traps: 0.9, core: 0.8, upperBack: 0.6, glutes: 0.4, calves: 0.3 }
+      }),
+      squatExercise({
+        name: "Suitcase carry",
+        equipment: ["Mancuerna", "Kettlebell"],
+        technicalDescription:
+          "Camina con una carga a un lado resistiendo inclinacion y rotacion. Mantén pasos simetricos, tronco alto y distancia constante entre carga y pierna.",
+        errorsToAvoid: ["Inclinarse hacia un lado", "Acortar el paso de forma asimetrica", "Perder agarre o postura"],
+        primaryMuscles: ["Oblicuos", "Antebrazos", "Core"],
+        secondaryMuscles: ["Trapecio", "Gluteos", "Gemelos"],
+        fatigueMap: { obliques: 1, core: 0.9, forearms: 0.9, traps: 0.7, glutes: 0.4, calves: 0.3 }
+      }),
+      squatExercise({
+        name: "Front rack carry",
+        equipment: ["Kettlebells", "Mancuernas"],
+        technicalDescription:
+          "Transporta la carga en rack frontal con codos recogidos, tronco alto y respiracion controlada. Mantén abdomen activo sin hiperextender la espalda.",
+        errorsToAvoid: ["Abrir codos en exceso", "Arquear lumbar", "Perder respiracion o postura"],
+        primaryMuscles: ["Core", "Upper back"],
+        secondaryMuscles: ["Trapecio", "Antebrazos", "Gluteos", "Cuadriceps"],
+        fatigueMap: { core: 0.9, upperBack: 0.7, traps: 0.6, forearms: 0.5, glutes: 0.3, quadriceps: 0.2 }
+      }),
+      squatExercise({
+        name: "Zercher carry",
+        equipment: ["Barra", "Sandbag"],
+        technicalDescription:
+          "Camina abrazando la carga en posicion Zercher con tronco firme y pasos cortos. Mantén la carga cerca, codos debajo y columna neutra.",
+        errorsToAvoid: ["Redondear la espalda", "Separar la carga del cuerpo", "Perder control de la respiracion"],
+        primaryMuscles: ["Core", "Upper back", "Biceps"],
+        secondaryMuscles: ["Gluteos", "Cuadriceps", "Antebrazos"],
+        fatigueMap: { core: 0.9, upperBack: 0.7, forearms: 0.5, glutes: 0.4, quadriceps: 0.3, spinalErectors: 0.4 }
+      }),
+      squatExercise({
+        name: "Overhead carry",
+        equipment: ["Mancuerna", "Kettlebell", "Barra"],
+        technicalDescription:
+          "Transporta la carga por encima de la cabeza con brazo estable, costillas controladas y pasos regulares. Debe verse alineacion vertical sin compensaciones lumbares.",
+        errorsToAvoid: ["Arquear la espalda", "Perder bloqueo del brazo", "Caminar con pasos inestables"],
+        primaryMuscles: ["Core", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Antebrazos", "Oblicuos", "Gluteos"],
+        fatigueMap: { core: 0.9, traps: 0.8, upperBack: 0.7, forearms: 0.5, obliques: 0.5, glutes: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "gait-carry-conditioning",
+    pattern: "Gait & Carry",
+    block: "Conditioning",
+    exercises: [
+      squatExercise({
+        name: "Sled push",
+        equipment: ["Trineo"],
+        technicalDescription:
+          "Empuja el trineo con inclinacion controlada, pasos potentes y apoyo activo del pie. Mantén cadera estable y ritmo constante durante la distancia o intervalo.",
+        errorsToAvoid: ["Perder traccion", "Hundirse de hombros", "Dar pasos demasiado largos"],
+        primaryMuscles: ["Cuadriceps", "Gluteos", "Gemelos"],
+        secondaryMuscles: ["Isquios", "Core", "Upper back"],
+        fatigueMap: { quadriceps: 1, glutes: 0.8, calves: 0.7, hamstrings: 0.4, core: 0.4, upperBack: 0.3 }
+      }),
+      squatExercise({
+        name: "Backward sled drag",
+        equipment: ["Trineo"],
+        technicalDescription:
+          "Arrastra el trineo caminando hacia atras con pasos cortos y tension continua. Mantén tronco alto, rodillas alineadas y empuje constante desde el antepie.",
+        errorsToAvoid: ["Tirar solo con brazos", "Perder alineacion de rodilla", "Dar tirones sin ritmo"],
+        primaryMuscles: ["Cuadriceps", "Gemelos"],
+        secondaryMuscles: ["Gluteos", "Core", "Antebrazos"],
+        fatigueMap: { quadriceps: 1, calves: 0.7, glutes: 0.5, core: 0.3, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Sled pull con arnes",
+        equipment: ["Trineo", "Arnes"],
+        technicalDescription:
+          "Tracciona el trineo con arnes avanzando con inclinacion estable y pasos potentes. Mantén linea corporal firme y ritmo continuo sin perder apoyo.",
+        errorsToAvoid: ["Romper postura de tronco", "Resbalar por falta de apoyo", "Acelerar perdiendo control"],
+        primaryMuscles: ["Gluteos", "Isquios", "Gemelos"],
+        secondaryMuscles: ["Cuadriceps", "Core", "Erectores espinales"],
+        fatigueMap: { glutes: 0.8, hamstrings: 0.7, calves: 0.7, quadriceps: 0.5, core: 0.4, spinalErectors: 0.3 }
+      }),
+      squatExercise({
+        name: "Loaded carry intervals",
+        equipment: ["Mancuernas", "Kettlebells"],
+        technicalDescription:
+          "Alterna tramos de transporte cargado con descansos o cambios de distancia. Mantén tecnica estable durante todo el intervalo, incluso con fatiga acumulada.",
+        errorsToAvoid: ["Perder postura al fatigarse", "Balancear las cargas", "No respetar la distancia o tiempo objetivo"],
+        primaryMuscles: ["Antebrazos", "Core", "Trapecio"],
+        secondaryMuscles: ["Upper back", "Gluteos", "Gemelos"],
+        fatigueMap: { forearms: 1, core: 0.8, traps: 0.8, upperBack: 0.6, glutes: 0.5, calves: 0.4 }
+      }),
+      squatExercise({
+        name: "Carry medley",
+        equipment: ["Material variado"],
+        technicalDescription:
+          "Combina varios transportes de carga en secuencia, cambiando implementos o posiciones. Prioriza transiciones limpias, postura estable y control del ritmo.",
+        errorsToAvoid: ["Elegir cargas que rompen la tecnica", "Perder orden en las transiciones", "Descuidar respiracion y postura"],
+        primaryMuscles: ["Antebrazos", "Core", "Trapecio"],
+        secondaryMuscles: ["Upper back", "Gluteos", "Gemelos", "Oblicuos"],
+        fatigueMap: { forearms: 1, core: 0.9, traps: 0.8, upperBack: 0.6, glutes: 0.5, calves: 0.4, obliques: 0.5 }
+      })
+    ]
+  },
   legacyGroup("push-horizontal-control", "Push", "Control / tolerancia", [
     ["Press manual supino", ["Resistencia manual"]],
     ["Press pared", ["Peso corporal"]],
