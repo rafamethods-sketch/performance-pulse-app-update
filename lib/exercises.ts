@@ -8,9 +8,10 @@ export type ExercisePattern =
   | "Push / Upper Body Press"
   | "Pull / Upper Body Pull"
   | "Upper Body Accessories"
-  | "Core / Trunk Control";
+  | "Core / Trunk Control"
+  | "Mobility / Movement Prep";
 
-export type BodyRegion = "lower" | "upper" | "global";
+export type BodyRegion = "lower_body" | "upper_body" | "global_movement";
 export type ExerciseType =
   | "accessory"
   | "conditioning"
@@ -44,7 +45,11 @@ export type ExerciseBlock =
   | "Hamstring accessories"
   | "Glute accessories"
   | "Adductor accessories"
-  | "Calf & ankle accessories";
+  | "Calf & ankle accessories"
+  | "Neck and spine mobility"
+  | "Upper body mobility"
+  | "Lower body mobility"
+  | "Integrated mobility";
 
 export type FatigueMap = Partial<Record<FatigueMapKey, number>>;
 
@@ -64,6 +69,8 @@ export type FatigueMapKey =
   | "lumbarStabilizers"
   | "hips"
   | "thoracicSpine"
+  | "cervicalSpine"
+  | "neckFlexors"
   | "ankles"
   | "soleus"
   | "tibialisAnterior"
@@ -131,28 +138,30 @@ export const exercisePatterns: ExercisePattern[] = [
   "Push / Upper Body Press",
   "Pull / Upper Body Pull",
   "Upper Body Accessories",
-  "Core / Trunk Control"
+  "Core / Trunk Control",
+  "Mobility / Movement Prep"
 ];
 
-export const bodyRegions: BodyRegion[] = ["lower", "upper", "global"];
+export const bodyRegions: BodyRegion[] = ["lower_body", "upper_body", "global_movement"];
 
 export const bodyRegionLabels: Record<BodyRegion, string> = {
-  lower: "Tren inferior",
-  upper: "Tren superior",
-  global: "Global"
+  lower_body: "Lower body",
+  upper_body: "Upper body",
+  global_movement: "Global movement"
 };
 
 export const patternBodyRegions: Record<ExercisePattern, BodyRegion> = {
-  "Squat / Vertical Force": "lower",
-  "Hinge / Horizontal Force": "lower",
-  "Lunge / Unilateral Force": "lower",
-  "Lower Body Accessories": "lower",
-  "Push / Upper Body Press": "upper",
-  "Pull / Upper Body Pull": "upper",
-  "Upper Body Accessories": "upper",
-  "Olympic derivatives": "global",
-  "Gait & Carry": "global",
-  "Core / Trunk Control": "global"
+  "Squat / Vertical Force": "lower_body",
+  "Hinge / Horizontal Force": "lower_body",
+  "Lunge / Unilateral Force": "lower_body",
+  "Lower Body Accessories": "lower_body",
+  "Push / Upper Body Press": "upper_body",
+  "Pull / Upper Body Pull": "upper_body",
+  "Upper Body Accessories": "upper_body",
+  "Olympic derivatives": "global_movement",
+  "Gait & Carry": "global_movement",
+  "Core / Trunk Control": "global_movement",
+  "Mobility / Movement Prep": "global_movement"
 };
 
 export const exerciseBlocks: ExerciseBlock[] = [
@@ -176,7 +185,11 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Hamstring accessories",
   "Glute accessories",
   "Adductor accessories",
-  "Calf & ankle accessories"
+  "Calf & ankle accessories",
+  "Neck and spine mobility",
+  "Upper body mobility",
+  "Lower body mobility",
+  "Integrated mobility"
 ];
 
 function inferExerciseType(group: ExerciseGroupSeed): ExerciseType {
@@ -2040,61 +2053,21 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ]
   },
   {
-    slug: "mobility-activation",
-    pattern: "Core / Trunk Control",
-    block: "Rotation",
+    slug: "mobility-movement-prep-neck-spine",
+    pattern: "Mobility / Movement Prep",
+    block: "Neck and spine mobility",
     exerciseType: "mobility",
     allowedSessionSections: ["activation"],
     exercises: [
       squatExercise({
-        name: "Thoracic rotation drill",
+        name: "Cervical mobility drill",
         equipment: ["Peso corporal"],
         technicalDescription:
-          "Realiza rotaciones toracicas controladas manteniendo pelvis estable y respiracion fluida. Debe moverse la parte alta de la espalda sin compensar desde la zona lumbar.",
-        errorsToAvoid: ["Rotar desde la pelvis", "Forzar el cuello", "Buscar rango con dolor"],
-        primaryMuscles: ["Columna toracica"],
-        secondaryMuscles: ["Oblicuos", "Hombros"],
-        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.1 }
-      }),
-      squatExercise({
-        name: "Hip mobility drill",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Moviliza la cadera de forma controlada explorando flexion, extension y rotacion sin dolor. Mantén pelvis estable y respiracion fluida.",
-        errorsToAvoid: ["Forzar rango doloroso", "Mover la lumbar en exceso", "Ir demasiado rapido"],
-        primaryMuscles: ["Caderas"],
-        secondaryMuscles: ["Gluteos", "Aductores"],
-        fatigueMap: { hips: 0.5, glutes: 0.2, adductors: 0.2 }
-      }),
-      squatExercise({
-        name: "Ankle mobility drill",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Trabaja la dorsiflexion del tobillo con rodilla avanzando sobre el pie y talon apoyado. Mantén el arco activo y controla el rango.",
-        errorsToAvoid: ["Levantar el talon", "Colapsar el arco del pie", "Rebotar sin control"],
-        primaryMuscles: ["Tobillo"],
-        secondaryMuscles: ["Gemelos", "Tibial anterior"],
-        fatigueMap: { ankles: 0.5, calves: 0.2, tibialisAnterior: 0.2 }
-      }),
-      squatExercise({
-        name: "Shoulder CARs",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Realiza circulos articulares lentos de hombro manteniendo costillas controladas. Busca rango activo sin compensar con tronco o cuello.",
-        errorsToAvoid: ["Arquear lumbar", "Encoger hombros", "Acelerar el movimiento"],
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Manguito rotador", "Trapecio superior"],
-        fatigueMap: { shoulders: 0.5, rotatorCuff: 0.3, upperTraps: 0.1 }
-      }),
-      squatExercise({
-        name: "Hip CARs",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Realiza circulos articulares de cadera lentos y activos manteniendo pelvis estable. Prioriza control del rango antes que amplitud.",
-        errorsToAvoid: ["Rotar la pelvis", "Perder equilibrio", "Forzar el rango"],
-        primaryMuscles: ["Caderas"],
-        secondaryMuscles: ["Gluteos", "Core"],
-        fatigueMap: { hips: 0.5, glutes: 0.2, core: 0.2 }
+          "Moviliza la columna cervical en rangos suaves de flexion, extension, inclinacion y rotacion. Manten respiracion tranquila y evita dolor o mareo.",
+        errorsToAvoid: ["Forzar el cuello", "Moverse rapido", "Compensar con hombros"],
+        primaryMuscles: ["Columna cervical"],
+        secondaryMuscles: ["Trapecio superior", "Flexores cervicales"],
+        fatigueMap: { cervicalSpine: 0.5, upperTraps: 0.2, neckFlexors: 0.2 }
       }),
       squatExercise({
         name: "Cat-cow",
@@ -2107,14 +2080,112 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { thoracicSpine: 0.4, lumbarStabilizers: 0.3, core: 0.1 }
       }),
       squatExercise({
-        name: "World greatest stretch",
+        name: "Thoracic rotation drill",
         equipment: ["Peso corporal"],
         technicalDescription:
-          "Combina zancada, apertura de cadera y rotacion toracica de forma fluida. Mantén control de apoyo y rango tolerado.",
-        errorsToAvoid: ["Colapsar la rodilla", "Forzar la rotacion", "Perder estabilidad"],
-        primaryMuscles: ["Caderas", "Columna toracica"],
-        secondaryMuscles: ["Aductores", "Flexores cadera", "Hombros"],
-        fatigueMap: { hips: 0.5, thoracicSpine: 0.4, adductors: 0.2, hipFlexors: 0.2, shoulders: 0.1 }
+          "Realiza rotaciones toracicas controladas manteniendo pelvis estable y respiracion fluida. Debe moverse la parte alta de la espalda sin compensar desde la zona lumbar.",
+        errorsToAvoid: ["Rotar desde la pelvis", "Forzar el cuello", "Buscar rango con dolor"],
+        primaryMuscles: ["Columna toracica"],
+        secondaryMuscles: ["Oblicuos", "Hombros"],
+        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.1 }
+      }),
+      squatExercise({
+        name: "Open book rotation",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde decubito lateral, abre el brazo superior siguiendo la rotacion toracica sin perder la posicion de cadera. Controla la respiracion y el retorno.",
+        errorsToAvoid: ["Girar la pelvis", "Forzar hombro", "Hacer rebotes"],
+        primaryMuscles: ["Columna toracica"],
+        secondaryMuscles: ["Oblicuos", "Hombros"],
+        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.2 }
+      }),
+      squatExercise({
+        name: "Quadruped thoracic rotation",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "En cuadrupedia, rota el tronco llevando el codo o la mano hacia el techo. Manten pelvis estable y rango controlado.",
+        errorsToAvoid: ["Mover la pelvis", "Colapsar el apoyo", "Rotar desde el cuello"],
+        primaryMuscles: ["Columna toracica"],
+        secondaryMuscles: ["Oblicuos", "Hombros", "Core"],
+        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.2, core: 0.1 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-upper-body",
+    pattern: "Mobility / Movement Prep",
+    block: "Upper body mobility",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        name: "Shoulder CARs",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza circulos articulares lentos de hombro manteniendo costillas controladas. Busca rango activo sin compensar con tronco o cuello.",
+        errorsToAvoid: ["Arquear lumbar", "Encoger hombros", "Acelerar el movimiento"],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Trapecio superior"],
+        fatigueMap: { shoulders: 0.5, rotatorCuff: 0.3, upperTraps: 0.1 }
+      }),
+      squatExercise({
+        name: "Scapular mobility drill",
+        equipment: ["Peso corporal", "Banda elastica"],
+        technicalDescription:
+          "Moviliza escapulas en retraccion, protraccion, elevacion y depresion con control. Manten cuello relajado y costillas estables.",
+        errorsToAvoid: ["Encoger cuello", "Doblar codos si no toca", "Perder postura"],
+        primaryMuscles: ["Escapulas"],
+        secondaryMuscles: ["Serrato anterior", "Trapecio"],
+        fatigueMap: { serratusAnterior: 0.3, traps: 0.2, shoulders: 0.2 }
+      }),
+      squatExercise({
+        name: "Wall slide",
+        equipment: ["Pared", "Banda elastica"],
+        technicalDescription:
+          "Desliza brazos por la pared manteniendo costillas controladas y escapulas activas. Busca elevacion limpia sin arquear la espalda.",
+        errorsToAvoid: ["Arquear lumbar", "Elevar hombros en exceso", "Perder contacto con la pared"],
+        primaryMuscles: ["Hombros", "Serrato anterior"],
+        secondaryMuscles: ["Trapecio inferior", "Core"],
+        fatigueMap: { shoulders: 0.4, serratusAnterior: 0.3, lowerTraps: 0.2, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Band shoulder dislocates",
+        equipment: ["Banda elastica", "Pica"],
+        technicalDescription:
+          "Lleva la banda o pica por encima de la cabeza y hacia atras con agarre amplio. Manten costillas abajo y rango sin dolor.",
+        errorsToAvoid: ["Arquear lumbar", "Forzar hombro", "Flexionar codos en exceso"],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Pectoral", "Dorsal", "Manguito rotador"],
+        fatigueMap: { shoulders: 0.4, chest: 0.2, lats: 0.2, rotatorCuff: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-lower-body",
+    pattern: "Mobility / Movement Prep",
+    block: "Lower body mobility",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        name: "Ankle mobility drill",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Trabaja la dorsiflexion del tobillo con rodilla avanzando sobre el pie y talon apoyado. Manten el arco activo y controla el rango.",
+        errorsToAvoid: ["Levantar el talon", "Colapsar el arco del pie", "Rebotar sin control"],
+        primaryMuscles: ["Tobillo"],
+        secondaryMuscles: ["Gemelos", "Tibial anterior"],
+        fatigueMap: { ankles: 0.5, calves: 0.2, tibialisAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip CARs",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza circulos articulares de cadera lentos y activos manteniendo pelvis estable. Prioriza control del rango antes que amplitud.",
+        errorsToAvoid: ["Rotar la pelvis", "Perder equilibrio", "Forzar el rango"],
+        primaryMuscles: ["Caderas"],
+        secondaryMuscles: ["Gluteos", "Core"],
+        fatigueMap: { hips: 0.5, glutes: 0.2, core: 0.2 }
       }),
       squatExercise({
         name: "90/90 hip switch",
@@ -2127,24 +2198,53 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { hips: 0.5, glutes: 0.2, adductors: 0.2, core: 0.2 }
       }),
       squatExercise({
-        name: "Scapular mobility drill",
-        equipment: ["Peso corporal", "Banda elastica"],
+        name: "Adductor rockback",
+        equipment: ["Peso corporal"],
         technicalDescription:
-          "Moviliza escápulas en retraccion, protraccion, elevacion y depresion con control. Mantén cuello relajado y costillas estables.",
-        errorsToAvoid: ["Encoger cuello", "Doblar codos si no toca", "Perder postura"],
-        primaryMuscles: ["Escapulas"],
-        secondaryMuscles: ["Serrato anterior", "Trapecio"],
-        fatigueMap: { serratusAnterior: 0.3, traps: 0.2, shoulders: 0.2 }
+          "Desde cuadrupedia con una pierna extendida lateralmente, lleva la cadera atras y vuelve con control. Manten columna neutra y tension tolerable.",
+        errorsToAvoid: ["Redondear lumbar", "Forzar la ingle", "Rebotar"],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Caderas", "Core"],
+        fatigueMap: { adductors: 0.4, hips: 0.3, core: 0.1 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-integrated",
+    pattern: "Mobility / Movement Prep",
+    block: "Integrated mobility",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        name: "World greatest stretch",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Combina zancada, apertura de cadera y rotacion toracica de forma fluida. Manten control de apoyo y rango tolerado.",
+        errorsToAvoid: ["Colapsar la rodilla", "Forzar la rotacion", "Perder estabilidad"],
+        primaryMuscles: ["Caderas", "Columna toracica"],
+        secondaryMuscles: ["Aductores", "Flexores cadera", "Hombros"],
+        fatigueMap: { hips: 0.5, thoracicSpine: 0.4, adductors: 0.2, hipFlexors: 0.2, shoulders: 0.1 }
       }),
       squatExercise({
-        name: "Wall slide",
-        equipment: ["Pared", "Banda elastica"],
+        name: "Deep squat pry",
+        equipment: ["Peso corporal"],
         technicalDescription:
-          "Desliza brazos por la pared manteniendo costillas controladas y escápulas activas. Busca elevacion limpia sin arquear la espalda.",
-        errorsToAvoid: ["Arquear lumbar", "Elevar hombros en exceso", "Perder contacto con la pared"],
-        primaryMuscles: ["Hombros", "Serrato anterior"],
-        secondaryMuscles: ["Trapecio inferior", "Core"],
-        fatigueMap: { shoulders: 0.4, serratusAnterior: 0.3, lowerTraps: 0.2, core: 0.1 }
+          "Manten una sentadilla profunda y moviliza suavemente caderas y tobillos con ayuda de los codos. Conserva apoyo completo del pie.",
+        errorsToAvoid: ["Levantar talones", "Colapsar rodillas", "Forzar profundidad dolorosa"],
+        primaryMuscles: ["Caderas", "Tobillos"],
+        secondaryMuscles: ["Aductores", "Gluteos", "Core"],
+        fatigueMap: { hips: 0.4, ankles: 0.3, adductors: 0.2, glutes: 0.2, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Inchworm",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Camina con las manos hacia plancha y vuelve acercando los pies con control. Manten piernas activas, hombros estables y respiracion fluida.",
+        errorsToAvoid: ["Hundirse de lumbar", "Caminar sin control", "Forzar isquios"],
+        primaryMuscles: ["Hombros", "Caderas"],
+        secondaryMuscles: ["Isquios", "Gemelos", "Core"],
+        fatigueMap: { shoulders: 0.3, hips: 0.3, hamstrings: 0.2, calves: 0.2, core: 0.2 }
       })
     ]
   },
@@ -2547,7 +2647,7 @@ export function calculateWeeklySetsByExercise(entries: WeeklyExerciseSetInput[])
 export function calculateWeeklyFatigueMap(entries: WeeklyExerciseSetInput[]) {
   return getWorkingSetEntries(entries).reduce<Record<string, number>>((acc, entry) => {
     const exercise = getExerciseById(entry.exerciseId);
-    if (!exercise) return acc;
+    if (!exercise || exercise.exerciseType === "mobility") return acc;
 
     Object.entries(exercise.fatigueMap).forEach(([muscle, value]) => {
       acc[muscle] = (acc[muscle] ?? 0) + entry.sets * value;
@@ -2559,7 +2659,7 @@ export function calculateWeeklyFatigueMap(entries: WeeklyExerciseSetInput[]) {
 
 export function calculateExerciseMuscleLoad(entry: WeeklyExerciseSetInput) {
   const exercise = getExerciseById(entry.exerciseId);
-  if (!exercise || entry.sets <= 0) return {};
+  if (!exercise || exercise.exerciseType === "mobility" || entry.sets <= 0) return {};
 
   return Object.fromEntries(
     Object.entries(exercise.fatigueMap).map(([muscle, value]) => [muscle, entry.sets * value])

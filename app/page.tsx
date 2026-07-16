@@ -2062,7 +2062,7 @@ function PlanningCalendarPreview({
   );
 }
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower");
+  const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower_body");
   const availablePatterns = getExercisePatternsByBodyRegion(activeBodyRegion);
   const [activePattern, setActivePattern] = useState<ExercisePattern>(availablePatterns[0]);
   const patternExercises = getExercisesByPattern(activePattern);
@@ -2269,6 +2269,8 @@ function formatFatigueKey(key: string) {
     hamstrings: "Isquios",
     hips: "Caderas",
     hipFlexors: "Flexores cadera",
+    cervicalSpine: "Columna cervical",
+    neckFlexors: "Flexores cervicales",
     ankles: "Tobillos",
     lats: "Dorsal",
     lateralDelts: "Deltoides lateral",
