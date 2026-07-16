@@ -4,7 +4,7 @@ export type ExercisePattern =
   | "Lunge / Unilateral Force"
   | "Olympic derivatives"
   | "Gait & Carry"
-  | "Push"
+  | "Push / Upper Body Press"
   | "Pull"
   | "Rotation"
   | "Core";
@@ -29,6 +29,12 @@ export type FatigueMapKey =
   | "hipFlexors"
   | "core"
   | "obliques"
+  | "chest"
+  | "triceps"
+  | "anteriorDelts"
+  | "lateralDelts"
+  | "upperTraps"
+  | "serratusAnterior"
   | "spinalErectors"
   | "traps"
   | "forearms"
@@ -69,7 +75,7 @@ export const exercisePatterns: ExercisePattern[] = [
   "Lunge / Unilateral Force",
   "Olympic derivatives",
   "Gait & Carry",
-  "Push",
+  "Push / Upper Body Press",
   "Pull",
   "Rotation",
   "Core"
@@ -1169,30 +1175,311 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("push-horizontal-control", "Push", "Control / tolerancia", [
-    ["Press manual supino", ["Resistencia manual"]],
-    ["Press pared", ["Peso corporal"]],
-    ["Flexion inclinada alta", ["Apoyo alto"]],
-    ["Flexion inclinada baja", ["Banco"]]
-  ]),
-  legacyGroup("push-horizontal-strength", "Push", "Fuerza base", [
-    ["Flexion", ["Peso corporal"]],
-    ["Press mancuernas banco", ["Mancuernas"]],
-    ["Press banca", ["Barra"]],
-    ["Floor press", ["Barra", "Mancuernas"]]
-  ]),
-  legacyGroup("push-horizontal-hypertrophy", "Push", "Hipertrofia", [
-    ["Press maquina convergente", ["Maquina"]],
-    ["Chest press", ["Maquina"]],
-    ["Aperturas en polea", ["Polea"]],
-    ["Pec deck", ["Maquina"]]
-  ]),
-  legacyGroup("push-horizontal-power", "Push", "Potencia", [
-    ["Chest pass balon medicinal", ["Balon medicinal"]],
-    ["Plyo push up", ["Peso corporal"]],
-    ["Bench throw", ["Barra", "Multipower"]],
-    ["Push press", ["Barra"]]
-  ]),
+  {
+    slug: "push-upper-body-press-control",
+    pattern: "Push / Upper Body Press",
+    block: "Control / tolerancia",
+    exercises: [
+      squatExercise({
+        name: "Scapular retraction-protraction drill",
+        equipment: ["Peso corporal", "Pared", "Cuadrupedia"],
+        technicalDescription:
+          "Alterna retraccion y protraccion escapular sin flexionar codos, en pared o cuadrupedia. Debe verse movimiento controlado de escápulas con cuello relajado y tronco estable.",
+        errorsToAvoid: ["Doblar los codos", "Elevar hombros hacia las orejas", "Perder control del tronco"],
+        primaryMuscles: ["Serrato anterior", "Trapecio medio"],
+        secondaryMuscles: ["Core", "Pectoral", "Deltoides anterior"],
+        fatigueMap: { serratusAnterior: 0.8, upperBack: 0.5, traps: 0.4, chest: 0.2, anteriorDelts: 0.2, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Horizontal press manual/banded",
+        equipment: ["Manual", "Banda elastica"],
+        technicalDescription:
+          "Empuja horizontalmente contra resistencia manual o banda manteniendo escápula controlada y muñeca alineada. El movimiento debe ser fluido, sin dolor y con tronco estable.",
+        errorsToAvoid: ["Perder alineacion de muñeca", "Elevar hombros", "Rotar el tronco para compensar"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.6, triceps: 0.5, anteriorDelts: 0.4, serratusAnterior: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Vertical press manual/banded",
+        equipment: ["Manual", "Banda elastica"],
+        technicalDescription:
+          "Empuja en direccion vertical contra resistencia manual o banda, manteniendo costillas controladas y escápula estable. Debe verse elevacion limpia sin compensacion lumbar.",
+        errorsToAvoid: ["Arquear la espalda", "Adelantar la cabeza", "Perder control escapular"],
+        primaryMuscles: ["Deltoides anterior", "Triceps"],
+        secondaryMuscles: ["Deltoides lateral", "Trapecio superior", "Core"],
+        fatigueMap: { anteriorDelts: 0.7, triceps: 0.5, lateralDelts: 0.4, upperTraps: 0.3, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Push-up hold",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Mantén posicion de flexion con manos bajo hombros, cuerpo alineado y escápulas activas. La pelvis, costillas y cabeza deben permanecer estables.",
+        errorsToAvoid: ["Hundirse entre hombros", "Caer de cadera", "Bloquear respiracion"],
+        primaryMuscles: ["Pectoral", "Triceps", "Serrato anterior"],
+        secondaryMuscles: ["Deltoides anterior", "Core"],
+        fatigueMap: { chest: 0.5, triceps: 0.5, serratusAnterior: 0.5, anteriorDelts: 0.4, core: 0.6 }
+      }),
+      squatExercise({
+        name: "Bottom-up kettlebell hold",
+        equipment: ["Kettlebell"],
+        technicalDescription:
+          "Sostén la kettlebell invertida con muñeca neutra y hombro centrado. Mantén respiracion, antebrazo vertical y control fino sin que la carga oscile.",
+        errorsToAvoid: ["Doblar la muñeca", "Elevar el hombro", "Perder control de la campana"],
+        primaryMuscles: ["Antebrazos", "Deltoides anterior"],
+        secondaryMuscles: ["Manguito rotador", "Trapecio superior", "Core"],
+        fatigueMap: { forearms: 0.8, anteriorDelts: 0.5, upperTraps: 0.3, core: 0.3, upperBack: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "push-upper-body-press-strength",
+    pattern: "Push / Upper Body Press",
+    block: "Fuerza base",
+    exercises: [
+      squatExercise({
+        name: "Incline push-up",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Realiza flexiones con manos elevadas en un soporte, manteniendo cuerpo alineado y control escapular. Baja con control y empuja sin perder postura.",
+        errorsToAvoid: ["Abrir codos en exceso", "Perder alineacion corporal", "Hundirse entre hombros"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.7, triceps: 0.6, anteriorDelts: 0.5, serratusAnterior: 0.4, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Push-up",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza una flexion manteniendo linea cabeza-cadera-tobillo, manos firmes y codos controlados. Empuja el suelo hasta recuperar una posicion estable.",
+        errorsToAvoid: ["Colapsar la lumbar", "Abrir codos sin control", "No completar el empuje"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.8, triceps: 0.7, anteriorDelts: 0.6, serratusAnterior: 0.5, core: 0.5 }
+      }),
+      squatExercise({
+        name: "Bench press",
+        equipment: ["Barra", "Mancuernas"],
+        technicalDescription:
+          "Presiona desde banco con escápulas estables, pies apoyados y trayectoria controlada. Baja con control hacia el pecho y empuja manteniendo muñecas y codos alineados.",
+        errorsToAvoid: ["Rebotar la carga", "Perder retraccion escapular", "Abrir codos de forma excesiva"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Core", "Upper back"],
+        fatigueMap: { chest: 1, triceps: 0.8, anteriorDelts: 0.7, core: 0.2, upperBack: 0.2 }
+      }),
+      squatExercise({
+        name: "Incline bench press",
+        equipment: ["Barra", "Mancuernas"],
+        technicalDescription:
+          "Presiona en banco inclinado manteniendo escápulas firmes y trayectoria estable. El énfasis debe ir al empuje inclinado sin perder control de hombro.",
+        errorsToAvoid: ["Convertirlo en press vertical", "Elevar hombros", "Perder apoyo en el banco"],
+        primaryMuscles: ["Pectoral", "Deltoides anterior", "Triceps"],
+        secondaryMuscles: ["Upper back", "Core"],
+        fatigueMap: { chest: 0.9, anteriorDelts: 0.8, triceps: 0.7, upperBack: 0.2, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Landmine press",
+        equipment: ["Barra", "Landmine"],
+        technicalDescription:
+          "Empuja la barra en diagonal desde landmine, manteniendo costillas controladas y hombro centrado. La trayectoria debe ser estable, con final fuerte sin inclinar el tronco.",
+        errorsToAvoid: ["Rotar el tronco", "Elevar hombro al final", "Perder base de apoyo"],
+        primaryMuscles: ["Deltoides anterior", "Pectoral", "Triceps"],
+        secondaryMuscles: ["Serrato anterior", "Core", "Trapecio superior"],
+        fatigueMap: { anteriorDelts: 0.8, chest: 0.6, triceps: 0.6, serratusAnterior: 0.4, core: 0.4, upperTraps: 0.3 }
+      }),
+      squatExercise({
+        name: "Overhead press / Press militar",
+        equipment: ["Barra", "Mancuernas"],
+        technicalDescription:
+          "Presiona por encima de la cabeza con tronco firme, costillas abajo y trayectoria vertical. Termina con brazos estables y cabeza alineada bajo la carga.",
+        errorsToAvoid: ["Arquear lumbar", "Adelantar la cabeza", "No bloquear con control"],
+        primaryMuscles: ["Deltoides anterior", "Triceps"],
+        secondaryMuscles: ["Deltoides lateral", "Trapecio superior", "Core", "Upper back"],
+        fatigueMap: { anteriorDelts: 1, lateralDelts: 0.6, triceps: 0.8, upperTraps: 0.4, core: 0.5, upperBack: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "push-upper-body-press-hypertrophy",
+    pattern: "Push / Upper Body Press",
+    block: "Hipertrofia",
+    exercises: [
+      squatExercise({
+        name: "Pec deck",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Realiza aperturas guiadas en maquina manteniendo pecho alto y hombros controlados. Junta los brazos sin perder posicion escapular y vuelve con control.",
+        errorsToAvoid: ["Llevar hombros hacia delante", "Usar impulso", "Forzar rango con dolor"],
+        primaryMuscles: ["Pectoral"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior"],
+        fatigueMap: { chest: 1, anteriorDelts: 0.4, serratusAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Chest press",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Presiona en maquina con espalda apoyada, muñecas neutras y ritmo controlado. Mantén hombros estables y tensión continua durante todo el recorrido.",
+        errorsToAvoid: ["Perder contacto con el respaldo", "Bloquear codos agresivamente", "Rebotar la carga"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior"],
+        fatigueMap: { chest: 0.9, triceps: 0.7, anteriorDelts: 0.5, serratusAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Incline chest press",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Empuja en maquina inclinada con control, manteniendo hombros bajos y trayectoria estable. Busca tensión en pectoral superior sin compensar con cuello.",
+        errorsToAvoid: ["Elevar hombros", "Perder control al bajar", "Cerrar demasiado el agarre"],
+        primaryMuscles: ["Pectoral", "Deltoides anterior"],
+        secondaryMuscles: ["Triceps", "Serrato anterior"],
+        fatigueMap: { chest: 0.9, anteriorDelts: 0.7, triceps: 0.6, serratusAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Cable fly",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Realiza aperturas en polea con ligera flexion de codo, controlando la vuelta y manteniendo pecho abierto. La tension debe ser continua y sin tirones.",
+        errorsToAvoid: ["Convertirlo en press", "Perder postura", "Cruzar brazos con impulso"],
+        primaryMuscles: ["Pectoral"],
+        secondaryMuscles: ["Deltoides anterior", "Core"],
+        fatigueMap: { chest: 1, anteriorDelts: 0.4, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Shoulder press",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Presiona verticalmente en maquina con espalda apoyada y hombros controlados. Sube con fuerza y baja con control sin perder alineacion de codos.",
+        errorsToAvoid: ["Elevar hombros excesivamente", "Arquear lumbar", "Bajar fuera de control"],
+        primaryMuscles: ["Deltoides anterior", "Triceps"],
+        secondaryMuscles: ["Deltoides lateral", "Trapecio superior"],
+        fatigueMap: { anteriorDelts: 0.9, triceps: 0.7, lateralDelts: 0.6, upperTraps: 0.3 }
+      }),
+      squatExercise({
+        name: "Lateral raise",
+        equipment: ["Mancuernas", "Polea"],
+        technicalDescription:
+          "Eleva los brazos hacia los lados manteniendo cuello relajado y control del peso. Debe verse recorrido limpio, sin balanceo ni subida excesiva del hombro.",
+        errorsToAvoid: ["Balancear el tronco", "Subir con trapecio", "Flexionar demasiado los codos"],
+        primaryMuscles: ["Deltoides lateral"],
+        secondaryMuscles: ["Trapecio superior", "Core"],
+        fatigueMap: { lateralDelts: 1, upperTraps: 0.3, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Triceps extension",
+        equipment: ["Polea", "Mancuerna"],
+        technicalDescription:
+          "Extiende los codos manteniendo brazos estables y controlando la vuelta. El movimiento debe centrarse en el codo sin compensar con hombros o tronco.",
+        errorsToAvoid: ["Mover los codos", "Usar impulso", "Perder control en la fase excentrica"],
+        primaryMuscles: ["Triceps"],
+        secondaryMuscles: ["Antebrazos", "Core"],
+        fatigueMap: { triceps: 1, forearms: 0.2, core: 0.1 }
+      })
+    ]
+  },
+  {
+    slug: "push-upper-body-press-power",
+    pattern: "Push / Upper Body Press",
+    block: "Potencia",
+    exercises: [
+      squatExercise({
+        name: "Medicine ball chest pass",
+        equipment: ["Balon medicinal"],
+        technicalDescription:
+          "Lanza el balon desde el pecho con empuje explosivo, tronco firme y trayectoria directa. La accion debe ser rapida, coordinada y con recepcion segura si hay retorno.",
+        errorsToAvoid: ["Lanzar solo con brazos", "Perder postura", "Frenar antes de soltar el balon"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.8, triceps: 0.7, anteriorDelts: 0.6, serratusAnterior: 0.4, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Medicine ball overhead throw",
+        equipment: ["Balon medicinal"],
+        technicalDescription:
+          "Lanza el balon por encima de la cabeza con extension potente y control del tronco. Mantén costillas controladas y libera el balon con velocidad.",
+        errorsToAvoid: ["Arquear lumbar", "Lanzar sin coordinar piernas y tronco", "Perder control del hombro"],
+        primaryMuscles: ["Deltoides anterior", "Triceps", "Pectoral"],
+        secondaryMuscles: ["Core", "Trapecio superior", "Serrato anterior"],
+        fatigueMap: { anteriorDelts: 0.8, triceps: 0.7, chest: 0.6, core: 0.5, upperTraps: 0.3, serratusAnterior: 0.3 }
+      }),
+      squatExercise({
+        name: "Explosive push-up",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza una flexion empujando el suelo con maxima velocidad, manteniendo cuerpo alineado. La prioridad es despegar o acelerar sin perder control.",
+        errorsToAvoid: ["Perder alineacion corporal", "Caer sin absorber", "Buscar altura a costa de tecnica"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.8, triceps: 0.8, anteriorDelts: 0.6, serratusAnterior: 0.4, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Push press",
+        equipment: ["Barra", "Mancuernas"],
+        technicalDescription:
+          "Combina un dip corto con extension potente de piernas y press vertical. Transmite fuerza a la carga manteniendo tronco firme y recepcion estable arriba.",
+        errorsToAvoid: ["Convertirlo en sentadilla", "Arquear lumbar", "Presionar tarde sin aprovechar piernas"],
+        primaryMuscles: ["Deltoides anterior", "Triceps", "Cuadriceps"],
+        secondaryMuscles: ["Gluteos", "Core", "Trapecio superior"],
+        fatigueMap: { anteriorDelts: 0.8, triceps: 0.7, quadriceps: 0.4, glutes: 0.3, core: 0.5, upperTraps: 0.4 }
+      }),
+      squatExercise({
+        name: "Landmine push press",
+        equipment: ["Barra", "Landmine"],
+        technicalDescription:
+          "Realiza un empuje diagonal explosivo desde landmine usando una pequena ayuda de piernas. Mantén linea corporal estable y finaliza con brazo fuerte.",
+        errorsToAvoid: ["Rotar sin control", "Perder base de apoyo", "Empujar lento sin intencion"],
+        primaryMuscles: ["Deltoides anterior", "Pectoral", "Triceps"],
+        secondaryMuscles: ["Cuadriceps", "Gluteos", "Core", "Serrato anterior"],
+        fatigueMap: { anteriorDelts: 0.8, chest: 0.6, triceps: 0.7, quadriceps: 0.3, glutes: 0.3, core: 0.5, serratusAnterior: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "push-upper-body-press-plyometrics",
+    pattern: "Push / Upper Body Press",
+    block: "Pliometria",
+    exercises: [
+      squatExercise({
+        name: "Push-up landing",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde una pequena caida o liberacion, recibe en posicion de flexion absorbiendo con brazos y escápulas. Mantén tronco firme y contacto controlado.",
+        errorsToAvoid: ["Caer con codos rigidos", "Hundirse entre hombros", "Perder alineacion corporal"],
+        primaryMuscles: ["Pectoral", "Triceps", "Serrato anterior"],
+        secondaryMuscles: ["Deltoides anterior", "Core"],
+        fatigueMap: { chest: 0.7, triceps: 0.7, serratusAnterior: 0.5, anteriorDelts: 0.5, core: 0.4 }
+      }),
+      squatExercise({
+        name: "Plyo push-up",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza flexiones pliometricas despegando las manos del suelo y aterrizando con absorcion activa. Mantén ritmo, alineacion y control del contacto.",
+        errorsToAvoid: ["Aterrizar rigido", "Perder postura", "Abrir codos sin control"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Core", "Serrato anterior"],
+        fatigueMap: { chest: 0.9, triceps: 0.8, anteriorDelts: 0.7, core: 0.4, serratusAnterior: 0.4 }
+      }),
+      squatExercise({
+        name: "Depth push-up",
+        equipment: ["Cajones", "Soportes"],
+        technicalDescription:
+          "Deja caer las manos desde soportes hacia el suelo y responde con empuje rapido. Prioriza absorcion controlada, contacto breve y alineacion del tronco.",
+        errorsToAvoid: ["Usar demasiada altura", "Colapsar hombros", "No absorber antes de empujar"],
+        primaryMuscles: ["Pectoral", "Triceps", "Deltoides anterior"],
+        secondaryMuscles: ["Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.9, triceps: 0.8, anteriorDelts: 0.7, serratusAnterior: 0.5, core: 0.5 }
+      }),
+      squatExercise({
+        name: "Reactive medicine ball chest pass",
+        equipment: ["Balon medicinal"],
+        technicalDescription:
+          "Recibe y relanza el balon medicinal desde el pecho con contacto rapido. Mantén postura estable, absorbe con brazos y devuelve con intencion explosiva.",
+        errorsToAvoid: ["Retener demasiado el balon", "Perder posicion al recibir", "Lanzar sin absorber"],
+        primaryMuscles: ["Pectoral", "Triceps"],
+        secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        fatigueMap: { chest: 0.8, triceps: 0.7, anteriorDelts: 0.6, serratusAnterior: 0.5, core: 0.4 }
+      })
+    ]
+  },
   legacyGroup("pull-horizontal-control", "Pull", "Control / tolerancia", [
     ["Retraccion escapular asistida", ["Asistencia manual"]],
     ["Remo manual sentado", ["Resistencia manual"]],

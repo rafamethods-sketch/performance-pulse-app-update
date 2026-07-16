@@ -2236,13 +2236,19 @@ function formatFatigueKey(key: string) {
     calves: "Gemelos",
     core: "Core",
     forearms: "Antebrazos",
+    anteriorDelts: "Deltoides anterior",
+    chest: "Pectoral",
     glutes: "Gluteos",
     hamstrings: "Isquios",
     hipFlexors: "Flexores cadera",
+    lateralDelts: "Deltoides lateral",
     obliques: "Oblicuos",
     quadriceps: "Cuadriceps",
+    serratusAnterior: "Serrato anterior",
     spinalErectors: "Erectores",
     traps: "Trapecio",
+    triceps: "Triceps",
+    upperTraps: "Trapecio superior",
     upperBack: "Upper back"
   };
 
@@ -2272,7 +2278,7 @@ function getExerciseFamilyGroups(exercises: ExerciseDefinition[]) {
 function getRoutineExerciseAlternatives(pattern: string) {
   const mappedPatterns: Record<string, ExercisePattern[]> = {
     "Empuje tren inferior": ["Squat / Vertical Force", "Lunge / Unilateral Force"],
-    "Empuje tren superior": ["Push"],
+    "Empuje tren superior": ["Push / Upper Body Press"],
     "Traccion tren inferior": ["Hinge / Horizontal Force"],
     "Traccion tren superior": ["Pull"]
   };
