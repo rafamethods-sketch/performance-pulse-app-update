@@ -6,8 +6,7 @@ export type ExercisePattern =
   | "Gait & Carry"
   | "Push / Upper Body Press"
   | "Pull / Upper Body Pull"
-  | "Rotation"
-  | "Core";
+  | "Core / Trunk Control";
 
 export type ExerciseBlock =
   | "Control / tolerancia"
@@ -16,7 +15,13 @@ export type ExerciseBlock =
   | "Hipertrofia"
   | "Potencia"
   | "Pliometria"
-  | "Conditioning";
+  | "Conditioning"
+  | "Rotation"
+  | "Anti-rotation"
+  | "Lateral flexion"
+  | "Anti-lateral flexion"
+  | "Flexion-extension"
+  | "Anti-flexion-extension";
 
 export type FatigueMap = Partial<Record<FatigueMapKey, number>>;
 
@@ -29,6 +34,12 @@ export type FatigueMapKey =
   | "hipFlexors"
   | "core"
   | "obliques"
+  | "transverseAbdominis"
+  | "rectusAbdominis"
+  | "shoulders"
+  | "gluteMed"
+  | "lumbarStabilizers"
+  | "hips"
   | "chest"
   | "triceps"
   | "anteriorDelts"
@@ -83,8 +94,7 @@ export const exercisePatterns: ExercisePattern[] = [
   "Gait & Carry",
   "Push / Upper Body Press",
   "Pull / Upper Body Pull",
-  "Rotation",
-  "Core"
+  "Core / Trunk Control"
 ];
 
 export const exerciseBlocks: ExerciseBlock[] = [
@@ -94,7 +104,13 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Hipertrofia",
   "Potencia",
   "Pliometria",
-  "Conditioning"
+  "Conditioning",
+  "Rotation",
+  "Anti-rotation",
+  "Lateral flexion",
+  "Anti-lateral flexion",
+  "Flexion-extension",
+  "Anti-flexion-extension"
 ];
 
 const exerciseGroups: ExerciseGroupSeed[] = [
@@ -1811,54 +1827,308 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("rotation-control", "Rotation", "Control / tolerancia", [
-    ["Anti-rotacion manual", ["Resistencia manual"]],
-    ["Pallof press isometrico", ["Banda", "Polea"]],
-    ["Pallof press dinamico", ["Banda", "Polea"]],
-    ["Tall kneeling anti-rotacion", ["Banda", "Polea"]]
-  ]),
-  legacyGroup("rotation-strength", "Rotation", "Fuerza base", [
-    ["Cable chop", ["Polea"]],
-    ["Cable lift", ["Polea"]],
-    ["Landmine rotation", ["Barra landmine"]],
-    ["Half kneeling cable rotation", ["Polea"]]
-  ]),
-  legacyGroup("rotation-hypertrophy", "Rotation", "Hipertrofia", [
-    ["Cable woodchop", ["Polea"]],
-    ["Cable rotation", ["Polea"]],
-    ["Rotary torso machine", ["Maquina"]],
-    ["Landmine windshield", ["Barra landmine"]]
-  ]),
-  legacyGroup("rotation-power", "Rotation", "Potencia", [
-    ["Rotational med ball throw", ["Balon medicinal"]],
-    ["Shot put throw", ["Balon medicinal"]],
-    ["Scoop toss", ["Balon medicinal"]],
-    ["Landmine rotational punch", ["Barra landmine"]]
-  ]),
-  legacyGroup("core-anti-extension-control", "Core", "Control / tolerancia", [
-    ["Dead bug asistido", ["Feedback manual"]],
-    ["Dead bug", ["Peso corporal"]],
-    ["Plank", ["Peso corporal"]],
-    ["Body saw", ["Peso corporal", "Sliders"]]
-  ]),
-  legacyGroup("core-anti-extension-strength", "Core", "Fuerza base", [
-    ["Stability ball rollout", ["Fitball"]],
-    ["Ab wheel rollout", ["Rueda abdominal"]],
-    ["Long lever plank", ["Peso corporal"]],
-    ["Barbell rollout", ["Barra"]]
-  ]),
-  legacyGroup("core-hypertrophy", "Core", "Hipertrofia", [
-    ["Cable crunch", ["Polea"]],
-    ["Machine crunch", ["Maquina"]],
-    ["Weighted plank", ["Disco"]],
-    ["Hanging knee raise", ["Barra"]]
-  ]),
-  legacyGroup("core-power", "Core", "Potencia", [
-    ["Med ball overhead slam", ["Balon medicinal"]],
-    ["Med ball sit-up throw", ["Balon medicinal"]],
-    ["Plank to sprint start", ["Peso corporal"]],
-    ["Explosive rollout return", ["Rueda abdominal"]]
-  ])
+  {
+    slug: "core-trunk-control-rotation",
+    pattern: "Core / Trunk Control",
+    block: "Rotation",
+    exercises: [
+      squatExercise({
+        name: "Thoracic rotation drill",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza rotaciones toracicas controladas manteniendo pelvis estable y respiracion fluida. Debe moverse la parte alta de la espalda sin compensar desde la zona lumbar.",
+        errorsToAvoid: ["Rotar desde la pelvis", "Forzar el cuello", "Buscar rango con dolor"],
+        primaryMuscles: ["Oblicuos", "Movilidad toracica"],
+        secondaryMuscles: ["Transverso abdominal", "Erectores espinales"],
+        fatigueMap: { obliques: 0.4, transverseAbdominis: 0.3, spinalErectors: 0.2, lumbarStabilizers: 0.2 }
+      }),
+      squatExercise({
+        name: "Half-kneeling band rotation",
+        equipment: ["Banda elastica"],
+        technicalDescription:
+          "Desde medio arrodillado, rota el tronco contra la banda manteniendo pelvis estable y costillas controladas. La rotacion debe ser limpia y sin perder equilibrio.",
+        errorsToAvoid: ["Girar la pelvis", "Inclinarse hacia la banda", "Tirar solo con brazos"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Gluteos", "Hombros", "Recto abdominal"],
+        fatigueMap: { obliques: 0.7, transverseAbdominis: 0.6, glutes: 0.3, shoulders: 0.3, rectusAbdominis: 0.3 }
+      }),
+      squatExercise({
+        name: "Standing cable rotation",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Rota de pie con polea manteniendo base estable, pelvis controlada y transferencia de fuerza desde cadera a tronco. El movimiento debe ser continuo y coordinado.",
+        errorsToAvoid: ["Rotar solo con brazos", "Perder apoyo de pies", "Arquear lumbar"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Caderas", "Hombros", "Gluteos"],
+        fatigueMap: { obliques: 0.8, transverseAbdominis: 0.6, hips: 0.5, shoulders: 0.4, glutes: 0.4 }
+      }),
+      squatExercise({
+        name: "Landmine rotation",
+        equipment: ["Barra", "Landmine"],
+        technicalDescription:
+          "Rota la barra en arco desde landmine controlando tronco, cadera y hombros. Mantén brazos activos y permite que el cuerpo acompañe sin perder postura.",
+        errorsToAvoid: ["Bloquear cadera", "Perder control de la barra", "Hiperextender la lumbar"],
+        primaryMuscles: ["Oblicuos", "Hombros"],
+        secondaryMuscles: ["Transverso abdominal", "Caderas", "Dorsal"],
+        fatigueMap: { obliques: 0.8, shoulders: 0.6, transverseAbdominis: 0.5, hips: 0.5, lats: 0.3 }
+      }),
+      squatExercise({
+        name: "Medicine ball rotational throw",
+        equipment: ["Balon medicinal"],
+        technicalDescription:
+          "Lanza el balon medicinal rotando con potencia desde caderas y tronco. Debe verse transferencia fluida, pies activos y salida explosiva sin perder control.",
+        errorsToAvoid: ["Lanzar solo con brazos", "Quedarse bloqueado de cadera", "Perder equilibrio tras soltar"],
+        primaryMuscles: ["Oblicuos", "Caderas"],
+        secondaryMuscles: ["Transverso abdominal", "Hombros", "Pectoral"],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.6, hips: 0.7, shoulders: 0.5, chest: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-anti-rotation",
+    pattern: "Core / Trunk Control",
+    block: "Anti-rotation",
+    exercises: [
+      squatExercise({
+        name: "Pallof press",
+        equipment: ["Banda elastica", "Polea"],
+        technicalDescription:
+          "Empuja la banda o polea al frente resistiendo que el tronco rote. Mantén pelvis y costillas alineadas, brazos firmes y respiracion controlada.",
+        errorsToAvoid: ["Rotar hacia la carga", "Encoger hombros", "Bloquear respiracion"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Recto abdominal", "Gluteos", "Hombros"],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.8, rectusAbdominis: 0.4, glutes: 0.3, shoulders: 0.2 }
+      }),
+      squatExercise({
+        name: "Half-kneeling Pallof press",
+        equipment: ["Banda elastica", "Polea"],
+        technicalDescription:
+          "Desde medio arrodillado, realiza Pallof press resistiendo rotacion y manteniendo pelvis neutra. La posicion debe reducir compensaciones y exigir control lumbopelvico.",
+        errorsToAvoid: ["Inclinarse hacia la resistencia", "Perder pelvis neutra", "Empujar con hombros elevados"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Gluteos", "Recto abdominal", "Hombros"],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.8, glutes: 0.4, rectusAbdominis: 0.4, shoulders: 0.2 }
+      }),
+      squatExercise({
+        name: "Anti-rotation walkout",
+        equipment: ["Banda elastica", "Polea"],
+        technicalDescription:
+          "Camina lateralmente alejandote de la resistencia y mantén el tronco sin rotar. Cada paso debe ser estable, con pelvis nivelada y brazos firmes.",
+        errorsToAvoid: ["Girar el tronco", "Dar pasos demasiado largos", "Perder tension de brazos"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Gluteos", "Hombros", "Aductores"],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.8, glutes: 0.4, shoulders: 0.3, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Dead bug anti-rotation",
+        equipment: ["Banda elastica"],
+        technicalDescription:
+          "Realiza dead bug resistiendo una traccion lateral de banda. Mantén lumbar estable, pelvis controlada y movimiento lento de piernas o brazos.",
+        errorsToAvoid: ["Arquear lumbar", "Rotar pelvis", "Mover extremidades demasiado rapido"],
+        primaryMuscles: ["Transverso abdominal", "Oblicuos"],
+        secondaryMuscles: ["Recto abdominal", "Flexores cadera", "Estabilizadores lumbares"],
+        fatigueMap: { transverseAbdominis: 0.9, obliques: 0.8, rectusAbdominis: 0.5, hipFlexors: 0.3, lumbarStabilizers: 0.5 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-lateral-flexion",
+    pattern: "Core / Trunk Control",
+    block: "Lateral flexion",
+    exercises: [
+      squatExercise({
+        name: "Side bend",
+        equipment: ["Mancuerna", "Polea"],
+        technicalDescription:
+          "Inclina lateralmente el tronco de forma controlada y vuelve a la posicion neutra. Mantén pelvis estable, recorrido util y tension en el costado.",
+        errorsToAvoid: ["Rotar el tronco", "Usar impulso", "Cargar demasiado peso"],
+        primaryMuscles: ["Oblicuos"],
+        secondaryMuscles: ["Cuadrado lumbar", "Estabilizadores lumbares"],
+        fatigueMap: { obliques: 0.8, lumbarStabilizers: 0.5, transverseAbdominis: 0.3 }
+      }),
+      squatExercise({
+        name: "45-degree side bend",
+        equipment: ["Banco romano"],
+        technicalDescription:
+          "Realiza flexion lateral en banco a 45 grados controlando bajada y subida. Mantén cadera apoyada, tronco largo y movimiento sin rotacion.",
+        errorsToAvoid: ["Girar el pecho", "Rebotar abajo", "Forzar rango lumbar"],
+        primaryMuscles: ["Oblicuos", "Cuadrado lumbar"],
+        secondaryMuscles: ["Gluteo medio", "Estabilizadores lumbares"],
+        fatigueMap: { obliques: 0.8, lumbarStabilizers: 0.6, gluteMed: 0.3 }
+      }),
+      squatExercise({
+        name: "Cable oblique crunch",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Flexiona y rota ligeramente el tronco contra polea dirigiendo el esfuerzo al oblicuo. Mantén pelvis estable y controla el retorno sin perder tension.",
+        errorsToAvoid: ["Tirar con brazos", "Rotar sin control", "Acortar el rango"],
+        primaryMuscles: ["Oblicuos", "Recto abdominal"],
+        secondaryMuscles: ["Transverso abdominal", "Flexores cadera"],
+        fatigueMap: { obliques: 0.9, rectusAbdominis: 0.6, transverseAbdominis: 0.4, hipFlexors: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-anti-lateral-flexion",
+    pattern: "Core / Trunk Control",
+    block: "Anti-lateral flexion",
+    exercises: [
+      squatExercise({
+        name: "Side plank",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Mantén plancha lateral con cuerpo alineado, cadera elevada y hombro estable. Debe verse una linea firme sin hundir pelvis ni rotar el tronco.",
+        errorsToAvoid: ["Caer de cadera", "Rotar hombros", "Apoyar el cuello en tension"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Gluteo medio", "Hombros", "Aductores"],
+        fatigueMap: { obliques: 1, transverseAbdominis: 0.8, gluteMed: 0.6, shoulders: 0.4, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Side plank with reach",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde plancha lateral, añade alcance del brazo manteniendo cadera alta y tronco estable. El alcance debe desafiar el control sin perder alineacion.",
+        errorsToAvoid: ["Rotar sin control", "Bajar cadera", "Perder apoyo del hombro"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Gluteo medio", "Hombros", "Serrato anterior"],
+        fatigueMap: { obliques: 1, transverseAbdominis: 0.8, gluteMed: 0.6, shoulders: 0.5, serratusAnterior: 0.3 }
+      }),
+      squatExercise({
+        name: "Copenhagen plank",
+        equipment: ["Banco", "Peso corporal"],
+        technicalDescription:
+          "Mantén plancha lateral con la pierna superior apoyada en banco, sosteniendo pelvis alta y tronco alineado. Controla aductores y oblicuos sin dolor.",
+        errorsToAvoid: ["Hundirse de pelvis", "Forzar la ingle", "Rotar el tronco"],
+        primaryMuscles: ["Aductores", "Oblicuos"],
+        secondaryMuscles: ["Transverso abdominal", "Gluteo medio", "Hombros"],
+        fatigueMap: { adductors: 0.9, obliques: 0.8, transverseAbdominis: 0.6, gluteMed: 0.4, shoulders: 0.3 }
+      }),
+      squatExercise({
+        name: "Offset hold",
+        equipment: ["Mancuerna", "Kettlebell"],
+        technicalDescription:
+          "Sostén una carga a un lado manteniendo tronco vertical y pelvis nivelada. El objetivo es resistir inclinacion lateral sin compensar con hombros o cadera.",
+        errorsToAvoid: ["Inclinarse hacia la carga", "Elevar un hombro", "Perder respiracion"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Antebrazos", "Gluteos", "Hombros"],
+        fatigueMap: { obliques: 1, transverseAbdominis: 0.8, forearms: 0.5, glutes: 0.3, shoulders: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-flexion-extension",
+    pattern: "Core / Trunk Control",
+    block: "Flexion-extension",
+    exercises: [
+      squatExercise({
+        name: "Crunch",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Flexiona el tronco elevando escápulas del suelo y controlando la bajada. Mantén pelvis estable, cuello relajado y esfuerzo dirigido al abdomen.",
+        errorsToAvoid: ["Tirar del cuello", "Usar impulso", "Aplastar la respiracion"],
+        primaryMuscles: ["Recto abdominal"],
+        secondaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        fatigueMap: { rectusAbdominis: 0.8, obliques: 0.3, transverseAbdominis: 0.3 }
+      }),
+      squatExercise({
+        name: "Cable crunch",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Flexiona el tronco contra polea manteniendo cadera estable y controlando la vuelta. Debe verse flexion abdominal, no tiron de brazos.",
+        errorsToAvoid: ["Tirar con brazos", "Sentarse sobre talones", "Perder control excentrico"],
+        primaryMuscles: ["Recto abdominal"],
+        secondaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        fatigueMap: { rectusAbdominis: 1, obliques: 0.4, transverseAbdominis: 0.4 }
+      }),
+      squatExercise({
+        name: "Reverse crunch",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Eleva pelvis llevando rodillas hacia el tronco con control, evitando balanceo. Mantén la bajada lenta y la zona lumbar estable.",
+        errorsToAvoid: ["Balancear piernas", "Golpear el suelo al bajar", "Convertirlo en impulso de cadera"],
+        primaryMuscles: ["Recto abdominal"],
+        secondaryMuscles: ["Transverso abdominal", "Flexores cadera", "Oblicuos"],
+        fatigueMap: { rectusAbdominis: 0.8, transverseAbdominis: 0.5, hipFlexors: 0.4, obliques: 0.3 }
+      }),
+      squatExercise({
+        name: "Hanging knee raise",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde colgado, eleva rodillas manteniendo pelvis controlada y evitando balanceo. Usa abdomen para cerrar el gesto y controla la bajada.",
+        errorsToAvoid: ["Balancearse", "Tirar solo con flexores de cadera", "Perder agarre"],
+        primaryMuscles: ["Recto abdominal", "Flexores cadera"],
+        secondaryMuscles: ["Transverso abdominal", "Dorsal", "Antebrazos"],
+        fatigueMap: { rectusAbdominis: 0.8, hipFlexors: 0.7, transverseAbdominis: 0.5, lats: 0.3, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "Prone trunk extension",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde prono, extiende suavemente el tronco manteniendo cuello largo y gluteos activos. Busca control posterior sin comprimir la zona lumbar.",
+        errorsToAvoid: ["Hiperextender lumbar", "Elevar demasiado la cabeza", "Perder control al bajar"],
+        primaryMuscles: ["Erectores espinales", "Estabilizadores lumbares"],
+        secondaryMuscles: ["Gluteos", "Isquios"],
+        fatigueMap: { spinalErectors: 0.8, lumbarStabilizers: 0.7, glutes: 0.3, hamstrings: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-anti-flexion-extension",
+    pattern: "Core / Trunk Control",
+    block: "Anti-flexion-extension",
+    exercises: [
+      squatExercise({
+        name: "Dead bug",
+        equipment: ["Peso corporal", "Bloque de yoga", "Fitball"],
+        technicalDescription:
+          "Mueve brazos y piernas alternos manteniendo lumbar estable y pelvis neutra. Ajusta material para mejorar feedback sin perder respiracion ni control.",
+        errorsToAvoid: ["Arquear lumbar", "Mover demasiado rapido", "Perder coordinacion respiratoria"],
+        primaryMuscles: ["Transverso abdominal", "Recto abdominal"],
+        secondaryMuscles: ["Flexores cadera", "Oblicuos", "Estabilizadores lumbares"],
+        fatigueMap: { transverseAbdominis: 0.9, rectusAbdominis: 0.6, hipFlexors: 0.3, obliques: 0.4, lumbarStabilizers: 0.5 }
+      }),
+      squatExercise({
+        name: "Bird dog",
+        equipment: ["Peso corporal", "Banda elastica"],
+        technicalDescription:
+          "Desde cuadrupedia, extiende brazo y pierna contrarios manteniendo pelvis y costillas estables. El movimiento debe ser lento, simetrico y sin rotacion.",
+        errorsToAvoid: ["Abrir la cadera", "Arquear lumbar", "Elevar extremidades demasiado alto"],
+        primaryMuscles: ["Transverso abdominal", "Estabilizadores lumbares"],
+        secondaryMuscles: ["Gluteos", "Hombros", "Oblicuos"],
+        fatigueMap: { transverseAbdominis: 0.8, lumbarStabilizers: 0.7, glutes: 0.4, shoulders: 0.3, obliques: 0.3 }
+      }),
+      squatExercise({
+        name: "Plank",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Mantén plancha frontal con pelvis neutra, costillas controladas y empuje activo del suelo. El cuerpo debe formar una linea estable sin hundirse.",
+        errorsToAvoid: ["Caer de lumbar", "Elevar demasiado la cadera", "Bloquear respiracion"],
+        primaryMuscles: ["Transverso abdominal", "Recto abdominal"],
+        secondaryMuscles: ["Hombros", "Gluteos", "Serrato anterior"],
+        fatigueMap: { transverseAbdominis: 0.9, rectusAbdominis: 0.7, shoulders: 0.4, glutes: 0.3, serratusAnterior: 0.3 }
+      }),
+      squatExercise({
+        name: "Hollow hold",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Mantén posicion hollow con lumbar controlada, costillas abajo y extremidades extendidas segun nivel. Debe sentirse tension abdominal sin perder pelvis.",
+        errorsToAvoid: ["Arquear lumbar", "Elevar cabeza con tension cervical", "Usar una palanca demasiado dificil"],
+        primaryMuscles: ["Recto abdominal", "Transverso abdominal"],
+        secondaryMuscles: ["Flexores cadera", "Oblicuos"],
+        fatigueMap: { rectusAbdominis: 0.9, transverseAbdominis: 0.8, hipFlexors: 0.4, obliques: 0.4 }
+      }),
+      squatExercise({
+        name: "Ab wheel rollout",
+        equipment: ["Rueda abdominal"],
+        technicalDescription:
+          "Rueda hacia delante manteniendo pelvis y costillas controladas, y vuelve sin colapsar lumbar. Ajusta rango para conservar tension abdominal y hombros estables.",
+        errorsToAvoid: ["Arquear lumbar", "Ir mas lejos de lo controlable", "Tirar con brazos al volver"],
+        primaryMuscles: ["Recto abdominal", "Transverso abdominal"],
+        secondaryMuscles: ["Dorsal", "Hombros", "Estabilizadores lumbares"],
+        fatigueMap: { rectusAbdominis: 1, transverseAbdominis: 0.8, lats: 0.5, shoulders: 0.4, lumbarStabilizers: 0.6 }
+      })
+    ]
+  }
 ];
 
 export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) =>
@@ -1963,33 +2233,6 @@ export function getExerciseProgression(exerciseId: string) {
 
 function squatExercise(exercise: ExerciseSeed): ExerciseSeed {
   return exercise;
-}
-
-function legacyGroup(
-  slug: string,
-  pattern: ExercisePattern,
-  block: ExerciseBlock,
-  exercises: [string, string[]][]
-): ExerciseGroupSeed {
-  return {
-    slug,
-    pattern,
-    block,
-    exercises: exercises.map(([name, equipment]) => createGenericExercise(name, equipment))
-  };
-}
-
-function createGenericExercise(name: string, equipment: string[]): ExerciseSeed {
-  return {
-    name,
-    equipment,
-    technicalDescription:
-      "Ejercicio clasificado por patron y bloque para seleccion del entrenador. Ajusta carga, rango y ritmo segun la persona, manteniendo control tecnico y ausencia de dolor relevante.",
-    errorsToAvoid: ["Perder control tecnico", "Usar una carga no tolerada", "Forzar rango doloroso"],
-    primaryMuscles: [],
-    secondaryMuscles: [],
-    fatigueMap: {}
-  };
 }
 
 function getWorkingSetEntries(entries: WeeklyExerciseSetInput[]) {
