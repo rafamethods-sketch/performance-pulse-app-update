@@ -41,16 +41,14 @@ import {
   calculateWeeklySetsByPattern,
   bodyRegionLabels,
   bodyRegions,
-  exerciseBlocks,
   exerciseLibrary,
-  exercisePatterns,
   getExerciseById,
   getExercisePatternsByBodyRegion,
   getExerciseProgression,
   getExerciseRegression,
   getExercisesByPattern,
+  searchExercises,
   type BodyRegion,
-  type ExerciseBlock,
   type ExerciseDefinition,
   type ExercisePattern
 } from "@/lib/exercises";
@@ -2271,6 +2269,7 @@ function formatFatigueKey(key: string) {
     hamstrings: "Isquios",
     hips: "Caderas",
     hipFlexors: "Flexores cadera",
+    ankles: "Tobillos",
     lats: "Dorsal",
     lateralDelts: "Deltoides lateral",
     lowerTraps: "Trapecio inferior",
@@ -2285,6 +2284,7 @@ function formatFatigueKey(key: string) {
     shoulders: "Hombros",
     soleus: "Soleo",
     spinalErectors: "Erectores",
+    thoracicSpine: "Columna toracica",
     tibialisAnterior: "Tibial anterior",
     traps: "Trapecio",
     triceps: "Triceps",
@@ -3803,13 +3803,11 @@ type CoachSessionPanel = "planner" | "history" | null;
 type StrengthSessionBlock = "activation" | "auxiliary" | "main";
 type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
-  blockFilter: ExerciseBlock | "";
-  equipmentFilter: string;
   exerciseId: string;
+  exerciseSearch: string;
   id: string;
   load: string;
   observation: string;
-  patternFilter: ExercisePattern | "";
   reps: string;
   rest: string;
   sets: string;
@@ -3885,21 +3883,16 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
-  const exerciseEquipmentOptions = Array.from(
-    new Set(exerciseLibrary.flatMap((exercise) => exercise.equipment))
-  ).sort((a, b) => a.localeCompare(b));
   const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
       {
         block,
-        blockFilter: "",
-        equipmentFilter: "",
         exerciseId: "",
+        exerciseSearch: "",
         id: `exercise-${Date.now()}-${current.length}`,
         load: "",
         observation: "",
-        patternFilter: "",
         reps: "",
         rest: "",
         sets: "",
@@ -3945,33 +3938,52 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               </button>
             </div>
           ) : blockExercises.map((exercise) => {
-            const filteredLibraryExercises = exerciseLibrary.filter((libraryExercise) => {
-              const matchesPattern = !exercise.patternFilter || libraryExercise.pattern === exercise.patternFilter;
-              const matchesBlock = !exercise.blockFilter || libraryExercise.block === exercise.blockFilter;
-              const matchesEquipment =
-                !exercise.equipmentFilter || libraryExercise.equipment.includes(exercise.equipmentFilter);
-              return matchesPattern && matchesBlock && matchesEquipment;
-            });
+            const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
+            const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
               <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                <div className="space-y-1 text-xs font-semibold text-ink/55">
                   Ejercicio
-                  <select
+                  <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { exerciseId: event.target.value })}
-                    value={exercise.exerciseId}
-                  >
-                    <option value="">Seleccionar ejercicio</option>
-                    {filteredLibraryExercises.map((libraryExercise) => (
-                      <option key={libraryExercise.id} value={libraryExercise.id}>
-                        {libraryExercise.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(event) =>
+                      updateStrengthExercise(exercise.id, {
+                        exerciseId: "",
+                        exerciseSearch: event.target.value
+                      })
+                    }
+                    placeholder="Buscar ejercicio..."
+                    type="search"
+                    value={exercise.exerciseSearch}
+                  />
+                  {exercise.exerciseSearch && !exercise.exerciseId ? (
+                    <div className="mt-2 max-h-56 overflow-y-auto rounded-md border border-line bg-white shadow-soft">
+                      {exerciseSuggestions.length > 0 ? exerciseSuggestions.map((libraryExercise) => (
+                        <button
+                          className="block w-full border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                          key={libraryExercise.id}
+                          onClick={() =>
+                            updateStrengthExercise(exercise.id, {
+                              exerciseId: libraryExercise.id,
+                              exerciseSearch: libraryExercise.name
+                            })
+                          }
+                          type="button"
+                        >
+                          <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
+                          <span className="mt-0.5 block text-xs font-medium text-ink/55">
+                            {libraryExercise.pattern} · {libraryExercise.block} · {libraryExercise.equipment.join(" / ")}
+                          </span>
+                        </button>
+                      )) : (
+                        <p className="px-3 py-3 text-sm font-medium text-ink/50">Sin coincidencias.</p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Observaciones
                   <input
@@ -3982,66 +3994,10 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                   />
                 </label>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Filtrar por patron
-                  <select
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) =>
-                      updateStrengthExercise(exercise.id, {
-                        exerciseId: "",
-                        patternFilter: event.target.value as ExercisePattern | ""
-                      })
-                    }
-                    value={exercise.patternFilter}
-                  >
-                    <option value="">Todos</option>
-                    {exercisePatterns.map((pattern) => (
-                      <option key={pattern} value={pattern}>{pattern}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Filtrar por bloque
-                  <select
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) =>
-                      updateStrengthExercise(exercise.id, {
-                        blockFilter: event.target.value as ExerciseBlock | "",
-                        exerciseId: ""
-                      })
-                    }
-                    value={exercise.blockFilter}
-                  >
-                    <option value="">Todos</option>
-                    {exerciseBlocks.map((exerciseBlock) => (
-                      <option key={exerciseBlock} value={exerciseBlock}>{exerciseBlock}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Filtrar por material
-                  <select
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) =>
-                      updateStrengthExercise(exercise.id, {
-                        equipmentFilter: event.target.value,
-                        exerciseId: ""
-                      })
-                    }
-                    value={exercise.equipmentFilter}
-                  >
-                    <option value="">Todos</option>
-                    {exerciseEquipmentOptions.map((equipment) => (
-                      <option key={equipment} value={equipment}>{equipment}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
               {selectedLibraryExercise ? (
                 <div className="mt-3 rounded-md bg-mint px-3 py-3 text-sm text-moss">
                   <p className="font-semibold">
-                    {selectedLibraryExercise.pattern} - {selectedLibraryExercise.block}
+                    {selectedLibraryExercise.pattern} - {selectedLibraryExercise.block} - {selectedLibraryExercise.equipment.join(" / ")}
                   </p>
                   <p className="mt-1 text-moss/80">
                     Principales: {selectedLibraryExercise.primaryMuscles.join(", ") || "pendiente"} - Secundarios:{" "}

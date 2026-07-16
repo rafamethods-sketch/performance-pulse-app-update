@@ -11,6 +11,17 @@ export type ExercisePattern =
   | "Core / Trunk Control";
 
 export type BodyRegion = "lower" | "upper" | "global";
+export type ExerciseType =
+  | "accessory"
+  | "conditioning"
+  | "control"
+  | "core"
+  | "hypertrophy"
+  | "mobility"
+  | "plyometric"
+  | "power"
+  | "strength";
+export type SessionExerciseSection = "activation" | "accessory" | "main";
 
 export type ExerciseBlock =
   | "Control / tolerancia"
@@ -52,6 +63,8 @@ export type FatigueMapKey =
   | "gluteMed"
   | "lumbarStabilizers"
   | "hips"
+  | "thoracicSpine"
+  | "ankles"
   | "soleus"
   | "tibialisAnterior"
   | "chest"
@@ -76,6 +89,7 @@ export type ExerciseDefinition = {
   block: ExerciseBlock;
   equipment: string[];
   errorsToAvoid: string[];
+  exerciseType: ExerciseType;
   fatigueMap: FatigueMap;
   id: string;
   name: string;
@@ -84,6 +98,7 @@ export type ExerciseDefinition = {
   rank: number;
   secondaryMuscles: string[];
   technicalDescription: string;
+  allowedSessionSections: SessionExerciseSection[];
 };
 
 export type WeeklyExerciseSetInput = {
@@ -92,10 +107,15 @@ export type WeeklyExerciseSetInput = {
   sets: number;
 };
 
-type ExerciseSeed = Omit<ExerciseDefinition, "block" | "bodyRegion" | "id" | "pattern" | "rank">;
+type ExerciseSeed = Omit<
+  ExerciseDefinition,
+  "allowedSessionSections" | "block" | "bodyRegion" | "exerciseType" | "id" | "pattern" | "rank"
+>;
 
 type ExerciseGroupSeed = {
   block: ExerciseBlock;
+  exerciseType?: ExerciseType;
+  allowedSessionSections?: SessionExerciseSection[];
   pattern: ExercisePattern;
   slug: string;
   exercises: ExerciseSeed[];
@@ -158,6 +178,26 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Adductor accessories",
   "Calf & ankle accessories"
 ];
+
+function inferExerciseType(group: ExerciseGroupSeed): ExerciseType {
+  if (group.block === "Control / tolerancia") return "control";
+  if (group.block === "Fuerza base") return "strength";
+  if (group.block === "Hipertrofia") return "hypertrophy";
+  if (group.block === "Potencia") return "power";
+  if (group.block === "Pliometria") return "plyometric";
+  if (group.block === "Conditioning" || group.pattern === "Gait & Carry") return "conditioning";
+  if (group.pattern === "Core / Trunk Control") return "core";
+  if (group.pattern === "Lower Body Accessories" || group.pattern === "Upper Body Accessories") return "accessory";
+  return "strength";
+}
+
+function inferAllowedSessionSections(exerciseType: ExerciseType): SessionExerciseSection[] {
+  if (exerciseType === "mobility") return ["activation"];
+  if (exerciseType === "accessory" || exerciseType === "hypertrophy" || exerciseType === "control") {
+    return ["main", "accessory"];
+  }
+  return ["main", "accessory"];
+}
 
 const exerciseGroups: ExerciseGroupSeed[] = [
   {
@@ -2000,9 +2040,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ]
   },
   {
-    slug: "core-trunk-control-rotation",
+    slug: "mobility-activation",
     pattern: "Core / Trunk Control",
     block: "Rotation",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
     exercises: [
       squatExercise({
         name: "Thoracic rotation drill",
@@ -2010,10 +2052,107 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Realiza rotaciones toracicas controladas manteniendo pelvis estable y respiracion fluida. Debe moverse la parte alta de la espalda sin compensar desde la zona lumbar.",
         errorsToAvoid: ["Rotar desde la pelvis", "Forzar el cuello", "Buscar rango con dolor"],
-        primaryMuscles: ["Oblicuos", "Movilidad toracica"],
-        secondaryMuscles: ["Transverso abdominal", "Erectores espinales"],
-        fatigueMap: { obliques: 0.4, transverseAbdominis: 0.3, spinalErectors: 0.2, lumbarStabilizers: 0.2 }
+        primaryMuscles: ["Columna toracica"],
+        secondaryMuscles: ["Oblicuos", "Hombros"],
+        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.1 }
       }),
+      squatExercise({
+        name: "Hip mobility drill",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Moviliza la cadera de forma controlada explorando flexion, extension y rotacion sin dolor. Mantén pelvis estable y respiracion fluida.",
+        errorsToAvoid: ["Forzar rango doloroso", "Mover la lumbar en exceso", "Ir demasiado rapido"],
+        primaryMuscles: ["Caderas"],
+        secondaryMuscles: ["Gluteos", "Aductores"],
+        fatigueMap: { hips: 0.5, glutes: 0.2, adductors: 0.2 }
+      }),
+      squatExercise({
+        name: "Ankle mobility drill",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Trabaja la dorsiflexion del tobillo con rodilla avanzando sobre el pie y talon apoyado. Mantén el arco activo y controla el rango.",
+        errorsToAvoid: ["Levantar el talon", "Colapsar el arco del pie", "Rebotar sin control"],
+        primaryMuscles: ["Tobillo"],
+        secondaryMuscles: ["Gemelos", "Tibial anterior"],
+        fatigueMap: { ankles: 0.5, calves: 0.2, tibialisAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Shoulder CARs",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza circulos articulares lentos de hombro manteniendo costillas controladas. Busca rango activo sin compensar con tronco o cuello.",
+        errorsToAvoid: ["Arquear lumbar", "Encoger hombros", "Acelerar el movimiento"],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Trapecio superior"],
+        fatigueMap: { shoulders: 0.5, rotatorCuff: 0.3, upperTraps: 0.1 }
+      }),
+      squatExercise({
+        name: "Hip CARs",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza circulos articulares de cadera lentos y activos manteniendo pelvis estable. Prioriza control del rango antes que amplitud.",
+        errorsToAvoid: ["Rotar la pelvis", "Perder equilibrio", "Forzar el rango"],
+        primaryMuscles: ["Caderas"],
+        secondaryMuscles: ["Gluteos", "Core"],
+        fatigueMap: { hips: 0.5, glutes: 0.2, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Cat-cow",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Alterna flexion y extension de columna en cuadrupedia con respiracion controlada. El movimiento debe ser suave y segmentado.",
+        errorsToAvoid: ["Mover solo el cuello", "Hacerlo con dolor", "Perder respiracion"],
+        primaryMuscles: ["Columna toracica", "Estabilizadores lumbares"],
+        secondaryMuscles: ["Core"],
+        fatigueMap: { thoracicSpine: 0.4, lumbarStabilizers: 0.3, core: 0.1 }
+      }),
+      squatExercise({
+        name: "World greatest stretch",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Combina zancada, apertura de cadera y rotacion toracica de forma fluida. Mantén control de apoyo y rango tolerado.",
+        errorsToAvoid: ["Colapsar la rodilla", "Forzar la rotacion", "Perder estabilidad"],
+        primaryMuscles: ["Caderas", "Columna toracica"],
+        secondaryMuscles: ["Aductores", "Flexores cadera", "Hombros"],
+        fatigueMap: { hips: 0.5, thoracicSpine: 0.4, adductors: 0.2, hipFlexors: 0.2, shoulders: 0.1 }
+      }),
+      squatExercise({
+        name: "90/90 hip switch",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Alterna posiciones 90/90 de cadera con control, manteniendo tronco estable y apoyo de manos solo si es necesario.",
+        errorsToAvoid: ["Dejar caer las rodillas", "Compensar con lumbar", "Moverse sin control"],
+        primaryMuscles: ["Caderas"],
+        secondaryMuscles: ["Gluteos", "Aductores", "Core"],
+        fatigueMap: { hips: 0.5, glutes: 0.2, adductors: 0.2, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Scapular mobility drill",
+        equipment: ["Peso corporal", "Banda elastica"],
+        technicalDescription:
+          "Moviliza escápulas en retraccion, protraccion, elevacion y depresion con control. Mantén cuello relajado y costillas estables.",
+        errorsToAvoid: ["Encoger cuello", "Doblar codos si no toca", "Perder postura"],
+        primaryMuscles: ["Escapulas"],
+        secondaryMuscles: ["Serrato anterior", "Trapecio"],
+        fatigueMap: { serratusAnterior: 0.3, traps: 0.2, shoulders: 0.2 }
+      }),
+      squatExercise({
+        name: "Wall slide",
+        equipment: ["Pared", "Banda elastica"],
+        technicalDescription:
+          "Desliza brazos por la pared manteniendo costillas controladas y escápulas activas. Busca elevacion limpia sin arquear la espalda.",
+        errorsToAvoid: ["Arquear lumbar", "Elevar hombros en exceso", "Perder contacto con la pared"],
+        primaryMuscles: ["Hombros", "Serrato anterior"],
+        secondaryMuscles: ["Trapecio inferior", "Core"],
+        fatigueMap: { shoulders: 0.4, serratusAnterior: 0.3, lowerTraps: 0.2, core: 0.1 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-rotation",
+    pattern: "Core / Trunk Control",
+    block: "Rotation",
+    exercises: [
       squatExercise({
         name: "Half-kneeling band rotation",
         equipment: ["Banda elastica"],
@@ -2303,16 +2442,21 @@ const exerciseGroups: ExerciseGroupSeed[] = [
   }
 ];
 
-export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) =>
-  group.exercises.map((exercise, index) => ({
+export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) => {
+  const exerciseType = group.exerciseType ?? inferExerciseType(group);
+  const allowedSessionSections = group.allowedSessionSections ?? inferAllowedSessionSections(exerciseType);
+
+  return group.exercises.map((exercise, index) => ({
     ...exercise,
+    allowedSessionSections,
     bodyRegion: patternBodyRegions[group.pattern],
+    exerciseType,
     id: `${group.slug}-${index + 1}`,
     pattern: group.pattern,
     block: group.block,
     rank: index + 1
-  }))
-);
+  }));
+});
 
 export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
@@ -2324,6 +2468,25 @@ export function getExercisePatternsByBodyRegion(bodyRegion: BodyRegion) {
 
 export function getExercisesByBodyRegion(bodyRegion: BodyRegion) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.bodyRegion === bodyRegion));
+}
+
+export function searchExercises(query: string, options?: { section?: SessionExerciseSection }) {
+  const normalizedQuery = normalizeExerciseSearchText(query);
+  const bySection = options?.section
+    ? exerciseLibrary.filter((exercise) => exercise.allowedSessionSections.includes(options.section!))
+    : exerciseLibrary;
+  const sectionFiltered =
+    options?.section === "main"
+      ? bySection.filter((exercise) => exercise.exerciseType !== "mobility")
+      : bySection;
+
+  if (!normalizedQuery) return sortExercises(sectionFiltered).slice(0, 12);
+
+  return sortExercises(
+    sectionFiltered.filter((exercise) =>
+      getExerciseSearchText(exercise).includes(normalizedQuery)
+    )
+  ).slice(0, 12);
 }
 
 export function getExerciseById(exerciseId: string) {
@@ -2394,6 +2557,19 @@ export function calculateWeeklyFatigueMap(entries: WeeklyExerciseSetInput[]) {
   }, {});
 }
 
+export function calculateExerciseMuscleLoad(entry: WeeklyExerciseSetInput) {
+  const exercise = getExerciseById(entry.exerciseId);
+  if (!exercise || entry.sets <= 0) return {};
+
+  return Object.fromEntries(
+    Object.entries(exercise.fatigueMap).map(([muscle, value]) => [muscle, entry.sets * value])
+  );
+}
+
+export function calculateWeeklyMuscleLoad(entries: WeeklyExerciseSetInput[]) {
+  return calculateWeeklyFatigueMap(entries);
+}
+
 export function getExerciseRegression(exerciseId: string) {
   const exercise = exerciseLibrary.find((item) => item.id === exerciseId);
   if (!exercise) return null;
@@ -2434,4 +2610,27 @@ function sortExercises(exercises: ExerciseDefinition[]) {
     exerciseBlocks.indexOf(a.block) - exerciseBlocks.indexOf(b.block) ||
     a.rank - b.rank
   );
+}
+
+function getExerciseSearchText(exercise: ExerciseDefinition) {
+  return normalizeExerciseSearchText(
+    [
+      exercise.name,
+      exercise.pattern,
+      exercise.block,
+      exercise.bodyRegion,
+      exercise.exerciseType,
+      ...exercise.equipment,
+      ...exercise.primaryMuscles,
+      ...exercise.secondaryMuscles
+    ].join(" ")
+  );
+}
+
+function normalizeExerciseSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
