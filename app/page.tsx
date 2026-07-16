@@ -2237,13 +2237,19 @@ function formatFatigueKey(key: string) {
     core: "Core",
     forearms: "Antebrazos",
     anteriorDelts: "Deltoides anterior",
+    biceps: "Biceps",
     chest: "Pectoral",
     glutes: "Gluteos",
     hamstrings: "Isquios",
     hipFlexors: "Flexores cadera",
+    lats: "Dorsal",
     lateralDelts: "Deltoides lateral",
+    lowerTraps: "Trapecio inferior",
+    midBack: "Espalda media",
     obliques: "Oblicuos",
     quadriceps: "Cuadriceps",
+    rearDelts: "Deltoides posterior",
+    rotatorCuff: "Manguito rotador",
     serratusAnterior: "Serrato anterior",
     spinalErectors: "Erectores",
     traps: "Trapecio",
@@ -2280,7 +2286,7 @@ function getRoutineExerciseAlternatives(pattern: string) {
     "Empuje tren inferior": ["Squat / Vertical Force", "Lunge / Unilateral Force"],
     "Empuje tren superior": ["Push / Upper Body Press"],
     "Traccion tren inferior": ["Hinge / Horizontal Force"],
-    "Traccion tren superior": ["Pull"]
+    "Traccion tren superior": ["Pull / Upper Body Pull"]
   };
   const patterns = mappedPatterns[pattern] ?? [];
   const names = exerciseLibrary
@@ -2343,7 +2349,7 @@ const routineTemplates: RoutineTemplate[] = [
       { exercise: "Goblet squat", pattern: "Empuje tren inferior", sets: "3", reps: "8-12", rir: "2-3", rest: "90 s" },
       { exercise: "Peso muerto rumano con mancuernas", pattern: "Traccion tren inferior", sets: "3", reps: "8-10", rir: "2-3", rest: "90 s" },
       { exercise: "Press mancuernas en banco", pattern: "Empuje tren superior", sets: "3", reps: "8-12", rir: "2-3", rest: "90 s" },
-      { exercise: "Jalon al pecho", pattern: "Traccion tren superior", sets: "3", reps: "10-12", rir: "2-3", rest: "75 s" }
+      { exercise: "Lat pulldown", pattern: "Traccion tren superior", sets: "3", reps: "10-12", rir: "2-3", rest: "75 s" }
     ]
   },
   {
@@ -2356,7 +2362,7 @@ const routineTemplates: RoutineTemplate[] = [
       { exercise: "Goblet squat", pattern: "Empuje tren inferior", sets: "3", reps: "8-12", rir: "2-3", rest: "90 s" },
       { exercise: "Peso muerto rumano con mancuernas", pattern: "Traccion tren inferior", sets: "3", reps: "8-10", rir: "2-3", rest: "90 s" },
       { exercise: "Press mancuernas en banco", pattern: "Empuje tren superior", sets: "3", reps: "8-12", rir: "2-3", rest: "90 s" },
-      { exercise: "Jalon al pecho", pattern: "Traccion tren superior", sets: "3", reps: "10-12", rir: "2-3", rest: "75 s" }
+      { exercise: "Lat pulldown", pattern: "Traccion tren superior", sets: "3", reps: "10-12", rir: "2-3", rest: "75 s" }
     ]
   },
   {

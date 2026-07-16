@@ -5,7 +5,7 @@ export type ExercisePattern =
   | "Olympic derivatives"
   | "Gait & Carry"
   | "Push / Upper Body Press"
-  | "Pull"
+  | "Pull / Upper Body Pull"
   | "Rotation"
   | "Core";
 
@@ -35,6 +35,12 @@ export type FatigueMapKey =
   | "lateralDelts"
   | "upperTraps"
   | "serratusAnterior"
+  | "lats"
+  | "midBack"
+  | "rearDelts"
+  | "biceps"
+  | "lowerTraps"
+  | "rotatorCuff"
   | "spinalErectors"
   | "traps"
   | "forearms"
@@ -76,7 +82,7 @@ export const exercisePatterns: ExercisePattern[] = [
   "Olympic derivatives",
   "Gait & Carry",
   "Push / Upper Body Press",
-  "Pull",
+  "Pull / Upper Body Pull",
   "Rotation",
   "Core"
 ];
@@ -1480,30 +1486,331 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       })
     ]
   },
-  legacyGroup("pull-horizontal-control", "Pull", "Control / tolerancia", [
-    ["Retraccion escapular asistida", ["Asistencia manual"]],
-    ["Remo manual sentado", ["Resistencia manual"]],
-    ["Remo con banda", ["Banda elastica"]],
-    ["Remo TRX alto", ["TRX"]]
-  ]),
-  legacyGroup("pull-horizontal-strength", "Pull", "Fuerza base", [
-    ["Remo mancuerna apoyado", ["Mancuerna"]],
-    ["Remo TRX bajo", ["TRX"]],
-    ["Remo con barra", ["Barra"]],
-    ["Dominada asistida con banda", ["Banda elastica"]]
-  ]),
-  legacyGroup("pull-horizontal-hypertrophy", "Pull", "Hipertrofia", [
-    ["Remo en polea", ["Polea"]],
-    ["Remo maquina convergente", ["Maquina"]],
-    ["Jalon al pecho", ["Polea"]],
-    ["Pullover en polea", ["Polea"]]
-  ]),
-  legacyGroup("pull-horizontal-power", "Pull", "Potencia", [
-    ["Med ball slam", ["Balon medicinal"]],
-    ["Explosive TRX row", ["TRX"]],
-    ["High pull", ["Barra"]],
-    ["Explosive band row", ["Banda elastica"]]
-  ]),
+  {
+    slug: "pull-upper-body-pull-control",
+    pattern: "Pull / Upper Body Pull",
+    block: "Control / tolerancia",
+    exercises: [
+      squatExercise({
+        name: "Scapular retraction-depression drill",
+        equipment: ["Peso corporal", "Banda elastica"],
+        technicalDescription:
+          "Practica retraccion y depresion escapular sin flexionar los codos, manteniendo cuello relajado y tronco estable. Debe verse control de escápulas antes de iniciar cualquier traccion.",
+        errorsToAvoid: ["Doblar los codos", "Elevar hombros hacia las orejas", "Compensar con extension lumbar"],
+        primaryMuscles: ["Trapecio medio", "Trapecio inferior"],
+        secondaryMuscles: ["Dorsal ancho", "Romboides", "Core"],
+        fatigueMap: { midBack: 0.6, lowerTraps: 0.6, lats: 0.3, upperBack: 0.5, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Horizontal pull manual/banded",
+        equipment: ["Manual", "Banda elastica"],
+        technicalDescription:
+          "Realiza una traccion horizontal contra resistencia manual o banda, llevando codos atras con escápulas controladas. Mantén pecho alto y muñecas neutras.",
+        errorsToAvoid: ["Tirar solo con brazos", "Encoger hombros", "Rotar el tronco"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Core"],
+        fatigueMap: { midBack: 0.6, lats: 0.5, biceps: 0.3, rearDelts: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "External shoulder rotation manual/banded",
+        equipment: ["Manual", "Banda elastica"],
+        technicalDescription:
+          "Rota externamente el hombro contra resistencia manteniendo codo estable y escápula tranquila. El movimiento debe ser pequeño, preciso y sin dolor.",
+        errorsToAvoid: ["Separar el codo", "Rotar el tronco", "Usar demasiada resistencia"],
+        primaryMuscles: ["Manguito rotador"],
+        secondaryMuscles: ["Deltoides posterior", "Trapecio inferior"],
+        fatigueMap: { rotatorCuff: 0.8, rearDelts: 0.3, lowerTraps: 0.2 }
+      }),
+      squatExercise({
+        name: "Vertical pull manual/banded",
+        equipment: ["Manual", "Banda elastica"],
+        technicalDescription:
+          "Simula una traccion vertical contra resistencia manual o banda, iniciando desde depresion escapular y llevando codos hacia abajo. Mantén costillas controladas.",
+        errorsToAvoid: ["Tirar con cuello", "Arquear lumbar", "Perder depresion escapular"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Trapecio inferior", "Espalda media", "Core"],
+        fatigueMap: { lats: 0.6, biceps: 0.4, lowerTraps: 0.4, midBack: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Dead hang",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Cuelga de una barra con agarre firme, hombros tolerando la carga y tronco relajado pero controlado. Mantén respiracion y evita dolor o perdida brusca de tension.",
+        errorsToAvoid: ["Colgarse con dolor", "Perder agarre sin control", "Elevar hombros de forma rigida"],
+        primaryMuscles: ["Antebrazos", "Dorsal ancho"],
+        secondaryMuscles: ["Trapecio inferior", "Core"],
+        fatigueMap: { forearms: 0.8, lats: 0.5, lowerTraps: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Scapular pull-up hold",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Desde colgado, activa depresion escapular y mantén el cuerpo elevado sin flexionar codos. Debe verse control de escápulas y cuello relajado.",
+        errorsToAvoid: ["Flexionar codos", "Balancearse", "Encoger hombros"],
+        primaryMuscles: ["Dorsal ancho", "Trapecio inferior"],
+        secondaryMuscles: ["Antebrazos", "Core", "Espalda media"],
+        fatigueMap: { lats: 0.6, lowerTraps: 0.6, forearms: 0.5, midBack: 0.3, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "pull-upper-body-pull-strength",
+    pattern: "Pull / Upper Body Pull",
+    block: "Fuerza base",
+    exercises: [
+      squatExercise({
+        name: "Supported dumbbell row",
+        equipment: ["Mancuerna", "Banco"],
+        technicalDescription:
+          "Rema con una mancuerna apoyando el cuerpo en banco, llevando el codo atras sin rotar el tronco. Mantén escápula controlada y bajada estable.",
+        errorsToAvoid: ["Girar el tronco", "Tirar con impulso", "Elevar el hombro hacia la oreja"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Deltoides posterior", "Biceps", "Antebrazos", "Core"],
+        fatigueMap: { lats: 0.8, midBack: 0.9, rearDelts: 0.5, biceps: 0.5, forearms: 0.4, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Inverted row / Australian pull-up",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Tira del cuerpo hacia una barra baja manteniendo linea corporal y escápulas activas. Ajusta la inclinacion para controlar dificultad sin perder postura.",
+        errorsToAvoid: ["Caer de cadera", "Adelantar la cabeza", "Tirar solo con brazos"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Core", "Antebrazos"],
+        fatigueMap: { midBack: 0.8, lats: 0.7, biceps: 0.5, rearDelts: 0.5, core: 0.5, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "Seated cable row",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Rema sentado en polea llevando codos atras con pecho alto y escápulas controladas. Mantén torso estable y evita balancear el cuerpo.",
+        errorsToAvoid: ["Balancearse para tirar", "Redondear espalda", "Encoger hombros"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Antebrazos"],
+        fatigueMap: { midBack: 0.9, lats: 0.8, biceps: 0.5, rearDelts: 0.4, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "T-bar row",
+        equipment: ["Barra T", "Landmine"],
+        technicalDescription:
+          "Rema con barra T o landmine manteniendo tronco firme, cadera estable y trayectoria hacia el abdomen. Controla la bajada sin perder posicion.",
+        errorsToAvoid: ["Redondear lumbar", "Usar impulso de cadera", "Llevar hombros al cuello"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Erectores espinales", "Antebrazos", "Deltoides posterior"],
+        fatigueMap: { midBack: 0.9, lats: 0.8, biceps: 0.5, spinalErectors: 0.5, forearms: 0.5, rearDelts: 0.4 }
+      }),
+      squatExercise({
+        name: "Assisted pull-up / Chin-up",
+        equipment: ["Banda", "Maquina asistida"],
+        technicalDescription:
+          "Realiza dominadas asistidas iniciando con control escapular y llevando pecho hacia la barra. Usa asistencia suficiente para completar rango sin perder tecnica.",
+        errorsToAvoid: ["Balancearse", "Acortar el rango", "Tirar con cuello o hombros elevados"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        fatigueMap: { lats: 0.8, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.5, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Pull-up / Chin-up",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza dominada o chin-up desde colgado, iniciando con escápulas y llevando el cuerpo hacia la barra. Mantén control, rango completo y sin balanceo excesivo.",
+        errorsToAvoid: ["Kipping sin objetivo", "No completar rango", "Encoger hombros al subir"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        fatigueMap: { lats: 1, biceps: 0.7, midBack: 0.6, lowerTraps: 0.5, forearms: 0.6, core: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "pull-upper-body-pull-hypertrophy",
+    pattern: "Pull / Upper Body Pull",
+    block: "Hipertrofia",
+    exercises: [
+      squatExercise({
+        name: "Chest-supported horizontal row machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Rema en maquina con pecho apoyado, manteniendo hombros bajos y tirando con codos. El apoyo reduce compensaciones y permite acumular volumen controlado.",
+        errorsToAvoid: ["Separar el pecho del apoyo", "Encoger hombros", "Rebotar la carga"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Antebrazos"],
+        fatigueMap: { midBack: 0.9, lats: 0.7, biceps: 0.4, rearDelts: 0.5, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Diagonal row machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Rema en trayectoria diagonal guiada, buscando recorrido estable y tension continua. Mantén pecho apoyado o tronco fijo según maquina.",
+        errorsToAvoid: ["Tirar con impulso", "Perder trayectoria", "Elevar hombros"],
+        primaryMuscles: ["Dorsal ancho", "Espalda media"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior"],
+        fatigueMap: { lats: 0.8, midBack: 0.8, biceps: 0.4, rearDelts: 0.4 }
+      }),
+      squatExercise({
+        name: "Chest-supported T-bar row",
+        equipment: ["Barra T", "Maquina"],
+        technicalDescription:
+          "Rema con pecho apoyado en barra T o maquina, llevando codos atras sin despegar el torso. Controla la fase excentrica y mantén cuello neutro.",
+        errorsToAvoid: ["Separarse del apoyo", "Acortar rango", "Cerrar demasiado el cuello"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Antebrazos"],
+        fatigueMap: { midBack: 0.9, lats: 0.8, biceps: 0.5, rearDelts: 0.5, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "Lat pulldown",
+        equipment: ["Maquina", "Polea"],
+        technicalDescription:
+          "Realiza jalon vertical llevando la barra o agarre hacia la parte alta del pecho. Inicia con depresion escapular y controla la vuelta sin perder postura.",
+        errorsToAvoid: ["Tirar detras de la nuca sin criterio", "Balancear el tronco", "Perder depresion escapular"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos"],
+        fatigueMap: { lats: 0.9, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "Cable pullover",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Extiende los hombros desde polea manteniendo codos casi fijos y tronco estable. Busca tension de dorsal sin convertirlo en empuje ni flexionar codos.",
+        errorsToAvoid: ["Doblar demasiado los codos", "Arquear lumbar", "Usar impulso"],
+        primaryMuscles: ["Dorsal ancho"],
+        secondaryMuscles: ["Triceps", "Core", "Serrato anterior"],
+        fatigueMap: { lats: 0.9, triceps: 0.2, core: 0.3, serratusAnterior: 0.2 }
+      }),
+      squatExercise({
+        name: "Face pull",
+        equipment: ["Polea", "Banda"],
+        technicalDescription:
+          "Tira hacia la cara con codos altos, rotacion externa y escápulas controladas. Debe verse deltoides posterior y espalda media trabajando sin elevar hombros.",
+        errorsToAvoid: ["Convertirlo en remo bajo", "Arquear lumbar", "Encoger hombros"],
+        primaryMuscles: ["Deltoides posterior", "Espalda media"],
+        secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Biceps"],
+        fatigueMap: { rearDelts: 0.8, midBack: 0.6, lowerTraps: 0.5, rotatorCuff: 0.5, biceps: 0.2 }
+      }),
+      squatExercise({
+        name: "Reverse fly machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Realiza aperturas inversas en maquina con codos suaves y escápulas controladas. Mantén pecho apoyado y evita impulsar la carga.",
+        errorsToAvoid: ["Encoger hombros", "Flexionar demasiado codos", "Perder control en la vuelta"],
+        primaryMuscles: ["Deltoides posterior"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Manguito rotador"],
+        fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 }
+      }),
+      squatExercise({
+        name: "Biceps curl",
+        equipment: ["Mancuernas", "Barra", "Polea"],
+        technicalDescription:
+          "Flexiona los codos manteniendo brazos estables y muñecas controladas. Sube sin balancear y baja con control para mantener tension en biceps.",
+        errorsToAvoid: ["Balancear el tronco", "Mover codos hacia delante", "Perder control excentrico"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos", "Deltoides anterior"],
+        fatigueMap: { biceps: 1, forearms: 0.4, anteriorDelts: 0.1 }
+      }),
+      squatExercise({
+        name: "Spider curl",
+        equipment: ["Mancuernas", "Barra"],
+        technicalDescription:
+          "Realiza curl con pecho apoyado en banco inclinado, dejando brazos colgar y flexionando codos sin balanceo. Mantén tensión y control total.",
+        errorsToAvoid: ["Despegar el pecho", "Acortar rango", "Usar impulso"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos"],
+        fatigueMap: { biceps: 1, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Preacher curl",
+        equipment: ["Banco predicador", "Maquina"],
+        technicalDescription:
+          "Flexiona los codos con brazos apoyados en banco predicador o maquina. Controla la bajada y evita perder tension al extender.",
+        errorsToAvoid: ["Hiperextender el codo", "Levantar brazos del apoyo", "Rebotar abajo"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos"],
+        fatigueMap: { biceps: 1, forearms: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "pull-upper-body-pull-power",
+    pattern: "Pull / Upper Body Pull",
+    block: "Potencia",
+    exercises: [
+      squatExercise({
+        name: "Medicine ball slam",
+        equipment: ["Balon medicinal"],
+        technicalDescription:
+          "Eleva el balon y golpea el suelo con accion potente de brazos y tronco. Mantén control del rebote y usa una trayectoria fuerte sin perder postura.",
+        errorsToAvoid: ["Arquear lumbar", "Golpear sin controlar el rebote", "Usar solo brazos"],
+        primaryMuscles: ["Dorsal ancho", "Core"],
+        secondaryMuscles: ["Triceps", "Espalda media", "Deltoides anterior"],
+        fatigueMap: { lats: 0.6, core: 0.7, triceps: 0.4, midBack: 0.3, anteriorDelts: 0.3 }
+      }),
+      squatExercise({
+        name: "Explosive band row",
+        equipment: ["Banda elastica"],
+        technicalDescription:
+          "Rema contra banda con intencion explosiva y retorno controlado. Mantén tronco estable y acelera el codo atras sin perder escápula.",
+        errorsToAvoid: ["Perder control al volver", "Rotar el tronco", "Encoger hombros"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Core"],
+        fatigueMap: { midBack: 0.7, lats: 0.6, biceps: 0.4, rearDelts: 0.4, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Explosive inverted row",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Realiza inverted row con intencion explosiva manteniendo cuerpo alineado. Sube rapido, controla la bajada y evita perder rigidez corporal.",
+        errorsToAvoid: ["Caer de cadera", "Tirar con cuello", "Perder control excentrico"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Core", "Antebrazos"],
+        fatigueMap: { midBack: 0.8, lats: 0.7, biceps: 0.5, rearDelts: 0.5, core: 0.5, forearms: 0.4 }
+      }),
+      squatExercise({
+        name: "Explosive pull-up",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Realiza una dominada buscando maxima velocidad de subida sin balanceo excesivo. Mantén inicio escapular, rango util y recepcion controlada al bajar.",
+        errorsToAvoid: ["Convertirlo en kipping sin control", "Acortar rango", "Caer sin frenar"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        fatigueMap: { lats: 0.9, biceps: 0.7, midBack: 0.6, lowerTraps: 0.4, forearms: 0.5, core: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "pull-upper-body-pull-plyometrics",
+    pattern: "Pull / Upper Body Pull",
+    block: "Pliometria",
+    exercises: [
+      squatExercise({
+        name: "Reactive band row",
+        equipment: ["Banda elastica"],
+        technicalDescription:
+          "Realiza remos reactivos con banda, absorbiendo la vuelta y relanzando la traccion con rapidez. Mantén escápulas activas y tronco estable.",
+        errorsToAvoid: ["Dejar que la banda tire sin control", "Perder postura", "Encoger hombros"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho"],
+        secondaryMuscles: ["Biceps", "Deltoides posterior", "Core"],
+        fatigueMap: { midBack: 0.7, lats: 0.6, biceps: 0.4, rearDelts: 0.4, core: 0.3 }
+      }),
+      squatExercise({
+        name: "Inverted row release/catch",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Desde inverted row, suelta brevemente y vuelve a agarrar o absorber la traccion con control. Prioriza contacto seguro y alineacion corporal.",
+        errorsToAvoid: ["Soltar sin control", "Perder rigidez corporal", "Caer de hombros"],
+        primaryMuscles: ["Espalda media", "Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Deltoides posterior", "Antebrazos", "Core"],
+        fatigueMap: { midBack: 0.8, lats: 0.7, biceps: 0.5, rearDelts: 0.5, forearms: 0.5, core: 0.5 }
+      }),
+      squatExercise({
+        name: "Band-assisted plyo pull-up",
+        equipment: ["Banda", "Barra"],
+        technicalDescription:
+          "Realiza dominadas pliometricas asistidas con banda buscando una subida rapida y recepcion controlada. La asistencia debe permitir velocidad sin perder tecnica.",
+        errorsToAvoid: ["Usar una banda demasiado ligera", "Balancearse", "Caer sin control escapular"],
+        primaryMuscles: ["Dorsal ancho", "Biceps"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        fatigueMap: { lats: 0.8, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.5, core: 0.4 }
+      })
+    ]
+  },
   legacyGroup("rotation-control", "Rotation", "Control / tolerancia", [
     ["Anti-rotacion manual", ["Resistencia manual"]],
     ["Pallof press isometrico", ["Banda", "Polea"]],
