@@ -2,11 +2,15 @@ export type ExercisePattern =
   | "Squat / Vertical Force"
   | "Hinge / Horizontal Force"
   | "Lunge / Unilateral Force"
+  | "Lower Body Accessories"
   | "Olympic derivatives"
   | "Gait & Carry"
   | "Push / Upper Body Press"
   | "Pull / Upper Body Pull"
+  | "Upper Body Accessories"
   | "Core / Trunk Control";
+
+export type BodyRegion = "lower" | "upper" | "global";
 
 export type ExerciseBlock =
   | "Control / tolerancia"
@@ -21,7 +25,15 @@ export type ExerciseBlock =
   | "Lateral flexion"
   | "Anti-lateral flexion"
   | "Flexion-extension"
-  | "Anti-flexion-extension";
+  | "Anti-flexion-extension"
+  | "Chest accessories"
+  | "Shoulder accessories"
+  | "Arm accessories"
+  | "Quad accessories"
+  | "Hamstring accessories"
+  | "Glute accessories"
+  | "Adductor accessories"
+  | "Calf & ankle accessories";
 
 export type FatigueMap = Partial<Record<FatigueMapKey, number>>;
 
@@ -40,6 +52,8 @@ export type FatigueMapKey =
   | "gluteMed"
   | "lumbarStabilizers"
   | "hips"
+  | "soleus"
+  | "tibialisAnterior"
   | "chest"
   | "triceps"
   | "anteriorDelts"
@@ -58,6 +72,7 @@ export type FatigueMapKey =
   | "upperBack";
 
 export type ExerciseDefinition = {
+  bodyRegion: BodyRegion;
   block: ExerciseBlock;
   equipment: string[];
   errorsToAvoid: string[];
@@ -77,7 +92,7 @@ export type WeeklyExerciseSetInput = {
   sets: number;
 };
 
-type ExerciseSeed = Omit<ExerciseDefinition, "block" | "id" | "pattern" | "rank">;
+type ExerciseSeed = Omit<ExerciseDefinition, "block" | "bodyRegion" | "id" | "pattern" | "rank">;
 
 type ExerciseGroupSeed = {
   block: ExerciseBlock;
@@ -90,12 +105,35 @@ export const exercisePatterns: ExercisePattern[] = [
   "Squat / Vertical Force",
   "Hinge / Horizontal Force",
   "Lunge / Unilateral Force",
+  "Lower Body Accessories",
   "Olympic derivatives",
   "Gait & Carry",
   "Push / Upper Body Press",
   "Pull / Upper Body Pull",
+  "Upper Body Accessories",
   "Core / Trunk Control"
 ];
+
+export const bodyRegions: BodyRegion[] = ["lower", "upper", "global"];
+
+export const bodyRegionLabels: Record<BodyRegion, string> = {
+  lower: "Tren inferior",
+  upper: "Tren superior",
+  global: "Global"
+};
+
+export const patternBodyRegions: Record<ExercisePattern, BodyRegion> = {
+  "Squat / Vertical Force": "lower",
+  "Hinge / Horizontal Force": "lower",
+  "Lunge / Unilateral Force": "lower",
+  "Lower Body Accessories": "lower",
+  "Push / Upper Body Press": "upper",
+  "Pull / Upper Body Pull": "upper",
+  "Upper Body Accessories": "upper",
+  "Olympic derivatives": "global",
+  "Gait & Carry": "global",
+  "Core / Trunk Control": "global"
+};
 
 export const exerciseBlocks: ExerciseBlock[] = [
   "Control / tolerancia",
@@ -110,7 +148,15 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Lateral flexion",
   "Anti-lateral flexion",
   "Flexion-extension",
-  "Anti-flexion-extension"
+  "Anti-flexion-extension",
+  "Chest accessories",
+  "Shoulder accessories",
+  "Arm accessories",
+  "Quad accessories",
+  "Hamstring accessories",
+  "Glute accessories",
+  "Adductor accessories",
+  "Calf & ankle accessories"
 ];
 
 const exerciseGroups: ExerciseGroupSeed[] = [
@@ -223,16 +269,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     pattern: "Squat / Vertical Force",
     block: "Hipertrofia",
     exercises: [
-      squatExercise({
-        name: "Leg extension",
-        equipment: ["Maquina"],
-        technicalDescription:
-          "Extiende la rodilla en maquina controlando el recorrido y la pausa final sin perder la posicion de la cadera. Mantén tension continua y regreso controlado.",
-        errorsToAvoid: ["Balancear el cuerpo", "Soltar la fase de bajada", "Usar un rango doloroso"],
-        primaryMuscles: ["Cuadriceps"],
-        secondaryMuscles: ["Hip flexors"],
-        fatigueMap: { quadriceps: 1, hipFlexors: 0.2 }
-      }),
       squatExercise({
         name: "Leg press",
         equipment: ["Maquina"],
@@ -509,26 +545,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { glutes: 1, hamstrings: 0.4, adductors: 0.3, core: 0.2 }
       }),
       squatExercise({
-        name: "Lying leg curl",
-        equipment: ["Maquina"],
-        technicalDescription:
-          "Flexiona las rodillas en maquina tumbado manteniendo cadera estable. Controla la subida, aprieta en el final y baja sin soltar la carga.",
-        errorsToAvoid: ["Levantar la pelvis", "Balancear la carga", "Soltar la bajada"],
-        primaryMuscles: ["Isquios"],
-        secondaryMuscles: ["Gemelos"],
-        fatigueMap: { hamstrings: 1, calves: 0.2 }
-      }),
-      squatExercise({
-        name: "Seated leg curl",
-        equipment: ["Maquina"],
-        technicalDescription:
-          "Flexiona las rodillas sentado con el muslo fijado y control de la pelvis. Mantén tension continua y evita compensar con el tronco.",
-        errorsToAvoid: ["Mover la cadera", "Rebotar al final", "Usar rango parcial sin criterio"],
-        primaryMuscles: ["Isquios"],
-        secondaryMuscles: ["Gemelos"],
-        fatigueMap: { hamstrings: 1, calves: 0.2 }
-      }),
-      squatExercise({
         name: "Romanian deadlift unilateral",
         equipment: ["Mancuerna", "Kettlebell"],
         technicalDescription:
@@ -537,16 +553,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Isquios", "Gluteo mayor"],
         secondaryMuscles: ["Aductores", "Core", "Erectores espinales", "Gemelos"],
         fatigueMap: { hamstrings: 0.9, glutes: 0.8, adductors: 0.4, core: 0.4, spinalErectors: 0.3, calves: 0.2 }
-      }),
-      squatExercise({
-        name: "Nordic curl",
-        equipment: ["Peso corporal", "Soporte"],
-        technicalDescription:
-          "Fija los pies y controla el descenso del tronco desde las rodillas. Mantén cadera extendida y usa asistencia si necesitas conservar calidad.",
-        errorsToAvoid: ["Flexionar la cadera", "Caer sin control", "Perder alineacion tronco-muslo"],
-        primaryMuscles: ["Isquios"],
-        secondaryMuscles: ["Gluteo mayor", "Gemelos", "Core"],
-        fatigueMap: { hamstrings: 1, glutes: 0.4, calves: 0.3, core: 0.3 }
       })
     ]
   },
@@ -906,6 +912,151 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Gluteo mayor", "Cuadriceps", "Gemelos"],
         secondaryMuscles: ["Aductores", "Isquios", "Core"],
         fatigueMap: { glutes: 0.8, quadriceps: 0.7, calves: 0.8, adductors: 0.5, hamstrings: 0.3, core: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-quads",
+    pattern: "Lower Body Accessories",
+    block: "Quad accessories",
+    exercises: [
+      squatExercise({
+        name: "Leg extension",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Extiende la rodilla en maquina controlando el recorrido y la pausa final sin perder la posicion de la cadera. Mantén tension continua y regreso controlado.",
+        errorsToAvoid: ["Balancear el cuerpo", "Soltar la fase de bajada", "Usar un rango doloroso"],
+        primaryMuscles: ["Cuadriceps"],
+        secondaryMuscles: ["Flexores cadera"],
+        fatigueMap: { quadriceps: 1, hipFlexors: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-hamstrings",
+    pattern: "Lower Body Accessories",
+    block: "Hamstring accessories",
+    exercises: [
+      squatExercise({
+        name: "Lying leg curl",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Flexiona las rodillas en maquina tumbado manteniendo cadera estable. Controla la subida, aprieta en el final y baja sin soltar la carga.",
+        errorsToAvoid: ["Levantar la pelvis", "Balancear la carga", "Soltar la bajada"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { hamstrings: 1, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Seated leg curl",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Flexiona las rodillas sentado con el muslo fijado y control de la pelvis. Mantén tension continua y evita compensar con el tronco.",
+        errorsToAvoid: ["Mover la cadera", "Rebotar al final", "Usar rango parcial sin criterio"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { hamstrings: 1, calves: 0.2 }
+      }),
+      squatExercise({
+        name: "Nordic curl",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Fija los pies y controla el descenso del tronco desde las rodillas. Mantén cadera extendida y usa asistencia si necesitas conservar calidad.",
+        errorsToAvoid: ["Flexionar la cadera", "Caer sin control", "Perder alineacion tronco-muslo"],
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Gluteo mayor", "Gemelos", "Estabilizadores lumbares"],
+        fatigueMap: { hamstrings: 1, glutes: 0.3, calves: 0.2, lumbarStabilizers: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-glutes",
+    pattern: "Lower Body Accessories",
+    block: "Glute accessories",
+    exercises: [
+      squatExercise({
+        name: "Hip abduction machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Abduce la cadera en maquina manteniendo pelvis estable y recorrido controlado. Busca tension local en gluteo medio sin balancear el tronco.",
+        errorsToAvoid: ["Rebotar al final", "Inclinar el tronco", "Usar rango sin control"],
+        primaryMuscles: ["Gluteo medio"],
+        secondaryMuscles: ["Gluteo mayor"],
+        fatigueMap: { gluteMed: 1, glutes: 0.5 }
+      }),
+      squatExercise({
+        name: "Cable kickback",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Extiende la cadera contra polea manteniendo tronco estable y pelvis cuadrada. Mueve desde la cadera sin arquear la lumbar.",
+        errorsToAvoid: ["Arquear lumbar", "Rotar la pelvis", "Usar impulso"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Estabilizadores lumbares"],
+        fatigueMap: { glutes: 0.9, hamstrings: 0.3, lumbarStabilizers: 0.2 }
+      }),
+      squatExercise({
+        name: "Hip extension machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Extiende la cadera en maquina con pelvis estable y recorrido controlado. Prioriza tension en gluteo sin compensar con la zona lumbar.",
+        errorsToAvoid: ["Hiperextender lumbar", "Perder apoyo de pelvis", "Soltar la vuelta"],
+        primaryMuscles: ["Gluteo mayor"],
+        secondaryMuscles: ["Isquios", "Estabilizadores lumbares"],
+        fatigueMap: { glutes: 1, hamstrings: 0.4, lumbarStabilizers: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-adductors",
+    pattern: "Lower Body Accessories",
+    block: "Adductor accessories",
+    exercises: [
+      squatExercise({
+        name: "Hip adduction machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Aduce la cadera en maquina manteniendo pelvis estable y tension continua. Controla la vuelta sin rebotes y usa un rango tolerado.",
+        errorsToAvoid: ["Rebotar", "Perder postura", "Forzar apertura dolorosa"],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Core"],
+        fatigueMap: { adductors: 1, core: 0.1 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-calf-ankle",
+    pattern: "Lower Body Accessories",
+    block: "Calf & ankle accessories",
+    exercises: [
+      squatExercise({
+        name: "Standing calf raise",
+        equipment: ["Maquina", "Mancuernas"],
+        technicalDescription:
+          "Eleva talones de pie con rodillas extendidas y control del tobillo. Pausa arriba y baja con rango completo sin perder alineacion del pie.",
+        errorsToAvoid: ["Rebotar", "Caer hacia el borde del pie", "Acortar el rango"],
+        primaryMuscles: ["Gemelos"],
+        secondaryMuscles: ["Soleo"],
+        fatigueMap: { calves: 1, soleus: 0.4 }
+      }),
+      squatExercise({
+        name: "Seated calf raise",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Eleva talones sentado con control, buscando tension en soleo y recorrido completo. Mantén pausa arriba y bajada estable.",
+        errorsToAvoid: ["Rebotar abajo", "Usar recorrido parcial", "Perder apoyo del antepie"],
+        primaryMuscles: ["Soleo"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { soleus: 1, calves: 0.6 }
+      }),
+      squatExercise({
+        name: "Tibialis raise",
+        equipment: ["Peso corporal", "Maquina"],
+        technicalDescription:
+          "Eleva la punta del pie contra gravedad o maquina manteniendo talon estable. Controla la subida y la bajada sin compensar con cadera.",
+        errorsToAvoid: ["Mover todo el cuerpo", "Usar impulso", "Acortar el rango"],
+        primaryMuscles: ["Tibial anterior"],
+        secondaryMuscles: ["Gemelos"],
+        fatigueMap: { tibialisAnterior: 1, calves: 0.1 }
       })
     ]
   },
@@ -1327,16 +1478,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Hipertrofia",
     exercises: [
       squatExercise({
-        name: "Pec deck",
-        equipment: ["Maquina"],
-        technicalDescription:
-          "Realiza aperturas guiadas en maquina manteniendo pecho alto y hombros controlados. Junta los brazos sin perder posicion escapular y vuelve con control.",
-        errorsToAvoid: ["Llevar hombros hacia delante", "Usar impulso", "Forzar rango con dolor"],
-        primaryMuscles: ["Pectoral"],
-        secondaryMuscles: ["Deltoides anterior", "Serrato anterior"],
-        fatigueMap: { chest: 1, anteriorDelts: 0.4, serratusAnterior: 0.2 }
-      }),
-      squatExercise({
         name: "Chest press",
         equipment: ["Maquina"],
         technicalDescription:
@@ -1357,16 +1498,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { chest: 0.9, anteriorDelts: 0.7, triceps: 0.6, serratusAnterior: 0.2 }
       }),
       squatExercise({
-        name: "Cable fly",
-        equipment: ["Polea"],
-        technicalDescription:
-          "Realiza aperturas en polea con ligera flexion de codo, controlando la vuelta y manteniendo pecho abierto. La tension debe ser continua y sin tirones.",
-        errorsToAvoid: ["Convertirlo en press", "Perder postura", "Cruzar brazos con impulso"],
-        primaryMuscles: ["Pectoral"],
-        secondaryMuscles: ["Deltoides anterior", "Core"],
-        fatigueMap: { chest: 1, anteriorDelts: 0.4, core: 0.2 }
-      }),
-      squatExercise({
         name: "Shoulder press",
         equipment: ["Maquina"],
         technicalDescription:
@@ -1375,26 +1506,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Deltoides anterior", "Triceps"],
         secondaryMuscles: ["Deltoides lateral", "Trapecio superior"],
         fatigueMap: { anteriorDelts: 0.9, triceps: 0.7, lateralDelts: 0.6, upperTraps: 0.3 }
-      }),
-      squatExercise({
-        name: "Lateral raise",
-        equipment: ["Mancuernas", "Polea"],
-        technicalDescription:
-          "Eleva los brazos hacia los lados manteniendo cuello relajado y control del peso. Debe verse recorrido limpio, sin balanceo ni subida excesiva del hombro.",
-        errorsToAvoid: ["Balancear el tronco", "Subir con trapecio", "Flexionar demasiado los codos"],
-        primaryMuscles: ["Deltoides lateral"],
-        secondaryMuscles: ["Trapecio superior", "Core"],
-        fatigueMap: { lateralDelts: 1, upperTraps: 0.3, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Triceps extension",
-        equipment: ["Polea", "Mancuerna"],
-        technicalDescription:
-          "Extiende los codos manteniendo brazos estables y controlando la vuelta. El movimiento debe centrarse en el codo sin compensar con hombros o tronco.",
-        errorsToAvoid: ["Mover los codos", "Usar impulso", "Perder control en la fase excentrica"],
-        primaryMuscles: ["Triceps"],
-        secondaryMuscles: ["Antebrazos", "Core"],
-        fatigueMap: { triceps: 1, forearms: 0.2, core: 0.1 }
       })
     ]
   },
@@ -1690,56 +1801,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Dorsal ancho"],
         secondaryMuscles: ["Triceps", "Core", "Serrato anterior"],
         fatigueMap: { lats: 0.9, triceps: 0.2, core: 0.3, serratusAnterior: 0.2 }
-      }),
-      squatExercise({
-        name: "Face pull",
-        equipment: ["Polea", "Banda"],
-        technicalDescription:
-          "Tira hacia la cara con codos altos, rotacion externa y escápulas controladas. Debe verse deltoides posterior y espalda media trabajando sin elevar hombros.",
-        errorsToAvoid: ["Convertirlo en remo bajo", "Arquear lumbar", "Encoger hombros"],
-        primaryMuscles: ["Deltoides posterior", "Espalda media"],
-        secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Biceps"],
-        fatigueMap: { rearDelts: 0.8, midBack: 0.6, lowerTraps: 0.5, rotatorCuff: 0.5, biceps: 0.2 }
-      }),
-      squatExercise({
-        name: "Reverse fly machine",
-        equipment: ["Maquina"],
-        technicalDescription:
-          "Realiza aperturas inversas en maquina con codos suaves y escápulas controladas. Mantén pecho apoyado y evita impulsar la carga.",
-        errorsToAvoid: ["Encoger hombros", "Flexionar demasiado codos", "Perder control en la vuelta"],
-        primaryMuscles: ["Deltoides posterior"],
-        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Manguito rotador"],
-        fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 }
-      }),
-      squatExercise({
-        name: "Biceps curl",
-        equipment: ["Mancuernas", "Barra", "Polea"],
-        technicalDescription:
-          "Flexiona los codos manteniendo brazos estables y muñecas controladas. Sube sin balancear y baja con control para mantener tension en biceps.",
-        errorsToAvoid: ["Balancear el tronco", "Mover codos hacia delante", "Perder control excentrico"],
-        primaryMuscles: ["Biceps"],
-        secondaryMuscles: ["Antebrazos", "Deltoides anterior"],
-        fatigueMap: { biceps: 1, forearms: 0.4, anteriorDelts: 0.1 }
-      }),
-      squatExercise({
-        name: "Spider curl",
-        equipment: ["Mancuernas", "Barra"],
-        technicalDescription:
-          "Realiza curl con pecho apoyado en banco inclinado, dejando brazos colgar y flexionando codos sin balanceo. Mantén tensión y control total.",
-        errorsToAvoid: ["Despegar el pecho", "Acortar rango", "Usar impulso"],
-        primaryMuscles: ["Biceps"],
-        secondaryMuscles: ["Antebrazos"],
-        fatigueMap: { biceps: 1, forearms: 0.3 }
-      }),
-      squatExercise({
-        name: "Preacher curl",
-        equipment: ["Banco predicador", "Maquina"],
-        technicalDescription:
-          "Flexiona los codos con brazos apoyados en banco predicador o maquina. Controla la bajada y evita perder tension al extender.",
-        errorsToAvoid: ["Hiperextender el codo", "Levantar brazos del apoyo", "Rebotar abajo"],
-        primaryMuscles: ["Biceps"],
-        secondaryMuscles: ["Antebrazos"],
-        fatigueMap: { biceps: 1, forearms: 0.3 }
       })
     ]
   },
@@ -1824,6 +1885,117 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Dorsal ancho", "Biceps"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
         fatigueMap: { lats: 0.8, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.5, core: 0.4 }
+      })
+    ]
+  },
+  {
+    slug: "upper-body-accessories-chest",
+    pattern: "Upper Body Accessories",
+    block: "Chest accessories",
+    exercises: [
+      squatExercise({
+        name: "Pec deck",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Realiza aperturas guiadas en maquina manteniendo pecho alto y hombros controlados. Junta los brazos sin perder posicion escapular y vuelve con control.",
+        errorsToAvoid: ["Llevar hombros hacia delante", "Usar impulso", "Forzar rango con dolor"],
+        primaryMuscles: ["Pectoral"],
+        secondaryMuscles: ["Deltoides anterior", "Biceps"],
+        fatigueMap: { chest: 1, anteriorDelts: 0.3, biceps: 0.1 }
+      }),
+      squatExercise({
+        name: "Cable fly",
+        equipment: ["Polea"],
+        technicalDescription:
+          "Realiza aperturas en polea con ligera flexion de codo, controlando la vuelta y manteniendo pecho abierto. La tension debe ser continua y sin tirones.",
+        errorsToAvoid: ["Convertirlo en press", "Perder postura", "Cruzar brazos con impulso"],
+        primaryMuscles: ["Pectoral"],
+        secondaryMuscles: ["Deltoides anterior", "Core"],
+        fatigueMap: { chest: 1, anteriorDelts: 0.4, core: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "upper-body-accessories-shoulders",
+    pattern: "Upper Body Accessories",
+    block: "Shoulder accessories",
+    exercises: [
+      squatExercise({
+        name: "Lateral raise",
+        equipment: ["Mancuernas", "Polea"],
+        technicalDescription:
+          "Eleva los brazos hacia los lados manteniendo cuello relajado y control del peso. Debe verse recorrido limpio, sin balanceo ni subida excesiva del hombro.",
+        errorsToAvoid: ["Balancear el tronco", "Subir con trapecio", "Flexionar demasiado los codos"],
+        primaryMuscles: ["Deltoides lateral"],
+        secondaryMuscles: ["Trapecio superior", "Manguito rotador"],
+        fatigueMap: { lateralDelts: 1, upperTraps: 0.3, rotatorCuff: 0.2 }
+      }),
+      squatExercise({
+        name: "Reverse fly machine",
+        equipment: ["Maquina"],
+        technicalDescription:
+          "Realiza aperturas inversas en maquina con codos suaves y escápulas controladas. Mantén pecho apoyado y evita impulsar la carga.",
+        errorsToAvoid: ["Encoger hombros", "Flexionar demasiado codos", "Perder control en la vuelta"],
+        primaryMuscles: ["Deltoides posterior"],
+        secondaryMuscles: ["Espalda media", "Trapecio inferior", "Manguito rotador"],
+        fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 }
+      }),
+      squatExercise({
+        name: "Face pull",
+        equipment: ["Polea", "Banda"],
+        technicalDescription:
+          "Tira hacia la cara con codos altos, rotacion externa y escápulas controladas. Debe verse deltoides posterior y espalda media trabajando sin elevar hombros.",
+        errorsToAvoid: ["Convertirlo en remo bajo", "Arquear lumbar", "Encoger hombros"],
+        primaryMuscles: ["Deltoides posterior", "Espalda media"],
+        secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Biceps"],
+        fatigueMap: { rearDelts: 0.8, midBack: 0.6, lowerTraps: 0.5, rotatorCuff: 0.5, biceps: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "upper-body-accessories-arms",
+    pattern: "Upper Body Accessories",
+    block: "Arm accessories",
+    exercises: [
+      squatExercise({
+        name: "Triceps extension",
+        equipment: ["Polea", "Mancuerna"],
+        technicalDescription:
+          "Extiende los codos manteniendo brazos estables y controlando la vuelta. El movimiento debe centrarse en el codo sin compensar con hombros o tronco.",
+        errorsToAvoid: ["Mover los codos", "Usar impulso", "Perder control en la fase excentrica"],
+        primaryMuscles: ["Triceps"],
+        secondaryMuscles: ["Antebrazos", "Hombros"],
+        fatigueMap: { triceps: 1, forearms: 0.2, shoulders: 0.1 }
+      }),
+      squatExercise({
+        name: "Biceps curl",
+        equipment: ["Mancuernas", "Barra", "Polea"],
+        technicalDescription:
+          "Flexiona los codos manteniendo brazos estables y muñecas controladas. Sube sin balancear y baja con control para mantener tension en biceps.",
+        errorsToAvoid: ["Balancear el tronco", "Mover codos hacia delante", "Perder control excentrico"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos", "Deltoides anterior"],
+        fatigueMap: { biceps: 1, forearms: 0.4, anteriorDelts: 0.1 }
+      }),
+      squatExercise({
+        name: "Spider curl",
+        equipment: ["Mancuernas", "Barra"],
+        technicalDescription:
+          "Realiza curl con pecho apoyado en banco inclinado, dejando brazos colgar y flexionando codos sin balanceo. Mantén tension y control total.",
+        errorsToAvoid: ["Despegar el pecho", "Acortar rango", "Usar impulso"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos"],
+        fatigueMap: { biceps: 1, forearms: 0.3 }
+      }),
+      squatExercise({
+        name: "Preacher curl",
+        equipment: ["Banco predicador", "Maquina"],
+        technicalDescription:
+          "Flexiona los codos con brazos apoyados en banco predicador o maquina. Controla la bajada y evita perder tension al extender.",
+        errorsToAvoid: ["Hiperextender el codo", "Levantar brazos del apoyo", "Rebotar abajo"],
+        primaryMuscles: ["Biceps"],
+        secondaryMuscles: ["Antebrazos"],
+        fatigueMap: { biceps: 1, forearms: 0.3 }
       })
     ]
   },
@@ -2134,6 +2306,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
 export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((group) =>
   group.exercises.map((exercise, index) => ({
     ...exercise,
+    bodyRegion: patternBodyRegions[group.pattern],
     id: `${group.slug}-${index + 1}`,
     pattern: group.pattern,
     block: group.block,
@@ -2143,6 +2316,14 @@ export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((gro
 
 export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
+}
+
+export function getExercisePatternsByBodyRegion(bodyRegion: BodyRegion) {
+  return exercisePatterns.filter((pattern) => patternBodyRegions[pattern] === bodyRegion);
+}
+
+export function getExercisesByBodyRegion(bodyRegion: BodyRegion) {
+  return sortExercises(exerciseLibrary.filter((exercise) => exercise.bodyRegion === bodyRegion));
 }
 
 export function getExerciseById(exerciseId: string) {

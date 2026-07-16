@@ -39,13 +39,17 @@ import {
   calculateWeeklySetsByBlock,
   calculateWeeklySetsByExercise,
   calculateWeeklySetsByPattern,
+  bodyRegionLabels,
+  bodyRegions,
   exerciseBlocks,
   exerciseLibrary,
   exercisePatterns,
   getExerciseById,
+  getExercisePatternsByBodyRegion,
   getExerciseProgression,
   getExerciseRegression,
   getExercisesByPattern,
+  type BodyRegion,
   type ExerciseBlock,
   type ExerciseDefinition,
   type ExercisePattern
@@ -2060,7 +2064,9 @@ function PlanningCalendarPreview({
   );
 }
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [activePattern, setActivePattern] = useState<ExercisePattern>(exercisePatterns[0]);
+  const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower");
+  const availablePatterns = getExercisePatternsByBodyRegion(activeBodyRegion);
+  const [activePattern, setActivePattern] = useState<ExercisePattern>(availablePatterns[0]);
   const patternExercises = getExercisesByPattern(activePattern);
   const familyGroups = getExerciseFamilyGroups(patternExercises);
   const [selectedFamilyKey, setSelectedFamilyKey] = useState("");
@@ -2089,6 +2095,27 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
+            Region corporal
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => {
+                const nextRegion = event.target.value as BodyRegion;
+                const nextPattern = getExercisePatternsByBodyRegion(nextRegion)[0];
+                setActiveBodyRegion(nextRegion);
+                setActivePattern(nextPattern);
+                setSelectedFamilyKey("");
+                setSelectedExerciseId("");
+              }}
+              value={activeBodyRegion}
+            >
+              {bodyRegions.map((region) => (
+                <option key={region} value={region}>
+                  {bodyRegionLabels[region]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
             Patron
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
@@ -2099,7 +2126,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               }}
               value={activePattern}
             >
-              {exercisePatterns.map((pattern) => (
+              {availablePatterns.map((pattern) => (
                 <option key={pattern}>{pattern}</option>
               ))}
             </select>
@@ -2154,7 +2181,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selectedExercise.name}</h2>
                 <p className="mt-1 text-sm text-ink/55">
-                  {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
+                  {bodyRegionLabels[selectedExercise.bodyRegion]} - {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
                 </p>
               </div>
               <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
@@ -2256,7 +2283,9 @@ function formatFatigueKey(key: string) {
     rotatorCuff: "Manguito rotador",
     serratusAnterior: "Serrato anterior",
     shoulders: "Hombros",
+    soleus: "Soleo",
     spinalErectors: "Erectores",
+    tibialisAnterior: "Tibial anterior",
     traps: "Trapecio",
     triceps: "Triceps",
     transverseAbdominis: "Transverso abdominal",
