@@ -93,6 +93,7 @@ export default function ClientsPage() {
   const [scopedClientId, setScopedClientId] = useState("");
   const [hooperDone, setHooperDone] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
     daysPerWeek: 2
@@ -238,7 +239,14 @@ export default function ClientsPage() {
               />
             )
           ) : activeSheet === "training" ? (
-            role === "coach" ? <CoachTrainingPlanner client={scopedClient} clients={clients} /> : (
+            role === "coach" ? (
+              <CoachTrainingPlanner
+                client={scopedClient}
+                clients={clients}
+                sessionTemplates={sessionTemplates}
+                setSessionTemplates={setSessionTemplates}
+              />
+            ) : (
               <AthleteTrainingView
                 hooperDone={hooperDone}
                 onCompleteHooper={() => setHooperDone(true)}
@@ -4624,6 +4632,16 @@ type PlannedStrengthExerciseDraft = {
   targetRir: string;
   targetRpe: string;
 };
+type SessionTemplateExercise = Omit<PlannedStrengthExerciseDraft, "targetRpe">;
+type SessionTemplate = {
+  createdAt: string;
+  description: string;
+  id: string;
+  name: string;
+  sessionType: CoachSessionType;
+  strengthExercises: SessionTemplateExercise[];
+  summary: string;
+};
 type CoachSessionQuantifier = {
   fields: string[];
   primary: string[];
@@ -4681,7 +4699,17 @@ function getPlanningWeekNumber(currentWeek: string) {
   return match ? Number(match[0]) : 1;
 }
 
-function CoachTrainingPlanner({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
+function CoachTrainingPlanner({
+  client,
+  clients,
+  sessionTemplates,
+  setSessionTemplates
+}: {
+  client?: CoachClient | null;
+  clients: CoachClient[];
+  sessionTemplates: SessionTemplate[];
+  setSessionTemplates: React.Dispatch<React.SetStateAction<SessionTemplate[]>>;
+}) {
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
   const activeSessionClient =
@@ -4690,7 +4718,11 @@ function CoachTrainingPlanner({ client, clients }: { client?: CoachClient | null
   const [selectedBlockWeek, setSelectedBlockWeek] = useState(activePlanningWeek);
   const [sessionDate, setSessionDate] = useState("");
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
+  const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateName, setTemplateName] = useState("");
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
@@ -4738,6 +4770,57 @@ function CoachTrainingPlanner({ client, clients }: { client?: CoachClient | null
   };
   const removeStrengthExercise = (exerciseId: string) => {
     setStrengthExercises((current) => current.filter((exercise) => exercise.id !== exerciseId));
+  };
+  const plannedTemplateExercises = strengthExercises.map((exercise) => ({
+    block: exercise.block,
+    exerciseId: exercise.exerciseId,
+    exerciseSearch: exercise.exerciseSearch,
+    id: exercise.id,
+    load: exercise.load,
+    observation: exercise.observation,
+    reps: exercise.reps,
+    rest: exercise.rest,
+    sets: exercise.sets,
+    targetRir: exercise.targetRir
+  }));
+  const resetTemplateForm = () => {
+    setShowTemplateForm(false);
+    setTemplateDescription("");
+    setTemplateName("");
+  };
+  const saveCurrentSessionAsTemplate = () => {
+    if (!templateName.trim()) return;
+    if (!sessionSummary.trim() && plannedTemplateExercises.length === 0) return;
+
+    setSessionTemplates((currentTemplates) => [
+      {
+        createdAt: new Date().toISOString(),
+        description: templateDescription.trim(),
+        id: `template-${Date.now()}`,
+        name: templateName.trim(),
+        sessionType,
+        strengthExercises: plannedTemplateExercises,
+        summary: sessionSummary.trim(),
+      },
+      ...currentTemplates
+    ]);
+    resetTemplateForm();
+  };
+  const loadSessionTemplate = (template: SessionTemplate) => {
+    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazará los ejercicios actuales. ¿Continuar?")) return;
+
+    setSessionType(template.sessionType);
+    setSessionSummary(template.summary);
+    setStrengthExercises(
+      template.strengthExercises.map((exercise, index) => ({
+        ...exercise,
+        id: `exercise-${Date.now()}-${index}`,
+        targetRpe: ""
+      }))
+    );
+  };
+  const deleteSessionTemplate = (templateId: string) => {
+    setSessionTemplates((currentTemplates) => currentTemplates.filter((template) => template.id !== templateId));
   };
   const renderStrengthBlock = (block: StrengthSessionBlock, title: string, buttonLabel: string) => {
     const blockExercises = strengthExercises.filter((exercise) => exercise.block === block);
@@ -5031,10 +5114,104 @@ function CoachTrainingPlanner({ client, clients }: { client?: CoachClient | null
             Resumen / objetivo de la sesion
             <textarea
               className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
-              defaultValue={plannedSession.title}
+              onChange={(event) => setSessionSummary(event.target.value)}
               placeholder="Ej: Fuerza tren inferior + zona 2"
+              value={sessionSummary}
             />
           </label>
+        </section>
+
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-ink">Plantillas guardadas</h3>
+              <p className="mt-1 text-sm text-ink/55">Guarda y reutiliza estructuras planificadas sin asociarlas a un cliente.</p>
+            </div>
+            <button
+              className="inline-flex w-fit items-center justify-center rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+              onClick={() => setShowTemplateForm((current) => !current)}
+              type="button"
+            >
+              Guardar como plantilla
+            </button>
+          </div>
+
+          {showTemplateForm ? (
+            <div className="mt-4 rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Nombre de plantilla
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    placeholder="Ej: Fuerza tren inferior"
+                    value={templateName}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Descripcion breve
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setTemplateDescription(event.target.value)}
+                    placeholder="Ej: Sentadilla + hinge + accesorios"
+                    value={templateDescription}
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70"
+                  onClick={resetTemplateForm}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                  onClick={saveCurrentSessionAsTemplate}
+                  type="button"
+                >
+                  Guardar plantilla
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {sessionTemplates.length > 0 ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {sessionTemplates.map((template) => (
+                <article className="rounded-md border border-line bg-white p-4" key={template.id}>
+                  <p className="font-semibold text-ink">{template.name}</p>
+                  {template.description ? (
+                    <p className="mt-1 text-sm text-ink/60">{template.description}</p>
+                  ) : null}
+                  <p className="mt-2 text-xs font-semibold text-moss">
+                    {template.sessionType} - {template.strengthExercises.length} ejercicios
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+                      onClick={() => loadSessionTemplate(template)}
+                      type="button"
+                    >
+                      Cargar
+                    </button>
+                    <button
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                      onClick={() => deleteSessionTemplate(template.id)}
+                      type="button"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
+              Todavia no hay plantillas guardadas.
+            </div>
+          )}
         </section>
 
         {sessionType === "Fuerza" ? (
