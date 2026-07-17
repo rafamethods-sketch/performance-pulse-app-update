@@ -49,7 +49,7 @@ export const navItems: NavItem[] = [
   { id: "clients", label: "Clientes", icon: Users },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "training", label: "Sesiones", icon: ClipboardList },
-  { id: "planning", label: "Planificacion", icon: FileClock },
+  { id: "planning", label: "Planificación", icon: FileClock },
   { id: "progressions", label: "Ejercicios", icon: Library },
   { id: "messages", label: "Mensajes", icon: MessageSquareText },
   { id: "weeklyLoad", label: "Metricas", icon: LineChart },

@@ -197,7 +197,7 @@ export default function ClientsPage() {
                   : activeSheet === "weeklyLoad"
                     ? role === "coach" ? "Metricas" : "Carga semanal"
                   : activeSheet === "planning"
-                    ? "Planificacion"
+                    ? "Planificación"
                   : activeSheet === "progressions"
                     ? "Ejercicios"
                   : activeSheet === "routines"
@@ -211,7 +211,14 @@ export default function ClientsPage() {
           </div>
 
           {role === "coach" && ((activeSheet === "clients" && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
-            <ActiveClientBar client={scopedClient ?? selectedClient!} />
+            <ActiveClientBar
+              activeSheet={activeSheet}
+              client={scopedClient ?? selectedClient!}
+              onOpenClientSheet={openClientSheet}
+              onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
+              onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+              trainerClientPanel={trainerClientPanel}
+            />
           ) : null}
 
           {activeSheet === "clients" ? (
@@ -418,13 +425,100 @@ function clientStatusClass(status: string) {
   }
 }
 
-function ActiveClientBar({ client }: { client: CoachClient }) {
+function ClientQuickNav({
+  activeSheet,
+  client,
+  onOpenClientSheet,
+  onOpenDashboard,
+  onOpenDetails,
+  trainerClientPanel
+}: {
+  activeSheet: SheetId;
+  client: CoachClient;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenDashboard: (clientId: string) => void;
+  onOpenDetails: (clientId: string) => void;
+  trainerClientPanel: TrainerClientPanel;
+}) {
+  const links = [
+    {
+      active: activeSheet === "clients" && trainerClientPanel === "dashboard",
+      label: "Dashboard",
+      onClick: () => onOpenDashboard(client.id)
+    },
+    {
+      active: activeSheet === "clients" && trainerClientPanel === "details",
+      label: "Detalles",
+      onClick: () => onOpenDetails(client.id)
+    },
+    {
+      active: activeSheet === "assessments",
+      label: "Valoraciones",
+      onClick: () => onOpenClientSheet(client.id, "assessments")
+    },
+    {
+      active: activeSheet === "planning",
+      label: "Planificación",
+      onClick: () => onOpenClientSheet(client.id, "planning")
+    },
+    {
+      active: activeSheet === "training",
+      label: "Sesiones",
+      onClick: () => onOpenClientSheet(client.id, "training")
+    }
+  ];
+
   return (
-    <section className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-line bg-white px-4 py-3 shadow-soft">
-      <span className="text-sm font-semibold text-ink">{client.name}</span>
-      <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-        Activo
-      </span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {links.map((link) => (
+        <button
+          className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+            link.active
+              ? "bg-ink text-white"
+              : "border border-line bg-white text-ink/70 hover:bg-panel"
+          }`}
+          key={link.label}
+          onClick={link.onClick}
+          type="button"
+        >
+          {link.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ActiveClientBar({
+  activeSheet,
+  client,
+  onOpenClientSheet,
+  onOpenDashboard,
+  onOpenDetails,
+  trainerClientPanel
+}: {
+  activeSheet: SheetId;
+  client: CoachClient;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenDashboard: (clientId: string) => void;
+  onOpenDetails: (clientId: string) => void;
+  trainerClientPanel: TrainerClientPanel;
+}) {
+  return (
+    <section className="mt-4 flex flex-col gap-3 rounded-md border border-line bg-white px-4 py-3 shadow-soft lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-ink">{client.name}</span>
+        <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+          Activo
+        </span>
+      </div>
+      <ClientQuickNav
+        activeSheet={activeSheet}
+        client={client}
+        onOpenClientSheet={onOpenClientSheet}
+        onOpenDashboard={onOpenDashboard}
+        onOpenDetails={onOpenDetails}
+        trainerClientPanel={trainerClientPanel}
+      />
     </section>
   );
 }
@@ -434,7 +528,7 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
     <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificacion, mensajes y valoraciones pertenezcan al cliente activo.
+        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y valoraciones pertenezcan al cliente activo.
       </p>
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
         Ir a Clientes
@@ -1124,18 +1218,13 @@ function CoachClientsView({
                     Dashboard
                   </button>
                   <button
+                    aria-label={`Detalles de ${listedClient.name}`}
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => onOpenClientSheet(listedClient.id, "planning")}
+                    onClick={() => onOpenDetails(listedClient.id)}
+                    title={`Detalles de ${listedClient.name}`}
                     type="button"
                   >
-                    Planificacion
-                  </button>
-                  <button
-                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => onOpenClientSheet(listedClient.id, "training")}
-                    type="button"
-                  >
-                    Sesiones
+                    Detalles
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -1145,13 +1234,18 @@ function CoachClientsView({
                     Valoraciones
                   </button>
                   <button
-                    aria-label={`Detalles de ${listedClient.name}`}
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => onOpenDetails(listedClient.id)}
-                    title={`Detalles de ${listedClient.name}`}
+                    onClick={() => onOpenClientSheet(listedClient.id, "planning")}
                     type="button"
                   >
-                    Detalles
+                    Planificación
+                  </button>
+                  <button
+                    className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
+                    onClick={() => onOpenClientSheet(listedClient.id, "training")}
+                    type="button"
+                  >
+                    Sesiones
                   </button>
                   </div>
                 </div>
@@ -1581,7 +1675,7 @@ function ActivePlanning({
 }) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h3 className="font-semibold text-ink">Planificacion activa</h3>
+      <h3 className="font-semibold text-ink">Planificación activa</h3>
       <div className="mt-4 rounded-md bg-panel/55 p-4">
         <p className="text-lg font-semibold text-ink">{client.planning.currentBlock}</p>
         <p className="mt-1 text-sm text-ink/55">{client.planning.currentWeek} - {client.planning.distribution}</p>
@@ -1692,7 +1786,7 @@ function QuickAccess({
   onOpenDetails: () => void;
 }) {
   const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
-    { label: "Planificacion", sheet: "planning" },
+    { label: "Planificación", sheet: "planning" },
     { label: "Sesiones", sheet: "training" },
     { label: "Metricas", sheet: "weeklyLoad" },
     { label: "Valoraciones", sheet: "assessments" },
@@ -2074,6 +2168,13 @@ function PlanningView({
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
+  const roadmapBlocks = planningBlocks.reduce<
+    Array<EditablePlanningBlock & { endWeek: number; startWeek: number }>
+  >((items, block) => {
+    const startWeek = items.length > 0 ? items[items.length - 1].endWeek + 1 : 1;
+    const endWeek = startWeek + block.durationWeeks - 1;
+    return [...items, { ...block, endWeek, startWeek }];
+  }, []);
   const selectedPlan = {
     blocks: planningBlocks,
     clientName: client?.name ?? "",
@@ -2171,12 +2272,22 @@ function PlanningView({
               Sin asignar
             </div>
           ) : (
-            <div className="mt-3 flex flex-col gap-2 md:flex-row md:flex-wrap">
-              {planningBlocks.map((block, index) => (
-                <div className="min-w-0 flex-1 rounded-md border border-line bg-panel/35 p-3 md:min-w-[180px]" key={block.id}>
-                  <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
-                  <p className="mt-1 font-semibold text-ink">{block.name}</p>
-                  <p className="mt-1 text-sm text-ink/60">{block.durationWeeks} semanas</p>
+            <div className="mt-3 flex flex-col gap-3 md:flex-row md:flex-wrap">
+              {roadmapBlocks.map((block, index) => (
+                <div className="flex min-w-0 flex-1 items-stretch gap-3 md:min-w-[220px]" key={block.id}>
+                  <div className="min-w-0 flex-1 rounded-md border border-line bg-panel/35 p-4">
+                    <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
+                    <p className="mt-1 font-semibold text-ink">{block.name}</p>
+                    <div className="mt-3 grid gap-1 text-sm text-ink/60">
+                      <p>{block.durationWeeks} semanas</p>
+                      <p>Semana {block.startWeek}-{block.endWeek}</p>
+                      <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
+                      <p>Distribucion: {block.weeklyDistribution || "Sin asignar"}</p>
+                    </div>
+                  </div>
+                  {index < roadmapBlocks.length - 1 ? (
+                    <div className="hidden items-center text-ink/35 md:flex">→</div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -2185,9 +2296,9 @@ function PlanningView({
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Metodo de planificacion</h2>
+        <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
-          Metodo de planificacion
+          Metodo de planificación
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setPlanningMethod(event.target.value as PlanningMethod)}
@@ -2256,7 +2367,7 @@ function PlanningView({
               />
             </label>
             <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              Planificacion sin fecha clave. El entrenador decide los mesociclos manualmente.
+              Planificación sin fecha clave. El entrenador decide los mesociclos manualmente.
             </p>
           </PlanningStep>
         )}
@@ -2427,7 +2538,7 @@ function PlanningSummary({
 
   return (
     <section className="mt-5 rounded-md border border-line bg-ink p-4 text-white">
-      <h3 className="font-semibold">Resumen de planificacion</h3>
+      <h3 className="font-semibold">Resumen de planificación</h3>
       <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <p className="rounded-md bg-white/10 px-3 py-2">Cliente: {selectedPlan.clientName}</p>
         <p className="rounded-md bg-white/10 px-3 py-2">Metodo: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</p>
@@ -5209,7 +5320,7 @@ function MissedSessionReason() {
     <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
       <h4 className="font-semibold text-amber-900">CuÃ©ntanos por que no se realizo</h4>
       <p className="mt-1 text-sm text-amber-800">
-        Esta informacion ayuda al entrenador a ajustar la planificacion.
+        Esta informacion ayuda al entrenador a ajustar la planificación.
       </p>
       <textarea
         className="mt-3 min-h-24 w-full rounded-md border border-amber-200 bg-white px-3 py-3 text-ink outline-none focus:border-amber-500"
