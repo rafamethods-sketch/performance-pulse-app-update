@@ -245,7 +245,16 @@ export default function ClientsPage() {
               />
             )
           ) : activeSheet === "assessments" ? (
-            <AssessmentsView client={role === "coach" ? scopedClient : null} />
+            <AssessmentsView
+              client={role === "coach" ? scopedClient : null}
+              onUpdateClient={(updatedClient) =>
+                setClients((currentClients) =>
+                  currentClients.map((listedClient) =>
+                    listedClient.id === updatedClient.id ? updatedClient : listedClient
+                  )
+                )
+              }
+            />
           ) : activeSheet === "calendar" ? (
             <CalendarView client={role === "coach" ? null : selectedClient} clients={clients} />
           ) : activeSheet === "fatigue" ? (
@@ -3663,19 +3672,20 @@ const emptyAssessmentDraft = {
   unit: ""
 };
 
-function AssessmentsView({ client }: { client?: CoachClient | null }) {
+function AssessmentsView({
+  client,
+  onUpdateClient
+}: {
+  client?: CoachClient | null;
+  onUpdateClient?: (updatedClient: CoachClient) => void;
+}) {
   const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
-  const [localAssessments, setLocalAssessments] = useState<AssessmentEntry[]>([]);
-  const assessments: AssessmentEntry[] = [
-    ...localAssessments,
-    ...(client?.assessments ?? [])
-  ];
+  const assessments: AssessmentEntry[] = client?.assessments ?? [];
 
   useEffect(() => {
     setShowNewAssessmentForm(false);
     setAssessmentDraft(emptyAssessmentDraft);
-    setLocalAssessments([]);
   }, [client?.id]);
 
   const updateAssessmentDraft = (field: keyof typeof assessmentDraft, value: string) => {
@@ -3688,22 +3698,27 @@ function AssessmentsView({ client }: { client?: CoachClient | null }) {
   };
 
   const handleSaveAssessment = () => {
-    if (!assessmentDraft.name.trim() && !assessmentDraft.result.trim()) return;
+    if (!client || !onUpdateClient || (!assessmentDraft.name.trim() && !assessmentDraft.result.trim())) return;
 
     const resultWithUnit = `${assessmentDraft.result.trim()}${assessmentDraft.unit.trim() ? ` ${assessmentDraft.unit.trim()}` : ""}`.trim();
 
-    setLocalAssessments((currentAssessments) => [
-      {
-        action: "Ver historial",
-        date: assessmentDraft.date || "Sin fecha",
-        name: assessmentDraft.name.trim() || "Test sin nombre",
-        notes: assessmentDraft.notes.trim(),
-        result: resultWithUnit || "Sin resultado",
-        type: assessmentDraft.category,
-        unit: assessmentDraft.unit.trim()
-      },
-      ...currentAssessments
-    ]);
+    const newAssessment: AssessmentEntry = {
+      action: "Ver historial",
+      date: assessmentDraft.date || "Sin fecha",
+      name: assessmentDraft.name.trim() || "Test sin nombre",
+      notes: assessmentDraft.notes.trim(),
+      result: resultWithUnit || "Sin resultado",
+      type: assessmentDraft.category,
+      unit: assessmentDraft.unit.trim()
+    };
+
+    onUpdateClient({
+      ...client,
+      assessments: [
+        newAssessment,
+        ...(client.assessments ?? [])
+      ]
+    });
     resetAssessmentForm();
   };
 
@@ -3719,6 +3734,7 @@ function AssessmentsView({ client }: { client?: CoachClient | null }) {
           </div>
           <button
             className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            disabled={!client}
             onClick={() => setShowNewAssessmentForm(true)}
             type="button"
           >
