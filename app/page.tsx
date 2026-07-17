@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ClipboardCheck,
@@ -7,6 +7,7 @@ import {
   Search,
   Send,
   Settings2,
+  Trash2,
   Unlock,
 } from "lucide-react";
 import Image from "next/image";
@@ -44,8 +45,6 @@ import {
   exerciseLibrary,
   getExerciseById,
   getExercisePatternsByBodyRegion,
-  getExerciseProgression,
-  getExerciseRegression,
   getExercisesByPattern,
   searchExercises,
   type BodyRegion,
@@ -100,6 +99,7 @@ export default function ClientsPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
   const [hooperDone, setHooperDone] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
     daysPerWeek: 2
@@ -126,6 +126,17 @@ export default function ClientsPage() {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("rafa-methods-sidebar-collapsed");
+    if (stored) {
+      setIsSidebarCollapsed(stored === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("rafa-methods-sidebar-collapsed", String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   if (!role) {
     return <LoginCover onLogin={setRole} />;
@@ -157,10 +168,20 @@ export default function ClientsPage() {
 
   return (
     <main className="min-h-screen lg:flex">
-      <Sidebar activeSheet={activeSheet} onSheetChange={handleSheetChange} role={role} />
+      <Sidebar
+        activeSheet={activeSheet}
+        collapsed={isSidebarCollapsed}
+        onSheetChange={handleSheetChange}
+        onToggleCollapsed={() => setIsSidebarCollapsed((current) => !current)}
+        role={role}
+      />
       <div className="min-w-0 flex-1">
         <MobileNav activeSheet={activeSheet} onSheetChange={handleSheetChange} role={role} />
-        <section className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <section
+          className={`mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 lg:px-8 ${
+            activeSheet === "training" && role === "coach" ? "max-w-[96rem]" : "max-w-7xl"
+          }`}
+        >
           <div className="flex min-w-0 flex-col gap-4 border-b border-line pb-4 sm:pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
@@ -2074,8 +2095,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const selectedExercise =
     selectedFamilyGroup?.exercises.find((exercise) => exercise.id === selectedExerciseId) ??
     selectedFamilyGroup?.exercises[0];
-  const regression = selectedExercise ? getExerciseRegression(selectedExercise.id) : null;
-  const progression = selectedExercise ? getExerciseProgression(selectedExercise.id) : null;
   const fatigueEntries = selectedExercise
     ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
     : [];
@@ -2093,7 +2112,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Region corporal
+            Región corporal
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -2114,7 +2133,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Patron
+            Patrón
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -2159,17 +2178,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
         </div>
-        <div className="mt-5 rounded-md bg-mint p-4">
-          <p className="text-sm font-semibold text-moss">Relacion dentro de la familia</p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
-            <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70">
-              Regresion: {regression?.name ?? "Sin ejercicio anterior"}
-            </p>
-            <p className="rounded-md bg-white px-3 py-2 text-sm text-ink/70">
-              Progresion: {progression?.name ?? "Sin ejercicio siguiente"}
-            </p>
-          </div>
-        </div>
       </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2188,7 +2196,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </div>
 
             <div className="mt-5 rounded-md bg-panel/45 p-4">
-              <h3 className="text-sm font-semibold text-ink">Descripcion tecnica</h3>
+              <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
               <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
             </div>
 
@@ -2262,7 +2270,7 @@ function formatFatigueKey(key: string) {
     core: "Core",
     forearms: "Antebrazos",
     anteriorDelts: "Deltoides anterior",
-    biceps: "Biceps",
+    biceps: "Bíceps",
     chest: "Pectoral",
     glutes: "Gluteos",
     gluteMed: "Gluteo medio",
@@ -2278,18 +2286,18 @@ function formatFatigueKey(key: string) {
     lumbarStabilizers: "Estabilizadores lumbares",
     midBack: "Espalda media",
     obliques: "Oblicuos",
-    quadriceps: "Cuadriceps",
+    quadriceps: "Cuádriceps",
     rectusAbdominis: "Recto abdominal",
     rearDelts: "Deltoides posterior",
     rotatorCuff: "Manguito rotador",
     serratusAnterior: "Serrato anterior",
     shoulders: "Hombros",
-    soleus: "Soleo",
+    soleus: "Sóleo",
     spinalErectors: "Erectores",
-    thoracicSpine: "Columna toracica",
+    thoracicSpine: "Columna torácica",
     tibialisAnterior: "Tibial anterior",
     traps: "Trapecio",
-    triceps: "Triceps",
+    triceps: "Tríceps",
     transverseAbdominis: "Transverso abdominal",
     upperTraps: "Trapecio superior",
     upperBack: "Upper back"
@@ -2602,7 +2610,7 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
           <table className="w-full min-w-[960px] border-separate border-spacing-y-2 text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink/50">
               <tr>
-                <th className="px-3 py-2">Patron</th>
+                <th className="px-3 py-2">Patrón</th>
                 <th className="px-3 py-2">Ejercicio</th>
                 <th className="px-3 py-2">Series</th>
                 <th className="px-3 py-2">Reps</th>
@@ -3840,7 +3848,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
     primary: ["tonelaje", "series duras", "RPE/RIR", "volumen-carga", "velocidad"],
     fields: [
       "Ejercicio",
-      "Patron de movimiento",
+      "Patrón de movimiento",
       "Series",
       "Repeticiones",
       "Carga",
@@ -3869,7 +3877,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
 
 function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
-  const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>(null);
+  const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? coachClients[0].id);
   const activeSessionClient =
     client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
@@ -3911,6 +3919,9 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
       current.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...updates } : exercise)
     );
   };
+  const removeStrengthExercise = (exerciseId: string) => {
+    setStrengthExercises((current) => current.filter((exercise) => exercise.id !== exerciseId));
+  };
   const renderStrengthBlock = (block: StrengthSessionBlock, title: string, buttonLabel: string) => {
     const blockExercises = strengthExercises.filter((exercise) => exercise.block === block);
 
@@ -3929,15 +3940,8 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
         </div>
         <div className="mt-4 grid gap-3">
           {blockExercises.length === 0 ? (
-            <div className="rounded-md border border-dashed border-line bg-white p-5 text-center">
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
-                onClick={() => addStrengthExercise(block)}
-                type="button"
-              >
-                <Plus size={18} />
-                {buttonLabel}
-              </button>
+            <div className="rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
+              Sin ejercicios añadidos.
             </div>
           ) : blockExercises.map((exercise) => {
             const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
@@ -3946,6 +3950,20 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-ink/65">
+                  Ejercicio {blockExercises.findIndex((item) => item.id === exercise.id) + 1}
+                </p>
+                <button
+                  aria-label="Eliminar ejercicio"
+                  className="grid size-9 shrink-0 place-items-center rounded-md border border-line text-ink/45 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => removeStrengthExercise(exercise.id)}
+                  title="Eliminar ejercicio"
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
               <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
                 <div className="space-y-1 text-xs font-semibold text-ink/55">
                   Ejercicio
@@ -4007,7 +4025,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                   </p>
                 </div>
               ) : null}
-              <div className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Series
                   <input
@@ -4081,13 +4099,12 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   };
 
   return (
-    <div className="mt-5 grid gap-5 xl:mt-6 xl:grid-cols-[0.45fr_1.55fr] xl:gap-6">
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-        <h2 className="text-lg font-semibold text-ink">Sesiones</h2>
-        <div className="mt-4 grid gap-3">
+    <div className="mt-5 xl:mt-6">
+      <div className="rounded-md border border-line bg-white p-2 shadow-soft">
+        <div className="grid gap-2 sm:grid-cols-2">
           <button
-            className={`flex h-12 items-center justify-center rounded-md px-4 text-sm font-semibold ${
-              activeSessionPanel === "planner" ? "bg-ink text-white" : "border border-line bg-panel/45 text-ink/70"
+            className={`flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition ${
+              activeSessionPanel === "planner" ? "bg-ink text-white shadow-soft" : "bg-panel/45 text-ink/70 hover:bg-panel"
             }`}
             onClick={() => setActiveSessionPanel("planner")}
             type="button"
@@ -4095,8 +4112,8 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             Planificar sesion
           </button>
           <button
-            className={`flex h-12 items-center justify-center rounded-md px-4 text-sm font-semibold ${
-              activeSessionPanel === "history" ? "bg-ink text-white" : "border border-line bg-panel/45 text-ink/70"
+            className={`flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition ${
+              activeSessionPanel === "history" ? "bg-ink text-white shadow-soft" : "bg-panel/45 text-ink/70 hover:bg-panel"
             }`}
             onClick={() => setActiveSessionPanel("history")}
             type="button"
@@ -4104,9 +4121,9 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             Sesiones anteriores
           </button>
         </div>
-      </section>
+      </div>
 
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5 xl:mt-6">
         {activeSessionPanel === "planner" ? (
         <>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -4607,7 +4624,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                     <thead className="text-xs uppercase tracking-wide text-ink/50">
                       <tr>
                         <th className="px-3 py-2">Ejercicio</th>
-                        <th className="px-3 py-2">Patron</th>
+                        <th className="px-3 py-2">Patrón</th>
                         <th className="px-3 py-2">Musculo</th>
                         <th className="px-3 py-2">Series</th>
                         <th className="px-3 py-2">Reps</th>
