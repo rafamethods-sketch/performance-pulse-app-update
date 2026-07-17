@@ -3681,11 +3681,14 @@ function AssessmentsView({
 }) {
   const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
+  const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
+  const isEditingAssessment = editingAssessmentIndex !== null;
 
   useEffect(() => {
     setShowNewAssessmentForm(false);
     setAssessmentDraft(emptyAssessmentDraft);
+    setEditingAssessmentIndex(null);
   }, [client?.id]);
 
   const updateAssessmentDraft = (field: keyof typeof assessmentDraft, value: string) => {
@@ -3694,6 +3697,7 @@ function AssessmentsView({
 
   const resetAssessmentForm = () => {
     setAssessmentDraft(emptyAssessmentDraft);
+    setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(false);
   };
 
@@ -3712,6 +3716,17 @@ function AssessmentsView({
       unit: assessmentDraft.unit.trim()
     };
 
+    if (editingAssessmentIndex !== null) {
+      onUpdateClient({
+        ...client,
+        assessments: (client.assessments ?? []).map((assessment, index) =>
+          index === editingAssessmentIndex ? newAssessment : assessment
+        )
+      });
+      resetAssessmentForm();
+      return;
+    }
+
     onUpdateClient({
       ...client,
       assessments: [
@@ -3720,6 +3735,30 @@ function AssessmentsView({
       ]
     });
     resetAssessmentForm();
+  };
+
+  const handleEditAssessment = (assessment: AssessmentEntry, index: number) => {
+    setAssessmentDraft({
+      category: assessment.type,
+      date: assessment.date === "Sin fecha" ? "" : assessment.date,
+      name: assessment.name,
+      notes: assessment.notes ?? "",
+      result: assessment.result,
+      unit: assessment.unit ?? ""
+    });
+    setEditingAssessmentIndex(index);
+    setShowNewAssessmentForm(true);
+  };
+
+  const handleDeleteAssessment = (targetIndex: number) => {
+    if (!client || !onUpdateClient) return;
+
+    onUpdateClient({
+      ...client,
+      assessments: (client.assessments ?? []).filter((_, index) => index !== targetIndex)
+    });
+
+    if (editingAssessmentIndex === targetIndex) resetAssessmentForm();
   };
 
   return (
@@ -3745,13 +3784,13 @@ function AssessmentsView({
         {showNewAssessmentForm ? (
           <form className="mt-5 rounded-md border border-line bg-panel/35 p-4" onSubmit={(event) => event.preventDefault()}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="font-semibold text-ink">Nueva valoración</h3>
+              <h3 className="font-semibold text-ink">{isEditingAssessment ? "Editar valoración" : "Nueva valoración"}</h3>
               <div className="flex flex-wrap gap-2">
                 <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
                   Cancelar
                 </button>
                 <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
-                  Guardar valoración
+                  {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
                 </button>
               </div>
             </div>
@@ -3826,6 +3865,22 @@ function AssessmentsView({
                 {assessment.notes ? (
                   <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{assessment.notes}</p>
                 ) : null}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70"
+                    onClick={() => handleEditAssessment(assessment, index)}
+                    type="button"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                    onClick={() => handleDeleteAssessment(index)}
+                    type="button"
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </article>
             ))}
           </div>
