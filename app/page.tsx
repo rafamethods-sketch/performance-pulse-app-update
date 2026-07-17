@@ -92,6 +92,7 @@ export default function ClientsPage() {
   const [goalType, setGoalType] = useState<GoalType>("health");
   const [activeSheet, setActiveSheet] = useState<SheetId>("clients");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
+  const [clients, setClients] = useState<CoachClient[]>(coachClients);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
   const [hooperDone, setHooperDone] = useState(false);
@@ -139,9 +140,9 @@ export default function ClientsPage() {
   }
 
   const selectedClient =
-    coachClients.find((client) => client.id === selectedClientId) ?? null;
+    clients.find((client) => client.id === selectedClientId) ?? null;
   const scopedClient =
-    coachClients.find((client) => client.id === scopedClientId) ?? null;
+    clients.find((client) => client.id === scopedClientId) ?? null;
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
@@ -217,12 +218,14 @@ export default function ClientsPage() {
             role === "coach" ? (
               <CoachClientsView
                 client={selectedClient}
+                clients={clients}
                 onBack={() => setTrainerClientPanel("list")}
                 onGoToSheet={handleSheetChange}
                 onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
                 panel={trainerClientPanel}
+                setClients={setClients}
               />
             ) : (
               <AthleteClientForm
@@ -233,7 +236,7 @@ export default function ClientsPage() {
               />
             )
           ) : activeSheet === "training" ? (
-            role === "coach" ? <CoachTrainingPlanner client={scopedClient} /> : (
+            role === "coach" ? <CoachTrainingPlanner client={scopedClient} clients={clients} /> : (
               <AthleteTrainingView
                 hooperDone={hooperDone}
                 onCompleteHooper={() => setHooperDone(true)}
@@ -242,7 +245,7 @@ export default function ClientsPage() {
           ) : activeSheet === "assessments" ? (
             <AssessmentsView client={role === "coach" ? scopedClient : null} />
           ) : activeSheet === "calendar" ? (
-            <CalendarView client={role === "coach" ? null : selectedClient} />
+            <CalendarView client={role === "coach" ? null : selectedClient} clients={clients} />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
@@ -252,9 +255,9 @@ export default function ClientsPage() {
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "routines" ? (
-            role === "coach" ? <RoutinesView trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
+            role === "coach" ? <RoutinesView clients={clients} trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
           ) : activeSheet === "messages" ? (
-            <MessagesView client={scopedClient} />
+            <MessagesView client={scopedClient} clients={clients} />
           ) : (
             <DecisionDashboardView />
           )}
@@ -343,7 +346,16 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   );
 }
 
-type CoachClient = (typeof coachClients)[number];
+type BaseCoachClient = (typeof coachClients)[number];
+type CoachClient = BaseCoachClient & {
+  planning: BaseCoachClient["planning"] & {
+    blocks?: EditablePlanningBlock[];
+    eventDate?: string;
+    eventName?: string;
+    eventNotes?: string;
+    method?: PlanningMethod;
+  };
+};
 type ClientSessionRecord = CoachClient["sessionRecords"][number];
 type ClientAssessment = CoachClient["assessments"][number];
 type DashboardDetailSection = "status" | "load" | "acwr" | "monotony" | "strain" | "hooper" | "fatigue-map";
@@ -432,32 +444,44 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
 
 function CoachClientsView({
   client,
+  clients,
   onBack,
   onGoToSheet,
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
-  panel
+  panel,
+  setClients
 }: {
   client: CoachClient | null;
+  clients: CoachClient[];
   onBack: () => void;
   onGoToSheet: (sheet: SheetId) => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   panel: TrainerClientPanel;
+  setClients: React.Dispatch<React.SetStateAction<CoachClient[]>>;
 }) {
-  const [clients, setClients] = useState<CoachClient[]>(coachClients);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientStep, setNewClientStep] = useState(1);
   const [showSearch, setShowSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [goalFilter, setGoalFilter] = useState<"all" | "Salud" | "Rendimiento">("all");
   const [newClientDraft, setNewClientDraft] = useState({
     age: 30,
+    eventDate: "",
+    eventName: "",
+    eventNotes: "",
     goalType: "Rendimiento" as CoachClient["goalType"],
+    injuries: "",
+    initialNotes: "",
     modality: "General",
-    name: ""
+    name: "",
+    objective: "",
+    planningBlocks: [] as EditablePlanningBlock[],
+    planningMethod: "" as PlanningMethod
   });
   const healthClients = clients.filter((listedClient) => listedClient.goalType === "Salud").length;
   const performanceClients = clients.filter((listedClient) => listedClient.goalType === "Rendimiento").length;
@@ -475,45 +499,128 @@ function CoachClientsView({
     return matchesGoal && matchesSearch;
   });
 
-  function addClient() {
-    const name = newClientDraft.name.trim();
-    if (!name) return;
+  function resetNewClientDraft() {
+    setNewClientDraft({
+      age: 30,
+      eventDate: "",
+      eventName: "",
+      eventNotes: "",
+      goalType: "Rendimiento",
+      injuries: "",
+      initialNotes: "",
+      modality: "General",
+      name: "",
+      objective: "",
+      planningBlocks: [],
+      planningMethod: ""
+    });
+    setNewClientStep(1);
+  }
 
-    const id = name
+  function addClientMesocycle() {
+    const nextIndex = newClientDraft.planningBlocks.length + 1;
+    setNewClientDraft((draft) => ({
+      ...draft,
+      planningBlocks: [
+        ...draft.planningBlocks,
+        {
+          durationWeeks: 4,
+          id: `new-client-mesocycle-${Date.now()}`,
+          mainMetrics: ["RPE"],
+          name: `Mesociclo ${nextIndex}`,
+          notes: "",
+          primaryObjective: draft.objective,
+          secondaryObjective: "",
+          weeklyDistribution: "Lineal"
+        }
+      ]
+    }));
+  }
+
+  function updateClientMesocycle(blockId: string, updates: Partial<EditablePlanningBlock>) {
+    setNewClientDraft((draft) => ({
+      ...draft,
+      planningBlocks: draft.planningBlocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
+    }));
+  }
+
+  function toggleClientMesocycleMetric(blockId: string, metric: string) {
+    setNewClientDraft((draft) => ({
+      ...draft,
+      planningBlocks: draft.planningBlocks.map((block) => {
+        if (block.id !== blockId) return block;
+        const mainMetrics = block.mainMetrics.includes(metric)
+          ? block.mainMetrics.filter((item) => item !== metric)
+          : [...block.mainMetrics, metric];
+        return { ...block, mainMetrics };
+      })
+    }));
+  }
+
+  function deleteClientMesocycle(blockId: string) {
+    setNewClientDraft((draft) => ({
+      ...draft,
+      planningBlocks: draft.planningBlocks.filter((block) => block.id !== blockId)
+    }));
+  }
+
+  function buildClientId(name: string) {
+    const baseId = name
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || `cliente-${Date.now()}`;
+    if (!clients.some((listedClient) => listedClient.id === baseId)) return baseId;
+    return `${baseId}-${Date.now()}`;
+  }
+
+  function addClient() {
+    const name = newClientDraft.name.trim();
+    if (!name) return;
+
+    const id = buildClientId(name);
+    const firstBlock = newClientDraft.planningBlocks[0] ?? null;
+    const planningBlocks = newClientDraft.planningBlocks.map((block) => ({
+      ...block,
+      mainMetrics: [...block.mainMetrics]
+    }));
+    const nextEvent = newClientDraft.eventName.trim()
+      ? `${newClientDraft.eventName.trim()}${newClientDraft.eventDate ? ` - ${newClientDraft.eventDate}` : ""}`
+      : "Sin evento definido";
 
     const createdClient: CoachClient = {
-      ...coachClients[0],
-      activeBlocks: ["Ficha inicial pendiente"],
+      activeBlocks: planningBlocks.length > 0 ? planningBlocks.map((block) => block.name) : ["Sin asignar"],
       age: newClientDraft.age,
       assessments: [],
       availability: "Pendiente",
       chronicLoad: 0,
-      coachNotes: "Nuevo cliente pendiente de completar ficha inicial.",
+      coachNotes: newClientDraft.initialNotes.trim() || "Nuevo cliente pendiente de completar ficha inicial.",
       dailyLoads: [0, 0, 0, 0, 0, 0, 0],
       goalType: newClientDraft.goalType,
       history: "Pendiente de completar.",
       hooper: { sleep: 0, fatigue: 0, stress: 0, soreness: 0, mood: 0 },
       id,
-      injuries: "Pendiente de completar.",
+      injuries: newClientDraft.injuries.trim() || "Pendiente de completar.",
       lastActivity: "Sin sesiones registradas",
       level: "Pendiente",
       loadMetric: "Sin datos de carga",
       metrics: ["Sin metricas registradas"],
       modality: newClientDraft.modality,
       name,
-      nextEvent: "Sin evento definido",
+      nextEvent,
       planning: {
-        currentBlock: "Sin planificacion",
+        blocks: planningBlocks,
+        currentBlock: firstBlock?.name || "Sin asignar",
         currentWeek: "Pendiente",
-        distribution: "Pendiente",
+        distribution: firstBlock?.weeklyDistribution || "Pendiente",
+        eventDate: newClientDraft.eventDate,
+        eventName: newClientDraft.eventName,
+        eventNotes: newClientDraft.eventNotes,
+        method: newClientDraft.planningMethod,
         nextSessions: [],
-        primaryGoal: "Pendiente",
-        secondaryGoal: "Pendiente"
+        primaryGoal: firstBlock?.primaryObjective || newClientDraft.objective || "Pendiente",
+        secondaryGoal: firstBlock?.secondaryObjective || "Pendiente"
       },
       readiness: 0,
       recentSessions: [],
@@ -523,7 +630,7 @@ function CoachClientsView({
     };
 
     setClients((currentClients) => [createdClient, ...currentClients]);
-    setNewClientDraft({ age: 30, goalType: "Rendimiento", modality: "General", name: "" });
+    resetNewClientDraft();
     setShowNewClientForm(false);
   }
 
@@ -573,54 +680,320 @@ function CoachClientsView({
 
         {showNewClientForm && (
           <div className="mt-5 rounded-md border border-line bg-panel/45 p-4">
-            <h3 className="font-semibold text-ink">Nuevo cliente</h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
-                Nombre
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, name: event.target.value }))}
-                  placeholder="Nombre completo"
-                  value={newClientDraft.name}
-                />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Edad
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                  min={1}
-                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, age: Number(event.target.value) }))}
-                  type="number"
-                  value={newClientDraft.age}
-                />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Objetivo
-                <select
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, goalType: event.target.value as CoachClient["goalType"] }))}
-                  value={newClientDraft.goalType}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-ink">Nuevo cliente</h3>
+                <p className="mt-1 text-sm text-ink/55">Paso {newClientStep} de 4</p>
+              </div>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((step) => (
+                  <button
+                    className={`size-8 rounded-md text-sm font-semibold ${
+                      newClientStep === step ? "bg-ink text-white" : "border border-line bg-white text-ink/60"
+                    }`}
+                    key={step}
+                    onClick={() => setNewClientStep(step)}
+                    type="button"
+                  >
+                    {step}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {newClientStep === 1 && (
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                  Nombre
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, name: event.target.value }))}
+                    placeholder="Nombre completo"
+                    value={newClientDraft.name}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Edad
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    min={1}
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, age: Number(event.target.value) }))}
+                    type="number"
+                    value={newClientDraft.age}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Contexto
+                  <select
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, goalType: event.target.value as CoachClient["goalType"] }))}
+                    value={newClientDraft.goalType}
+                  >
+                    <option>Rendimiento</option>
+                    <option>Salud</option>
+                  </select>
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                  Disciplina / deporte
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, modality: event.target.value }))}
+                    placeholder="Ej. Running, fuerza, salud..."
+                    value={newClientDraft.modality}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                  Lesiones o limitaciones
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, injuries: event.target.value }))}
+                    placeholder="Ej. tendinopatía, dolor lumbar, sin limitaciones..."
+                    value={newClientDraft.injuries}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-4">
+                  Notas iniciales
+                  <textarea
+                    className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, initialNotes: event.target.value }))}
+                    placeholder="Notas del entrenador"
+                    value={newClientDraft.initialNotes}
+                  />
+                </label>
+              </div>
+            )}
+
+            {newClientStep === 2 && (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Objetivo principal
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, objective: event.target.value }))}
+                    placeholder="Ej. fuerza máxima, salud metabólica, 10K..."
+                    value={newClientDraft.objective}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Próxima competición / test / pico de forma
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, eventName: event.target.value }))}
+                    placeholder="Ej. Test fuerza máxima"
+                    value={newClientDraft.eventName}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Fecha objetivo
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, eventDate: event.target.value }))}
+                    type="date"
+                    value={newClientDraft.eventDate}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Notas del objetivo
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, eventNotes: event.target.value }))}
+                    placeholder="Prioridades, restricciones, fecha flexible..."
+                    value={newClientDraft.eventNotes}
+                  />
+                </label>
+              </div>
+            )}
+
+            {newClientStep === 3 && (
+              <div className="mt-4 grid gap-4">
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Modelo de periodización
+                  <select
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, planningMethod: event.target.value as PlanningMethod }))}
+                    value={newClientDraft.planningMethod}
+                  >
+                    <option value="">Sin seleccionar</option>
+                    <option value="linear">Lineal</option>
+                    <option value="undulating">Ondulante</option>
+                    <option value="block">Bloques</option>
+                    <option value="flexible">Flexible</option>
+                  </select>
+                </label>
+
+                <button
+                  className="inline-flex h-10 w-fit items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                  onClick={addClientMesocycle}
+                  type="button"
                 >
-                  <option>Rendimiento</option>
-                  <option>Salud</option>
-                </select>
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
-                Modalidad deportiva
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setNewClientDraft((draft) => ({ ...draft, modality: event.target.value }))}
-                  placeholder="Ej. Running, fuerza, salud..."
-                  value={newClientDraft.modality}
-                />
-              </label>
-              <div className="flex items-end gap-2 md:col-span-2">
-                <button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={addClient} type="button">
-                  Guardar cliente
+                  <Plus size={16} />
+                  Añadir mesociclo
                 </button>
-                <button className="h-11 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink/70" onClick={() => setShowNewClientForm(false)} type="button">
-                  Cancelar
+
+                {newClientDraft.planningBlocks.length === 0 ? (
+                  <div className="rounded-md bg-white px-3 py-3 text-sm text-ink/60">
+                    Puedes crear el cliente sin mesociclos y completar la planificación después.
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {newClientDraft.planningBlocks.map((block, index) => (
+                      <section className="rounded-md border border-line bg-white p-4" key={block.id}>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h4 className="font-semibold text-ink">Mesociclo {index + 1}</h4>
+                          <button
+                            aria-label="Eliminar mesociclo"
+                            className="rounded-md border border-red-200 bg-red-50 p-2 text-red-700"
+                            onClick={() => deleteClientMesocycle(block.id)}
+                            type="button"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
+                            Nombre
+                            <input
+                              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateClientMesocycle(block.id, { name: event.target.value })}
+                              value={block.name}
+                            />
+                          </label>
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
+                            Duración
+                            <input
+                              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                              min={1}
+                              onChange={(event) => updateClientMesocycle(block.id, { durationWeeks: Number(event.target.value) })}
+                              type="number"
+                              value={block.durationWeeks}
+                            />
+                          </label>
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
+                            Objetivo principal
+                            <input
+                              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateClientMesocycle(block.id, { primaryObjective: event.target.value })}
+                              value={block.primaryObjective}
+                            />
+                          </label>
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
+                            Objetivo secundario
+                            <input
+                              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateClientMesocycle(block.id, { secondaryObjective: event.target.value })}
+                              value={block.secondaryObjective}
+                            />
+                          </label>
+                          <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                            Distribución semanal
+                            <select
+                              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateClientMesocycle(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
+                              value={block.weeklyDistribution}
+                            >
+                              {planningConfig.weeklyDistributionOptions.map((distribution) => (
+                                <option key={distribution}>{distribution}</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="mt-3">
+                          <p className="mb-2 text-sm font-medium text-ink/75">Métricas principales</p>
+                          <div className="flex flex-wrap gap-2">
+                            {allPlanningMetrics.map((metric) => (
+                              <button
+                                className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                                  block.mainMetrics.includes(metric)
+                                    ? "border-moss bg-mint text-moss"
+                                    : "border-line bg-panel/35 text-ink/65"
+                                }`}
+                                key={metric}
+                                onClick={() => toggleClientMesocycleMetric(block.id, metric)}
+                                type="button"
+                              >
+                                {metric}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
+                          Notas
+                          <textarea
+                            className="min-h-16 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-ink outline-none focus:border-moss"
+                            onChange={(event) => updateClientMesocycle(block.id, { notes: event.target.value })}
+                            value={block.notes}
+                          />
+                        </label>
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {newClientStep === 4 && (
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                <div className="rounded-md bg-white p-4">
+                  <h4 className="font-semibold text-ink">Datos del cliente</h4>
+                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.name || "Sin nombre"}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.age} años · {newClientDraft.modality}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.goalType}</p>
+                </div>
+                <div className="rounded-md bg-white p-4">
+                  <h4 className="font-semibold text-ink">Objetivo</h4>
+                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.objective || "Sin definir"}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.eventName || "Sin evento definido"}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.eventDate || "Sin fecha"}</p>
+                </div>
+                <div className="rounded-md bg-white p-4">
+                  <h4 className="font-semibold text-ink">Planificación inicial</h4>
+                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.planningMethod ? getPlanningMethodLabel(newClientDraft.planningMethod) : "Sin modelo"}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.planningBlocks.length} mesociclos</p>
+                  {newClientDraft.planningBlocks[0] ? (
+                    <p className="text-sm text-ink/65">Inicio: {newClientDraft.planningBlocks[0].name}</p>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-wrap justify-between gap-2">
+              <button
+                className="h-10 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink/70"
+                onClick={() => {
+                  resetNewClientDraft();
+                  setShowNewClientForm(false);
+                }}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <div className="flex gap-2">
+                <button
+                  className="h-10 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink/70 disabled:opacity-40"
+                  disabled={newClientStep === 1}
+                  onClick={() => setNewClientStep((step) => Math.max(1, step - 1))}
+                  type="button"
+                >
+                  Anterior
                 </button>
+                {newClientStep < 4 ? (
+                  <button
+                    className="h-10 rounded-md bg-ink px-4 text-sm font-semibold text-white"
+                    onClick={() => setNewClientStep((step) => Math.min(4, step + 1))}
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                ) : (
+                  <button
+                    className="h-10 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:opacity-40"
+                    disabled={!newClientDraft.name.trim()}
+                    onClick={addClient}
+                    type="button"
+                  >
+                    Crear cliente
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1676,25 +2049,29 @@ function PlanningView({
 }: {
   client?: CoachClient | null;
 }) {
-  const [selectedPlanningClientId, setSelectedPlanningClientId] = useState(client?.id ?? coachClients[0].id);
-  const activePlanningClient =
-    client ?? coachClients.find((listedClient) => listedClient.id === selectedPlanningClientId) ?? coachClients[0];
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
-  const [planningPeakDate, setPlanningPeakDate] = useState("");
-  const [planningEventName, setPlanningEventName] = useState("");
-  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>("");
-  const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>([]);
+  const [planningPeakDate, setPlanningPeakDate] = useState(client?.planning.eventDate ?? "");
+  const [planningEventName, setPlanningEventName] = useState(client?.planning.eventName ?? "");
+  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
+  const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const selectedPlan = {
     blocks: planningBlocks,
-    clientName: activePlanningClient.name,
+    clientName: client?.name ?? "",
     planningMethod,
     planningEventName,
     planningPeakDate,
     planningEventType,
     planningWeeks
   };
+
+  useEffect(() => {
+    setPlanningBlocks(client?.planning.blocks ?? []);
+    setPlanningEventName(client?.planning.eventName ?? "");
+    setPlanningPeakDate(client?.planning.eventDate ?? "");
+    setPlanningMethod(client?.planning.method ?? "");
+  }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
     const nextIndex = planningBlocks.length + 1;
@@ -1747,30 +2124,24 @@ function PlanningView({
     });
   }
 
+  if (!client) {
+    return (
+      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+        <p className="text-sm font-semibold text-ink">
+          Selecciona primero un cliente desde Clientes para ver su planificación.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Cliente</p>
-            {client ? (
-              <>
-                <h2 className="mt-1 text-lg font-semibold text-ink">{activePlanningClient.name}</h2>
-                <p className="mt-1 text-sm text-ink/55">{activePlanningClient.modality} - {activePlanningClient.nextEvent}</p>
-              </>
-            ) : (
-              <select
-                className="mt-2 h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss sm:w-80"
-                onChange={(event) => setSelectedPlanningClientId(event.target.value)}
-                value={selectedPlanningClientId}
-              >
-                {coachClients.map((listedClient) => (
-                  <option key={listedClient.id} value={listedClient.id}>
-                    {listedClient.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
+            <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.nextEvent}</p>
           </div>
           <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
             {planningBlocks.length} mesociclos - {totalWeeks} semanas
@@ -1871,7 +2242,7 @@ function PlanningView({
         <PlanningStep step="4" title="Mesociclos editables">
           {planningBlocks.length === 0 ? (
             <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-              Pulsa + Anadir mesociclo para crear la estructura manualmente.
+              Bloque / mesociclo: Sin asignar. Pulsa + Anadir mesociclo para crear la estructura manualmente.
             </div>
           ) : (
             <div className="grid gap-4">
@@ -2531,7 +2902,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
   };
 }
 
-function RoutinesView({ trainingAvailability }: { trainingAvailability: TrainingAvailability }) {
+function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[]; trainingAvailability: TrainingAvailability }) {
   const [selectedGoal, setSelectedGoal] = useState<RoutineTemplate["goal"]>("Salud");
   const [selectedProfile, setSelectedProfile] = useState<RoutineTemplate["profile"]>("Persona mayor");
   const recommendedDistribution = recommendTrainingDistribution(trainingAvailability);
@@ -2646,8 +3017,8 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
             <p className="mt-1 text-sm text-ink/55">{selectedTemplate.name}</p>
           </div>
           <select className="h-10 rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss">
-            {coachClients.map((client) => (
-              <option key={client.name}>{client.name}</option>
+            {clients.map((client) => (
+              <option key={client.id}>{client.name}</option>
             ))}
           </select>
         </div>
@@ -2711,7 +3082,7 @@ function RoutinesView({ trainingAvailability }: { trainingAvailability: Training
   );
 }
 
-function MessagesView({ client }: { client?: CoachClient | null }) {
+function MessagesView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
   const [selectedThreadId, setSelectedThreadId] = useState(messageThreads[0].id);
   const [selectedMessageClient, setSelectedMessageClient] = useState(client?.name ?? "Todos");
   const clientThreads = client
@@ -2720,7 +3091,7 @@ function MessagesView({ client }: { client?: CoachClient | null }) {
       ? messageThreads
       : messageThreads.filter((thread) => thread.athlete === selectedMessageClient);
   const fallbackClient =
-    client ?? coachClients.find((listedClient) => listedClient.name === selectedMessageClient) ?? null;
+    client ?? clients.find((listedClient) => listedClient.name === selectedMessageClient) ?? null;
   const visibleThreads = clientThreads.length > 0 ? clientThreads : fallbackClient ? [
     {
       athlete: fallbackClient.name,
@@ -2758,7 +3129,7 @@ function MessagesView({ client }: { client?: CoachClient | null }) {
               value={selectedMessageClient}
             >
               <option>Todos</option>
-              {coachClients.map((listedClient) => (
+              {clients.map((listedClient) => (
                 <option key={listedClient.id}>{listedClient.name}</option>
               ))}
             </select>
@@ -3265,7 +3636,7 @@ function buildGlobalCalendarEvents(): GlobalCalendarEvent[] {
   return [...nextEvents, ...assessments, ...plannedSessions];
 }
 
-function CalendarView({ client }: { client?: CoachClient | null }) {
+function CalendarView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
   const [viewMode, setViewMode] = useState<CalendarViewMode>("Semana");
   const currentYear = new Date().getFullYear();
   const currentMonthIndex = new Date().getMonth();
@@ -3339,7 +3710,7 @@ function CalendarView({ client }: { client?: CoachClient | null }) {
               value={calendarClientFilter}
             >
               <option>Todos</option>
-              {coachClients.map((listedClient) => (
+              {clients.map((listedClient) => (
                 <option key={listedClient.id}>{listedClient.name}</option>
               ))}
             </select>
@@ -3931,11 +4302,11 @@ function getPlanningWeekNumber(currentWeek: string) {
   return match ? Number(match[0]) : 1;
 }
 
-function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
+function CoachTrainingPlanner({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
-  const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? coachClients[0].id);
+  const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
   const activeSessionClient =
-    client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
+    client ?? clients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? clients[0]!;
   const activePlanningWeek = getPlanningWeekNumber(activeSessionClient.planning.currentWeek);
   const [selectedBlockWeek, setSelectedBlockWeek] = useState(activePlanningWeek);
   const [sessionDate, setSessionDate] = useState("");
@@ -4221,7 +4592,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               onChange={(event) => setSelectedSessionClientId(event.target.value)}
               value={activeSessionClient.id}
             >
-              {coachClients.map((listedClient) => (
+              {clients.map((listedClient) => (
                 <option key={listedClient.id} value={listedClient.id}>
                   {listedClient.name}
                 </option>
