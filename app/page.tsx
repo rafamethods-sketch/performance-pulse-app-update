@@ -77,7 +77,6 @@ import {
   type UserRole
 } from "@/lib/data";
 
-type CalendarViewMode = "Dia" | "Semana" | "Mes";
 type TrainingAvailability = {
   consecutiveDays: boolean;
   daysPerWeek: number;
@@ -283,7 +282,11 @@ export default function ClientsPage() {
               }
             />
           ) : activeSheet === "calendar" ? (
-            <CalendarView client={role === "coach" ? null : selectedClient} clients={clients} />
+            <CalendarView
+              client={role === "coach" ? null : selectedClient}
+              clients={clients}
+              onOpenClientSheet={openClientSheet}
+            />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
@@ -4213,14 +4216,6 @@ function AssessmentsView({
   );
 }
 
-type GlobalCalendarEvent = {
-  athlete: string;
-  date: string;
-  id: string;
-  title: string;
-  type: "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sesion";
-};
-
 const calendarShortMonths: Record<string, string> = {
   Abr: "04",
   Ago: "08",
@@ -4236,54 +4231,6 @@ const calendarShortMonths: Record<string, string> = {
   Sep: "09"
 };
 
-const calendarMonthNames = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre"
-];
-
-function getCalendarEventTone(type: GlobalCalendarEvent["type"]) {
-  switch (type) {
-    case "Competicion":
-      return "border-red-200 bg-red-50 text-red-800";
-    case "Test":
-      return "border-steel/20 bg-sky text-ink";
-    case "Pico de forma":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-    case "Control / seguimiento":
-      return "border-moss/20 bg-mint text-moss";
-    case "Sesion":
-      return "border-steel/20 bg-sky text-steel";
-    default:
-      return "border-line bg-white text-ink/70";
-  }
-}
-
-function inferCalendarEventType(label: string): GlobalCalendarEvent["type"] {
-  const lower = label.toLowerCase();
-  if (lower.includes("compet") || lower.includes("10k") || lower.includes("carrera")) return "Competicion";
-  if (lower.includes("test")) return "Test";
-  if (lower.includes("pico")) return "Pico de forma";
-  return "Control / seguimiento";
-}
-
-function parseDateFromLabel(label: string) {
-  const match = label.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!match) return null;
-
-  const [, day, month, year] = match;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
 function parseCalendarSessionDate(label: string, year: number) {
   const [day, monthLabel] = label.split(" ");
   const month = calendarShortMonths[monthLabel];
@@ -4292,356 +4239,237 @@ function parseCalendarSessionDate(label: string, year: number) {
   return `${year}-${month}-${day.padStart(2, "0")}`;
 }
 
-function buildGlobalCalendarEvents(): GlobalCalendarEvent[] {
-  const currentYear = new Date().getFullYear();
-  const nextEvents = coachClients.flatMap((listedClient) => {
-    const date = parseDateFromLabel(listedClient.nextEvent);
-    if (!date) return [];
+type WeeklyCalendarSession = {
+  block?: string;
+  clientId: string;
+  clientName: string;
+  date: Date;
+  rpeTarget?: string;
+  sessionNumber?: string;
+  status: "Planificada" | "Completada" | "Pendiente" | "Pendiente de revisar";
+  summary: string;
+  type: string;
+  week?: string;
+};
 
-    const title = listedClient.nextEvent.split(" - ")[0] || listedClient.nextEvent;
-    return [{
-      athlete: listedClient.name,
-      date,
-      id: `${listedClient.id}-next-event`,
-      title,
-      type: inferCalendarEventType(listedClient.nextEvent)
-    }];
-  });
-
-  const assessments = coachClients.flatMap((listedClient) =>
-    listedClient.assessments.map((assessment) => ({
-      athlete: listedClient.name,
-      date: assessment.date,
-      id: `${listedClient.id}-${assessment.date}-${assessment.name}`,
-      title: assessment.name,
-      type: assessment.type === "Fuerza" || assessment.type === "Resistencia" ? "Test" : "Control / seguimiento" as GlobalCalendarEvent["type"]
-    }))
-  );
-
-  const plannedSessions = calendarSessions.flatMap((session) => {
-    const date = parseCalendarSessionDate(session.date, currentYear);
-    if (!date) return [];
-
-    return [{
-      athlete: session.athlete,
-      date,
-      id: `${session.athlete}-${session.date}-${session.time}-${session.title}`,
-      title: session.title,
-      type: "Sesion" as GlobalCalendarEvent["type"]
-    }];
-  });
-
-  return [...nextEvents, ...assessments, ...plannedSessions];
+function addCalendarDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(date.getDate() + days);
+  return nextDate;
 }
 
-function CalendarView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
-  const [viewMode, setViewMode] = useState<CalendarViewMode>("Semana");
-  const currentYear = new Date().getFullYear();
-  const currentMonthIndex = new Date().getMonth();
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentMonthIndex);
-  const [calendarClientFilter, setCalendarClientFilter] = useState("Todos");
-  const [calendarDateFrom, setCalendarDateFrom] = useState("");
-  const [calendarDateTo, setCalendarDateTo] = useState("");
-  const [calendarEventTypeFilter, setCalendarEventTypeFilter] = useState<"Todos" | GlobalCalendarEvent["type"]>("Todos");
-  const weekDays = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
-  const weekDates = ["22", "23", "24", "25", "26", "27", "28"];
-  const monthDays = Array.from({ length: 35 }, (_, index) => index + 1);
-  const visibleCalendarSessions = calendarClientFilter === "Todos"
-    ? calendarSessions
-    : calendarSessions.filter((session) => session.athlete === calendarClientFilter);
-  const todaySessions = visibleCalendarSessions.filter((session) => session.day === "Lunes");
-  const globalEvents = buildGlobalCalendarEvents();
-  const filteredGlobalEvents = calendarClientFilter === "Todos"
-    ? globalEvents
-    : globalEvents.filter((event) => event.athlete === calendarClientFilter);
-  const visibleGlobalEvents = filteredGlobalEvents.filter((event) => {
-    const matchesType = calendarEventTypeFilter === "Todos" || event.type === calendarEventTypeFilter;
-    const matchesFrom = !calendarDateFrom || event.date >= calendarDateFrom;
-    const matchesTo = !calendarDateTo || event.date <= calendarDateTo;
-    return matchesType && matchesFrom && matchesTo;
+function getWeekStartDate(date: Date) {
+  const weekStart = new Date(date);
+  const day = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - day);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getWeeklySessionStatus(session: ClientSessionRecord): WeeklyCalendarSession["status"] {
+  if (hasDisplayValue(session.duration) && hasDisplayValue(session.rpe) && hasDisplayValue(session.notes)) {
+    return "Pendiente de revisar";
+  }
+  if (hasDisplayValue(session.duration) && hasDisplayValue(session.rpe)) return "Completada";
+  return "Pendiente";
+}
+
+function getCalendarStatusClass(status: WeeklyCalendarSession["status"]) {
+  switch (status) {
+    case "Completada":
+      return "bg-mint text-moss";
+    case "Pendiente de revisar":
+      return "bg-amber-50 text-amber-700";
+    case "Pendiente":
+      return "bg-panel text-ink/60";
+    case "Planificada":
+    default:
+      return "bg-blue-50 text-blue-700";
+  }
+}
+
+function buildWeeklyCalendarSessions(clients: CoachClient[], weekDates: Date[]) {
+  const weekDateKeys = new Set(weekDates.map(getDateKey));
+  const currentYear = weekDates[0]?.getFullYear() ?? new Date().getFullYear();
+  const sessionsFromRecords: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
+    (listedClient.sessionRecords ?? []).flatMap((session) => {
+      const date = parseDateValue(session.date);
+      if (!date || !weekDateKeys.has(getDateKey(date))) return [];
+
+      return [{
+        block: listedClient.planning.currentBlock,
+        clientId: listedClient.id,
+        clientName: listedClient.name,
+        date,
+        status: getWeeklySessionStatus(session),
+        summary: session.summary,
+        type: session.type,
+        week: listedClient.planning.currentWeek
+      } satisfies WeeklyCalendarSession];
+    })
+  );
+  const sessionsFromPlanning: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
+    (listedClient.planning.nextSessions ?? []).map((sessionName, index) => ({
+      block: listedClient.planning.currentBlock,
+      clientId: listedClient.id,
+      clientName: listedClient.name,
+      date: weekDates[index % weekDates.length],
+      rpeTarget: "Sin especificar",
+      sessionNumber: `Sesión ${index + 1}`,
+      status: "Planificada" as const,
+      summary: sessionName,
+      type: listedClient.sport ?? listedClient.modality ?? "Sesión",
+      week: listedClient.planning.currentWeek
+    }))
+  );
+  const sessionsFromCalendar: WeeklyCalendarSession[] = calendarSessions.flatMap((session) => {
+    const matchedClient = clients.find((listedClient) => listedClient.name === session.athlete);
+    const dateLabel = parseCalendarSessionDate(session.date, currentYear);
+    const date = dateLabel ? parseDateValue(dateLabel) : null;
+    if (!matchedClient || !date || !weekDateKeys.has(getDateKey(date))) return [];
+
+    return [{
+      block: matchedClient.planning.currentBlock,
+      clientId: matchedClient.id,
+      clientName: matchedClient.name,
+      date,
+      status: session.status === "Planificada" ? "Planificada" : "Pendiente" as WeeklyCalendarSession["status"],
+      summary: session.title,
+      type: session.type,
+      week: matchedClient.planning.currentWeek
+    } satisfies WeeklyCalendarSession];
   });
+
+  return [...sessionsFromRecords, ...sessionsFromPlanning, ...sessionsFromCalendar].sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+function CalendarView({
+  client,
+  clients,
+  onOpenClientSheet
+}: {
+  client?: CoachClient | null;
+  clients: CoachClient[];
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+}) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const baseWeekStart = getWeekStartDate(new Date());
+  const selectedWeekStart = addCalendarDays(baseWeekStart, weekOffset * 7);
+  const weekDates = Array.from({ length: 7 }, (_, index) => addCalendarDays(selectedWeekStart, index));
+  const weekLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  const visibleClients = client ? [client] : clients;
+  const weeklySessions = buildWeeklyCalendarSessions(visibleClients, weekDates);
+  const sessionsByDay = weekDates.map((date) => ({
+    date,
+    label: weekLabels[(date.getDay() + 6) % 7],
+    sessions: weeklySessions.filter((session) => getDateKey(session.date) === getDateKey(date))
+  }));
+  const weekEnd = weekDates[6];
+  const weekRangeLabel = `Semana del ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(selectedWeekStart)} al ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(weekEnd)}`;
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">
-            {client ? "Calendario del cliente" : "Mapa de sesiones planificadas"}
+            {client ? "Semana del cliente" : "Semana de trabajo"}
           </h2>
           <p className="mt-1 text-sm text-ink/55">
-            {client ? "Sesiones, valoraciones y eventos del deportista seleccionado." : "Vista global de sesiones, tests y eventos de todos los deportistas."}
+            {client ? "Vista semanal de sesiones del deportista seleccionado." : "Vista semanal de sesiones de todos los deportistas."}
           </p>
+          <p className="mt-2 text-sm font-semibold text-moss">{weekRangeLabel}</p>
         </div>
-        <div className="grid grid-cols-3 rounded-md border border-line bg-panel/45 p-1">
-          {(["Dia", "Semana", "Mes"] as CalendarViewMode[]).map((mode) => (
-            <button
-              className={`rounded px-4 py-2 text-sm font-medium ${
-                viewMode === mode ? "bg-ink text-white" : "text-ink/65"
-              }`}
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              type="button"
-            >
-              {mode}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+            onClick={() => setWeekOffset((current) => current - 1)}
+            type="button"
+          >
+            Semana anterior
+          </button>
+          <button
+            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+            onClick={() => setWeekOffset(0)}
+            type="button"
+          >
+            Esta semana
+          </button>
+          <button
+            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+            onClick={() => setWeekOffset((current) => current + 1)}
+            type="button"
+          >
+            Semana siguiente
+          </button>
         </div>
       </div>
 
       {client ? (
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <ClientInfoCard label="Evento objetivo" value={client.nextEvent} />
-          <ClientInfoCard label="Ultima sesion" value={client.lastActivity} />
-          <ClientInfoCard label="Valoracion reciente" value={client.assessments[0]?.name ?? "Sin valorar"} />
+          <ClientInfoCard label="Bloque / mesociclo" value={client.planning.currentBlock} />
+          <ClientInfoCard label="Semana" value={client.planning.currentWeek} />
         </div>
       ) : null}
 
-      {!client ? (
-        <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-          <p className="text-sm font-semibold text-ink">Filtrar</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <label className="block space-y-2 text-sm font-medium text-ink/75">
-            Cliente
-            <select
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setCalendarClientFilter(event.target.value)}
-              value={calendarClientFilter}
-            >
-              <option>Todos</option>
-              {clients.map((listedClient) => (
-                <option key={listedClient.id}>{listedClient.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-2 text-sm font-medium text-ink/75">
-            Tipo de evento
-            <select
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setCalendarEventTypeFilter(event.target.value as "Todos" | GlobalCalendarEvent["type"])}
-              value={calendarEventTypeFilter}
-            >
-              <option>Todos</option>
-              <option>Sesion</option>
-              <option>Competicion</option>
-              <option>Test</option>
-              <option>Pico de forma</option>
-              <option>Control / seguimiento</option>
-            </select>
-          </label>
-          <label className="block space-y-2 text-sm font-medium text-ink/75">
-            Desde
-            <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setCalendarDateFrom(event.target.value)} type="date" value={calendarDateFrom} />
-          </label>
-          <label className="block space-y-2 text-sm font-medium text-ink/75">
-            Hasta
-            <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setCalendarDateTo(event.target.value)} type="date" value={calendarDateTo} />
-          </label>
-          </div>
-        </div>
-      ) : null}
-
-      {viewMode === "Dia" ? (
-        <div className="mt-6 grid gap-3">
-          {client ? client.sessionRecords.map((session) => (
-            <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${session.summary}`}>
-              <p className="text-xs font-semibold text-clay">{session.date}</p>
-              <h4 className="mt-1 font-semibold text-ink">{session.type}</h4>
-              <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
-              <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
-                {session.duration} min - RPE {session.rpe} - {calculateSessionLoad(session.rpe, session.duration)} UA
-              </p>
-            </article>
-          )) : todaySessions.map((session) => (
-            <CalendarSessionCard key={`${session.day}-${session.time}-${session.athlete}`} session={session} />
-          ))}
-        </div>
-      ) : viewMode === "Semana" ? (
-        <div className="mt-6">
-          <div className="grid gap-2 rounded-md border border-line bg-line p-2 md:grid-cols-7">
-          {weekDays.map((day, index) => {
-            const daySessions = visibleCalendarSessions.filter((session) => session.day === day);
-
-            return (
-              <div className="min-h-44 rounded-md bg-panel/35 p-2 md:min-h-72 md:p-3" key={day}>
-                <div className="border-b border-line pb-3">
-                  <p className="text-xs font-semibold text-ink md:text-sm">{day}</p>
-                  <p className="mt-1 text-xl font-semibold text-moss md:text-2xl">{weekDates[index]}</p>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {daySessions.length > 0 ? (
-                    daySessions.map((session) => (
-                      <CalendarSessionCard
-                        compact
-                        key={`${session.day}-${session.time}-${session.athlete}`}
-                        session={session}
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded-md bg-white px-3 py-4 text-center text-xs text-ink/45">
-                      Sin sesiones
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          </div>
+      {weeklySessions.length === 0 ? (
+        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">
+          No hay sesiones programadas esta semana.
         </div>
       ) : (
-        client ? (
-          <div className="mt-6 overflow-hidden rounded-md border border-line">
-            <div className="grid grid-cols-7 border-b border-line bg-ink text-center text-xs font-semibold uppercase tracking-wide text-white">
-              {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
-                <div className="border-r border-white/15 p-2 last:border-r-0" key={day}>{day}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7">
-              {monthDays.map((day) => {
-                const sessions = calendarSessions.filter((session) => {
-                  const dateNumber = Number(session.date.split(" ")[0]);
-                  return dateNumber === day;
-                });
-
-                return (
-                  <div className="min-h-28 border-r border-t border-line bg-panel/25 p-2 last:border-r-0" key={day}>
-                    <p className="text-sm font-semibold text-ink/65">{day}</p>
-                    <div className="mt-2 space-y-1">
-                      {sessions.map((session) => (
-                        <div className="rounded bg-white px-2 py-1 text-xs font-medium text-moss" key={`${day}-${session.time}`}>
-                          {session.time} {session.type}
+        <div className="mt-6 grid gap-3 md:grid-cols-2 2xl:grid-cols-7">
+          {sessionsByDay.map(({ date, label, sessions }) => (
+            <section className="rounded-md border border-line bg-panel/35 p-3" key={getDateKey(date)}>
+              <div className="border-b border-line pb-3">
+                <p className="text-sm font-semibold text-ink">{label}</p>
+                <p className="mt-1 text-xl font-semibold text-moss">
+                  {new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date)}
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {sessions.length > 0 ? (
+                  sessions.map((session, index) => (
+                    <article className="rounded-md border border-line bg-white p-3" key={`${session.clientId}-${session.summary}-${index}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-ink">{session.clientName}</p>
+                          <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(getDateKey(session.date))}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <GlobalMonthCalendar
-            currentMonthIndex={currentMonthIndex}
-            currentYear={currentYear}
-            events={visibleGlobalEvents}
-            selectedMonthIndex={selectedMonthIndex}
-            setSelectedMonthIndex={setSelectedMonthIndex}
-          />
-        )
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getCalendarStatusClass(session.status)}`}>
+                          {session.status}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-ink">{session.type}</p>
+                      <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+                      <div className="mt-3 grid gap-2">
+                        <ClientInfoCard label="Bloque / mesociclo" value={session.block ?? "Sin asignar"} />
+                        <ClientInfoCard label="Semana y sesión" value={[session.week, session.sessionNumber].filter(Boolean).join(" · ") || "Sin especificar"} />
+                        <ClientInfoCard label="RPE objetivo" value={session.rpeTarget ?? "Sin especificar"} />
+                      </div>
+                      <button
+                        className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                        onClick={() => onOpenClientSheet(session.clientId, "training")}
+                        type="button"
+                      >
+                        Ver sesión
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="rounded-md bg-white px-3 py-4 text-center text-xs font-semibold text-ink/45">
+                    Sin sesiones
+                  </p>
+                )}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
     </section>
-  );
-}
-
-function GlobalMonthCalendar({
-  currentMonthIndex,
-  currentYear,
-  events,
-  selectedMonthIndex,
-  setSelectedMonthIndex
-}: {
-  currentMonthIndex: number;
-  currentYear: number;
-  events: GlobalCalendarEvent[];
-  selectedMonthIndex: number;
-  setSelectedMonthIndex: (monthIndex: number) => void;
-}) {
-  const daysInMonth = new Date(currentYear, selectedMonthIndex + 1, 0).getDate();
-  const firstDay = new Date(currentYear, selectedMonthIndex, 1).getDay();
-  const leadingEmptyDays = firstDay === 0 ? 6 : firstDay - 1;
-  const monthEvents = events.filter((event) => {
-    const eventDate = new Date(`${event.date}T00:00:00`);
-    return eventDate.getFullYear() === currentYear && eventDate.getMonth() === selectedMonthIndex;
-  });
-
-  return (
-    <section className="mt-6 overflow-hidden rounded-md border border-line bg-panel/25">
-      <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="font-semibold text-ink">{calendarMonthNames[selectedMonthIndex]} {currentYear}</h3>
-          <p className="mt-1 text-sm text-ink/55">{monthEvents.length} fechas conectadas</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 disabled:opacity-40"
-            disabled={selectedMonthIndex <= currentMonthIndex}
-            onClick={() => setSelectedMonthIndex(Math.max(currentMonthIndex, selectedMonthIndex - 1))}
-            type="button"
-          >
-            Anterior
-          </button>
-          <button
-            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
-            disabled={selectedMonthIndex >= 11}
-            onClick={() => setSelectedMonthIndex(Math.min(11, selectedMonthIndex + 1))}
-            type="button"
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-7 bg-ink text-center text-[11px] font-semibold uppercase text-white">
-        {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
-          <div className="p-2" key={day}>{day}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {Array.from({ length: leadingEmptyDays }).map((_, index) => (
-          <div className="min-h-20 border-r border-t border-line bg-white/35 p-1" key={`empty-${index}`} />
-        ))}
-        {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => {
-          const isoDate = `${currentYear}-${String(selectedMonthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const dayEvents = events.filter((event) => event.date === isoDate);
-
-          return (
-            <div className="min-h-20 border-r border-t border-line bg-white/65 p-1.5" key={day}>
-              <p className="text-xs font-semibold text-ink/60">{day}</p>
-              <div className="mt-1 space-y-1">
-                {dayEvents.map((event) => (
-                  <div className={`rounded border px-1.5 py-1 text-[11px] font-semibold leading-tight ${getCalendarEventTone(event.type)}`} key={event.id}>
-                    <span className="block truncate">{event.title}</span>
-                    <span className="block truncate font-medium opacity-75">{event.athlete}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-type CalendarSessionCardProps = {
-  compact?: boolean;
-  session: (typeof calendarSessions)[number];
-};
-
-function CalendarSessionCard({ compact = false, session }: CalendarSessionCardProps) {
-  const statusClass = session.status === "Alta carga"
-    ? "bg-red-50 text-red-700"
-    : session.status === "Pendiente wellness"
-      ? "bg-amber-50 text-amber-700"
-      : "bg-mint text-moss";
-
-  return (
-    <article className="rounded-md border border-line bg-white p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium text-clay">{session.time} - {session.date}</p>
-          <h4 className={`mt-1 font-semibold text-ink ${compact ? "text-sm" : ""}`}>
-            {session.title}
-          </h4>
-          {!compact && (
-            <p className="mt-1 text-sm text-ink/60">{session.athlete}</p>
-          )}
-        </div>
-        <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusClass}`}>
-          {session.type}
-        </span>
-      </div>
-      <p className={`mt-3 rounded-md px-2 py-1 text-xs font-medium ${statusClass}`}>
-        {session.status}
-      </p>
-    </article>
   );
 }
 
