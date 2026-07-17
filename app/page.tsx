@@ -348,6 +348,7 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 
 type BaseCoachClient = (typeof coachClients)[number];
 type CoachClient = BaseCoachClient & {
+  availableEquipment?: string;
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -471,6 +472,8 @@ function CoachClientsView({
   const [goalFilter, setGoalFilter] = useState<"all" | "Salud" | "Rendimiento">("all");
   const [newClientDraft, setNewClientDraft] = useState({
     age: 30,
+    availability: "",
+    availableEquipment: "",
     eventDate: "",
     eventName: "",
     eventNotes: "",
@@ -502,6 +505,8 @@ function CoachClientsView({
   function resetNewClientDraft() {
     setNewClientDraft({
       age: 30,
+      availability: "",
+      availableEquipment: "",
       eventDate: "",
       eventName: "",
       eventNotes: "",
@@ -526,7 +531,7 @@ function CoachClientsView({
         {
           durationWeeks: 4,
           id: `new-client-mesocycle-${Date.now()}`,
-          mainMetrics: ["RPE"],
+          mainMetrics: [],
           name: `Mesociclo ${nextIndex}`,
           notes: "",
           primaryObjective: draft.objective,
@@ -541,19 +546,6 @@ function CoachClientsView({
     setNewClientDraft((draft) => ({
       ...draft,
       planningBlocks: draft.planningBlocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
-    }));
-  }
-
-  function toggleClientMesocycleMetric(blockId: string, metric: string) {
-    setNewClientDraft((draft) => ({
-      ...draft,
-      planningBlocks: draft.planningBlocks.map((block) => {
-        if (block.id !== blockId) return block;
-        const mainMetrics = block.mainMetrics.includes(metric)
-          ? block.mainMetrics.filter((item) => item !== metric)
-          : [...block.mainMetrics, metric];
-        return { ...block, mainMetrics };
-      })
     }));
   }
 
@@ -593,7 +585,8 @@ function CoachClientsView({
       activeBlocks: planningBlocks.length > 0 ? planningBlocks.map((block) => block.name) : ["Sin asignar"],
       age: newClientDraft.age,
       assessments: [],
-      availability: "Pendiente",
+      availability: newClientDraft.availability.trim() || "Pendiente",
+      availableEquipment: newClientDraft.availableEquipment.trim() || "Pendiente",
       chronicLoad: 0,
       coachNotes: newClientDraft.initialNotes.trim() || "Nuevo cliente pendiente de completar ficha inicial.",
       dailyLoads: [0, 0, 0, 0, 0, 0, 0],
@@ -740,6 +733,24 @@ function CoachClientsView({
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, modality: event.target.value }))}
                     placeholder="Ej. Running, fuerza, salud..."
                     value={newClientDraft.modality}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                  Disponibilidad semanal
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, availability: event.target.value }))}
+                    placeholder="Ej: 3 días/semana, 60 min por sesión"
+                    value={newClientDraft.availability}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                  Material disponible
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setNewClientDraft((draft) => ({ ...draft, availableEquipment: event.target.value }))}
+                    placeholder="Ej: gimnasio completo, mancuernas, barra, poleas"
+                    value={newClientDraft.availableEquipment}
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
@@ -897,30 +908,12 @@ function CoachClientsView({
                             </select>
                           </label>
                         </div>
-                        <div className="mt-3">
-                          <p className="mb-2 text-sm font-medium text-ink/75">Métricas principales</p>
-                          <div className="flex flex-wrap gap-2">
-                            {allPlanningMetrics.map((metric) => (
-                              <button
-                                className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
-                                  block.mainMetrics.includes(metric)
-                                    ? "border-moss bg-mint text-moss"
-                                    : "border-line bg-panel/35 text-ink/65"
-                                }`}
-                                key={metric}
-                                onClick={() => toggleClientMesocycleMetric(block.id, metric)}
-                                type="button"
-                              >
-                                {metric}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
                         <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
                           Notas
                           <textarea
-                            className="min-h-16 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-ink outline-none focus:border-moss"
+                            className="min-h-12 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-ink outline-none focus:border-moss"
                             onChange={(event) => updateClientMesocycle(block.id, { notes: event.target.value })}
+                            placeholder="Notas del mesociclo"
                             value={block.notes}
                           />
                         </label>
@@ -938,6 +931,8 @@ function CoachClientsView({
                   <p className="mt-2 text-sm text-ink/65">{newClientDraft.name || "Sin nombre"}</p>
                   <p className="text-sm text-ink/65">{newClientDraft.age} años · {newClientDraft.modality}</p>
                   <p className="text-sm text-ink/65">{newClientDraft.goalType}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.availability || "Disponibilidad pendiente"}</p>
+                  <p className="text-sm text-ink/65">{newClientDraft.availableEquipment || "Material pendiente"}</p>
                 </div>
                 <div className="rounded-md bg-white p-4">
                   <h4 className="font-semibold text-ink">Objetivo</h4>
@@ -1714,6 +1709,7 @@ function ClientDetailsView({
     ["Nivel", client.level],
     ["Objetivo / evento", client.nextEvent],
     ["Disponibilidad semanal", client.availability],
+    ["Material disponible", client.availableEquipment ?? "Pendiente"],
     ["Historial deportivo", client.history],
     ["Lesiones / limitaciones", client.injuries],
     ["Notas del entrenador", client.coachNotes]
@@ -1990,8 +1986,6 @@ const planningEventTypes: PlanningEventType[] = [
   "Sin evento definido"
 ];
 
-const allPlanningMetrics = planningConfig.metricGroups.flatMap((group) => group.metrics);
-
 function parsePlanningDate(value: string) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
@@ -2020,14 +2014,13 @@ function downloadPlanningCalendarCsv({
 }) {
   if (blocks.length === 0 || typeof window === "undefined") return;
 
-  const header = ["Bloque", "Duracion", "Objetivo principal", "Objetivo secundario", "Distribucion semanal", "Metricas", "Notas"];
+  const header = ["Bloque", "Duracion", "Objetivo principal", "Objetivo secundario", "Distribucion semanal", "Notas"];
   const rows = blocks.map((block, index) => [
     index + 1,
     `${block.durationWeeks} semanas`,
     block.primaryObjective,
     block.secondaryObjective,
     block.weeklyDistribution,
-    block.mainMetrics.join(" | "),
     block.notes
   ]);
   const csv = [
@@ -2080,7 +2073,7 @@ function PlanningView({
       {
         durationWeeks: 4,
         id: `mesocycle-${Date.now()}`,
-        mainMetrics: ["RPE", "sRPE"],
+        mainMetrics: [],
         name: `Mesociclo ${nextIndex}`,
         notes: "",
         primaryObjective: "",
@@ -2093,18 +2086,6 @@ function PlanningView({
   function updateBlock(blockId: string, updates: Partial<EditablePlanningBlock>) {
     setPlanningBlocks((blocks) =>
       blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
-    );
-  }
-
-  function toggleBlockMetric(blockId: string, metric: string) {
-    setPlanningBlocks((blocks) =>
-      blocks.map((block) => {
-        if (block.id !== blockId) return block;
-        const mainMetrics = block.mainMetrics.includes(metric)
-          ? block.mainMetrics.filter((item) => item !== metric)
-          : [...block.mainMetrics, metric];
-        return { ...block, mainMetrics };
-      })
     );
   }
 
@@ -2328,30 +2309,12 @@ function PlanningView({
                       </select>
                     </label>
                   </div>
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm font-medium text-ink/75">Metricas principales</p>
-                    <div className="flex flex-wrap gap-2">
-                      {allPlanningMetrics.map((metric) => (
-                        <button
-                          className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-                            block.mainMetrics.includes(metric)
-                              ? "border-moss bg-mint text-moss"
-                              : "border-line bg-white text-ink/65"
-                          }`}
-                          key={metric}
-                          onClick={() => toggleBlockMetric(block.id, metric)}
-                          type="button"
-                        >
-                          {metric}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                   <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
                     Notas
                     <textarea
-                      className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                      className="min-h-12 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
                       onChange={(event) => updateBlock(block.id, { notes: event.target.value })}
+                      placeholder="Notas del mesociclo"
                       value={block.notes}
                     />
                   </label>
@@ -2433,7 +2396,6 @@ function PlanningSummary({
             </p>
             <p className="mt-2 text-white/80">Objetivo principal: {block.primaryObjective || "Sin definir"}</p>
             <p className="text-white/80">Objetivo secundario: {block.secondaryObjective || "Sin definir"}</p>
-            <p className="text-white/80">Metricas: {block.mainMetrics.join(", ") || "Sin definir"}</p>
           </div>
         ))}
       </div>
@@ -2479,7 +2441,6 @@ function PlanningCalendarPreview({
                 <th className="px-3 py-2">Duracion</th>
                 <th className="px-3 py-2">Objetivo principal</th>
                 <th className="px-3 py-2">Distribucion</th>
-                <th className="px-3 py-2">Metricas</th>
               </tr>
             </thead>
             <tbody>
@@ -2489,7 +2450,6 @@ function PlanningCalendarPreview({
                   <td className="px-3 py-2 text-ink/70">{block.durationWeeks} semanas</td>
                   <td className="px-3 py-2 text-ink">{block.primaryObjective || "Sin definir"}</td>
                   <td className="px-3 py-2 text-ink/70">{block.weeklyDistribution}</td>
-                  <td className="px-3 py-2 text-ink/70">{block.mainMetrics.join(", ")}</td>
                 </tr>
               ))}
             </tbody>
