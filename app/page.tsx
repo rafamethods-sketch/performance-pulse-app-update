@@ -53,6 +53,7 @@ import {
   calculateWeeklyExternalLoad,
   calculateWeeklyExternalLoadByPattern,
   calculateWeeklyMuscleSets,
+  type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
 import { supabase } from "@/lib/supabase";
@@ -5312,7 +5313,7 @@ function CoachTrainingPlanner({
         </button>
         </>
         ) : activeSessionPanel === "history" ? (
-          <SessionHistoryPanel client={activeSessionClient} />
+          <SessionHistoryPanel client={activeSessionClient} onPlanNewSession={() => setActiveSessionPanel("planner")} />
         ) : (
           <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
             <p className="text-sm font-semibold text-ink/55">
@@ -5325,81 +5326,372 @@ function CoachTrainingPlanner({
   );
 }
 
-function SessionHistoryPanel({ client }: { client: CoachClient }) {
-  const [selectedSessionKey, setSelectedSessionKey] = useState(
-    client.sessionRecords[0] ? `${client.sessionRecords[0].date}-${client.sessionRecords[0].summary}` : ""
+type ReviewSessionExercise = SessionExerciseInput & {
+  actualRest?: number | string | null;
+  athleteNotes?: string | null;
+  block?: string | null;
+  exerciseRpe?: number | string | null;
+  id?: string | null;
+  name?: string | null;
+  notes?: string | null;
+  observation?: string | null;
+  plannedRest?: number | string | null;
+  plannedRir?: number | string | null;
+  rest?: number | string | null;
+  rir?: number | string | null;
+  section?: string | null;
+  targetRir?: number | string | null;
+};
+
+type ReviewSessionRecord = ClientSessionRecord & {
+  actualDurationMinutes?: number | string | null;
+  block?: string | null;
+  completed?: boolean;
+  exercises?: ReviewSessionExercise[];
+  finalNotes?: string | null;
+  finalRpe?: number | string | null;
+  mesocycle?: string | null;
+  performedExercises?: ReviewSessionExercise[];
+  plannedExercises?: ReviewSessionExercise[];
+  sessionNumber?: number | string | null;
+  srpe?: number | string | null;
+  sRPE?: number | string | null;
+  status?: string | null;
+  week?: number | string | null;
+  weekLabel?: string | null;
+};
+
+function hasDisplayValue(value: unknown) {
+  return value !== null && value !== undefined && `${value}`.trim() !== "";
+}
+
+function displayValue(value: unknown, fallback = "Sin especificar") {
+  return hasDisplayValue(value) ? `${value}` : fallback;
+}
+
+function formatTrainingBlock(session: ReviewSessionRecord, client: CoachClient) {
+  return displayValue(session.block ?? session.mesocycle ?? client.planning.currentBlock);
+}
+
+function formatWeekAndSession(session: ReviewSessionRecord, client: CoachClient) {
+  const week = session.weekLabel ?? session.week ?? client.planning.currentWeek;
+  const sessionNumber = session.sessionNumber;
+
+  if (hasDisplayValue(week) && hasDisplayValue(sessionNumber)) {
+    return `${week} · Sesión ${sessionNumber}`;
+  }
+
+  return displayValue(week);
+}
+
+function getReviewExercises(session: ReviewSessionRecord) {
+  const plannedExercises = session.plannedExercises ?? session.exercises ?? [];
+  const performedExercises = session.performedExercises ?? [];
+
+  return {
+    plannedExercises,
+    performedExercises
+  };
+}
+
+function getExerciseLabel(entry?: ReviewSessionExercise) {
+  if (!entry) return "Ejercicio sin especificar";
+  if (entry.exerciseName) return entry.exerciseName;
+  if (entry.name) return entry.name;
+  if (entry.exerciseId) return getExerciseById(entry.exerciseId)?.name ?? entry.exerciseId;
+  return "Ejercicio sin especificar";
+}
+
+function getPlannedValue(entry: ReviewSessionExercise | undefined, field: "sets" | "reps" | "load" | "rest" | "rir") {
+  if (!entry) return undefined;
+
+  switch (field) {
+    case "sets":
+      return entry.plannedSets ?? entry.sets;
+    case "reps":
+      return entry.plannedReps ?? entry.reps;
+    case "load":
+      return entry.plannedLoad ?? entry.load;
+    case "rest":
+      return entry.plannedRest ?? entry.rest;
+    case "rir":
+      return entry.plannedRir ?? entry.targetRir ?? entry.rir;
+  }
+}
+
+function getPerformedValue(entry: ReviewSessionExercise | undefined, field: "sets" | "reps" | "load" | "rest" | "rir") {
+  if (!entry) return undefined;
+
+  switch (field) {
+    case "sets":
+      return entry.sets;
+    case "reps":
+      return entry.reps;
+    case "load":
+      return entry.load;
+    case "rest":
+      return entry.actualRest ?? entry.rest;
+    case "rir":
+      return entry.rir ?? entry.targetRir;
+  }
+}
+
+function reviewValueChanged(planned: unknown, performed: unknown) {
+  if (!hasDisplayValue(planned) || !hasDisplayValue(performed)) return false;
+  return `${planned}`.trim() !== `${performed}`.trim();
+}
+
+function hasExerciseChanges(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise) {
+  if (!performed) return false;
+
+  return (["sets", "reps", "load", "rest", "rir"] as const).some((field) =>
+    reviewValueChanged(getPlannedValue(planned, field), getPerformedValue(performed, field))
   );
-  const selectedSession =
-    client.sessionRecords.find((session) => `${session.date}-${session.summary}` === selectedSessionKey) ??
-    client.sessionRecords[0];
+}
+
+function getSessionStatus(session: ReviewSessionRecord) {
+  if (session.status) return session.status;
+  if (session.completed || hasDisplayValue(session.duration) || hasDisplayValue(session.rpe) || hasDisplayValue(session.finalRpe)) {
+    return "Completada";
+  }
+  if ((session.plannedExercises?.length ?? 0) > 0 || (session.exercises?.length ?? 0) > 0) return "Planificada";
+  return "Pendiente";
+}
+
+function getStatusBadgeClass(status: string) {
+  if (status === "Completada") return "bg-mint text-moss";
+  if (status === "Planificada") return "bg-blue-50 text-blue-700";
+  return "bg-amber-50 text-amber-700";
+}
+
+function buildSessionLoadInput(session: ReviewSessionRecord): TrainingSessionInput | null {
+  const { plannedExercises, performedExercises } = getReviewExercises(session);
+  const hasExercises = plannedExercises.length > 0 || performedExercises.length > 0;
+
+  if (!hasExercises) return null;
+
+  return {
+    completed: performedExercises.length > 0,
+    performedExercises,
+    plannedExercises
+  };
+}
+
+function getSessionSrpe(session: ReviewSessionRecord) {
+  if (hasDisplayValue(session.sRPE)) {
+    const parsedSrpe = Number(session.sRPE);
+    return Number.isFinite(parsedSrpe) ? parsedSrpe : null;
+  }
+  if (hasDisplayValue(session.srpe)) {
+    const parsedSrpe = Number(session.srpe);
+    return Number.isFinite(parsedSrpe) ? parsedSrpe : null;
+  }
+
+  const duration = Number(session.actualDurationMinutes ?? session.duration);
+  const rpe = Number(session.finalRpe ?? session.rpe);
+
+  if (!Number.isFinite(duration) || !Number.isFinite(rpe) || duration <= 0 || rpe <= 0) return null;
+  return calculateSessionLoad(rpe, duration);
+}
+
+function SessionHistoryPanel({
+  client,
+  onPlanNewSession
+}: {
+  client: CoachClient;
+  onPlanNewSession: () => void;
+}) {
+  const [openSessionKey, setOpenSessionKey] = useState("");
+  const sessions = (client.sessionRecords ?? []) as ReviewSessionRecord[];
 
   return (
     <div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">Sesiones anteriores</h2>
-          <p className="mt-1 text-sm text-ink/55">{client.name}</p>
+          <p className="mt-1 text-sm text-ink/55">Revisión de sesiones planificadas y completadas de {client.name}.</p>
         </div>
         <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
-          {client.sessionRecords.length} sesiones
+          {sessions.length} sesiones
         </span>
       </div>
 
-      {client.sessionRecords.length > 0 ? (
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="grid gap-2">
-            {client.sessionRecords.map((session) => {
-              const sessionKey = `${session.date}-${session.summary}`;
-              const load = calculateSessionLoad(session.rpe, session.duration);
+      {sessions.length > 0 ? (
+        <div className="mt-5 grid gap-3">
+          {sessions.map((session, sessionIndex) => {
+            const sessionKey = `${session.date}-${session.summary}-${sessionIndex}`;
+            const isOpen = openSessionKey === sessionKey;
+            const status = getSessionStatus(session);
+            const { plannedExercises, performedExercises } = getReviewExercises(session);
+            const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
+            const sessionLoadInput = buildSessionLoadInput(session);
+            const externalLoad = sessionLoadInput ? calculateSessionExternalLoad(sessionLoadInput, exerciseLibrary) : null;
+            const srpe = getSessionSrpe(session);
+            const duration = session.actualDurationMinutes ?? session.duration;
+            const rpe = session.finalRpe ?? session.rpe;
+            const detailRows = Array.from({ length: exerciseCount }, (_, index) => ({
+              performed: performedExercises[index],
+              planned: plannedExercises[index]
+            }));
+            const hasRealRegister = performedExercises.length > 0 || status === "Completada";
 
-              return (
-                <button
-                  className={`rounded-md border p-3 text-left ${
-                    selectedSessionKey === sessionKey
-                      ? "border-moss bg-mint"
-                      : "border-line bg-panel/35 hover:bg-panel"
-                  }`}
-                  key={sessionKey}
-                  onClick={() => setSelectedSessionKey(sessionKey)}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-ink">{session.type}</p>
-                      <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+            return (
+              <article className="rounded-md border border-line bg-white p-4 shadow-soft" key={sessionKey}>
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-ink/55">{displayValue(session.date)}</p>
+                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
+                        {status}
+                      </span>
                     </div>
-                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
-                      {load} UA
+                    <h3 className="mt-2 text-lg font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h3>
+                    <p className="mt-1 text-sm text-ink/65">{displayValue(session.summary, "Sin resumen especificado")}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
+                      Ejercicios: {exerciseCount > 0 ? exerciseCount : "Sin datos"}
+                    </span>
+                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
+                      Carga externa: {externalLoad !== null ? `${Math.round(externalLoad).toLocaleString("es-ES")} kg` : "Sin datos suficientes"}
+                    </span>
+                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
+                      sRPE: {srpe !== null ? `${srpe} UA` : "Pendiente"}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-ink/50">{session.date} - RPE {session.rpe} - {session.duration} min</p>
-                </button>
-              );
-            })}
-          </div>
+                </div>
 
-          {selectedSession ? (
-            <article className="rounded-md border border-line bg-panel/35 p-4">
-              <p className="text-xs font-semibold uppercase text-moss">{selectedSession.date}</p>
-              <h3 className="mt-2 text-lg font-semibold text-ink">{selectedSession.type}</h3>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <ClientInfoCard label="Duracion" value={`${selectedSession.duration} min`} />
-                <ClientInfoCard label="RPE" value={`${selectedSession.rpe}/10`} />
-                <ClientInfoCard label="sRPE" value={`${calculateSessionLoad(selectedSession.rpe, selectedSession.duration)} UA`} />
-              </div>
-              <p className="mt-4 rounded-md bg-white px-3 py-3 text-sm font-medium text-ink/70">
-                {selectedSession.summary}
-              </p>
-              <p className="mt-3 text-sm text-ink/60">{selectedSession.notes}</p>
-              <button className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" type="button">
-                Reutilizar como base
-              </button>
-            </article>
-          ) : null}
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <ClientInfoCard label="Bloque / mesociclo" value={formatTrainingBlock(session, client)} />
+                  <ClientInfoCard label="Semana y sesión" value={formatWeekAndSession(session, client)} />
+                  <ClientInfoCard label="Duración real" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
+                  <ClientInfoCard label="RPE total" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                </div>
+
+                <button
+                  className="mt-4 rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
+                  onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
+                  type="button"
+                >
+                  {isOpen ? "Ocultar detalle" : "Ver detalle"}
+                </button>
+
+                {isOpen ? (
+                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+                    <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+                      <section className="rounded-md border border-line bg-white p-4">
+                        <h4 className="font-semibold text-ink">Resumen de sesión</h4>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <ClientInfoCard label="Fecha" value={displayValue(session.date)} />
+                          <ClientInfoCard label="Tipo" value={displayValue(session.type)} />
+                          <ClientInfoCard label="Estado" value={status} />
+                          <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
+                          <ClientInfoCard label="RPE total" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                          <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                          <ClientInfoCard label="Bloque / mesociclo" value={formatTrainingBlock(session, client)} />
+                          <ClientInfoCard label="Semana y sesión" value={formatWeekAndSession(session, client)} />
+                        </div>
+                        <div className="mt-3 rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
+                          <p className="font-semibold text-ink">Objetivo / resumen</p>
+                          <p className="mt-1">{displayValue(session.summary, "Sin resumen especificado")}</p>
+                        </div>
+                        <div className="mt-3 rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
+                          <p className="font-semibold text-ink">Notas</p>
+                          <p className="mt-1">{displayValue(session.finalNotes ?? session.notes, "Sin notas registradas")}</p>
+                        </div>
+                      </section>
+
+                      <section className="rounded-md border border-line bg-white p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h4 className="font-semibold text-ink">Planificado vs realizado</h4>
+                            <p className="mt-1 text-sm text-ink/55">Comparativa por ejercicio cuando el registro está disponible.</p>
+                          </div>
+                          {!hasRealRegister ? (
+                            <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                              Sin registro real todavía
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {exerciseCount > 0 ? (
+                          <div className="mt-4 grid gap-3">
+                            {detailRows.map(({ planned, performed }, exerciseIndex) => {
+                              const changed = hasExerciseChanges(planned, performed);
+                              const exerciseName = getExerciseLabel(performed ?? planned);
+                              const notes = performed?.athleteNotes ?? performed?.notes ?? performed?.observation;
+
+                              return (
+                                <article className="rounded-md border border-line bg-panel/35 p-3" key={`${sessionKey}-${exerciseIndex}`}>
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                      <p className="font-semibold text-ink">{exerciseName}</p>
+                                      <p className="mt-1 text-xs font-semibold uppercase text-ink/45">
+                                        {displayValue((performed ?? planned)?.block ?? (performed ?? planned)?.section, "Bloque sin especificar")}
+                                      </p>
+                                    </div>
+                                    {changed || hasDisplayValue(notes) ? (
+                                      <span className="w-fit rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                                        {changed ? "Modificado" : "Con notas"}
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                    {([
+                                      ["Series", getPlannedValue(planned, "sets"), getPerformedValue(performed, "sets")],
+                                      ["Reps", getPlannedValue(planned, "reps"), getPerformedValue(performed, "reps")],
+                                      ["Carga", getPlannedValue(planned, "load"), getPerformedValue(performed, "load")],
+                                      ["Descanso", getPlannedValue(planned, "rest"), getPerformedValue(performed, "rest")],
+                                      ["RIR", getPlannedValue(planned, "rir"), getPerformedValue(performed, "rir")],
+                                      ["RPE ejercicio", undefined, performed?.exerciseRpe]
+                                    ] as const).map(([label, plannedValue, performedValue]) => (
+                                      <div className="rounded-md bg-white px-3 py-2 text-sm" key={label}>
+                                        <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                                        <p className="mt-1 text-ink/70">
+                                          Plan: <span className="font-semibold text-ink">{displayValue(plannedValue, "-")}</span>
+                                        </p>
+                                        <p className="text-ink/70">
+                                          Real: <span className="font-semibold text-ink">{displayValue(performedValue, "-")}</span>
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {hasDisplayValue(notes) ? (
+                                    <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">
+                                      {notes}
+                                    </p>
+                                  ) : null}
+                                </article>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-medium text-ink/55">
+                            Sin datos de ejercicios para esta sesión.
+                          </div>
+                        )}
+                      </section>
+                    </div>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       ) : (
-        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center text-sm text-ink/55">
-          Todavia no hay sesiones registradas para este deportista.
+        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
+          <p className="text-sm font-semibold text-ink">No hay sesiones registradas todavía.</p>
+          <p className="mt-2 text-sm text-ink/55">Puedes crear la primera sesión desde el planificador.</p>
+          <button
+            className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+            onClick={onPlanNewSession}
+            type="button"
+          >
+            Planificar nueva sesión
+          </button>
         </div>
       )}
     </div>
