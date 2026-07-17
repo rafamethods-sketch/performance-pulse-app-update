@@ -174,9 +174,7 @@ export default function ClientsPage() {
       <div className="min-w-0 flex-1">
         <MobileNav activeSheet={activeSheet} onSheetChange={handleSheetChange} role={role} />
         <section
-          className={`mx-auto w-full px-3 py-4 sm:px-6 sm:py-6 lg:px-8 ${
-            activeSheet === "training" && role === "coach" ? "max-w-[96rem]" : "max-w-7xl"
-          }`}
+          className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8"
         >
           <div className="flex min-w-0 flex-col gap-4 border-b border-line pb-4 sm:pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
@@ -4214,7 +4212,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
         <h3 className="font-semibold text-ink">Datos de sesion</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
             <select
