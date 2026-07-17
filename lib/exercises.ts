@@ -219,7 +219,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Control / tolerancia",
     exercises: [
       squatExercise({
-        name: "Triple flexo-extension en supino con resistencia manual",
+        name: "Triple flexo-extensión en supino con resistencia manual",
         equipment: ["Manual"],
         technicalDescription:
           "Tumbado en supino, realiza una triple flexo-extensión guiada de cadera, rodilla y tobillo contra resistencia manual. Mantén una trayectoria controlada, alineación de rodilla y presión progresiva sin dolor.",
@@ -1095,7 +1095,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         name: "Seated calf raise",
         equipment: ["Máquina"],
         technicalDescription:
-          "Eleva talones sentado con control, buscando tensión en soleo y recorrido completo. Mantén pausa arriba y bajada estable.",
+          "Eleva talones sentado con control, buscando tensión en sóleo y recorrido completo. Mantén pausa arriba y bajada estable.",
         errorsToAvoid: ["Rebotar abajo", "Usar recorrido parcial", "Perder apoyo del antepié"],
         primaryMuscles: ["Sóleo"],
         secondaryMuscles: ["Gemelos"],

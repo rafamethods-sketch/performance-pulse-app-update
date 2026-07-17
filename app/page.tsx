@@ -2213,7 +2213,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               </div>
 
               <div className="rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">Musculos implicados</h3>
+                <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
                 <div className="mt-3">
                   <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
                   <p className="mt-1 text-sm text-ink/70">
@@ -2272,8 +2272,8 @@ function formatFatigueKey(key: string) {
     anteriorDelts: "Deltoides anterior",
     biceps: "Bíceps",
     chest: "Pectoral",
-    glutes: "Gluteos",
-    gluteMed: "Gluteo medio",
+    glutes: "Glúteos",
+    gluteMed: "Glúteo medio",
     hamstrings: "Isquios",
     hips: "Caderas",
     hipFlexors: "Flexores cadera",
@@ -3876,23 +3876,40 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 
 const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
 
+function getPlanningWeekNumber(currentWeek: string) {
+  const match = currentWeek.match(/\d+/);
+  return match ? Number(match[0]) : 1;
+}
+
 function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? coachClients[0].id);
   const activeSessionClient =
     client ?? coachClients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? coachClients[0];
+  const activePlanningWeek = getPlanningWeekNumber(activeSessionClient.planning.currentWeek);
+  const [selectedBlockWeek, setSelectedBlockWeek] = useState(activePlanningWeek);
+  const [sessionDate, setSessionDate] = useState("");
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
-  const [sessionDuration, setSessionDuration] = useState("");
-  const [sessionFinalRpe, setSessionFinalRpe] = useState("");
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
   );
-  const calculatedSrpe = Number(sessionDuration || 0) * Number(sessionFinalRpe || 0);
+  const plannedSessionsInSelectedWeek =
+    selectedBlockWeek > 0
+      ? calendarSessions.filter((session) => session.athlete === activeSessionClient.name).length
+      : 0;
+  const calculatedSessionNumber =
+    selectedBlockWeek > 0
+      ? (selectedBlockWeek === activePlanningWeek ? plannedSessionsInSelectedWeek : 0) + 1
+      : null;
+  const currentBlockLabel = activeSessionClient.planning.currentBlock || "Sin asignar";
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
+  useEffect(() => {
+    setSelectedBlockWeek(activePlanningWeek);
+  }, [activePlanningWeek, activeSessionClient.id]);
   const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
@@ -4156,7 +4173,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
         <h3 className="font-semibold text-ink">Datos de sesion</h3>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
             <select
@@ -4176,7 +4193,9 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             Fecha
             <input
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSessionDate(event.target.value)}
               type="date"
+              value={sessionDate}
             />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -4196,25 +4215,10 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             <input
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               min={1}
+              onChange={(event) => setSelectedBlockWeek(Number(event.target.value))}
               placeholder="3"
               type="number"
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Numero de sesion
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              min={1}
-              placeholder="2"
-              type="number"
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Bloque / mesociclo
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              placeholder="Bloque actual"
-              type="text"
+              value={selectedBlockWeek}
             />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
@@ -4227,37 +4231,22 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               type="number"
             />
           </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Tiempo total sesion
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              min={0}
-              onChange={(event) => setSessionDuration(event.target.value)}
-              placeholder="min"
-              type="number"
-              value={sessionDuration}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            RPE final
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              max={10}
-              min={0}
-              onChange={(event) => setSessionFinalRpe(event.target.value)}
-              placeholder="0-10"
-              type="number"
-              value={sessionFinalRpe}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            sRPE
-            <input
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none"
-              readOnly
-              value={calculatedSrpe > 0 ? `${calculatedSrpe} UA` : ""}
-            />
-          </label>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-line bg-white px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Sesion calculada</p>
+            <p className="mt-1 text-sm font-semibold text-ink">
+              {calculatedSessionNumber
+                ? `Semana ${selectedBlockWeek} · Sesion ${calculatedSessionNumber}`
+                : "Sesion pendiente de asignar"}
+            </p>
+          </div>
+          <div className="rounded-md border border-line bg-white px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Bloque / mesociclo calculado</p>
+            <p className="mt-1 text-sm font-semibold text-ink">
+              Bloque actual: {currentBlockLabel || "Sin asignar"}
+            </p>
+          </div>
         </div>
         </section>
 
@@ -4335,14 +4324,6 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Bloque metabolico / especifico
                 <textarea className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss" placeholder="Rounds, esfuerzos, tiempos, pausas, distancia" />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Duracion total
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 70 min" />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                RPE esperado
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 7/10" />
               </label>
             </div>
           </div>
@@ -4484,11 +4465,21 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
   const [sessionCompleted, setSessionCompleted] = useState(false);
   const [sessionMissed, setSessionMissed] = useState(false);
   const [selectedPastSessionId, setSelectedPastSessionId] = useState(pastSessions[0].id);
+  const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
+  const [finalRpe, setFinalRpe] = useState(0);
+  const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
+  const [completedSessionRecord, setCompletedSessionRecord] = useState<{
+    actualDurationMinutes: number;
+    finalRpe: number;
+    sRpe: number;
+  } | null>(null);
 
   const performedTonnage = performedExercises.reduce(
     (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
     0
   );
+  const completedSessionSrpe =
+    actualDurationMinutes > 0 && finalRpe > 0 ? actualDurationMinutes * finalRpe : null;
   const performedSetsByPattern = performedExercises.reduce<Record<MovementPattern, number>>(
     (acc, exercise) => {
       acc[exercise.pattern as MovementPattern] =
@@ -4685,7 +4676,15 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 </div>
               </div>
 
-              <SessionRpeSliders />
+              <SessionRpeSliders
+                actualDurationMinutes={actualDurationMinutes}
+                athleteNotes={athleteSessionNotes}
+                finalRpe={finalRpe}
+                onAthleteNotesChange={setAthleteSessionNotes}
+                onDurationChange={setActualDurationMinutes}
+                onFinalRpeChange={setFinalRpe}
+                sRpe={completedSessionSrpe}
+              />
               <CardioSessionForm />
               <GoalBasedStrengthSummary
                 performedTonnage={performedTonnage}
@@ -4701,6 +4700,15 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 <button
                   className="flex h-11 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-white"
                   onClick={() => {
+                    setCompletedSessionRecord(
+                      completedSessionSrpe
+                        ? {
+                            actualDurationMinutes,
+                            finalRpe,
+                            sRpe: completedSessionSrpe
+                          }
+                        : null
+                    );
                     setSessionCompleted(true);
                     setSessionMissed(false);
                   }}
@@ -4713,6 +4721,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                   onClick={() => {
                     setSessionMissed(true);
                     setSessionCompleted(false);
+                    setCompletedSessionRecord(null);
                   }}
                   type="button"
                 >
@@ -4720,7 +4729,12 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 </button>
               </div>
 
-              {sessionCompleted && <CoachCompletionMessage />}
+              {sessionCompleted && (
+                <>
+                  <CompletedSessionSummary record={completedSessionRecord} />
+                  <CoachCompletionMessage />
+                </>
+              )}
               {sessionMissed && <MissedSessionReason />}
             </div>
           ) : (
@@ -4767,6 +4781,32 @@ function CoachCompletionMessage() {
     <section className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
       <h4 className="font-semibold">{coachCompletionMessage.title}</h4>
       <p className="mt-2 text-sm leading-6">{coachCompletionMessage.body}</p>
+    </section>
+  );
+}
+
+function CompletedSessionSummary({
+  record
+}: {
+  record: { actualDurationMinutes: number; finalRpe: number; sRpe: number } | null;
+}) {
+  return (
+    <section className="mt-4 rounded-md border border-line bg-white p-4">
+      <h4 className="font-semibold text-ink">Sesion completada</h4>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <ClientInfoCard
+          label="Duracion real"
+          value={record ? `${record.actualDurationMinutes} min` : "Pendiente"}
+        />
+        <ClientInfoCard
+          label="RPE final"
+          value={record ? `${record.finalRpe}/10` : "Pendiente"}
+        />
+        <ClientInfoCard
+          label="sRPE"
+          value={record ? `${record.sRpe} UA` : "Pendiente"}
+        />
+      </div>
     </section>
   );
 }
@@ -4876,16 +4916,66 @@ function NumberField({ label, onChange, value }: NumberFieldProps) {
   );
 }
 
-function SessionRpeSliders() {
+type SessionRpeSlidersProps = {
+  actualDurationMinutes: number;
+  athleteNotes: string;
+  finalRpe: number;
+  onAthleteNotesChange: (value: string) => void;
+  onDurationChange: (value: number) => void;
+  onFinalRpeChange: (value: number) => void;
+  sRpe: number | null;
+};
+
+function SessionRpeSliders({
+  actualDurationMinutes,
+  athleteNotes,
+  finalRpe,
+  onAthleteNotesChange,
+  onDurationChange,
+  onFinalRpeChange,
+  sRpe
+}: SessionRpeSlidersProps) {
   return (
     <section className="mt-4 rounded-md border border-line bg-white p-4">
-      <h4 className="font-semibold text-ink">Carga interna final</h4>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h4 className="font-semibold text-ink">Registro final de sesion</h4>
+          <p className="mt-1 text-sm text-ink/60">
+            Completa estos datos al terminar para calcular la carga interna real.
+          </p>
+        </div>
+        <span className="rounded-md bg-panel/60 px-3 py-1 text-sm font-semibold text-ink">
+          sRPE: {sRpe ? `${sRpe} UA` : "Pendiente"}
+        </span>
+      </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <SliderField label="RPE global de sesion" max={10} min={1} value={7} />
-        <SliderField label="Duracion de sesion" max={180} min={10} suffix="min" value={72} />
+        <SliderField
+          label="Duracion real de sesion"
+          max={180}
+          min={0}
+          onChange={onDurationChange}
+          suffix="min"
+          value={actualDurationMinutes}
+        />
+        <SliderField
+          label="RPE final"
+          max={10}
+          min={0}
+          onChange={onFinalRpeChange}
+          value={finalRpe}
+        />
         <SliderField label="RPE muscular final" max={10} min={1} value={8} />
         <SliderField label="RPE cardiaco final" max={10} min={1} value={5} />
       </div>
+      <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+        Notas del deportista
+        <textarea
+          className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+          onChange={(event) => onAthleteNotesChange(event.target.value)}
+          placeholder="Sensaciones, molestias o cambios realizados"
+          value={athleteNotes}
+        />
+      </label>
     </section>
   );
 }
@@ -5028,19 +5118,21 @@ type SliderFieldProps = {
   label: string;
   max: number;
   min: number;
+  onChange?: (value: number) => void;
   suffix?: string;
   value: number;
 };
 
-function SliderField({ label, max, min, suffix = "", value }: SliderFieldProps) {
+function SliderField({ label, max, min, onChange, suffix = "", value }: SliderFieldProps) {
   const [currentValue, setCurrentValue] = useState(value);
+  const displayValue = onChange ? value : currentValue;
 
   return (
     <label className="rounded-md border border-line bg-panel/35 p-3 text-sm font-medium text-ink/75">
       <span className="flex items-center justify-between gap-3">
         {label}
         <strong className="text-ink">
-          {currentValue}
+          {displayValue}
           {suffix}
         </strong>
       </span>
@@ -5048,9 +5140,16 @@ function SliderField({ label, max, min, suffix = "", value }: SliderFieldProps) 
         className="mt-3 w-full accent-moss"
         max={max}
         min={min}
-        onChange={(event) => setCurrentValue(Number(event.target.value))}
+        onChange={(event) => {
+          const nextValue = Number(event.target.value);
+          if (onChange) {
+            onChange(nextValue);
+          } else {
+            setCurrentValue(nextValue);
+          }
+        }}
         type="range"
-        value={currentValue}
+        value={displayValue}
       />
     </label>
   );
