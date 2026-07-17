@@ -227,7 +227,6 @@ export default function ClientsPage() {
                 client={selectedClient}
                 clients={clients}
                 onBack={() => setTrainerClientPanel("list")}
-                onGoToSheet={handleSheetChange}
                 onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
@@ -541,7 +540,6 @@ function CoachClientsView({
   client,
   clients,
   onBack,
-  onGoToSheet,
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
@@ -551,7 +549,6 @@ function CoachClientsView({
   client: CoachClient | null;
   clients: CoachClient[];
   onBack: () => void;
-  onGoToSheet: (sheet: SheetId) => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
@@ -741,7 +738,13 @@ function CoachClientsView({
       <ClientDetailsView
         client={client}
         onBack={() => onOpenDashboard(client.id)}
-        onSave={() => onGoToSheet("planning")}
+        onUpdateClient={(updatedClient) =>
+          setClients((currentClients) =>
+            currentClients.map((listedClient) =>
+              listedClient.id === updatedClient.id ? updatedClient : listedClient
+            )
+          )
+        }
       />
     );
   }
@@ -1815,23 +1818,120 @@ function QuickAccess({
 function ClientDetailsView({
   client,
   onBack,
-  onSave
+  onUpdateClient
 }: {
   client: CoachClient;
   onBack: () => void;
-  onSave: () => void;
+  onUpdateClient: (updatedClient: CoachClient) => void;
 }) {
-  const details = [
-    ["Nombre", client.name],
-    ["Edad", `${client.age} anos`],
-    ["Modalidad deportiva", client.modality],
-    ["Nivel", client.level],
-    ["Objetivo / evento", client.nextEvent],
-    ["Disponibilidad semanal", client.availability],
-    ["Material disponible", client.availableEquipment ?? "Pendiente"],
-    ["Historial deportivo", client.history],
-    ["Lesiones / limitaciones", client.injuries],
-    ["Notas del entrenador", client.coachNotes]
+  const createDetailsDraft = (sourceClient: CoachClient) => ({
+    age: String(sourceClient.age ?? ""),
+    availableEquipment: sourceClient.availableEquipment ?? "",
+    availability: sourceClient.availability ?? "",
+    coachNotes: sourceClient.coachNotes ?? "",
+    eventDate: sourceClient.planning.eventDate ?? "",
+    eventName: sourceClient.planning.eventName ?? "",
+    eventNotes: sourceClient.planning.eventNotes ?? "",
+    goalType: sourceClient.goalType,
+    injuries: sourceClient.injuries ?? "",
+    modality: sourceClient.modality ?? sourceClient.sport ?? "",
+    name: sourceClient.name ?? "",
+    primaryGoal: sourceClient.planning.primaryGoal ?? "",
+    status: sourceClient.status ?? ""
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(() => createDetailsDraft(client));
+
+  useEffect(() => {
+    setDraft(createDetailsDraft(client));
+    setIsEditing(false);
+  }, [client]);
+
+  const displayValue = (value?: number | string | null) => {
+    if (value === undefined || value === null || String(value).trim() === "") return "Sin especificar";
+    return String(value);
+  };
+
+  const updateDraft = (field: keyof typeof draft, value: string) => {
+    setDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
+  };
+
+  const handleCancel = () => {
+    setDraft(createDetailsDraft(client));
+    setIsEditing(false);
+  };
+
+  const handleSave = () => {
+    const parsedAge = Number(draft.age);
+    const cleanEventName = draft.eventName.trim();
+    const cleanEventDate = draft.eventDate.trim();
+    const nextEvent = cleanEventName
+      ? `${cleanEventName}${cleanEventDate ? ` - ${cleanEventDate}` : ""}`
+      : client.nextEvent;
+
+    onUpdateClient({
+      ...client,
+      age: Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : client.age,
+      availability: draft.availability.trim() || "Sin especificar",
+      availableEquipment: draft.availableEquipment.trim() || "Sin especificar",
+      coachNotes: draft.coachNotes.trim() || "Sin especificar",
+      goalType: draft.goalType as CoachClient["goalType"],
+      injuries: draft.injuries.trim() || "Sin especificar",
+      modality: draft.modality.trim() || "Sin especificar",
+      name: draft.name.trim() || client.name,
+      nextEvent,
+      planning: {
+        ...client.planning,
+        eventDate: cleanEventDate,
+        eventName: cleanEventName,
+        eventNotes: draft.eventNotes.trim(),
+        primaryGoal: draft.primaryGoal.trim() || "Sin especificar"
+      },
+      sport: draft.modality.trim() || client.sport,
+      status: draft.status.trim() || "Sin especificar"
+    });
+    setIsEditing(false);
+  };
+
+  const detailSections = [
+    {
+      fields: [
+        ["Nombre", displayValue(client.name)],
+        ["Edad", `${displayValue(client.age)} años`],
+        ["Disciplina / deporte", displayValue(client.modality || client.sport)],
+        ["Contexto", displayValue(client.goalType)],
+        ["Estado", displayValue(client.status)]
+      ],
+      title: "Datos básicos"
+    },
+    {
+      fields: [
+        ["Objetivo principal", displayValue(client.planning.primaryGoal)],
+        ["Evento / test / competición", displayValue(client.planning.eventName || client.nextEvent)],
+        ["Fecha objetivo", displayValue(client.planning.eventDate)],
+        ["Notas del objetivo", displayValue(client.planning.eventNotes)]
+      ],
+      title: "Objetivo y calendario"
+    },
+    {
+      fields: [["Disponibilidad semanal", displayValue(client.availability)]],
+      title: "Disponibilidad"
+    },
+    {
+      fields: [["Material disponible", displayValue(client.availableEquipment)]],
+      title: "Material disponible"
+    },
+    {
+      fields: [
+        ["Lesiones o limitaciones", displayValue(client.injuries)],
+        ["Observaciones relevantes", displayValue(client.history)]
+      ],
+      title: "Salud / lesiones / limitaciones"
+    },
+    {
+      fields: [["Notas generales", displayValue(client.coachNotes)]],
+      title: "Notas del entrenador"
+    }
   ];
 
   return (
@@ -1844,19 +1944,124 @@ function ClientDetailsView({
           <h2 className="text-xl font-semibold text-ink">Ficha inicial</h2>
           <p className="mt-1 text-sm text-ink/60">{client.name}</p>
         </div>
-        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onSave} type="button">
-          Guardar ficha inicial
-        </button>
+        {isEditing ? (
+          <div className="flex flex-wrap gap-2">
+            <button className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleCancel} type="button">
+              Cancelar
+            </button>
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSave} type="button">
+              Guardar cambios
+            </button>
+          </div>
+        ) : (
+          <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => setIsEditing(true)} type="button">
+            Editar detalles
+          </button>
+        )}
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        {details.map(([label, value]) => (
-          <article className="rounded-md border border-line bg-panel/35 p-4" key={label}>
-            <p className="text-sm font-semibold text-ink">{label}</p>
-            <p className="mt-2 text-sm text-ink/70">{value}</p>
-          </article>
-        ))}
-      </div>
+      {isEditing ? (
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Datos básicos</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Nombre
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("name", event.target.value)} value={draft.name} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Edad
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" min={0} onChange={(event) => updateDraft("age", event.target.value)} type="number" value={draft.age} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Disciplina / deporte
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("modality", event.target.value)} value={draft.modality} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Contexto
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("goalType", event.target.value)} value={draft.goalType}>
+                  <option>Rendimiento</option>
+                  <option>Salud</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Estado
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("status", event.target.value)} value={draft.status} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Objetivo y calendario</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Objetivo principal
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("primaryGoal", event.target.value)} value={draft.primaryGoal} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Evento / test / competición
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("eventName", event.target.value)} value={draft.eventName} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Fecha objetivo
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("eventDate", event.target.value)} type="date" value={draft.eventDate} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Notas del objetivo
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("eventNotes", event.target.value)} value={draft.eventNotes} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Disponibilidad</h3>
+            <label className="mt-4 block text-sm font-semibold text-ink/70">
+              Disponibilidad semanal
+              <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("availability", event.target.value)} value={draft.availability} />
+            </label>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Material disponible</h3>
+            <label className="mt-4 block text-sm font-semibold text-ink/70">
+              Material disponible
+              <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("availableEquipment", event.target.value)} value={draft.availableEquipment} />
+            </label>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Salud / lesiones / limitaciones</h3>
+            <label className="mt-4 block text-sm font-semibold text-ink/70">
+              Lesiones o limitaciones
+              <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("injuries", event.target.value)} value={draft.injuries} />
+            </label>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Notas del entrenador</h3>
+            <label className="mt-4 block text-sm font-semibold text-ink/70">
+              Notas generales
+              <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("coachNotes", event.target.value)} value={draft.coachNotes} />
+            </label>
+          </section>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {detailSections.map((section) => (
+            <article className="rounded-md border border-line bg-panel/35 p-4" key={section.title}>
+              <h3 className="font-semibold text-ink">{section.title}</h3>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {section.fields.map(([label, value]) => (
+                  <div className="rounded-md border border-line bg-white px-3 py-3" key={label}>
+                    <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
