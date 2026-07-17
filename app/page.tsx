@@ -57,8 +57,6 @@ import {
 } from "@/lib/session-load";
 import { supabase } from "@/lib/supabase";
 import {
-  assessmentCategories,
-  assessmentGoals,
   athleteAdherence,
   coachClients,
   coachCompletionMessage,
@@ -68,13 +66,11 @@ import {
   fatigueLegend,
   hooperQuestions,
   plannedSession,
-  posturalAssessmentFields,
   pastSessions,
   messageThreads,
   sessionQuantifiers,
   sports,
   weeklyLoadSeries,
-  type AssessmentGoal,
   type GoalType,
   type SheetId,
   type UserRole
@@ -3643,206 +3639,188 @@ function decisionToneClass(status: string) {
   }
 }
 
+type AssessmentEntry = ClientAssessment & {
+  notes?: string;
+  unit?: string;
+};
+
+const assessmentCategoriesSimple = [
+  "Fuerza",
+  "Resistencia",
+  "Movilidad",
+  "Antropometría",
+  "Cuestionarios",
+  "Técnica",
+  "Otro"
+];
+
+const emptyAssessmentDraft = {
+  category: "Fuerza",
+  date: "",
+  name: "",
+  notes: "",
+  result: "",
+  unit: ""
+};
+
 function AssessmentsView({ client }: { client?: CoachClient | null }) {
-  const [selectedGoal, setSelectedGoal] = useState<AssessmentGoal>("Salud general");
-  const [selectedTests, setSelectedTests] = useState<Record<string, string>>({});
-  const posturalCategory = "Postural";
-  const [activeAssessmentCategory, setActiveAssessmentCategory] = useState(
-    assessmentCategories[0].category
-  );
-  const isPosturalAssessment = activeAssessmentCategory === posturalCategory;
-  const activeCategory = assessmentCategories.find(
-    (category) => category.category === activeAssessmentCategory
-  );
-  const recommendedTests = (activeCategory?.tests ?? []).filter((test) =>
-    test.goals.includes(selectedGoal)
-  );
-  const fallbackTests =
-    recommendedTests.length > 0 ? recommendedTests : activeCategory?.tests ?? [];
-  const selectedTestName =
-    activeCategory && fallbackTests.length > 0
-      ? selectedTests[activeCategory.category] ?? fallbackTests[0].name
-      : "";
-  const selectedTest =
-    fallbackTests.find((test) => test.name === selectedTestName) ?? fallbackTests[0];
-  const unit = selectedTest ? assessmentUnitForTest(selectedTest.name) : "texto";
+  const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
+  const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
+  const [localAssessments, setLocalAssessments] = useState<AssessmentEntry[]>([]);
+  const assessments: AssessmentEntry[] = [
+    ...localAssessments,
+    ...(client?.assessments ?? [])
+  ];
+
+  useEffect(() => {
+    setShowNewAssessmentForm(false);
+    setAssessmentDraft(emptyAssessmentDraft);
+    setLocalAssessments([]);
+  }, [client?.id]);
+
+  const updateAssessmentDraft = (field: keyof typeof assessmentDraft, value: string) => {
+    setAssessmentDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
+  };
+
+  const resetAssessmentForm = () => {
+    setAssessmentDraft(emptyAssessmentDraft);
+    setShowNewAssessmentForm(false);
+  };
+
+  const handleSaveAssessment = () => {
+    if (!assessmentDraft.name.trim() && !assessmentDraft.result.trim()) return;
+
+    const resultWithUnit = `${assessmentDraft.result.trim()}${assessmentDraft.unit.trim() ? ` ${assessmentDraft.unit.trim()}` : ""}`.trim();
+
+    setLocalAssessments((currentAssessments) => [
+      {
+        action: "Ver historial",
+        date: assessmentDraft.date || "Sin fecha",
+        name: assessmentDraft.name.trim() || "Test sin nombre",
+        notes: assessmentDraft.notes.trim(),
+        result: resultWithUnit || "Sin resultado",
+        type: assessmentDraft.category,
+        unit: assessmentDraft.unit.trim()
+      },
+      ...currentAssessments
+    ]);
+    resetAssessmentForm();
+  };
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-      {client ? (
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">Valoraciones de {client.name}</h2>
-              <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
-            </div>
-            <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" type="button">
-              Nueva valoracion
-            </button>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {client.assessments.map((assessment) => (
-              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}`}>
-                <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
-                <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
-                <p className="mt-1 text-sm text-ink/65">{assessment.result}</p>
-                <p className="mt-2 text-xs text-ink/45">{assessment.date}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
+    <div className="mt-6 grid gap-6">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Objetivo de la valoracion</h2>
-
-        <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
-          Objetivo
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setSelectedGoal(event.target.value as AssessmentGoal)}
-            value={selectedGoal}
-          >
-            {assessmentGoals.map((goal) => (
-              <option key={goal}>{goal}</option>
-            ))}
-          </select>
-        </label>
-
-        <div className="mt-5 rounded-md border border-line bg-panel/45 p-4">
-          <h3 className="font-semibold text-ink">Criterio de recomendacion</h3>
-        </div>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Tests recomendados</h2>
+            <h2 className="text-lg font-semibold text-ink">
+              {client ? `Valoraciones de ${client.name}` : "Valoraciones"}
+            </h2>
+            <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
           </div>
-          <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
-            {selectedGoal}
-          </span>
+          <button
+            className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white"
+            onClick={() => setShowNewAssessmentForm(true)}
+            type="button"
+          >
+            Nueva valoración
+          </button>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <div className="flex min-w-max gap-2 rounded-md border border-line bg-panel/45 p-1">
-            {[...assessmentCategories.map((category) => category.category), posturalCategory].map((category) => (
-              <button
-                className={`rounded px-3 py-2 text-sm font-semibold transition ${
-                  activeAssessmentCategory === category
-                    ? "bg-ink text-white"
-                    : "text-ink/65 hover:bg-white"
-                }`}
-                key={category}
-                onClick={() => setActiveAssessmentCategory(category)}
-                type="button"
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        </div>
+        {showNewAssessmentForm ? (
+          <form className="mt-5 rounded-md border border-line bg-panel/35 p-4" onSubmit={(event) => event.preventDefault()}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="font-semibold text-ink">Nueva valoración</h3>
+              <div className="flex flex-wrap gap-2">
+                <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
+                  Cancelar
+                </button>
+                <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
+                  Guardar valoración
+                </button>
+              </div>
+            </div>
 
-        {isPosturalAssessment ? (
-          <article className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <h3 className="font-semibold text-ink">Valoracion postural y disquinesias</h3>
-              <label className="space-y-2 text-sm font-medium text-ink/75 lg:w-52">
-                Dia de valoracion
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Categoría
+                <select
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("category", event.target.value)}
+                  value={assessmentDraft.category}
+                >
+                  {assessmentCategoriesSimple.map((category) => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Test / medición
                 <input
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("name", event.target.value)}
+                  value={assessmentDraft.name}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Fecha
+                <input
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("date", event.target.value)}
                   type="date"
+                  value={assessmentDraft.date}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Resultado
+                <input
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("result", event.target.value)}
+                  value={assessmentDraft.result}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Unidad
+                <input
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("unit", event.target.value)}
+                  placeholder="kg, cm, segundos, repeticiones, puntos, %, m, W, bpm"
+                  value={assessmentDraft.unit}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Notas
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateAssessmentDraft("notes", event.target.value)}
+                  value={assessmentDraft.notes}
                 />
               </label>
             </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {posturalAssessmentFields.map((field) => (
-                <label className="space-y-2 text-sm font-medium text-ink/75" key={field.label}>
-                  {field.label}
-                  <textarea
-                    className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
-                    placeholder={field.placeholder}
-                  />
-                </label>
-              ))}
-            </div>
-          </article>
-        ) : selectedTest && activeCategory ? (
-          <article className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-            <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div>
-                <h3 className="font-semibold text-ink">{activeCategory.category}</h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {fallbackTests.map((test) => (
-                    <span className="rounded-md bg-white px-2 py-1 text-xs font-medium text-ink/65" key={test.name}>
-                      {test.name}
-                    </span>
-                  ))}
-                </div>
-                <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
-                  Elegir test
-                  <select
-                    className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                    onChange={(event) =>
-                      setSelectedTests((current) => ({
-                        ...current,
-                        [activeCategory.category]: event.target.value
-                      }))
-                    }
-                    value={selectedTest.name}
-                  >
-                    {fallbackTests.map((test) => (
-                      <option key={test.name}>{test.name}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="rounded-md bg-white p-4">
-                <p className="text-sm font-semibold text-ink">{selectedTest.name}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="space-y-2 text-sm font-medium text-ink/75">
-                    Dia de valoracion
-                    <input
-                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                      type="date"
-                    />
-                  </label>
-                  <label className="space-y-2 text-sm font-medium text-ink/75">
-                    Resultado ({unit})
-                    <input
-                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                      placeholder={`Introduce ${unit}`}
-                      type={unit === "texto" ? "text" : "number"}
-                    />
-                  </label>
-                </div>
-                <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
-                  Observaciones
-                  <textarea
-                    className="min-h-20 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
-                    placeholder="Notas breves de la prueba"
-                  />
-                </label>
-              </div>
-            </div>
-          </article>
+          </form>
         ) : null}
+
+        {assessments.length > 0 ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {assessments.map((assessment, index) => (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}-${index}`}>
+                <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
+                <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
+                <p className="mt-1 text-sm font-semibold text-ink/70">{assessment.result}</p>
+                <p className="mt-2 text-xs text-ink/45">{assessment.date}</p>
+                {assessment.notes ? (
+                  <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{assessment.notes}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
+            No hay valoraciones registradas todavía.
+          </div>
+        )}
       </section>
     </div>
   );
-}
-
-function assessmentUnitForTest(testName: string) {
-  const lower = testName.toLowerCase();
-  if (lower.includes("1rm") || lower.includes("handgrip")) return "kg";
-  if (lower.includes("perimetros") || lower.includes("cintura") || lower.includes("pliegues")) return "cm/mm";
-  if (lower.includes("5sts") || lower.includes("timed") || lower.includes("rockport")) return "segundos";
-  if (lower.includes("vam") || lower.includes("navette")) return "km/h";
-  if (lower.includes("css")) return "seg/100m";
-  if (lower.includes("cmj")) return "cm";
-  if (lower.includes("sf-") || lower.includes("eq-") || lower.includes("psqi") || lower.includes("poms") || lower.includes("dass") || lower.includes("pss") || lower.includes("restq")) return "puntos";
-  return "texto";
 }
 
 type GlobalCalendarEvent = {
