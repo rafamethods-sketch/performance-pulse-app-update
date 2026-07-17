@@ -817,6 +817,7 @@ function CoachClientsView({
 
             {newClientStep === 3 && (
               <div className="mt-4 grid gap-4">
+                <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm font-medium text-ink/75">
                   Modelo de periodización
                   <select
@@ -831,6 +832,13 @@ function CoachClientsView({
                     <option value="flexible">Flexible</option>
                   </select>
                 </label>
+                <div className="space-y-2 text-sm font-medium text-ink/75">
+                  Número de mesociclos
+                  <div className="flex h-11 items-center rounded-md border border-line bg-white px-3 text-lg font-semibold text-ink">
+                    {newClientDraft.planningBlocks.length}
+                  </div>
+                </div>
+                </div>
 
                 <button
                   className="inline-flex h-10 w-fit items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
@@ -895,7 +903,7 @@ function CoachClientsView({
                               value={block.secondaryObjective}
                             />
                           </label>
-                          <label className="space-y-2 text-sm font-medium text-ink/75 md:col-span-2">
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
                             Distribución semanal
                             <select
                               className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
@@ -907,16 +915,16 @@ function CoachClientsView({
                               ))}
                             </select>
                           </label>
+                          <label className="space-y-2 text-sm font-medium text-ink/75">
+                            Notas
+                            <textarea
+                              className="min-h-10 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateClientMesocycle(block.id, { notes: event.target.value })}
+                              placeholder="Notas del mesociclo"
+                              value={block.notes}
+                            />
+                          </label>
                         </div>
-                        <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
-                          Notas
-                          <textarea
-                            className="min-h-12 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-ink outline-none focus:border-moss"
-                            onChange={(event) => updateClientMesocycle(block.id, { notes: event.target.value })}
-                            placeholder="Notas del mesociclo"
-                            value={block.notes}
-                          />
-                        </label>
                       </section>
                     ))}
                   </div>
@@ -926,27 +934,44 @@ function CoachClientsView({
 
             {newClientStep === 4 && (
               <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                <div className="rounded-md bg-white p-4">
+                <div className="rounded-md border border-line bg-white p-4 shadow-soft">
                   <h4 className="font-semibold text-ink">Datos del cliente</h4>
-                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.name || "Sin nombre"}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.age} años · {newClientDraft.modality}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.goalType}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.availability || "Disponibilidad pendiente"}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.availableEquipment || "Material pendiente"}</p>
+                  <div className="mt-3 grid gap-2 text-sm text-ink/65">
+                    <p><span className="font-semibold text-ink">Nombre:</span> {newClientDraft.name || "Sin nombre"}</p>
+                    <p><span className="font-semibold text-ink">Edad:</span> {newClientDraft.age} años</p>
+                    <p><span className="font-semibold text-ink">Disciplina:</span> {newClientDraft.modality}</p>
+                    <p><span className="font-semibold text-ink">Contexto:</span> {newClientDraft.goalType}</p>
+                    <p><span className="font-semibold text-ink">Disponibilidad:</span> {newClientDraft.availability || "Pendiente"}</p>
+                    <p><span className="font-semibold text-ink">Material:</span> {newClientDraft.availableEquipment || "Pendiente"}</p>
+                  </div>
                 </div>
-                <div className="rounded-md bg-white p-4">
+                <div className="rounded-md border border-line bg-white p-4 shadow-soft">
                   <h4 className="font-semibold text-ink">Objetivo</h4>
-                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.objective || "Sin definir"}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.eventName || "Sin evento definido"}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.eventDate || "Sin fecha"}</p>
+                  <div className="mt-3 grid gap-2 text-sm text-ink/65">
+                    <p><span className="font-semibold text-ink">Objetivo principal:</span> {newClientDraft.objective || "Sin definir"}</p>
+                    <p><span className="font-semibold text-ink">Evento:</span> {newClientDraft.eventName || "Sin evento definido"}</p>
+                    <p><span className="font-semibold text-ink">Fecha:</span> {newClientDraft.eventDate || "Sin fecha"}</p>
+                    {newClientDraft.eventNotes ? (
+                      <p><span className="font-semibold text-ink">Notas:</span> {newClientDraft.eventNotes}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="rounded-md bg-white p-4">
+                <div className="rounded-md border border-line bg-white p-4 shadow-soft">
                   <h4 className="font-semibold text-ink">Planificación inicial</h4>
-                  <p className="mt-2 text-sm text-ink/65">{newClientDraft.planningMethod ? getPlanningMethodLabel(newClientDraft.planningMethod) : "Sin modelo"}</p>
-                  <p className="text-sm text-ink/65">{newClientDraft.planningBlocks.length} mesociclos</p>
-                  {newClientDraft.planningBlocks[0] ? (
-                    <p className="text-sm text-ink/65">Inicio: {newClientDraft.planningBlocks[0].name}</p>
-                  ) : null}
+                  <div className="mt-3 grid gap-2 text-sm text-ink/65">
+                    <p><span className="font-semibold text-ink">Modelo:</span> {newClientDraft.planningMethod ? getPlanningMethodLabel(newClientDraft.planningMethod) : "Sin modelo"}</p>
+                    <p><span className="font-semibold text-ink">Mesociclos:</span> {newClientDraft.planningBlocks.length}</p>
+                    <p><span className="font-semibold text-ink">Bloque inicial:</span> {newClientDraft.planningBlocks[0]?.name ?? "Sin asignar"}</p>
+                    {newClientDraft.planningBlocks.length > 0 ? (
+                      <div className="mt-1 grid gap-1">
+                        {newClientDraft.planningBlocks.map((block, index) => (
+                          <p className="rounded-md bg-panel/45 px-2 py-1" key={block.id}>
+                            Mesociclo {index + 1} · {block.durationWeeks} semanas
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             )}
@@ -2127,6 +2152,35 @@ function PlanningView({
           <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
             {planningBlocks.length} mesociclos - {totalWeeks} semanas
           </span>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <ClientInfoCard label="Modelo" value={getPlanningMethodLabel(planningMethod) || "Sin seleccionar"} />
+          <ClientInfoCard label="Mesociclos" value={String(planningBlocks.length)} />
+          <ClientInfoCard label="Bloque actual" value={client.planning.currentBlock || "Sin asignar"} />
+          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal || "Pendiente"} />
+          <ClientInfoCard label="Duracion total" value={`${totalWeeks} semanas`} />
+        </div>
+
+        <div className="mt-5">
+          <h3 className="font-semibold text-ink">Roadmap de mesociclos</h3>
+          {planningBlocks.length === 0 ? (
+            <div className="mt-3 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
+              Sin asignar
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2 md:flex-row md:flex-wrap">
+              {planningBlocks.map((block, index) => (
+                <div className="min-w-0 flex-1 rounded-md border border-line bg-panel/35 p-3 md:min-w-[180px]" key={block.id}>
+                  <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
+                  <p className="mt-1 font-semibold text-ink">{block.name}</p>
+                  <p className="mt-1 text-sm text-ink/60">{block.durationWeeks} semanas</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
