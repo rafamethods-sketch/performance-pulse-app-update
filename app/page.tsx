@@ -35,11 +35,6 @@ import {
   type WeeklyDistribution
 } from "@/lib/planning-config";
 import {
-  calculateWeeklyFatigueMap,
-  calculateWeeklyPercentageByPattern,
-  calculateWeeklySetsByBlock,
-  calculateWeeklySetsByExercise,
-  calculateWeeklySetsByPattern,
   bodyRegionLabels,
   bodyRegions,
   exerciseLibrary,
@@ -51,6 +46,15 @@ import {
   type ExerciseDefinition,
   type ExercisePattern
 } from "@/lib/exercises";
+import {
+  calculateExternalLoadByPattern,
+  calculateSessionExternalLoad,
+  calculateSessionMuscleSets,
+  calculateWeeklyExternalLoad,
+  calculateWeeklyExternalLoadByPattern,
+  calculateWeeklyMuscleSets,
+  type TrainingSessionInput
+} from "@/lib/session-load";
 import { supabase } from "@/lib/supabase";
 import {
   assessmentCategories,
@@ -59,27 +63,19 @@ import {
   coachClients,
   coachCompletionMessage,
   calendarSessions,
-  cardioModes,
-  cardioZones,
   decisionDashboard,
   decisionMetrics,
   fatigueLegend,
   hooperQuestions,
-  muscleVolumeTargets,
   plannedSession,
   posturalAssessmentFields,
   pastSessions,
   messageThreads,
-  recentStrengthLoads,
   sessionQuantifiers,
-  strengthDecisionTargets,
   sports,
   weeklyLoadSeries,
   type AssessmentGoal,
-  type CardioMode,
   type GoalType,
-  type MovementPattern,
-  type MuscleGroup,
   type SheetId,
   type UserRole
 } from "@/lib/data";
@@ -1429,15 +1425,17 @@ function DecisionDashboardView() {
 
 function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const loadData = client ? getClientLoadData(client) : null;
-  const weeklyExerciseEntries = getMockWeeklyExerciseEntries();
-  const setsByPattern = calculateWeeklySetsByPattern(weeklyExerciseEntries);
-  const percentageByPattern = calculateWeeklyPercentageByPattern(weeklyExerciseEntries);
-  const setsByBlock = calculateWeeklySetsByBlock(weeklyExerciseEntries);
-  const setsByExercise = calculateWeeklySetsByExercise(weeklyExerciseEntries);
-  const fatigueMap = calculateWeeklyFatigueMap(weeklyExerciseEntries);
-  const totalWeeklySets = Object.values(setsByPattern).reduce((total, sets) => total + sets, 0);
-  const maxPatternSets = Math.max(1, ...Object.values(setsByPattern));
-  const fatigueEntries = Object.entries(fatigueMap).sort(([, a], [, b]) => b - a).slice(0, 8);
+  const weeklyTrainingSessions = getMockWeeklyTrainingSessions();
+  const previewSession = weeklyTrainingSessions[0];
+  const sessionExternalLoad = calculateSessionExternalLoad(previewSession, exerciseLibrary);
+  const sessionExternalLoadByPattern = calculateExternalLoadByPattern(previewSession, exerciseLibrary);
+  const sessionMuscleSets = calculateSessionMuscleSets(previewSession, exerciseLibrary);
+  const weeklyExternalLoad = calculateWeeklyExternalLoad(weeklyTrainingSessions, exerciseLibrary);
+  const weeklyExternalLoadByPattern = calculateWeeklyExternalLoadByPattern(weeklyTrainingSessions, exerciseLibrary);
+  const weeklyMuscleSets = calculateWeeklyMuscleSets(weeklyTrainingSessions, exerciseLibrary);
+  const maxPatternLoad = Math.max(1, ...Object.values(weeklyExternalLoadByPattern));
+  const muscleSetEntries = Object.entries(weeklyMuscleSets).sort(([, a], [, b]) => b - a).slice(0, 8);
+  const weeklySessionCount = weeklyTrainingSessions.length;
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -1459,6 +1457,24 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         </div>
       ) : null}
 
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <MetricPill
+          label="Carga externa semanal"
+          status="kg"
+          value={`${Math.round(weeklyExternalLoad).toLocaleString("es-ES")} kg`}
+        />
+        <MetricPill
+          label="Carga externa sesion"
+          status="prevision"
+          value={`${Math.round(sessionExternalLoad).toLocaleString("es-ES")} kg`}
+        />
+        <MetricPill
+          label="Sesiones incluidas"
+          status="semana"
+          value={`${weeklySessionCount}`}
+        />
+      </div>
+
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <MetricChart chartType="bar" title="sRPE semanal" field="srpe" suffix=" UA" />
         <MetricChart chartType="points" title="Monotonia" field="monotony" />
@@ -1470,24 +1486,24 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
       <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-md border border-line bg-panel/35 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold text-ink">Distribucion de series por patron</h3>
+            <h3 className="font-semibold text-ink">Carga externa semanal por patron</h3>
             <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-ink">
-              {totalWeeklySets} series
+              {Math.round(weeklyExternalLoad).toLocaleString("es-ES")} kg
             </span>
           </div>
           <div className="mt-4 grid gap-3">
-            {Object.entries(setsByPattern).map(([pattern, sets]) => (
+            {Object.entries(weeklyExternalLoadByPattern).map(([pattern, load]) => (
               <div className="grid gap-2" key={pattern}>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="font-semibold text-ink">{pattern}</span>
                   <span className="text-ink/65">
-                    {sets} sets - {percentageByPattern[pattern].toFixed(1)}%
+                    {Math.round(load).toLocaleString("es-ES")} kg
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
-                    style={{ width: `${(sets / maxPatternSets) * 100}%` }}
+                    style={{ width: `${(load / maxPatternLoad) * 100}%` }}
                   />
                 </div>
               </div>
@@ -1496,9 +1512,9 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         </section>
 
         <section className="rounded-md border border-line bg-panel/35 p-4">
-          <h3 className="font-semibold text-ink">Fatiga muscular acumulada</h3>
+          <h3 className="font-semibold text-ink">Series efectivas semanales por musculo</h3>
           <div className="mt-4 grid gap-2">
-            {fatigueEntries.map(([muscle, score]) => (
+            {muscleSetEntries.map(([muscle, score]) => (
               <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm" key={muscle}>
                 <span className="font-medium text-ink/70">{formatFatigueKey(muscle)}</span>
                 <span className="font-semibold text-ink">{score.toFixed(1)}</span>
@@ -1510,24 +1526,24 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-md border border-line bg-white p-4">
-          <h3 className="font-semibold text-ink">Series por bloque</h3>
+          <h3 className="font-semibold text-ink">Carga externa de la sesion por patron</h3>
           <div className="mt-3 grid gap-2">
-            {Object.entries(setsByBlock).map(([block, sets]) => (
-              <p className="flex justify-between rounded-md bg-panel/45 px-3 py-2 text-sm" key={block}>
-                <span className="text-ink/70">{block}</span>
-                <span className="font-semibold text-ink">{sets}</span>
+            {Object.entries(sessionExternalLoadByPattern).map(([pattern, load]) => (
+              <p className="flex justify-between rounded-md bg-panel/45 px-3 py-2 text-sm" key={pattern}>
+                <span className="text-ink/70">{pattern}</span>
+                <span className="font-semibold text-ink">{Math.round(load).toLocaleString("es-ES")} kg</span>
               </p>
             ))}
           </div>
         </section>
 
         <section className="rounded-md border border-line bg-white p-4">
-          <h3 className="font-semibold text-ink">Series por ejercicio</h3>
+          <h3 className="font-semibold text-ink">Series efectivas de la sesion</h3>
           <div className="mt-3 grid gap-2">
-            {Object.entries(setsByExercise).map(([exercise, sets]) => (
-              <p className="flex justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={exercise}>
-                <span className="text-ink/70">{exercise}</span>
-                <span className="font-semibold text-ink">{sets}</span>
+            {Object.entries(sessionMuscleSets).map(([muscle, sets]) => (
+              <p className="flex justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={muscle}>
+                <span className="text-ink/70">{formatFatigueKey(muscle)}</span>
+                <span className="font-semibold text-ink">{sets.toFixed(1)}</span>
               </p>
             ))}
           </div>
@@ -1537,18 +1553,50 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   );
 }
 
-function getMockWeeklyExerciseEntries() {
+function getMockWeeklyTrainingSessions(): TrainingSessionInput[] {
   return [
-    { exerciseName: "Back squat", sets: 4 },
-    { exerciseName: "Goblet squat", sets: 3 },
-    { exerciseName: "Romanian deadlift", sets: 4 },
-    { exerciseName: "Press banca", sets: 4 },
-    { exerciseName: "Remo con barra", sets: 3 },
-    { exerciseName: "Plank", sets: 3 }
-  ].flatMap((entry) => {
-    const exercise = exerciseLibrary.find((item) => item.name === entry.exerciseName);
-    return exercise ? [{ exerciseId: exercise.id, sets: entry.sets }] : [];
-  });
+    {
+      completed: true,
+      performedExercises: [
+        createSessionExercise("Back squat", 4, 5, 82.5),
+        createSessionExercise("Romanian deadlift", 3, 8, 70),
+        createSessionExercise("Walking lunge", 3, 10, 24),
+        createSessionExercise("Plank", 3, 1, 0)
+      ]
+    },
+    {
+      completed: true,
+      performedExercises: [
+        createSessionExercise("Bench press", 4, 6, 75),
+        createSessionExercise("T-bar row", 4, 8, 60),
+        createSessionExercise("Overhead press / Press militar", 3, 6, 40)
+      ]
+    },
+    {
+      completed: false,
+      plannedExercises: [
+        createSessionExercise("Goblet squat", 3, 10, 24),
+        createSessionExercise("Hip thrust", 4, 8, 90),
+        createSessionExercise("Pull-up / Chin-up", 4, 5, 0)
+      ]
+    }
+  ];
+}
+
+function createSessionExercise(
+  exerciseName: string,
+  sets: number,
+  reps: number,
+  load: number
+) {
+  const exercise = exerciseLibrary.find((item) => item.name === exerciseName);
+  return {
+    exerciseId: exercise?.id,
+    exerciseName,
+    load,
+    reps,
+    sets
+  };
 }
 
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
@@ -3740,45 +3788,29 @@ function fatigueColorClass(status: string) {
 }
 
 function calculateMuscleFatigue() {
-  const grouped = recentStrengthLoads.reduce<
-    Record<
-      string,
-      {
-        exercises: string[];
-        hoursAgo: number;
-        muscle: string;
-        score: number;
-        sets: number;
-        side: string;
-      }
-    >
-  >((acc, load) => {
-    const rirStress = Math.max(0, 5 - load.rir) * 8;
-    const rpeStress = Math.max(0, load.rpe - 5) * 5;
-    const volumeStress = load.sets * 6;
-    const tonnageStress = Math.min(18, (load.sets * load.reps * load.load) / 250);
-    const timeDecay = Math.max(0.15, 1 - load.hoursAgo / 120);
-    const score = (rirStress + rpeStress + volumeStress + tonnageStress) * timeDecay;
+  const weeklyMuscleSets = calculateWeeklyMuscleSets(
+    getMockWeeklyTrainingSessions(),
+    exerciseLibrary
+  );
+  const grouped = Object.entries(weeklyMuscleSets).reduce<
+    Record<string, { muscle: string; rawSets: number; side: string }>
+  >((acc, [muscleKey, weightedSets]) => {
+    const group = getFatigueDisplayGroup(muscleKey);
+    if (!group) return acc;
 
-    const current = acc[load.muscleGroup] ?? {
-      exercises: [],
-      hoursAgo: load.hoursAgo,
-      muscle: load.muscleGroup,
-      score: 0,
-      sets: 0,
-      side: load.side
+    const current = acc[group.muscle] ?? {
+      muscle: group.muscle,
+      rawSets: 0,
+      side: group.side
     };
 
-    current.exercises.push(load.exercise);
-    current.hoursAgo = Math.min(current.hoursAgo, load.hoursAgo);
-    current.score += score;
-    current.sets += load.sets;
-    acc[load.muscleGroup] = current;
+    current.rawSets += weightedSets;
+    acc[group.muscle] = current;
     return acc;
   }, {});
 
   return Object.values(grouped).map((item) => {
-    const fatigueScore = Math.min(100, Math.round(item.score));
+    const fatigueScore = Math.min(100, Math.round(item.rawSets * 10));
     const status =
       fatigueScore >= 76
         ? "Rojo"
@@ -3798,14 +3830,34 @@ function calculateMuscleFatigue() {
 
     return {
       fatigueScore,
-      lastStimulus: `Hace ${item.hoursAgo} h`,
+      lastStimulus: "Semana actual",
       muscle: item.muscle,
       recommendation,
       side: item.side,
       status,
-      supportingData: `${item.sets} series - ${item.exercises.join(", ")}`
+      supportingData: `${item.rawSets.toFixed(1)} series efectivas ponderadas`
     };
   });
+}
+
+function getFatigueDisplayGroup(muscleKey: string) {
+  const groups: Record<string, { muscle: string; side: string }> = {
+    anteriorDelts: { muscle: "Deltoides", side: "Frontal" },
+    biceps: { muscle: "Dorsal", side: "Posterior" },
+    calves: { muscle: "Gemelo", side: "Posterior" },
+    chest: { muscle: "Pectoral", side: "Frontal" },
+    glutes: { muscle: "Gluteo", side: "Posterior" },
+    hamstrings: { muscle: "Isquios", side: "Posterior" },
+    lats: { muscle: "Dorsal", side: "Posterior" },
+    midBack: { muscle: "Dorsal", side: "Posterior" },
+    quadriceps: { muscle: "Cuadriceps", side: "Frontal" },
+    rearDelts: { muscle: "Deltoides", side: "Posterior" },
+    triceps: { muscle: "Pectoral", side: "Frontal" },
+    upperBack: { muscle: "Dorsal", side: "Posterior" },
+    upperTraps: { muscle: "Deltoides", side: "Posterior" }
+  };
+
+  return groups[muscleKey] ?? null;
 }
 
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
@@ -4042,7 +4094,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                   </p>
                 </div>
               ) : null}
-              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Series
                   <input
@@ -4083,17 +4135,6 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                     onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
                     placeholder="Descanso"
                     value={exercise.rest}
-                  />
-                </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  RPE
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    max={10}
-                    min={0}
-                    onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
-                    type="number"
-                    value={exercise.targetRpe}
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
@@ -4173,7 +4214,7 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
         <h3 className="font-semibold text-ink">Datos de sesion</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
             <select
@@ -4198,8 +4239,22 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
               value={sessionDate}
             />
           </label>
+          <div className="space-y-2 text-sm font-medium text-ink/75">
+            Bloque / mesociclo
+            <div className="flex min-h-11 items-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink">
+              {currentBlockLabel || "Sin asignar"}
+            </div>
+          </div>
+          <div className="space-y-2 text-sm font-medium text-ink/75">
+            Semana y sesion
+            <div className="flex min-h-11 items-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink">
+              {calculatedSessionNumber
+                ? `Semana ${selectedBlockWeek} - Sesion ${calculatedSessionNumber}`
+                : "Sesion pendiente de asignar"}
+            </div>
+          </div>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Disciplina / tipo de sesion
+            Tipo de sesion
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => setSessionType(event.target.value as CoachSessionType)}
@@ -4209,17 +4264,6 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
                 <option key={type}>{type}</option>
               ))}
             </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Semana del bloque
-            <input
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              min={1}
-              onChange={(event) => setSelectedBlockWeek(Number(event.target.value))}
-              placeholder="3"
-              type="number"
-              value={selectedBlockWeek}
-            />
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
             RPE objetivo
@@ -4232,31 +4276,15 @@ function CoachTrainingPlanner({ client }: { client?: CoachClient | null }) {
             />
           </label>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-line bg-white px-3 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Sesion calculada</p>
-            <p className="mt-1 text-sm font-semibold text-ink">
-              {calculatedSessionNumber
-                ? `Semana ${selectedBlockWeek} · Sesion ${calculatedSessionNumber}`
-                : "Sesion pendiente de asignar"}
-            </p>
-          </div>
-          <div className="rounded-md border border-line bg-white px-3 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Bloque / mesociclo calculado</p>
-            <p className="mt-1 text-sm font-semibold text-ink">
-              Bloque actual: {currentBlockLabel || "Sin asignar"}
-            </p>
-          </div>
-        </div>
         </section>
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Resumen / objetivo de la sesion
             <textarea
-              className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+              className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
               defaultValue={plannedSession.title}
-              placeholder="Descripcion breve de la sesion"
+              placeholder="Ej: Fuerza tren inferior + zona 2"
             />
           </label>
         </section>
@@ -4480,44 +4508,10 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
   );
   const completedSessionSrpe =
     actualDurationMinutes > 0 && finalRpe > 0 ? actualDurationMinutes * finalRpe : null;
-  const performedSetsByPattern = performedExercises.reduce<Record<MovementPattern, number>>(
-    (acc, exercise) => {
-      acc[exercise.pattern as MovementPattern] =
-        (acc[exercise.pattern as MovementPattern] ?? 0) + exercise.sets;
-      return acc;
-    },
-    {
-      "Dominante rodilla": 0,
-      "Bisagra cadera": 0,
-      Empuje: 0,
-      Traccion: 0,
-      Core: 0
-    }
-  );
-  const performedSetsByMuscle = performedExercises.reduce<Record<MuscleGroup, number>>(
-    (acc, exercise) => {
-      acc[exercise.muscleGroup as MuscleGroup] =
-        (acc[exercise.muscleGroup as MuscleGroup] ?? 0) + exercise.sets;
-      return acc;
-    },
-    {
-      Cuadriceps: 0,
-      Isquios: 0,
-      Gluteo: 0,
-      Pectoral: 0,
-      Dorsal: 0,
-      Deltoides: 0,
-      Biceps: 0,
-      Triceps: 0,
-      Gemelo: 0,
-      Core: 0
-    }
-  );
-
   function updateExercise(
     index: number,
-    field: "sets" | "reps" | "load" | "targetRpe" | "targetRir",
-    value: number
+    field: "sets" | "reps" | "load" | "targetRpe" | "targetRir" | "rest" | "observation",
+    value: number | string
   ) {
     setPerformedExercises((current) =>
       current.map((exercise, exerciseIndex) =>
@@ -4611,7 +4605,7 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                   </span>
                 </div>
                 <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
+                  <table className="w-full min-w-[1180px] border-separate border-spacing-y-2 text-left text-sm">
                     <thead className="text-xs uppercase tracking-wide text-ink/50">
                       <tr>
                         <th className="px-3 py-2">Ejercicio</th>
@@ -4620,9 +4614,10 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                         <th className="px-3 py-2">Series</th>
                         <th className="px-3 py-2">Reps</th>
                         <th className="px-3 py-2">Carga</th>
-                        <th className="px-3 py-2">RIR</th>
                         <th className="px-3 py-2">Descanso</th>
-                        <th className="px-3 py-2">Observaciones</th>
+                        <th className="px-3 py-2">RPE</th>
+                        <th className="px-3 py-2">RIR</th>
+                        <th className="px-3 py-2">Notas</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4660,6 +4655,25 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                           </td>
                           <td className="px-3 py-2">
                             <input
+                              aria-label={`Descanso ${exercise.name}`}
+                              className="h-9 w-24 rounded-md border border-line bg-panel/35 px-2 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateExercise(index, "rest", event.target.value)}
+                              value={exercise.rest}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              aria-label={`RPE ${exercise.name}`}
+                              className="h-9 w-16 rounded-md border border-line bg-panel/35 px-2 text-ink outline-none focus:border-moss"
+                              max={10}
+                              min={0}
+                              onChange={(event) => updateExercise(index, "targetRpe", Number(event.target.value))}
+                              type="number"
+                              value={exercise.targetRpe}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
                               aria-label={`RIR ${exercise.name}`}
                               className="h-9 w-16 rounded-md border border-line bg-panel/35 px-2 text-ink outline-none focus:border-moss"
                               onChange={(event) => updateExercise(index, "targetRir", Number(event.target.value))}
@@ -4667,8 +4681,14 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                               value={exercise.targetRir}
                             />
                           </td>
-                          <td className="whitespace-nowrap px-3 py-2 text-ink/65">{exercise.rest}</td>
-                          <td className="rounded-r-md px-3 py-2 text-ink/65">{exercise.observation}</td>
+                          <td className="rounded-r-md px-3 py-2">
+                            <input
+                              aria-label={`Notas ${exercise.name}`}
+                              className="h-9 w-56 rounded-md border border-line bg-panel/35 px-2 text-ink outline-none focus:border-moss"
+                              onChange={(event) => updateExercise(index, "observation", event.target.value)}
+                              value={exercise.observation}
+                            />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -4684,16 +4704,6 @@ function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingVi
                 onDurationChange={setActualDurationMinutes}
                 onFinalRpeChange={setFinalRpe}
                 sRpe={completedSessionSrpe}
-              />
-              <CardioSessionForm />
-              <GoalBasedStrengthSummary
-                performedTonnage={performedTonnage}
-                plannedTonnage={plannedSession.strengthExercises.reduce(
-                  (total, exercise) => total + exercise.sets * exercise.reps * exercise.load,
-                  0
-                )}
-                setsByMuscle={performedSetsByMuscle}
-                setsByPattern={performedSetsByPattern}
               />
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -4799,7 +4809,7 @@ function CompletedSessionSummary({
           value={record ? `${record.actualDurationMinutes} min` : "Pendiente"}
         />
         <ClientInfoCard
-          label="RPE final"
+          label="RPE total"
           value={record ? `${record.finalRpe}/10` : "Pendiente"}
         />
         <ClientInfoCard
@@ -4896,26 +4906,6 @@ function PastSessionsList({
   );
 }
 
-type NumberFieldProps = {
-  label: string;
-  onChange: (value: number) => void;
-  value: number;
-};
-
-function NumberField({ label, onChange, value }: NumberFieldProps) {
-  return (
-    <label className="space-y-2 text-sm font-medium text-ink/75">
-      {label}
-      <input
-        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-        onChange={(event) => onChange(Number(event.target.value))}
-        type="number"
-        value={value}
-      />
-    </label>
-  );
-}
-
 type SessionRpeSlidersProps = {
   actualDurationMinutes: number;
   athleteNotes: string;
@@ -4950,7 +4940,7 @@ function SessionRpeSliders({
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <SliderField
-          label="Duracion real de sesion"
+          label="Duracion real de la sesion"
           max={180}
           min={0}
           onChange={onDurationChange}
@@ -4958,14 +4948,12 @@ function SessionRpeSliders({
           value={actualDurationMinutes}
         />
         <SliderField
-          label="RPE final"
+          label="RPE total de sesion"
           max={10}
           min={0}
           onChange={onFinalRpeChange}
           value={finalRpe}
         />
-        <SliderField label="RPE muscular final" max={10} min={1} value={8} />
-        <SliderField label="RPE cardiaco final" max={10} min={1} value={5} />
       </div>
       <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
         Notas del deportista
@@ -4976,140 +4964,6 @@ function SessionRpeSliders({
           value={athleteNotes}
         />
       </label>
-    </section>
-  );
-}
-
-function CardioSessionForm() {
-  const [mode, setMode] = useState<CardioMode>("Carrera");
-  const selectedMode = cardioModes.find((item) => item.mode === mode) ?? cardioModes[0];
-  const [averageHr, setAverageHr] = useState(145);
-  const [maxHr, setMaxHr] = useState(190);
-  const [duration, setDuration] = useState(40);
-  const [rpe, setRpe] = useState(6);
-  const itrimpPreview = maxHr > 0 ? Math.round(duration * rpe * (averageHr / maxHr)) : 0;
-
-  return (
-    <section className="mt-4 rounded-md border border-line bg-white p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h4 className="font-semibold text-ink">Cardio planificado o realizado</h4>
-          <p className="mt-1 text-sm text-ink/60">
-            Campos especificos segun carrera, ciclismo o natacion.
-          </p>
-        </div>
-        <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
-          iTRIMP estimado: {itrimpPreview}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          Modalidad
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setMode(event.target.value as CardioMode)}
-            value={mode}
-          >
-            {cardioModes.map((item) => (
-              <option key={item.mode}>{item.mode}</option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          {selectedMode.distanceLabel} totales
-          <input
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            placeholder="Ej. 6000"
-            type="number"
-          />
-        </label>
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          {selectedMode.paceLabel} objetivo
-          <input
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            placeholder={selectedMode.pacePlaceholder}
-            type="text"
-          />
-        </label>
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          FC estimada por el entrenador
-          <input
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            placeholder="Ej. 135-148 ppm"
-            type="text"
-          />
-        </label>
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          Intensidad relativa ({selectedMode.intensityReference})
-          <input
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            placeholder="Ej. 82"
-            type="number"
-          />
-        </label>
-        <label className="space-y-2 text-sm font-medium text-ink/75">
-          {selectedMode.techniqueLabel} ({selectedMode.techniqueUnit})
-          <input
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            placeholder={mode === "Natacion" ? "Ej. 36" : "Ej. 172"}
-            type="number"
-          />
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-5">
-        {cardioZones.map((zone) => (
-          <label className="space-y-2 text-sm font-medium text-ink/75" key={zone.zone}>
-            {zone.zone}
-            <input
-              className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              placeholder="min"
-              type="number"
-            />
-            <span className="block text-xs text-ink/50">
-              {zone.label}
-            </span>
-            <span className="block text-xs text-moss">
-              {Math.round((maxHr * zone.minPercentHrMax) / 100)}-
-              {Math.round((maxHr * zone.maxPercentHrMax) / 100)} ppm
-            </span>
-          </label>
-        ))}
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <label className="rounded-md border border-line bg-panel/35 p-3 text-sm font-medium text-ink/75">
-          <span className="flex items-center justify-between gap-3">
-            RPE cardio
-            <strong className="text-ink">{rpe}</strong>
-          </span>
-          <input
-            className="mt-3 w-full accent-moss"
-            max={10}
-            min={1}
-            onChange={(event) => setRpe(Number(event.target.value))}
-            type="range"
-            value={rpe}
-          />
-        </label>
-        <label className="rounded-md border border-line bg-panel/35 p-3 text-sm font-medium text-ink/75">
-          <span className="flex items-center justify-between gap-3">
-            Duracion cardio
-            <strong className="text-ink">{duration}min</strong>
-          </span>
-          <input
-            className="mt-3 w-full accent-moss"
-            max={180}
-            min={5}
-            onChange={(event) => setDuration(Number(event.target.value))}
-            type="range"
-            value={duration}
-          />
-        </label>
-        <NumberField label="FC media" onChange={setAverageHr} value={averageHr} />
-        <NumberField label="FC max" onChange={setMaxHr} value={maxHr} />
-      </div>
     </section>
   );
 }
@@ -5152,101 +5006,6 @@ function SliderField({ label, max, min, onChange, suffix = "", value }: SliderFi
         value={displayValue}
       />
     </label>
-  );
-}
-
-type GoalBasedStrengthSummaryProps = {
-  performedTonnage: number;
-  plannedTonnage: number;
-  setsByMuscle: Record<MuscleGroup, number>;
-  setsByPattern: Record<MovementPattern, number>;
-};
-
-function GoalBasedStrengthSummary({
-  performedTonnage,
-  plannedTonnage,
-  setsByMuscle,
-  setsByPattern
-}: GoalBasedStrengthSummaryProps) {
-  const tonnageCompliance = plannedTonnage > 0
-    ? Math.round((performedTonnage / plannedTonnage) * 100)
-    : 0;
-
-  return (
-    <div className="mt-4 grid gap-4">
-      <section className="rounded-md border border-line bg-white p-4">
-        <h4 className="font-semibold text-ink">Hipertrofia / composicion corporal</h4>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {muscleVolumeTargets.map((target) => {
-            const sets = setsByMuscle[target.muscleGroup as MuscleGroup] ?? 0;
-            const status =
-              sets >= target.developmentTargetSets
-                ? "Desarrollo"
-                : sets >= target.minimumEffectiveSets
-                  ? "Minimo efectivo"
-                  : "Por debajo";
-            const statusClass =
-              status === "Desarrollo"
-                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                : status === "Minimo efectivo"
-                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                  : "bg-red-50 text-red-800 border-red-200";
-
-            return (
-              <article className={`rounded-md border p-3 ${statusClass}`} key={target.muscleGroup}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{target.muscleGroup}</p>
-                    <p className="mt-1 text-sm opacity-80">
-                      {sets} series / minimo {target.minimumEffectiveSets}
-                    </p>
-                  </div>
-                  <span className="rounded-md bg-white/70 px-2 py-1 text-xs font-medium">
-                    {status}
-                  </span>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-4">
-        <h4 className="font-semibold text-ink">Fuerza / rendimiento</h4>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <article className="rounded-md border border-line bg-panel/35 p-3">
-            <p className="font-semibold text-ink">Cumplimiento de tonelaje</p>
-            <p className="mt-1 text-sm text-ink/60">
-              {tonnageCompliance}% del tonelaje planificado
-            </p>
-          </article>
-          {Object.entries(setsByPattern).map(([pattern, sets]) => (
-            <article className="rounded-md border border-line bg-panel/35 p-3" key={pattern}>
-              <p className="font-semibold text-ink">{pattern}</p>
-              <p className="mt-1 text-sm text-ink/60">{sets} series realizadas</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {strengthDecisionTargets.map((target) => (
-            <article className="rounded-md border border-line bg-panel/35 p-3" key={target.metric}>
-              <p className="font-semibold text-ink">{target.metric}</p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-800">
-                  Verde
-                </span>
-                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
-                  Ambar
-                </span>
-                <span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-red-800">
-                  Rojo
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
   );
 }
 
