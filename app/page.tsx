@@ -90,7 +90,6 @@ type TrainerClientPanel = "list" | "dashboard" | "details";
 
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
-  const [goalType, setGoalType] = useState<GoalType>("health");
   const [activeSheet, setActiveSheet] = useState<SheetId>("today");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
   const [clients, setClients] = useState<CoachClient[]>(coachClients);
@@ -102,7 +101,7 @@ export default function ClientsPage() {
   const [resources, setResources] = useState<ResourceLink[]>([]);
   const [resourcesHydrated, setResourcesHydrated] = useState(false);
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
-  const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
+  const [trainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
     daysPerWeek: 2
   });
@@ -205,7 +204,7 @@ export default function ClientsPage() {
 
   function handleLogin(nextRole: UserRole) {
     setRole(nextRole);
-    setActiveSheet(nextRole === "coach" ? "today" : "training");
+    setActiveSheet("today");
   }
 
   if (!role) {
@@ -216,6 +215,7 @@ export default function ClientsPage() {
     clients.find((client) => client.id === selectedClientId) ?? null;
   const scopedClient =
     clients.find((client) => client.id === scopedClientId) ?? null;
+  const athleteClient = selectedClient ?? clients[0] ?? null;
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
@@ -259,7 +259,7 @@ export default function ClientsPage() {
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "today"
-                  ? "Resumen del día"
+                  ? role === "coach" ? "Resumen del día" : "Hoy"
                   : activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
                     ? `Dashboard - ${selectedClient?.name ?? "cliente"}`
@@ -267,7 +267,7 @@ export default function ClientsPage() {
                       ? `Ficha inicial - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "training"
-                    ? role === "coach" ? "Sesiones" : "Mi entrenamiento"
+                    ? role === "coach" ? "Sesiones" : "Historial"
                   : activeSheet === "assessments"
                     ? "Valoraciones"
                   : activeSheet === "calendar"
@@ -275,7 +275,7 @@ export default function ClientsPage() {
                   : activeSheet === "fatigue"
                     ? "Fatiga"
                   : activeSheet === "weeklyLoad"
-                    ? role === "coach" ? "Metricas" : "Carga semanal"
+                    ? role === "coach" ? "Métricas" : "Carga semanal"
                   : activeSheet === "planning"
                     ? "Planificación"
                   : activeSheet === "progressions"
@@ -308,7 +308,9 @@ export default function ClientsPage() {
               <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
             ) : (
               <AthleteTrainingView
-                client={selectedClient ?? clients[0] ?? null}
+                client={athleteClient}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
                     currentClients.map((listedClient) =>
@@ -331,11 +333,17 @@ export default function ClientsPage() {
                 setClients={setClients}
               />
             ) : (
-              <AthleteClientForm
-                goalType={goalType}
-                setGoalType={setGoalType}
-                trainingAvailability={trainingAvailability}
-                setTrainingAvailability={setTrainingAvailability}
+              <AthleteTrainingView
+                client={athleteClient}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
               />
             )
           ) : activeSheet === "training" ? (
@@ -356,16 +364,7 @@ export default function ClientsPage() {
                 onConsumeTargetTrainingSession={() => setTargetTrainingSession(null)}
               />
             ) : (
-              <AthleteTrainingView
-                client={selectedClient ?? clients[0] ?? null}
-                onUpdateClient={(updatedClient) =>
-                  setClients((currentClients) =>
-                    currentClients.map((listedClient) =>
-                      listedClient.id === updatedClient.id ? updatedClient : listedClient
-                    )
-                  )
-                }
-              />
+              <AthleteHistoryView client={athleteClient} />
             )
           ) : activeSheet === "assessments" ? (
             <AssessmentsView
@@ -387,9 +386,9 @@ export default function ClientsPage() {
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (
-            <WeeklyLoadView client={role === "coach" ? scopedClient : null} />
+            role === "coach" ? <WeeklyLoadView client={scopedClient} /> : <AthleteWeeklyLoadView client={athleteClient} />
           ) : activeSheet === "planning" ? (
-            role === "coach" ? <PlanningView client={scopedClient} /> : <DecisionDashboardView />
+            role === "coach" ? <PlanningView client={scopedClient} /> : <AthletePlanningView client={athleteClient} />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "resources" ? (
@@ -5086,6 +5085,8 @@ function SessionHistoryPanel({
 
 type AthleteTrainingViewProps = {
   client: CoachClient | null;
+  onShowHistory: () => void;
+  onShowPlanning: () => void;
   onUpdateClient: (updatedClient: CoachClient) => void;
 };
 
@@ -5125,7 +5126,7 @@ function createAthleteExerciseEntries(session: ClientSessionRecord | null) {
   }));
 }
 
-function AthleteTrainingView({ client, onUpdateClient }: AthleteTrainingViewProps) {
+function AthleteTrainingView({ client, onShowHistory, onShowPlanning, onUpdateClient }: AthleteTrainingViewProps) {
   const todayKey = getLocalDateKey();
   const sessionIndex = client
     ? client.sessionRecords.findIndex((record) => record.date === todayKey)
@@ -5198,11 +5199,21 @@ function AthleteTrainingView({ client, onUpdateClient }: AthleteTrainingViewProp
 
   if (!session) {
     return (
-      <AthleteEmptyState clientName={client.name} message="No tienes ninguna sesión asignada para hoy." />
+      <AthleteEmptyState
+        clientName={client.name}
+        message="No tienes ninguna sesión asignada para hoy."
+        onShowHistory={onShowHistory}
+        onShowPlanning={onShowPlanning}
+      />
     );
   }
 
   const sessionAlreadySent = session.completed || session.status === "Completada";
+  const sessionStatusLabel = session.reviewStatus === "reviewed"
+    ? "Revisada"
+    : sessionAlreadySent
+      ? "Enviada al entrenador"
+      : "Pendiente";
 
   return (
     <div className="mx-auto mt-5 max-w-3xl space-y-5">
@@ -5213,7 +5224,7 @@ function AthleteTrainingView({ client, onUpdateClient }: AthleteTrainingViewProp
             <p className="mt-1 text-sm font-medium text-ink/70">{client.name}</p>
           </div>
           <span className={`w-fit rounded-md px-3 py-1 text-xs font-semibold ${sessionAlreadySent ? "bg-mint text-moss" : "bg-blue-50 text-blue-700"}`}>
-            {sessionAlreadySent ? "Completada" : "Planificada"}
+            {sessionStatusLabel}
           </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -5331,12 +5342,40 @@ function AthleteTrainingView({ client, onUpdateClient }: AthleteTrainingViewProp
   );
 }
 
-function AthleteEmptyState({ clientName, message }: { clientName?: string; message: string }) {
+function AthleteEmptyState({
+  clientName,
+  message,
+  onShowHistory,
+  onShowPlanning
+}: {
+  clientName?: string;
+  message: string;
+  onShowHistory?: () => void;
+  onShowPlanning?: () => void;
+}) {
   return (
     <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Sesión de hoy</h2>
       {clientName ? <p className="mt-1 text-sm font-medium text-ink/70">{clientName}</p> : null}
       <p className="mt-3 text-sm text-ink/60">{message}</p>
+      {onShowHistory && onShowPlanning ? (
+        <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            onClick={onShowHistory}
+            type="button"
+          >
+            Ver sesiones anteriores
+          </button>
+          <button
+            className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/90"
+            onClick={onShowPlanning}
+            type="button"
+          >
+            Ver planificación
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -5413,6 +5452,321 @@ function AthleteExerciseInput({ label, max, onChange, value }: {
         value={value ?? ""}
       />
     </label>
+  );
+}
+
+function getAthleteSessionDuration(session: ReviewSessionRecord) {
+  return session.actualDurationMinutes ?? session.duration ?? null;
+}
+
+function getAthleteSessionRpe(session: ReviewSessionRecord) {
+  return session.finalRpe ?? session.rpe ?? null;
+}
+
+function getAthleteSessionNotes(session: ReviewSessionRecord) {
+  return session.finalNotes ?? session.notes ?? "";
+}
+
+function getAthleteSessionReviewLabel(session: ReviewSessionRecord) {
+  if (session.reviewStatus === "reviewed") return "Revisada";
+  if (session.reviewStatus === "pending" || hasRealSessionData(session)) return "Pendiente de revisar";
+  return "Enviada";
+}
+
+function getAthleteDate(value?: string | null) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const dateMatch = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!dateMatch) return null;
+
+  const [, day, month, year] = dateMatch;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isThisWeek(value?: string | null) {
+  const date = getAthleteDate(value);
+  if (!date) return false;
+
+  const start = new Date();
+  const day = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+
+  return date >= start && date < end;
+}
+
+function AthleteHistoryView({ client }: { client: CoachClient | null }) {
+  const [openSessionKey, setOpenSessionKey] = useState("");
+  const sessions = useMemo(
+    () => ((client?.sessionRecords ?? []) as ReviewSessionRecord[])
+      .filter((session) => hasRealSessionData(session))
+      .sort((a, b) => (getAthleteDate(b.date)?.getTime() ?? 0) - (getAthleteDate(a.date)?.getTime() ?? 0)),
+    [client?.sessionRecords]
+  );
+
+  if (!client) {
+    return <AthleteEmptyState message="No hay deportista seleccionado." />;
+  }
+
+  return (
+    <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold text-ink">Historial</h2>
+        <p className="text-sm text-ink/60">Sesiones completadas y enviadas al entrenador.</p>
+      </div>
+
+      {sessions.length > 0 ? (
+        <div className="mt-5 grid gap-3">
+          {sessions.map((session, index) => {
+            const sessionKey = getSessionHistoryKey(session, index);
+            const isOpen = openSessionKey === sessionKey;
+            const duration = getAthleteSessionDuration(session);
+            const rpe = getAthleteSessionRpe(session);
+            const srpe = getSessionSrpe(session);
+            const notes = getAthleteSessionNotes(session);
+            const { plannedExercises, performedExercises } = getReviewExercises(session);
+            const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
+            const detailRows = Array.from({ length: exerciseCount }, (_, exerciseIndex) => ({
+              performed: performedExercises[exerciseIndex],
+              planned: plannedExercises[exerciseIndex]
+            }));
+
+            return (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={sessionKey}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-ink/45">{displayValue(session.date, "Sin fecha")}</p>
+                    <h3 className="mt-1 font-semibold text-ink">{displayValue(session.type, "Sesión")}</h3>
+                    <p className="mt-1 text-sm text-ink/60">{displayValue(session.summary, "Sin resumen")}</p>
+                  </div>
+                  <span className="w-fit rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                    {getAthleteSessionReviewLabel(session)}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
+                  <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                  <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                </div>
+                <button
+                  className="mt-4 rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+                  onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
+                  type="button"
+                >
+                  {isOpen ? "Ocultar detalle" : "Ver detalle"}
+                </button>
+
+                {isOpen ? (
+                  <div className="mt-4 grid gap-3 rounded-md border border-line bg-white p-4">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <ClientInfoCard label="Sueño" value={session.wellness?.sleep ? `${session.wellness.sleep}/5` : "Sin registrar"} />
+                      <ClientInfoCard label="Fatiga" value={session.wellness?.fatigue ? `${session.wellness.fatigue}/5` : "Sin registrar"} />
+                      <ClientInfoCard label="Estrés" value={session.wellness?.stress ? `${session.wellness.stress}/5` : "Sin registrar"} />
+                      <ClientInfoCard label="DOMS" value={session.wellness?.soreness ? `${session.wellness.soreness}/5` : "Sin registrar"} />
+                    </div>
+                    <div className="rounded-md bg-panel/45 p-3 text-sm text-ink/65">
+                      <p className="font-semibold text-ink">Notas del deportista</p>
+                      <p className="mt-1">{notes || "Sin notas registradas"}</p>
+                    </div>
+                    {exerciseCount > 0 ? (
+                      <div className="grid gap-3">
+                        {detailRows.map(({ planned, performed }, exerciseIndex) => (
+                          <article className="rounded-md border border-line bg-panel/35 p-3" key={`${sessionKey}-${exerciseIndex}`}>
+                            <p className="font-semibold text-ink">{getExerciseLabel(performed ?? planned)}</p>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                              {([
+                                ["Series", getPlannedValue(planned, "sets"), getPerformedValue(performed, "sets")],
+                                ["Reps", getPlannedValue(planned, "reps"), getPerformedValue(performed, "reps")],
+                                ["Carga", getPlannedValue(planned, "load"), getPerformedValue(performed, "load")],
+                                ["Descanso", getPlannedValue(planned, "rest"), getPerformedValue(performed, "rest")],
+                                ["RIR", getPlannedValue(planned, "rir"), getPerformedValue(performed, "rir")],
+                                ["RPE ejercicio", undefined, performed?.exerciseRpe]
+                              ] as const).map(([label, plannedValue, performedValue]) => (
+                                <div className="rounded-md bg-white px-3 py-2 text-sm" key={label}>
+                                  <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                                  <p className="mt-1 text-ink/70">Plan: <span className="font-semibold text-ink">{displayValue(plannedValue, "-")}</span></p>
+                                  <p className="text-ink/70">Real: <span className="font-semibold text-ink">{displayValue(performedValue, "-")}</span></p>
+                                </div>
+                              ))}
+                            </div>
+                            {hasDisplayValue(performed?.athleteNotes) ? (
+                              <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{performed?.athleteNotes}</p>
+                            ) : null}
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/55">
+                        Sin datos de ejercicios para esta sesión.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">
+          Todavía no has completado ninguna sesión.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AthletePlanningView({ client }: { client: CoachClient | null }) {
+  const planning = client?.planning;
+  const blocks = planning?.blocks ?? [];
+  const hasPlanning = Boolean(planning && (blocks.length > 0 || planning.currentBlock || planning.primaryGoal || planning.eventName));
+  let weekStart = 1;
+
+  if (!client || !planning || !hasPlanning) {
+    return (
+      <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center text-sm font-semibold text-ink/55 shadow-soft">
+        Tu entrenador todavía no ha asignado una planificación.
+      </div>
+    );
+  }
+
+  return (
+    <section className="mt-5 grid gap-4">
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Planificación</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ClientInfoCard label="Modelo" value={planning.method ? getPlanningMethodLabel(planning.method) : "Sin especificar"} />
+          <ClientInfoCard label="Bloque actual" value={displayValue(planning.currentBlock, "Sin asignar")} />
+          <ClientInfoCard label="Semana actual" value={displayValue(planning.currentWeek, "Sin asignar")} />
+          <ClientInfoCard label="Objetivo principal" value={displayValue(planning.primaryGoal, "Sin especificar")} />
+        </div>
+        {planning.secondaryGoal ? (
+          <div className="mt-3 rounded-md bg-panel/45 p-3 text-sm text-ink/65">
+            <span className="font-semibold text-ink">Objetivo secundario: </span>{planning.secondaryGoal}
+          </div>
+        ) : null}
+      </article>
+
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h3 className="font-semibold text-ink">Roadmap de mesociclos</h3>
+        {blocks.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {blocks.map((block, index) => {
+              const start = weekStart;
+              const duration = block.durationWeeks || 0;
+              const end = duration > 0 ? weekStart + duration - 1 : weekStart;
+              weekStart = end + 1;
+
+              return (
+                <div className="rounded-md border border-line bg-panel/35 p-4" key={block.id ?? `${block.name}-${index}`}>
+                  <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
+                  <h4 className="mt-1 font-semibold text-ink">{displayValue(block.name, "Sin nombre")}</h4>
+                  <p className="mt-1 text-sm text-ink/60">{duration ? `${duration} semanas` : "Duración sin especificar"}</p>
+                  <p className="mt-1 text-sm text-ink/60">Semana {start}-{end}</p>
+                  <p className="mt-2 text-sm text-ink/70">{displayValue(block.primaryObjective, "Objetivo sin especificar")}</p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-semibold text-ink/55">
+            Tu entrenador todavía no ha asignado mesociclos.
+          </p>
+        )}
+      </article>
+
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h3 className="font-semibold text-ink">Próximo evento y sesiones</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ClientInfoCard label="Evento" value={displayValue(planning.eventName, "Sin evento asignado")} />
+          <ClientInfoCard label="Fecha" value={displayValue(planning.eventDate, "Sin fecha")} />
+        </div>
+        {(planning.nextSessions?.length ?? 0) > 0 ? (
+          <div className="mt-4 grid gap-2">
+            {planning.nextSessions?.map((session, index) => (
+              <p className="rounded-md bg-panel/45 px-3 py-2 text-sm font-medium text-ink/70" key={`${session}-${index}`}>
+                {session}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md bg-panel/45 px-3 py-2 text-sm text-ink/55">
+            No hay próximas sesiones listadas.
+          </p>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function AthleteWeeklyLoadView({ client }: { client: CoachClient | null }) {
+  const weeklySessions = useMemo(
+    () => ((client?.sessionRecords ?? []) as ReviewSessionRecord[])
+      .filter((session) => hasRealSessionData(session) && isThisWeek(session.date)),
+    [client?.sessionRecords]
+  );
+  const totalDuration = weeklySessions.reduce((total, session) => total + Number(getAthleteSessionDuration(session) ?? 0), 0);
+  const totalSrpe = weeklySessions.reduce((total, session) => total + (getSessionSrpe(session) ?? 0), 0);
+  const rpeValues = weeklySessions
+    .map((session) => Number(getAthleteSessionRpe(session)))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageRpe = rpeValues.length > 0
+    ? rpeValues.reduce((total, value) => total + value, 0) / rpeValues.length
+    : null;
+  const plannedThisWeek = (client?.sessionRecords ?? []).filter((session) => isThisWeek(session.date)).length;
+  const adherence = plannedThisWeek > 0 ? Math.round((weeklySessions.length / plannedThisWeek) * 100) : null;
+  const maxSrpe = Math.max(1, ...weeklySessions.map((session) => getSessionSrpe(session) ?? 0));
+
+  if (!client || weeklySessions.length === 0) {
+    return (
+      <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center text-sm font-semibold text-ink/55 shadow-soft">
+        Todavía no hay suficientes sesiones registradas esta semana.
+      </div>
+    );
+  }
+
+  return (
+    <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <h2 className="text-lg font-semibold text-ink">Carga semanal</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <ClientInfoCard label="Sesiones completadas" value={`${weeklySessions.length}`} />
+        <ClientInfoCard label="Duración total" value={`${totalDuration} min`} />
+        <ClientInfoCard label="sRPE semanal" value={`${totalSrpe} UA`} />
+        <ClientInfoCard label="RPE medio" value={averageRpe !== null ? `${averageRpe.toFixed(1)}/10` : "Pendiente"} />
+      </div>
+      {adherence !== null ? (
+        <div className="mt-4 rounded-md bg-panel/45 p-3 text-sm font-semibold text-ink/70">
+          Adherencia semanal: {adherence}%
+        </div>
+      ) : null}
+      <div className="mt-5 grid gap-3">
+        {weeklySessions.map((session, index) => {
+          const srpe = getSessionSrpe(session) ?? 0;
+
+          return (
+            <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
+                  <p className="text-sm text-ink/55">{displayValue(session.date, "Sin fecha")}</p>
+                </div>
+                <span className="text-sm font-semibold text-moss">{srpe} UA</span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                <div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -5760,7 +6114,7 @@ function CompletedSessionSummary({
 function MissedSessionReason() {
   return (
     <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-      <h4 className="font-semibold text-amber-900">CuÃ©ntanos por que no se realizo</h4>
+      <h4 className="font-semibold text-amber-900">Cuéntanos por qué no se realizó</h4>
       <p className="mt-1 text-sm text-amber-800">
         Esta informacion ayuda al entrenador a ajustar la planificación.
       </p>
@@ -6028,6 +6382,7 @@ type AthleteClientFormProps = {
   trainingAvailability: TrainingAvailability;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AthleteClientForm({
   goalType,
   setGoalType,

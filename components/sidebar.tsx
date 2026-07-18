@@ -1,5 +1,5 @@
 import { Dumbbell, Menu } from "lucide-react";
-import { coachMainNavIds, navItems, type SheetId, type UserRole } from "@/lib/data";
+import { athleteMainNavIds, coachMainNavIds, navItems, type SheetId, type UserRole } from "@/lib/data";
 
 type SidebarProps = {
   activeSheet: SheetId;
@@ -41,11 +41,11 @@ export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollaps
 
       <nav className="mt-8 space-y-1">
         {navItems
-          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : !["planning", "progressions", "routines"].includes(item.id ?? ""))
+          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
           .map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;
-          const label = role === "athlete" && item.id === "training" ? "Mi entrenamiento" : item.label;
+          const label = role === "athlete" && item.id === "training" ? "Historial" : item.label;
           return (
             <button
               aria-label={label}
