@@ -3,6 +3,11 @@
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
+const primaryCardClass = "rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
+const secondaryCardClass = "rounded-md border border-line bg-panel/35 p-3";
+const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90";
+const emptyStateClass = "mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55";
+
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && `${value}`.trim() !== "";
 }
@@ -110,9 +115,23 @@ function isSessionPendingReview(session: CoachSessionRecordForViews) {
   return hasRealSessionData(session);
 }
 
+function getTodayStatusClass(status: string) {
+  switch (status) {
+    case "Completada":
+      return "bg-mint text-moss";
+    case "Pendiente de revisar":
+      return "bg-amber-50 text-amber-700";
+    case "Planificada":
+      return "bg-blue-50 text-blue-700";
+    case "Pendiente":
+    default:
+      return "bg-panel text-ink/60";
+  }
+}
+
 function TodaySummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-md border border-line bg-white p-4 shadow-soft">
+    <article className="rounded-md border border-line bg-white p-4 shadow-soft transition">
       <p className="text-sm font-semibold text-ink/65">{label}</p>
       <p className="mt-3 text-3xl font-semibold text-moss">{value}</p>
     </article>
@@ -197,23 +216,23 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
         <TodaySummaryCard label="Alertas rápidas" value={`${alerts.length}`} />
       </section>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className={primaryCardClass}>
         <h2 className="text-lg font-semibold text-ink">Sesiones de hoy</h2>
 
         {todaySessions.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {todaySessions.map(({ client, session, sessionIndex }, index) => (
-              <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
+              <div className={secondaryCardClass} key={`${client.id}-${session.date}-${index}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="font-semibold text-ink">{client.name}</p>
-                  <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                  <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getTodayStatusClass(getWeeklySessionStatus(session))}`}>
                     {getWeeklySessionStatus(session)}
                   </span>
                 </div>
                 <p className="mt-2 text-sm font-semibold text-ink/70">{session.type}</p>
                 <p className="mt-1 text-sm text-ink/55">{session.summary}</p>
                 <button
-                  className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                  className={`mt-3 ${primaryButtonClass}`}
                   onClick={() =>
                     onOpenTrainingSession(client.id, {
                       clientId: client.id,
@@ -229,13 +248,13 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+          <div className={emptyStateClass}>
             No hay sesiones con fecha real para hoy.
           </div>
         )}
       </article>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className={primaryCardClass}>
         <h2 className="text-lg font-semibold text-ink">Pendientes de revisar</h2>
 
         {pendingReviews.length > 0 ? (
@@ -244,7 +263,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
               const srpe = calculateSessionLoad(Number(session.rpe), Number(session.duration));
 
               return (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
+                <div className={secondaryCardClass} key={`${client.id}-${session.date}-${index}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="font-semibold text-ink">{client.name}</p>
@@ -253,7 +272,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                       <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(session.date)}</p>
                     </div>
                     <button
-                      className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                      className={`w-fit ${primaryButtonClass}`}
                       onClick={() =>
                         onOpenTrainingSession(client.id, {
                           clientId: client.id,
@@ -279,20 +298,20 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
             })}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+          <div className={emptyStateClass}>
             No hay sesiones pendientes de revisar.
           </div>
         )}
       </article>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className={primaryCardClass}>
         <h2 className="text-lg font-semibold text-ink">Alertas rápidas</h2>
 
         {alerts.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {alerts.map((alert, index) => (
               <button
-                className="rounded-md border border-line bg-panel/35 p-3 text-left transition hover:border-moss"
+                className={`${secondaryCardClass} text-left transition hover:border-moss hover:bg-white`}
                 key={`${alert.client.id}-${alert.label}-${index}`}
                 onClick={() => onOpenTrainingSession(alert.client.id)}
                 type="button"
@@ -306,19 +325,19 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+          <div className={emptyStateClass}>
             No hay alertas rápidas ahora.
           </div>
         )}
       </article>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className={primaryCardClass}>
         <h2 className="text-lg font-semibold text-ink">Próximos eventos</h2>
 
         {upcomingEvents.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {upcomingEvents.map(({ client, event }) => (
-              <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${event.name}`}>
+              <div className={secondaryCardClass} key={`${client.id}-${event.name}`}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold text-ink">{client.name}</p>
@@ -333,7 +352,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+          <div className={emptyStateClass}>
             No hay eventos próximos registrados.
           </div>
         )}

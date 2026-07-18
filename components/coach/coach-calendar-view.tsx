@@ -4,6 +4,13 @@ import { useState } from "react";
 import { calendarSessions } from "@/lib/data";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
+const primaryCardClass = "mt-6 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
+const dayCardClass = "rounded-md border border-line bg-panel/35 p-3";
+const sessionCardClass = "rounded-md border border-line bg-white p-3";
+const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90";
+const secondaryButtonClass = "rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60";
+const emptyStateClass = "rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55";
+
 const calendarShortMonths: Record<string, string> = {
   Abr: "04",
   Ago: "08",
@@ -201,7 +208,7 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
   const weekRangeLabel = `Semana del ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(selectedWeekStart)} al ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(weekEnd)}`;
 
   return (
-    <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className={primaryCardClass}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">
@@ -214,21 +221,21 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+            className={secondaryButtonClass}
             onClick={() => setWeekOffset((current) => current - 1)}
             type="button"
           >
             Semana anterior
           </button>
           <button
-            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+            className={primaryButtonClass}
             onClick={() => setWeekOffset(0)}
             type="button"
           >
             Esta semana
           </button>
           <button
-            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+            className={secondaryButtonClass}
             onClick={() => setWeekOffset((current) => current + 1)}
             type="button"
           >
@@ -246,13 +253,13 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
       ) : null}
 
       {weeklySessions.length === 0 ? (
-        <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">
+        <div className={`mt-5 ${emptyStateClass}`}>
           No hay sesiones programadas esta semana.
         </div>
       ) : (
         <div className="mt-6 grid gap-3 md:grid-cols-2 2xl:grid-cols-7">
           {sessionsByDay.map(({ date, label, sessions }) => (
-            <section className="rounded-md border border-line bg-panel/35 p-3" key={getDateKey(date)}>
+            <section className={dayCardClass} key={getDateKey(date)}>
               <div className="border-b border-line pb-3">
                 <p className="text-sm font-semibold text-ink">{label}</p>
                 <p className="mt-1 text-xl font-semibold text-moss">
@@ -262,7 +269,7 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
               <div className="mt-3 grid gap-2">
                 {sessions.length > 0 ? (
                   sessions.map((session, index) => (
-                    <article className="rounded-md border border-line bg-white p-3" key={`${session.clientId}-${session.summary}-${index}`}>
+                    <article className={sessionCardClass} key={`${session.clientId}-${session.summary}-${index}`}>
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="font-semibold text-ink">{session.clientName}</p>
@@ -280,7 +287,7 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
                         <ClientInfoCard label="RPE objetivo" value={session.rpeTarget ?? "Sin especificar"} />
                       </div>
                       <button
-                        className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                        className={`mt-3 ${primaryButtonClass}`}
                         onClick={() =>
                           session.sessionIndex !== undefined || session.sessionDate
                             ? onOpenTrainingSession(session.clientId, {
