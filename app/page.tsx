@@ -185,7 +185,7 @@ export default function ClientsPage() {
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "today"
-                  ? "Hoy"
+                  ? "Resumen del día"
                   : activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
                     ? `Dashboard - ${selectedClient?.name ?? "cliente"}`
@@ -1493,6 +1493,20 @@ function getClientEvent(client: CoachClient) {
   };
 }
 
+function TodaySummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-md border border-line bg-white p-4 shadow-soft">
+      <p className="text-sm font-semibold text-ink/65">{label}</p>
+      <p className="mt-3 text-3xl font-semibold text-moss">{value}</p>
+    </article>
+  );
+}
+
+function isSameCalendarDay(date: Date | null, referenceDate: Date) {
+  if (!date) return false;
+  return getDateKey(date) === getDateKey(referenceDate);
+}
+
 function CoachTodayView({
   clients,
   onOpenClientSheet
@@ -1503,56 +1517,42 @@ function CoachTodayView({
   const allSessions = clients.flatMap((client) =>
     (client.sessionRecords ?? []).map((session) => ({ client, session }))
   );
-  const latestKnownDate =
-    allSessions
-      .map(({ session }) => parseDateValue(session.date))
-      .filter((date): date is Date => Boolean(date))
-      .sort((a, b) => b.getTime() - a.getTime())[0] ?? new Date();
+  const today = new Date();
   const weeklySessions = allSessions.filter(({ session }) =>
-    isSameReferenceWeek(parseDateValue(session.date), latestKnownDate)
+    isSameReferenceWeek(parseDateValue(session.date), today)
+  );
+  const todaySessions = allSessions.filter(({ session }) =>
+    isSameCalendarDay(parseDateValue(session.date), today)
   );
   const pendingReviews = allSessions
     .filter(({ session }) => hasDisplayValue(session.duration) && hasDisplayValue(session.rpe))
     .sort((a, b) => getSessionDateTime(b.session) - getSessionDateTime(a.session))
-    .slice(0, 5);
-  const upcomingSessions = clients.flatMap((client) => {
-    const recorded = (client.sessionRecords ?? []).slice(0, 2).map((session) => ({
-      client,
-      date: session.date,
-      status: "Completada",
-      summary: session.summary,
-      type: session.type
-    }));
-    const planned = (client.planning.nextSessions ?? []).slice(0, 2).map((sessionName, index) => ({
-      client,
-      date: index === 0 ? "Próxima sesión" : "Esta semana",
-      status: "Planificada",
-      summary: sessionName,
-      type: client.sport ?? client.modality ?? "Sesión"
-    }));
-
-    return [...recorded, ...planned];
-  }).slice(0, 8);
+    .slice(0, 6);
   const alerts = clients.flatMap((client) => {
-    const loadData = getClientLoadData(client);
     const latestSession = getLatestSession(client);
     const clientAlerts: { client: CoachClient; label: string; tone: string }[] = [];
+    const event = getClientEvent(client);
+    const hasPendingReview = (client.sessionRecords ?? []).some((session) =>
+      hasDisplayValue(session.duration) && hasDisplayValue(session.rpe)
+    );
 
-    if (latestSession && latestSession.rpe >= 8) {
-      clientAlerts.push({ client, label: "RPE elevado en la última sesión", tone: "vigilar" });
+    if (hasPendingReview) {
+      clientAlerts.push({ client, label: "Sesión pendiente de revisar", tone: "revisar" });
     }
-    if (loadData.strainStatus === "Alto" || loadData.acwrStatus === "Alto") {
-      clientAlerts.push({ client, label: "Carga interna alta esta semana", tone: "ajustar" });
+    if (latestSession && latestSession.rpe >= 8) {
+      clientAlerts.push({ client, label: "RPE final alto", tone: "vigilar" });
+    }
+    if (latestSession && calculateSessionLoad(latestSession.rpe, latestSession.duration) >= 450) {
+      clientAlerts.push({ client, label: "sRPE alto en la última sesión", tone: "carga" });
     }
     if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) {
       clientAlerts.push({ client, label: "Revisar molestias / limitaciones", tone: "salud" });
     }
-    if ((client.sessionRecords ?? []).length === 0) {
-      clientAlerts.push({ client, label: "Sin sesiones registradas esta semana", tone: "pendiente" });
-    }
-    const event = getClientEvent(client);
-    if (event?.daysUntil !== null && event?.daysUntil !== undefined && event.daysUntil >= 0 && event.daysUntil <= 30) {
+    if (event?.daysUntil !== null && event?.daysUntil !== undefined && event.daysUntil >= 0 && event.daysUntil <= 14) {
       clientAlerts.push({ client, label: "Evento próximo", tone: "evento" });
+    }
+    if (!latestSession || Math.abs(getDaysUntil(latestSession.date) ?? 999) > 7) {
+      clientAlerts.push({ client, label: "Cliente sin sesiones registradas recientemente", tone: "pendiente" });
     }
 
     return clientAlerts;
@@ -1566,152 +1566,141 @@ function CoachTodayView({
   return (
     <div className="mt-6 grid gap-5">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricPill label="Clientes activos" status="global" value={`${clients.length}`} />
-        <MetricPill label="Sesiones esta semana" status="semana" value={`${weeklySessions.length}`} />
-        <MetricPill label="Pendientes de revisar" status="revisar" value={`${pendingReviews.length}`} />
-        <MetricPill label="Alertas rápidas" status="vigilar" value={`${alerts.length}`} />
+        <TodaySummaryCard label="Clientes activos" value={`${clients.length}`} />
+        <TodaySummaryCard label="Sesiones planificadas esta semana" value={`${weeklySessions.length}`} />
+        <TodaySummaryCard label="Sesiones pendientes de revisar" value={`${pendingReviews.length}`} />
+        <TodaySummaryCard label="Alertas rápidas" value={`${alerts.length}`} />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">Sesiones de hoy / esta semana</h2>
-              <p className="mt-1 text-sm text-ink/55">Sesiones recientes y próximas acciones planificadas.</p>
-            </div>
-            <span className="rounded-md bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
-              {upcomingSessions.length} elementos
-            </span>
-          </div>
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Sesiones de hoy</h2>
 
-          {upcomingSessions.length > 0 ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {upcomingSessions.map((item, index) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${item.client.id}-${item.summary}-${index}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-ink">{item.client.name}</p>
-                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">{item.status}</span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-ink/70">{item.type}</p>
-                  <p className="mt-1 text-sm text-ink/55">{item.summary}</p>
-                  <p className="mt-2 text-xs font-semibold uppercase text-ink/45">{formatDateShort(item.date)}</p>
-                  <button
-                    className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                    onClick={() => onOpenClientSheet(item.client.id, "training")}
-                    type="button"
-                  >
-                    Ver sesión
-                  </button>
+        {todaySessions.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {todaySessions.map(({ client, session }, index) => (
+              <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="font-semibold text-ink">{client.name}</p>
+                  <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                    {getWeeklySessionStatus(session)}
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
-              No hay sesiones recientes o próximas registradas.
-            </div>
-          )}
-        </article>
-
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <h2 className="text-lg font-semibold text-ink">Alertas rápidas</h2>
-          <p className="mt-1 text-sm text-ink/55">Avisos orientativos para revisar primero.</p>
-
-          {alerts.length > 0 ? (
-            <div className="mt-4 grid gap-2">
-              {alerts.map((alert, index) => (
+                <p className="mt-2 text-sm font-semibold text-ink/70">{session.type}</p>
+                <p className="mt-1 text-sm text-ink/55">{session.summary}</p>
                 <button
-                  className="rounded-md border border-line bg-panel/35 px-3 py-3 text-left transition hover:bg-mint"
-                  key={`${alert.client.id}-${alert.label}-${index}`}
-                  onClick={() => onOpenClientSheet(alert.client.id, "training")}
+                  className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                  onClick={() => onOpenClientSheet(client.id, "training")}
                   type="button"
                 >
-                  <span className="text-xs font-semibold uppercase text-moss">{alert.tone}</span>
-                  <p className="mt-1 font-semibold text-ink">{alert.client.name}</p>
-                  <p className="mt-1 text-sm text-ink/60">{alert.label}</p>
+                  Ver sesión
                 </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
-              Sin alertas rápidas por ahora.
-            </div>
-          )}
-        </article>
-      </section>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+            No hay sesiones con fecha real para hoy.
+          </div>
+        )}
+      </article>
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <h2 className="text-lg font-semibold text-ink">Pendiente de revisar</h2>
-          <p className="mt-1 text-sm text-ink/55">Sesiones completadas con RPE, duración y notas.</p>
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Pendientes de revisar</h2>
 
-          {pendingReviews.length > 0 ? (
-            <div className="mt-4 grid gap-3">
-              {pendingReviews.map(({ client, session }, index) => {
-                const srpe = calculateSessionLoad(session.rpe, session.duration);
+        {pendingReviews.length > 0 ? (
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            {pendingReviews.map(({ client, session }, index) => {
+              const srpe = calculateSessionLoad(session.rpe, session.duration);
 
-                return (
-                  <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-ink">{client.name}</p>
-                        <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
-                        <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(session.date)}</p>
-                      </div>
-                      <button
-                        className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                        onClick={() => onOpenClientSheet(client.id, "training")}
-                        type="button"
-                      >
-                        Revisar
-                      </button>
-                    </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                      <ClientInfoCard label="RPE" value={`${session.rpe}/10`} />
-                      <ClientInfoCard label="Duración" value={`${session.duration} min`} />
-                      <ClientInfoCard label="sRPE" value={`${srpe} UA`} />
-                    </div>
-                    <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/60">
-                      {session.notes || "Sin notas registradas"}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
-              No hay sesiones pendientes de revisar.
-            </div>
-          )}
-        </article>
-
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <h2 className="text-lg font-semibold text-ink">Próximos eventos</h2>
-          <p className="mt-1 text-sm text-ink/55">Fechas objetivo conectadas a cada cliente.</p>
-
-          {upcomingEvents.length > 0 ? (
-            <div className="mt-4 grid gap-3">
-              {upcomingEvents.map(({ client, event }) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${event.name}`}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              return (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="font-semibold text-ink">{client.name}</p>
-                      <p className="mt-1 text-sm text-ink/60">{event.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-ink/70">{session.type}</p>
+                      <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(session.date)}</p>
                     </div>
-                    <span className="w-fit rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
-                      {event.daysUntil === null ? "Sin fecha" : event.daysUntil >= 0 ? `${event.daysUntil} días` : "Fecha pasada"}
-                    </span>
+                    <button
+                      className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                      onClick={() => onOpenClientSheet(client.id, "training")}
+                      type="button"
+                    >
+                      Revisar
+                    </button>
                   </div>
-                  <p className="mt-2 text-xs font-semibold uppercase text-ink/45">{formatDateShort(event.date)}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <ClientInfoCard label="RPE" value={`${session.rpe}/10`} />
+                    <ClientInfoCard label="Duración" value={`${session.duration} min`} />
+                    <ClientInfoCard label="sRPE" value={`${srpe} UA`} />
+                  </div>
+                  <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/60">
+                    {session.notes || "Sin notas registradas"}
+                  </p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
-              No hay eventos próximos registrados.
-            </div>
-          )}
-        </article>
-      </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+            No hay sesiones pendientes de revisar.
+          </div>
+        )}
+      </article>
+
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Alertas rápidas</h2>
+
+        {alerts.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {alerts.map((alert, index) => (
+              <button
+                className="rounded-md border border-line bg-panel/35 p-3 text-left transition hover:border-moss"
+                key={`${alert.client.id}-${alert.label}-${index}`}
+                onClick={() => onOpenClientSheet(alert.client.id, "training")}
+                type="button"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="font-semibold text-ink">{alert.client.name}</p>
+                  <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">{alert.tone}</span>
+                </div>
+                <p className="mt-2 text-sm text-ink/60">{alert.label}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+            No hay alertas rápidas ahora.
+          </div>
+        )}
+      </article>
+
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">Próximos eventos</h2>
+
+        {upcomingEvents.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {upcomingEvents.map(({ client, event }) => (
+              <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${event.name}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-ink">{client.name}</p>
+                    <p className="mt-1 text-sm text-ink/60">{event.name}</p>
+                  </div>
+                  <span className="w-fit rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                    {event.daysUntil === null ? "Sin fecha" : event.daysUntil >= 0 ? `${event.daysUntil} días` : "Fecha pasada"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-semibold uppercase text-ink/45">{formatDateShort(event.date)}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55">
+            No hay eventos próximos registrados.
+          </div>
+        )}
+      </article>
     </div>
   );
 }
