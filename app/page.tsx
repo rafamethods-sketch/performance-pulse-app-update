@@ -11,7 +11,7 @@ import {
   Unlock,
 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
@@ -82,6 +82,11 @@ type TrainingAvailability = {
   daysPerWeek: number;
 };
 type TrainerClientPanel = "list" | "dashboard" | "details";
+type TargetTrainingSession = {
+  clientId: string;
+  sessionDate?: string;
+  sessionIndex?: number;
+};
 
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -91,6 +96,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<CoachClient[]>(coachClients);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
+  const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
   const [hooperDone, setHooperDone] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
@@ -167,6 +173,11 @@ export default function ClientsPage() {
     setActiveSheet(sheet);
   }
 
+  function openTrainingSession(clientId: string, target?: TargetTrainingSession) {
+    setTargetTrainingSession(target ?? null);
+    openClientSheet(clientId, "training");
+  }
+
   return (
     <main className="min-h-screen lg:flex">
       <Sidebar
@@ -229,7 +240,7 @@ export default function ClientsPage() {
 
           {activeSheet === "today" ? (
             role === "coach" ? (
-              <CoachTodayView clients={clients} onOpenClientSheet={openClientSheet} />
+              <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
             ) : (
               <AthleteTrainingView
                 hooperDone={hooperDone}
@@ -270,6 +281,8 @@ export default function ClientsPage() {
                 }
                 sessionTemplates={sessionTemplates}
                 setSessionTemplates={setSessionTemplates}
+                targetTrainingSession={targetTrainingSession}
+                onConsumeTargetTrainingSession={() => setTargetTrainingSession(null)}
               />
             ) : (
               <AthleteTrainingView
@@ -292,7 +305,7 @@ export default function ClientsPage() {
             <CalendarView
               client={role === "coach" ? null : selectedClient}
               clients={clients}
-              onOpenClientSheet={openClientSheet}
+              onOpenTrainingSession={openTrainingSession}
             />
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
@@ -1516,13 +1529,13 @@ function isSameCalendarDay(date: Date | null, referenceDate: Date) {
 
 function CoachTodayView({
   clients,
-  onOpenClientSheet
+  onOpenTrainingSession
 }: {
   clients: CoachClient[];
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 }) {
   const allSessions = clients.flatMap((client) =>
-    (client.sessionRecords ?? []).map((session) => ({ client, session }))
+    (client.sessionRecords ?? []).map((session, sessionIndex) => ({ client, session, sessionIndex }))
   );
   const today = new Date();
   const weeklySessions = allSessions.filter(({ session }) =>
@@ -1584,7 +1597,7 @@ function CoachTodayView({
 
         {todaySessions.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {todaySessions.map(({ client, session }, index) => (
+            {todaySessions.map(({ client, session, sessionIndex }, index) => (
               <div className="rounded-md border border-line bg-panel/35 p-3" key={`${client.id}-${session.date}-${index}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="font-semibold text-ink">{client.name}</p>
@@ -1596,7 +1609,13 @@ function CoachTodayView({
                 <p className="mt-1 text-sm text-ink/55">{session.summary}</p>
                 <button
                   className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                  onClick={() => onOpenClientSheet(client.id, "training")}
+                  onClick={() =>
+                    onOpenTrainingSession(client.id, {
+                      clientId: client.id,
+                      sessionDate: session.date,
+                      sessionIndex
+                    })
+                  }
                   type="button"
                 >
                   Ver sesión
@@ -1616,7 +1635,7 @@ function CoachTodayView({
 
         {pendingReviews.length > 0 ? (
           <div className="mt-4 grid gap-3 xl:grid-cols-2">
-            {pendingReviews.map(({ client, session }, index) => {
+            {pendingReviews.map(({ client, session, sessionIndex }, index) => {
               const srpe = calculateSessionLoad(session.rpe, session.duration);
 
               return (
@@ -1630,7 +1649,13 @@ function CoachTodayView({
                     </div>
                     <button
                       className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                      onClick={() => onOpenClientSheet(client.id, "training")}
+                      onClick={() =>
+                        onOpenTrainingSession(client.id, {
+                          clientId: client.id,
+                          sessionDate: session.date,
+                          sessionIndex
+                        })
+                      }
                       type="button"
                     >
                       Revisar
@@ -1664,7 +1689,7 @@ function CoachTodayView({
               <button
                 className="rounded-md border border-line bg-panel/35 p-3 text-left transition hover:border-moss"
                 key={`${alert.client.id}-${alert.label}-${index}`}
-                onClick={() => onOpenClientSheet(alert.client.id, "training")}
+                onClick={() => onOpenTrainingSession(alert.client.id)}
                 type="button"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -4241,6 +4266,8 @@ type WeeklyCalendarSession = {
   clientName: string;
   date: Date;
   rpeTarget?: string;
+  sessionDate?: string;
+  sessionIndex?: number;
   sessionNumber?: string;
   status: "Planificada" | "Completada" | "Pendiente" | "Pendiente de revisar";
   summary: string;
@@ -4292,7 +4319,7 @@ function buildWeeklyCalendarSessions(clients: CoachClient[], weekDates: Date[]) 
   const weekDateKeys = new Set(weekDates.map(getDateKey));
   const currentYear = weekDates[0]?.getFullYear() ?? new Date().getFullYear();
   const sessionsFromRecords: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
-    (listedClient.sessionRecords ?? []).flatMap((session) => {
+    (listedClient.sessionRecords ?? []).flatMap((session, sessionIndex) => {
       const date = parseDateValue(session.date);
       if (!date || !weekDateKeys.has(getDateKey(date))) return [];
 
@@ -4301,6 +4328,8 @@ function buildWeeklyCalendarSessions(clients: CoachClient[], weekDates: Date[]) 
         clientId: listedClient.id,
         clientName: listedClient.name,
         date,
+        sessionDate: session.date,
+        sessionIndex,
         status: getWeeklySessionStatus(session),
         summary: session.summary,
         type: session.type,
@@ -4346,11 +4375,11 @@ function buildWeeklyCalendarSessions(clients: CoachClient[], weekDates: Date[]) 
 function CalendarView({
   client,
   clients,
-  onOpenClientSheet
+  onOpenTrainingSession
 }: {
   client?: CoachClient | null;
   clients: CoachClient[];
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const baseWeekStart = getWeekStartDate(new Date());
@@ -4448,7 +4477,15 @@ function CalendarView({
                       </div>
                       <button
                         className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                        onClick={() => onOpenClientSheet(session.clientId, "training")}
+                        onClick={() =>
+                          session.sessionIndex !== undefined || session.sessionDate
+                            ? onOpenTrainingSession(session.clientId, {
+                              clientId: session.clientId,
+                              sessionDate: session.sessionDate ?? getDateKey(session.date),
+                              sessionIndex: session.sessionIndex
+                            })
+                            : onOpenTrainingSession(session.clientId, { clientId: session.clientId })
+                        }
                         type="button"
                       >
                         Ver sesión
@@ -4837,15 +4874,19 @@ function getPlanningWeekNumber(currentWeek: string) {
 function CoachTrainingPlanner({
   client,
   clients,
+  onConsumeTargetTrainingSession,
   onUpdateClient,
   sessionTemplates,
-  setSessionTemplates
+  setSessionTemplates,
+  targetTrainingSession
 }: {
   client?: CoachClient | null;
   clients: CoachClient[];
+  onConsumeTargetTrainingSession: () => void;
   onUpdateClient: (updatedClient: CoachClient) => void;
   sessionTemplates: SessionTemplate[];
   setSessionTemplates: React.Dispatch<React.SetStateAction<SessionTemplate[]>>;
+  targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
@@ -4879,6 +4920,11 @@ function CoachTrainingPlanner({
   useEffect(() => {
     setSelectedBlockWeek(activePlanningWeek);
   }, [activePlanningWeek, activeSessionClient.id]);
+  useEffect(() => {
+    if (targetTrainingSession?.clientId === activeSessionClient.id) {
+      setActiveSessionPanel("history");
+    }
+  }, [activeSessionClient.id, targetTrainingSession]);
   const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
@@ -5459,8 +5505,10 @@ function CoachTrainingPlanner({
         ) : activeSessionPanel === "history" ? (
           <SessionHistoryPanel
             client={activeSessionClient}
+            onConsumeTargetTrainingSession={onConsumeTargetTrainingSession}
             onMarkSessionReviewed={markSessionAsReviewed}
             onPlanNewSession={() => setActiveSessionPanel("planner")}
+            targetTrainingSession={targetTrainingSession}
           />
         ) : (
           <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
@@ -5670,17 +5718,42 @@ function getSessionSrpe(session: ReviewSessionRecord) {
   return calculateSessionLoad(rpe, duration);
 }
 
+function getSessionHistoryKey(session: ReviewSessionRecord, sessionIndex: number) {
+  return `${session.date}-${session.summary}-${sessionIndex}`;
+}
+
 function SessionHistoryPanel({
   client,
+  onConsumeTargetTrainingSession,
   onMarkSessionReviewed,
-  onPlanNewSession
+  onPlanNewSession,
+  targetTrainingSession
 }: {
   client: CoachClient;
+  onConsumeTargetTrainingSession: () => void;
   onMarkSessionReviewed: (sessionIndex: number) => void;
   onPlanNewSession: () => void;
+  targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
-  const sessions = (client.sessionRecords ?? []) as ReviewSessionRecord[];
+  const sessions = useMemo(
+    () => (client.sessionRecords ?? []) as ReviewSessionRecord[],
+    [client.sessionRecords]
+  );
+
+  useEffect(() => {
+    if (targetTrainingSession?.clientId !== client.id) return;
+
+    const targetIndex =
+      targetTrainingSession.sessionIndex ??
+      sessions.findIndex((session) => session.date === targetTrainingSession.sessionDate);
+
+    if (targetIndex >= 0 && sessions[targetIndex]) {
+      setOpenSessionKey(getSessionHistoryKey(sessions[targetIndex], targetIndex));
+    }
+
+    onConsumeTargetTrainingSession();
+  }, [client.id, onConsumeTargetTrainingSession, sessions, targetTrainingSession]);
 
   return (
     <div>
@@ -5697,7 +5770,7 @@ function SessionHistoryPanel({
       {sessions.length > 0 ? (
         <div className="mt-5 grid gap-3">
           {sessions.map((session, sessionIndex) => {
-            const sessionKey = `${session.date}-${session.summary}-${sessionIndex}`;
+            const sessionKey = getSessionHistoryKey(session, sessionIndex);
             const isOpen = openSessionKey === sessionKey;
             const status = getSessionStatus(session);
             const reviewStatus = getSessionReviewStatus(session);
