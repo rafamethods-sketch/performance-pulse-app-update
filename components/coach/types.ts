@@ -17,6 +17,7 @@ export type CoachSessionRecordForViews = {
   rpe?: number | string | null;
   sRPE?: number | string | null;
   srpe?: number | string | null;
+  status?: string | null;
   summary: string;
   type: string;
 };

@@ -97,7 +97,6 @@ export default function ClientsPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
-  const [hooperDone, setHooperDone] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [coachDataHydrated, setCoachDataHydrated] = useState(false);
   const [resources, setResources] = useState<ResourceLink[]>([]);
@@ -309,8 +308,14 @@ export default function ClientsPage() {
               <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
             ) : (
               <AthleteTrainingView
-                hooperDone={hooperDone}
-                onCompleteHooper={() => setHooperDone(true)}
+                client={selectedClient ?? clients[0] ?? null}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
               />
             )
           ) : activeSheet === "clients" ? (
@@ -352,8 +357,14 @@ export default function ClientsPage() {
               />
             ) : (
               <AthleteTrainingView
-                hooperDone={hooperDone}
-                onCompleteHooper={() => setHooperDone(true)}
+                client={selectedClient ?? clients[0] ?? null}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
               />
             )
           ) : activeSheet === "assessments" ? (
@@ -476,7 +487,48 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
 }
 
 type BaseCoachClient = (typeof coachClients)[number];
-type CoachClient = BaseCoachClient & {
+type ClientWellness = {
+  fatigue: number;
+  motivation: number;
+  sleep: number;
+  soreness: number;
+  stress: number;
+};
+type ConnectedSessionExercise = SessionExerciseInput & {
+  actualRest?: number | string | null;
+  athleteNotes?: string | null;
+  block?: string | null;
+  exerciseRpe?: number | string | null;
+  id?: string | null;
+  observation?: string | null;
+  plannedRest?: number | string | null;
+  plannedRir?: number | string | null;
+  rest?: number | string | null;
+  rir?: number | string | null;
+  section?: string | null;
+  targetRir?: number | string | null;
+};
+type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
+  actualDurationMinutes?: number | string | null;
+  block?: string | null;
+  completed?: boolean;
+  date: string;
+  finalNotes?: string | null;
+  finalRpe?: number | string | null;
+  performedExercises?: ConnectedSessionExercise[];
+  plannedExercises?: ConnectedSessionExercise[];
+  reviewStatus?: "pending" | "reviewed";
+  sessionNumber?: number | string | null;
+  sRPE?: number | string | null;
+  status?: string | null;
+  summary: string;
+  targetRpe?: number | string | null;
+  type: string;
+  week?: number | string | null;
+  weekLabel?: string | null;
+  wellness?: ClientWellness;
+};
+type CoachClient = Omit<BaseCoachClient, "sessionRecords"> & {
   availableEquipment?: string;
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
@@ -485,8 +537,8 @@ type CoachClient = BaseCoachClient & {
     eventNotes?: string;
     method?: PlanningMethod;
   };
+  sessionRecords: ClientSessionRecord[];
 };
-type ClientSessionRecord = CoachClient["sessionRecords"][number];
 type ClientAssessment = CoachClient["assessments"][number];
 
 function getMonotonyStatus(value: number) {
@@ -514,7 +566,12 @@ function getLoadTrend(currentLoad: number, chronicLoad: number) {
 }
 
 function getClientLoadData(client: CoachClient) {
-  const weeklyLoad = calculateWeeklyLoad(client.sessionRecords);
+  const completedLoadRecords = client.sessionRecords.flatMap((session) => {
+    const duration = Number(session.actualDurationMinutes ?? session.duration);
+    const rpe = Number(session.finalRpe ?? session.rpe);
+    return duration > 0 && rpe > 0 ? [{ ...session, duration, rpe }] : [];
+  });
+  const weeklyLoad = calculateWeeklyLoad(completedLoadRecords);
   const monotony = calculateMonotony(client.dailyLoads);
   const strain = calculateStrain(weeklyLoad, monotony);
   const acwr = calculateACWR(weeklyLoad, client.chronicLoad);
@@ -3895,6 +3952,8 @@ function CoachTrainingPlanner({
   const [sessionDate, setSessionDate] = useState("");
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
+  const [sessionTargetRpe, setSessionTargetRpe] = useState("");
+  const [sessionSendMessage, setSessionSendMessage] = useState("");
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateDescription, setTemplateDescription] = useState("");
@@ -3972,6 +4031,58 @@ function CoachTrainingPlanner({
     sets: exercise.sets,
     targetRir: exercise.targetRir
   }));
+  const sendSessionToAthlete = () => {
+    if (!sessionDate) {
+      setSessionSendMessage("Selecciona una fecha antes de enviar la sesión.");
+      return;
+    }
+
+    const sessionNumber = calculatedSessionNumber ?? 1;
+    const duplicateSession = (activeSessionClient.sessionRecords ?? []).some((session) =>
+      session.date === sessionDate &&
+      Number(session.week) === selectedBlockWeek &&
+      Number(session.sessionNumber) === sessionNumber
+    );
+
+    if (duplicateSession) {
+      setSessionSendMessage("Esta sesión ya está asignada al deportista.");
+      return;
+    }
+
+    const plannedExercises: ConnectedSessionExercise[] = strengthExercises.map((exercise) => ({
+      block: exercise.block,
+      exerciseId: exercise.exerciseId || null,
+      exerciseName: getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar"),
+      id: exercise.id,
+      observation: exercise.observation,
+      plannedLoad: exercise.load,
+      plannedReps: exercise.reps,
+      plannedRest: exercise.rest,
+      plannedRir: exercise.targetRir,
+      plannedSets: exercise.sets,
+      section: exercise.block
+    }));
+    const plannedRecord: ClientSessionRecord = {
+      block: currentBlockLabel || "Sin asignar",
+      completed: false,
+      date: sessionDate,
+      performedExercises: [],
+      plannedExercises,
+      sessionNumber,
+      status: "Planificada",
+      summary: sessionSummary.trim() || "Sesión planificada",
+      targetRpe: sessionTargetRpe,
+      type: sessionType,
+      week: selectedBlockWeek,
+      weekLabel: `Semana ${selectedBlockWeek}`
+    };
+
+    onUpdateClient({
+      ...activeSessionClient,
+      sessionRecords: [plannedRecord, ...(activeSessionClient.sessionRecords ?? [])]
+    });
+    setSessionSendMessage("Sesión enviada al deportista.");
+  };
   const resetTemplateForm = () => {
     setShowTemplateForm(false);
     setTemplateDescription("");
@@ -4291,8 +4402,10 @@ function CoachTrainingPlanner({
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               max={10}
               min={0}
+              onChange={(event) => setSessionTargetRpe(event.target.value)}
               placeholder="0-10"
               type="number"
+              value={sessionTargetRpe}
             />
           </label>
         </div>
@@ -4495,10 +4608,17 @@ function CoachTrainingPlanner({
           </div>
         </details>
 
-        <button className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto" type="button">
+        <button
+          className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto"
+          onClick={sendSessionToAthlete}
+          type="button"
+        >
           <Send size={18} />
           Enviar al deportista
         </button>
+        {sessionSendMessage ? (
+          <p className="mt-3 text-sm font-medium text-ink/65">{sessionSendMessage}</p>
+        ) : null}
         </>
         ) : activeSessionPanel === "history" ? (
           <SessionHistoryPanel
@@ -4965,11 +5085,344 @@ function SessionHistoryPanel({
 }
 
 type AthleteTrainingViewProps = {
+  client: CoachClient | null;
+  onUpdateClient: (updatedClient: CoachClient) => void;
+};
+
+const emptyAthleteWellness: ClientWellness = {
+  fatigue: 0,
+  motivation: 0,
+  sleep: 0,
+  soreness: 0,
+  stress: 0
+};
+
+const athleteWellnessFields: Array<{ key: keyof ClientWellness; label: string }> = [
+  { key: "sleep", label: "Sueño" },
+  { key: "fatigue", label: "Fatiga" },
+  { key: "stress", label: "Estrés" },
+  { key: "soreness", label: "DOMS" },
+  { key: "motivation", label: "Motivación" }
+];
+
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function createAthleteExerciseEntries(session: ClientSessionRecord | null) {
+  return (session?.plannedExercises ?? []).map<ConnectedSessionExercise>((exercise) => ({
+    ...exercise,
+    athleteNotes: "",
+    exerciseRpe: "",
+    load: exercise.plannedLoad ?? exercise.load ?? "",
+    reps: exercise.plannedReps ?? exercise.reps ?? "",
+    rest: exercise.plannedRest ?? exercise.rest ?? "",
+    rir: exercise.plannedRir ?? exercise.targetRir ?? "",
+    sets: exercise.plannedSets ?? exercise.sets ?? ""
+  }));
+}
+
+function AthleteTrainingView({ client, onUpdateClient }: AthleteTrainingViewProps) {
+  const todayKey = getLocalDateKey();
+  const sessionIndex = client
+    ? client.sessionRecords.findIndex((record) => record.date === todayKey)
+    : -1;
+  const session = client && sessionIndex >= 0 ? client.sessionRecords[sessionIndex] : null;
+  const [wellness, setWellness] = useState<ClientWellness>(emptyAthleteWellness);
+  const [wellnessConfirmed, setWellnessConfirmed] = useState(false);
+  const [performedExercises, setPerformedExercises] = useState<ConnectedSessionExercise[]>([]);
+  const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
+  const [finalRpe, setFinalRpe] = useState(0);
+  const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
+  const [validationMessage, setValidationMessage] = useState("");
+  const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
+    ? actualDurationMinutes * finalRpe
+    : null;
+  const wellnessComplete = Object.values(wellness).every((value) => value >= 1 && value <= 5);
+
+  useEffect(() => {
+    setWellness(session?.wellness ?? emptyAthleteWellness);
+    setWellnessConfirmed(false);
+    setPerformedExercises(createAthleteExerciseEntries(session));
+    setActualDurationMinutes(0);
+    setFinalRpe(0);
+    setAthleteSessionNotes("");
+    setValidationMessage("");
+  }, [session]);
+
+  function updateExercise(index: number, updates: Partial<ConnectedSessionExercise>) {
+    setPerformedExercises((current) =>
+      current.map((exercise, exerciseIndex) =>
+        exerciseIndex === index ? { ...exercise, ...updates } : exercise
+      )
+    );
+  }
+
+  function submitSession() {
+    if (!client || !session || sessionIndex < 0) return;
+    if (actualDurationMinutes <= 0 || finalRpe <= 0) {
+      setValidationMessage("Completa la duración real y el RPE final antes de enviar.");
+      return;
+    }
+
+    const updatedSession: ClientSessionRecord = {
+      ...session,
+      actualDurationMinutes,
+      completed: true,
+      finalNotes: athleteSessionNotes.trim(),
+      finalRpe,
+      performedExercises,
+      reviewStatus: "pending",
+      sRPE: actualDurationMinutes * finalRpe,
+      status: "Completada",
+      wellness
+    };
+
+    onUpdateClient({
+      ...client,
+      sessionRecords: client.sessionRecords.map((record, index) =>
+        index === sessionIndex ? updatedSession : record
+      )
+    });
+    setValidationMessage("");
+  }
+
+  if (!client) {
+    return (
+      <AthleteEmptyState message="No hay deportista seleccionado." />
+    );
+  }
+
+  if (!session) {
+    return (
+      <AthleteEmptyState clientName={client.name} message="No tienes ninguna sesión asignada para hoy." />
+    );
+  }
+
+  const sessionAlreadySent = session.completed || session.status === "Completada";
+
+  return (
+    <div className="mx-auto mt-5 max-w-3xl space-y-5">
+      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-ink">Sesión de hoy</h2>
+            <p className="mt-1 text-sm font-medium text-ink/70">{client.name}</p>
+          </div>
+          <span className={`w-fit rounded-md px-3 py-1 text-xs font-semibold ${sessionAlreadySent ? "bg-mint text-moss" : "bg-blue-50 text-blue-700"}`}>
+            {sessionAlreadySent ? "Completada" : "Planificada"}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
+          <ClientInfoCard
+            label="Semana y sesión"
+            value={`${session.weekLabel || session.week || "Sin asignar"}${session.sessionNumber ? ` · Sesión ${session.sessionNumber}` : ""}`}
+          />
+          <ClientInfoCard label="Tipo" value={session.type} />
+          <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
+        </div>
+        <div className="mt-4 rounded-md bg-panel/45 p-4">
+          <p className="text-xs font-semibold uppercase text-ink/50">Resumen / objetivo</p>
+          <p className="mt-2 text-sm font-medium text-ink">{session.summary}</p>
+        </div>
+      </section>
+
+      {sessionAlreadySent ? (
+        <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-center shadow-soft">
+          <h3 className="font-semibold text-emerald-900">Sesión enviada al entrenador.</h3>
+          <p className="mt-2 text-sm text-emerald-800">sRPE: {session.sRPE ? `${session.sRPE} UA` : "Pendiente"}</p>
+        </section>
+      ) : (
+        <>
+          <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+            <h3 className="text-lg font-semibold text-ink">Wellness previo</h3>
+            <p className="mt-1 text-sm text-ink/60">Valora cómo te encuentras antes de empezar.</p>
+            <div className="mt-4 space-y-3">
+              {athleteWellnessFields.map((field) => (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={field.key}>
+                  <p className="text-sm font-medium text-ink">{field.label}</p>
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        aria-pressed={wellness[field.key] === value}
+                        className={`h-10 rounded-md border text-sm font-semibold ${wellness[field.key] === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
+                        key={`${field.key}-${value}`}
+                        onClick={() => setWellness((current) => ({ ...current, [field.key]: value }))}
+                        type="button"
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!wellnessComplete}
+              onClick={() => setWellnessConfirmed(true)}
+              type="button"
+            >
+              Confirmar wellness
+            </button>
+          </section>
+
+          {wellnessConfirmed ? (
+            <>
+              <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+                <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
+                <div className="mt-4 space-y-4">
+                  {performedExercises.length > 0 ? performedExercises.map((exercise, index) => (
+                    <AthleteExerciseCard
+                      exercise={exercise}
+                      index={index}
+                      key={exercise.id || `${exercise.exerciseName}-${index}`}
+                      onUpdate={updateExercise}
+                    />
+                  )) : (
+                    <p className="rounded-md border border-dashed border-line p-5 text-center text-sm text-ink/55">
+                      Esta sesión no tiene ejercicios planificados.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-ink">Registro final de sesión</h3>
+                    <p className="mt-1 text-sm text-ink/60">Completa los datos reales al terminar.</p>
+                  </div>
+                  <span className="w-fit rounded-md bg-panel/60 px-3 py-1 text-sm font-semibold text-ink">
+                    sRPE: {calculatedSrpe ? `${calculatedSrpe} UA` : "Pendiente"}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <AthleteNumberField label="Duración real en minutos" onChange={setActualDurationMinutes} value={actualDurationMinutes} />
+                  <AthleteNumberField label="RPE final de sesión" max={10} onChange={setFinalRpe} value={finalRpe} />
+                </div>
+                <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
+                  Notas generales
+                  <textarea
+                    className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setAthleteSessionNotes(event.target.value)}
+                    placeholder="Sensaciones, molestias o cambios realizados"
+                    value={athleteSessionNotes}
+                  />
+                </label>
+                <button className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={submitSession} type="button">
+                  Enviar sesión al entrenador
+                </button>
+                {validationMessage ? <p className="mt-3 text-sm font-medium text-red-700">{validationMessage}</p> : null}
+              </section>
+            </>
+          ) : (
+            <div className="rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/55">
+              Completa y confirma primero el wellness previo.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AthleteEmptyState({ clientName, message }: { clientName?: string; message: string }) {
+  return (
+    <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
+      <h2 className="text-lg font-semibold text-ink">Sesión de hoy</h2>
+      {clientName ? <p className="mt-1 text-sm font-medium text-ink/70">{clientName}</p> : null}
+      <p className="mt-3 text-sm text-ink/60">{message}</p>
+    </div>
+  );
+}
+
+function AthleteNumberField({ label, max, onChange, value }: { label: string; max?: number; onChange: (value: number) => void; value: number }) {
+  return (
+    <label className="space-y-2 text-sm font-medium text-ink/75">
+      {label}
+      <input
+        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+        max={max}
+        min={0}
+        onChange={(event) => onChange(Number(event.target.value))}
+        type="number"
+        value={value || ""}
+      />
+    </label>
+  );
+}
+
+function AthleteExerciseCard({ exercise, index, onUpdate }: {
+  exercise: ConnectedSessionExercise;
+  index: number;
+  onUpdate: (index: number, updates: Partial<ConnectedSessionExercise>) => void;
+}) {
+  const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
+  return (
+    <article className="rounded-md border border-line bg-panel/35 p-4">
+      <p className="font-semibold text-ink">{exerciseName}</p>
+      <p className="mt-1 text-xs text-ink/55">Bloque: {exercise.block || exercise.section || "Principal"}</p>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/65">
+        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedSets || "-"} series</span>
+        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedReps || "-"} reps</span>
+        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedLoad || "-"} kg</span>
+        <span className="rounded-md bg-white px-2 py-1">Descanso {exercise.plannedRest || "-"}</span>
+        <span className="rounded-md bg-white px-2 py-1">RIR {exercise.plannedRir || "-"}</span>
+      </div>
+      {exercise.observation ? <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <AthleteExerciseInput label="Series realizadas" onChange={(value) => onUpdate(index, { sets: value })} value={exercise.sets} />
+        <AthleteExerciseInput label="Reps realizadas" onChange={(value) => onUpdate(index, { reps: value })} value={exercise.reps} />
+        <AthleteExerciseInput label="Carga real" onChange={(value) => onUpdate(index, { load: value })} value={exercise.load} />
+        <AthleteExerciseInput label="Descanso real" onChange={(value) => onUpdate(index, { actualRest: value, rest: value })} value={exercise.actualRest ?? exercise.rest} />
+        <AthleteExerciseInput label="RPE ejercicio" max={10} onChange={(value) => onUpdate(index, { exerciseRpe: value })} value={exercise.exerciseRpe} />
+        <AthleteExerciseInput label="RIR real" onChange={(value) => onUpdate(index, { rir: value })} value={exercise.rir} />
+      </div>
+      <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65">
+        Notas del deportista
+        <textarea
+          className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
+          onChange={(event) => onUpdate(index, { athleteNotes: event.target.value })}
+          value={exercise.athleteNotes ?? ""}
+        />
+      </label>
+    </article>
+  );
+}
+
+function AthleteExerciseInput({ label, max, onChange, value }: {
+  label: string;
+  max?: number;
+  onChange: (value: string) => void;
+  value?: number | string | null;
+}) {
+  return (
+    <label className="space-y-1 text-xs font-medium text-ink/65">
+      {label}
+      <input
+        className="h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
+        max={max}
+        min={0}
+        onChange={(event) => onChange(event.target.value)}
+        type="number"
+        value={value ?? ""}
+      />
+    </label>
+  );
+}
+
+type LegacyAthleteTrainingViewProps = {
   hooperDone: boolean;
   onCompleteHooper: () => void;
 };
 
-function AthleteTrainingView({ hooperDone, onCompleteHooper }: AthleteTrainingViewProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthleteTrainingViewProps) {
   const [performedExercises, setPerformedExercises] = useState(
     plannedSession.strengthExercises.map((exercise) => ({ ...exercise }))
   );

@@ -88,10 +88,13 @@ function getClientEvent(client: CoachClientForViews) {
 }
 
 function getWeeklySessionStatus(session: CoachSessionRecordForViews) {
-  if (hasDisplayValue(session.duration) && hasDisplayValue(session.rpe) && hasDisplayValue(session.notes)) {
+  if (isSessionPendingReview(session)) {
     return "Pendiente de revisar";
   }
-  if (hasDisplayValue(session.duration) && hasDisplayValue(session.rpe)) return "Completada";
+  if (session.completed || (hasDisplayValue(getSessionDuration(session)) && hasDisplayValue(getSessionRpe(session)))) {
+    return "Completada";
+  }
+  if (session.status === "Planificada") return "Planificada";
   return "Pendiente";
 }
 
@@ -113,6 +116,29 @@ function hasRealSessionData(session: CoachSessionRecordForViews) {
 function isSessionPendingReview(session: CoachSessionRecordForViews) {
   if (session.reviewStatus === "reviewed") return false;
   return hasRealSessionData(session);
+}
+
+function getSessionDuration(session: CoachSessionRecordForViews) {
+  return session.actualDurationMinutes ?? session.duration ?? null;
+}
+
+function getSessionRpe(session: CoachSessionRecordForViews) {
+  return session.finalRpe ?? session.rpe ?? null;
+}
+
+function getSessionSrpe(session: CoachSessionRecordForViews) {
+  if (hasDisplayValue(session.sRPE)) return session.sRPE;
+  if (hasDisplayValue(session.srpe)) return session.srpe;
+
+  const duration = Number(getSessionDuration(session));
+  const rpe = Number(getSessionRpe(session));
+
+  if (!Number.isFinite(duration) || !Number.isFinite(rpe) || duration <= 0 || rpe <= 0) return null;
+  return calculateSessionLoad(rpe, duration);
+}
+
+function getSessionNotes(session: CoachSessionRecordForViews) {
+  return session.finalNotes ?? session.notes ?? "";
 }
 
 function getTodayStatusClass(status: string) {
@@ -183,10 +209,10 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
     if (hasPendingReview) {
       clientAlerts.push({ client, label: "Sesión pendiente de revisar", tone: "revisar" });
     }
-    if (latestSession && Number(latestSession.rpe) >= 8) {
+    if (latestSession && Number(getSessionRpe(latestSession)) >= 8) {
       clientAlerts.push({ client, label: "RPE final alto", tone: "vigilar" });
     }
-    if (latestSession && calculateSessionLoad(Number(latestSession.rpe), Number(latestSession.duration)) >= 450) {
+    if (latestSession && Number(getSessionSrpe(latestSession)) >= 450) {
       clientAlerts.push({ client, label: "sRPE alto en la última sesión", tone: "carga" });
     }
     if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) {
@@ -260,7 +286,10 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
         {pendingReviews.length > 0 ? (
           <div className="mt-4 grid gap-3 xl:grid-cols-2">
             {pendingReviews.map(({ client, session, sessionIndex }, index) => {
-              const srpe = calculateSessionLoad(Number(session.rpe), Number(session.duration));
+              const duration = getSessionDuration(session);
+              const rpe = getSessionRpe(session);
+              const srpe = getSessionSrpe(session);
+              const notes = getSessionNotes(session);
 
               return (
                 <div className={secondaryCardClass} key={`${client.id}-${session.date}-${index}`}>
@@ -286,12 +315,12 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                     </button>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                    <ClientInfoCard label="RPE" value={`${session.rpe}/10`} />
-                    <ClientInfoCard label="Duración" value={`${session.duration} min`} />
-                    <ClientInfoCard label="sRPE" value={`${srpe} UA`} />
+                    <ClientInfoCard label="RPE" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                    <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
+                    <ClientInfoCard label="sRPE" value={hasDisplayValue(srpe) ? `${srpe} UA` : "Pendiente"} />
                   </div>
                   <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/60">
-                    {session.notes || "Sin notas registradas"}
+                    {notes || "Sin notas registradas"}
                   </p>
                 </div>
               );
