@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 
 export type ResourceType =
   | "Roadmap"
@@ -125,6 +125,7 @@ function normalizeResourceCategory(value: string): ResourceCategory {
 
 export function CoachResourcesView({ resources, setResources }: CoachResourcesViewProps) {
   const [draft, setDraft] = useState<ResourceDraft>(emptyDraft);
+  const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<"all" | ResourceCategory>("all");
   const [selectedType, setSelectedType] = useState<"all" | ResourceType>("all");
@@ -149,8 +150,25 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
 
   function resetForm() {
     setDraft(emptyDraft);
+    setEditingResourceId(null);
     setError("");
     setShowForm(false);
+  }
+
+  function handleStartEdit(resource: ResourceLink) {
+    setDraft({
+      athleteProfile: resource.athleteProfile ?? "",
+      category: normalizeResourceCategory(resource.category),
+      description: resource.description ?? "",
+      injuryArea: resource.injuryArea ?? "",
+      resourceType: normalizeResourceType(resource.resourceType),
+      sportContext: resource.sportContext ?? "",
+      title: resource.title,
+      url: resource.url
+    });
+    setEditingResourceId(resource.id);
+    setError("");
+    setShowForm(true);
   }
 
   function handleSaveResource() {
@@ -169,6 +187,28 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
 
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       setError("La URL debe empezar por http:// o https://.");
+      return;
+    }
+
+    if (editingResourceId) {
+      setResources((current) =>
+        current.map((resource) =>
+          resource.id === editingResourceId
+            ? {
+                ...resource,
+                athleteProfile: draft.athleteProfile.trim() || undefined,
+                category: draft.category,
+                description: draft.description.trim() || undefined,
+                injuryArea: draft.injuryArea.trim() || undefined,
+                resourceType: draft.resourceType,
+                sportContext: draft.sportContext.trim() || undefined,
+                title,
+                url
+              }
+            : resource
+        )
+      );
+      resetForm();
       return;
     }
 
@@ -217,7 +257,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
       {showForm ? (
         <section className="rounded-md border border-line bg-white p-5 shadow-soft">
           <div className="flex flex-col gap-1">
-            <h3 className="font-semibold text-ink">Añadir recurso</h3>
+            <h3 className="font-semibold text-ink">{editingResourceId ? "Editar recurso" : "Añadir recurso"}</h3>
             <p className="text-sm text-ink/55">Guarda solo el enlace externo y los datos útiles para encontrarlo después.</p>
           </div>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -307,7 +347,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
           {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
           <div className="mt-5 flex flex-wrap gap-2">
             <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveResource} type="button">
-              Guardar recurso
+              {editingResourceId ? "Guardar cambios" : "Guardar recurso"}
             </button>
             <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetForm} type="button">
               Cancelar
@@ -397,6 +437,14 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
                       <ExternalLink className="h-4 w-4" />
                       Abrir
                     </a>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                      onClick={() => handleStartEdit(resource)}
+                      type="button"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Editar
+                    </button>
                     <button
                       className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
                       onClick={() => handleDeleteResource(resource.id)}
