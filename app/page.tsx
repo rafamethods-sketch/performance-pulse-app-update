@@ -99,6 +99,7 @@ export default function ClientsPage() {
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
   const [hooperDone, setHooperDone] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [coachDataHydrated, setCoachDataHydrated] = useState(false);
   const [resources, setResources] = useState<ResourceLink[]>([]);
   const [resourcesHydrated, setResourcesHydrated] = useState(false);
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
@@ -141,6 +142,46 @@ export default function ClientsPage() {
   useEffect(() => {
     window.localStorage.setItem("rafa-methods-sidebar-collapsed", String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedClients = window.localStorage.getItem("coach_clients_v1");
+    if (storedClients) {
+      try {
+        const parsedClients = JSON.parse(storedClients);
+        if (Array.isArray(parsedClients)) {
+          setClients(parsedClients);
+        }
+      } catch {
+        setClients(coachClients);
+      }
+    }
+
+    const storedSessionTemplates = window.localStorage.getItem("coach_session_templates_v1");
+    if (storedSessionTemplates) {
+      try {
+        const parsedSessionTemplates = JSON.parse(storedSessionTemplates);
+        if (Array.isArray(parsedSessionTemplates)) {
+          setSessionTemplates(parsedSessionTemplates);
+        }
+      } catch {
+        setSessionTemplates([]);
+      }
+    }
+
+    setCoachDataHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!coachDataHydrated || typeof window === "undefined") return;
+    window.localStorage.setItem("coach_clients_v1", JSON.stringify(clients));
+  }, [clients, coachDataHydrated]);
+
+  useEffect(() => {
+    if (!coachDataHydrated || typeof window === "undefined") return;
+    window.localStorage.setItem("coach_session_templates_v1", JSON.stringify(sessionTemplates));
+  }, [sessionTemplates, coachDataHydrated]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
