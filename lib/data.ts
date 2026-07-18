@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Dumbbell,
   FileClock,
+  FolderOpen,
   Library,
   LineChart,
   MessageSquareText,
@@ -23,6 +24,7 @@ export type SheetId =
   | "decision"
   | "planning"
   | "progressions"
+  | "resources"
   | "routines"
   | "weeklyLoad"
   | "messages";
@@ -53,6 +55,7 @@ export const navItems: NavItem[] = [
   { id: "training", label: "Sesiones", icon: ClipboardList },
   { id: "planning", label: "Planificación", icon: FileClock },
   { id: "progressions", label: "Ejercicios", icon: Library },
+  { id: "resources", label: "Recursos", icon: FolderOpen },
   { id: "messages", label: "Mensajes", icon: MessageSquareText },
   { id: "weeklyLoad", label: "Metricas", icon: LineChart },
   { id: "assessments", label: "Valoraciones", icon: LineChart },
@@ -61,7 +64,7 @@ export const navItems: NavItem[] = [
   { id: "decision", label: "Dashboard general", icon: Activity }
 ];
 
-export const coachMainNavIds: SheetId[] = ["today", "clients", "calendar", "training", "progressions", "messages"];
+export const coachMainNavIds: SheetId[] = ["today", "clients", "calendar", "training", "progressions", "resources", "messages"];
 
 export const coachStats = [
   { label: "Clientes registrados", value: "24", trend: "+3 este mes" },

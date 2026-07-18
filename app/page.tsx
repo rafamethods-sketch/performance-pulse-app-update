@@ -17,6 +17,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
 import { CalendarView } from "@/components/coach/coach-calendar-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
+import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import {
@@ -98,6 +99,8 @@ export default function ClientsPage() {
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
   const [hooperDone, setHooperDone] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [resources, setResources] = useState<ResourceLink[]>([]);
+  const [resourcesHydrated, setResourcesHydrated] = useState(false);
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
   const [trainingAvailability, setTrainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
@@ -138,6 +141,27 @@ export default function ClientsPage() {
   useEffect(() => {
     window.localStorage.setItem("rafa-methods-sidebar-collapsed", String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedResources = window.localStorage.getItem("coach_resources_v1");
+    if (storedResources) {
+      try {
+        const parsedResources = JSON.parse(storedResources);
+        if (Array.isArray(parsedResources)) {
+          setResources(parsedResources);
+        }
+      } catch {
+        setResources([]);
+      }
+    }
+    setResourcesHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!resourcesHydrated || typeof window === "undefined") return;
+    window.localStorage.setItem("coach_resources_v1", JSON.stringify(resources));
+  }, [resources, resourcesHydrated]);
 
   function handleLogin(nextRole: UserRole) {
     setRole(nextRole);
@@ -216,6 +240,8 @@ export default function ClientsPage() {
                     ? "Planificación"
                   : activeSheet === "progressions"
                     ? "Ejercicios"
+                  : activeSheet === "resources"
+                    ? "Recursos"
                   : activeSheet === "routines"
                     ? "Rutinas"
                   : activeSheet === "messages"
@@ -314,6 +340,8 @@ export default function ClientsPage() {
             role === "coach" ? <PlanningView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
+          ) : activeSheet === "resources" ? (
+            role === "coach" ? <CoachResourcesView resources={resources} setResources={setResources} /> : <DecisionDashboardView />
           ) : activeSheet === "routines" ? (
             role === "coach" ? <RoutinesView clients={clients} trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
           ) : activeSheet === "messages" ? (
