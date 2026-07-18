@@ -417,6 +417,14 @@ type CoachClient = BaseCoachClient & {
   };
 };
 type ClientSessionRecord = CoachClient["sessionRecords"][number];
+type DashboardSessionRecord = ClientSessionRecord & TrainingSessionInput & {
+  actualDurationMinutes?: number | string | null;
+  finalNotes?: string | null;
+  finalRpe?: number | string | null;
+  reviewStatus?: "pending" | "reviewed";
+  sRPE?: number | string | null;
+  srpe?: number | string | null;
+};
 type ClientAssessment = CoachClient["assessments"][number];
 type DashboardDetailSection = "status" | "load" | "acwr" | "monotony" | "strain" | "hooper" | "fatigue-map";
 
@@ -1355,11 +1363,12 @@ function ClientDashboardView({
 }) {
   const [dashboardDetail, setDashboardDetail] = useState<DashboardDetailSection | null>(null);
   const loadData = getClientLoadData(client);
+  const dashboardData = getClientDashboardData(client, loadData);
 
   return (
     <div className="mt-6 grid gap-6">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <LoadSummaryCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
+      <DashboardStatusSummary dashboardData={dashboardData} loadData={loadData} onOpenDetail={setDashboardDetail} />
       {dashboardDetail ? (
         <DashboardDetailPanel
           client={client}
@@ -1368,18 +1377,260 @@ function ClientDashboardView({
           section={dashboardDetail}
         />
       ) : null}
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <WeeklyLoadDashboardBlock dashboardData={dashboardData} loadData={loadData} />
+        <AdherenceDashboardBlock dashboardData={dashboardData} />
+      </div>
       <div className="grid gap-6 xl:grid-cols-2">
-        <WellnessCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
-        <RiskControlCards client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
+        <PatternDistributionDashboardBlock dashboardData={dashboardData} />
+        <MuscleFatigueDashboardBlock dashboardData={dashboardData} />
       </div>
-      <FatigueHeatmap client={client} loadData={loadData} onOpenDetail={setDashboardDetail} />
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <ActivePlanning client={client} onOpenClientSheet={onOpenClientSheet} />
-        <RecentSessions clientId={client.id} onOpenClientSheet={onOpenClientSheet} sessions={client.sessionRecords} />
-      </div>
-      <ClientAssessmentsSummary assessments={client.assessments} clientId={client.id} onOpenClientSheet={onOpenClientSheet} />
-      <QuickAccess client={client} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
+      <DashboardAlertsBlock alerts={dashboardData.alerts} />
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Indicadores de carga</h3>
+            <p className="mt-1 text-sm text-ink/55">ACWR, Hooper, monotonía y strain como lectura secundaria.</p>
+          </div>
+          <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => setDashboardDetail("acwr")} type="button">
+            Ver detalle
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
+          <MetricPill label="Hooper" status={loadData.hooperStatus} value={`${loadData.hooper}/25`} />
+          <MetricPill label="Monotonía" status={loadData.monotonyStatus} value={loadData.monotony.toFixed(2)} />
+          <MetricPill label="Strain" status={loadData.strainStatus} value={loadData.strain.toFixed(0)} />
+        </div>
+      </section>
     </div>
+  );
+}
+
+function DashboardStatusSummary({
+  dashboardData,
+  loadData,
+  onOpenDetail
+}: {
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+  loadData: ReturnType<typeof getClientLoadData>;
+  onOpenDetail: (section: DashboardDetailSection) => void;
+}) {
+  const summaryCards = [
+    {
+      detail: dashboardData.alerts.length > 0 ? "con puntos a revisar" : "sin alertas principales",
+      label: "Estado general",
+      status: dashboardData.generalStatus === "Alta carga" ? "Alto" : dashboardData.generalStatus === "Revisar" ? "Vigilar" : "Controlado",
+      value: dashboardData.generalStatus
+    },
+    {
+      detail: `${dashboardData.sessionsWithSrpe.length} sesiones con registro`,
+      label: "sRPE semanal",
+      status: loadData.acwrStatus,
+      value: dashboardData.sessionsWithSrpe.length > 0 ? `${Math.round(loadData.weeklyLoad).toLocaleString("es-ES")} UA` : "Sin datos suficientes"
+    },
+    {
+      detail: dashboardData.hasExerciseData ? "tonelaje registrado" : "faltan ejercicios con carga",
+      label: "Carga externa semanal",
+      status: dashboardData.weeklyExternalLoad && dashboardData.weeklyExternalLoad > 0 ? "Controlado" : "Vigilar",
+      value: dashboardData.weeklyExternalLoad !== null && dashboardData.weeklyExternalLoad > 0
+        ? `${Math.round(dashboardData.weeklyExternalLoad).toLocaleString("es-ES")} kg`
+        : "Sin datos suficientes"
+    },
+    {
+      detail: dashboardData.plannedSessions > 0 ? `${dashboardData.completedSessions}/${dashboardData.plannedSessions} sesiones` : "faltan sesiones planificadas",
+      label: "Adherencia",
+      status: dashboardData.adherencePercent === null ? "Vigilar" : dashboardData.adherencePercent < 70 ? "Alto" : "Controlado",
+      value: dashboardData.adherencePercent !== null ? `${dashboardData.adherencePercent}%` : "Sin datos suficientes"
+    }
+  ];
+
+  return (
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {summaryCards.map((card) => (
+        <article className={`rounded-md border p-4 shadow-soft ${clientStatusClass(card.status)}`} key={card.label}>
+          <p className="text-sm font-semibold">{card.label}</p>
+          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
+          <p className="mt-2 text-xs font-medium opacity-75">{card.detail}</p>
+          {card.label === "sRPE semanal" ? (
+            <button className="mt-3 text-xs font-semibold underline" onClick={() => onOpenDetail("load")} type="button">
+              Ver detalle
+            </button>
+          ) : null}
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function DashboardEmptyState({ children }: { children: string }) {
+  return (
+    <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-semibold text-ink/55">
+      {children}
+    </div>
+  );
+}
+
+function WeeklyLoadDashboardBlock({
+  dashboardData,
+  loadData
+}: {
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+  loadData: ReturnType<typeof getClientLoadData>;
+}) {
+  const maxSrpe = Math.max(1, ...dashboardData.sessionsWithSrpe.map((entry) => entry.srpe));
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Carga semanal</h3>
+          <p className="mt-1 text-sm text-ink/55">Barras por sesión usando sRPE cuando hay duración y RPE.</p>
+        </div>
+        <span className="w-fit rounded-md bg-panel px-3 py-1 text-sm font-semibold text-ink/70">
+          {dashboardData.sessionsWithSrpe.length > 0 ? `${Math.round(loadData.weeklyLoad).toLocaleString("es-ES")} UA` : "Sin datos"}
+        </span>
+      </div>
+
+      {dashboardData.sessionsWithSrpe.length > 0 ? (
+        <>
+          <div className="mt-5 flex h-40 items-end gap-2 rounded-md bg-panel/35 p-3">
+            {dashboardData.sessionsWithSrpe.map(({ session, srpe }, index) => (
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${session.date}-${session.summary}-${index}`}>
+                <div
+                  className="w-full rounded-t bg-gradient-to-t from-moss to-steel"
+                  style={{ height: `${Math.max(18, (srpe / maxSrpe) * 112)}px` }}
+                />
+                <span className="max-w-full truncate text-[10px] font-semibold text-ink/45">{session.type}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ClientInfoCard label="Sesiones con datos" value={`${dashboardData.sessionsWithSrpe.length}`} />
+            <ClientInfoCard
+              label="Carga externa"
+              value={dashboardData.weeklyExternalLoad !== null && dashboardData.weeklyExternalLoad > 0
+                ? `${Math.round(dashboardData.weeklyExternalLoad).toLocaleString("es-ES")} kg`
+                : "Sin datos suficientes"}
+            />
+          </div>
+        </>
+      ) : (
+        <DashboardEmptyState>Sin sesiones registradas esta semana.</DashboardEmptyState>
+      )}
+    </section>
+  );
+}
+
+function AdherenceDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Adherencia</h3>
+      <p className="mt-1 text-sm text-ink/55">Relación entre sesiones previstas y sesiones con registro real.</p>
+
+      {dashboardData.adherencePercent !== null ? (
+        <>
+          <div className="mt-5 h-3 overflow-hidden rounded-full bg-panel">
+            <div className="h-full rounded-full bg-moss" style={{ width: `${dashboardData.adherencePercent}%` }} />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ClientInfoCard label="Planificadas" value={`${dashboardData.plannedSessions}`} />
+            <ClientInfoCard label="Completadas" value={`${dashboardData.completedSessions}`} />
+            <ClientInfoCard label="Adherencia" value={`${dashboardData.adherencePercent}%`} />
+          </div>
+        </>
+      ) : (
+        <DashboardEmptyState>Sin datos suficientes para calcular adherencia.</DashboardEmptyState>
+      )}
+    </section>
+  );
+}
+
+function HorizontalDashboardBars({
+  emptyText,
+  entries,
+  suffix
+}: {
+  emptyText: string;
+  entries: [string, number][];
+  suffix: string;
+}) {
+  const maxValue = Math.max(1, ...entries.map(([, value]) => value));
+
+  if (entries.length === 0) return <DashboardEmptyState>{emptyText}</DashboardEmptyState>;
+
+  return (
+    <div className="mt-4 grid gap-3">
+      {entries.map(([label, value]) => (
+        <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">{label}</p>
+            <span className="text-xs font-semibold text-moss">{Math.round(value).toLocaleString("es-ES")} {suffix}</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-moss" style={{ width: `${Math.max(6, (value / maxValue) * 100)}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PatternDistributionDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const patternEntries = Object.entries(dashboardData.loadByPattern)
+    .filter(([, load]) => load > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6);
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Distribución de carga por patrón</h3>
+      <p className="mt-1 text-sm text-ink/55">Tonelaje acumulado por patrón de movimiento cuando hay ejercicios con carga.</p>
+      <HorizontalDashboardBars
+        emptyText="Sin datos suficientes para calcular distribución por patrón."
+        entries={patternEntries}
+        suffix="kg"
+      />
+    </section>
+  );
+}
+
+function MuscleFatigueDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const muscleEntries = Object.entries(dashboardData.muscleSets)
+    .filter(([, sets]) => sets > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5);
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Fatiga muscular / series efectivas</h3>
+      <p className="mt-1 text-sm text-ink/55">Top de grupos con más series ponderadas por fatigueMap.</p>
+      <HorizontalDashboardBars
+        emptyText="Sin datos suficientes para calcular fatiga muscular."
+        entries={muscleEntries}
+        suffix="series"
+      />
+    </section>
+  );
+}
+
+function DashboardAlertsBlock({ alerts }: { alerts: string[] }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Alertas o puntos a revisar</h3>
+      <p className="mt-1 text-sm text-ink/55">Avisos orientativos para revisar la sesión, la carga o la recuperación.</p>
+      {alerts.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {alerts.map((alert) => (
+            <article className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800" key={alert}>
+              {alert}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <DashboardEmptyState>No hay alertas principales ahora.</DashboardEmptyState>
+      )}
+    </section>
   );
 }
 
@@ -1539,179 +1790,6 @@ function DashboardDetailPanel({
   );
 }
 
-function LoadSummaryCards({
-  client,
-  loadData,
-  onOpenDetail
-}: {
-  client: CoachClient;
-  loadData: ReturnType<typeof getClientLoadData>;
-  onOpenDetail: (section: DashboardDetailSection) => void;
-}) {
-  const cards = [
-    { label: "Estado global", value: client.status, detail: "estado actual del cliente", section: "status" as DashboardDetailSection, status: loadData.acwrStatus },
-    { label: "sRPE semanal", value: `${loadData.weeklyLoad.toFixed(0)} UA`, detail: loadData.weeklyTrend, section: "load" as DashboardDetailSection, status: loadData.acwrStatus },
-    { label: "Monotonia", value: loadData.monotony.toFixed(2), detail: "variabilidad de cargas", section: "monotony" as DashboardDetailSection, status: loadData.monotonyStatus },
-    { label: "Strain", value: loadData.strain.toFixed(0), detail: "carga semanal x monotonia", section: "strain" as DashboardDetailSection, status: loadData.strainStatus }
-  ];
-
-  return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
-        <article className={`rounded-md border p-4 ${clientStatusClass(card.status)}`} key={card.label}>
-          <p className="text-sm font-semibold">{card.label}</p>
-          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
-          <p className="mt-2 text-xs font-medium opacity-75">{card.detail}</p>
-          <button className="mt-3 text-xs font-semibold underline" onClick={() => onOpenDetail(card.section)} type="button">
-            Ver detalle
-          </button>
-        </article>
-      ))}
-    </section>
-  );
-}
-
-function WellnessCards({
-  client,
-  loadData,
-  onOpenDetail
-}: {
-  client: CoachClient;
-  loadData: ReturnType<typeof getClientLoadData>;
-  onOpenDetail: (section: DashboardDetailSection) => void;
-}) {
-  const hooperItems = [
-    ["Sueno", client.hooper.sleep],
-    ["Fatiga", client.hooper.fatigue],
-    ["Estres", client.hooper.stress],
-    ["DOMS", client.hooper.soreness],
-    ["Mood", client.hooper.mood ?? 0]
-  ];
-
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-ink">Fatiga / wellness</h3>
-          <p className="mt-1 text-sm text-ink/55">Ultimo registro Hooper del cliente.</p>
-        </div>
-        <span className={`rounded-md border px-3 py-1 text-sm font-semibold ${clientStatusClass(loadData.hooperStatus)}`}>
-          {loadData.hooper}/25
-        </span>
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-5">
-        {hooperItems.map(([label, value]) => (
-          <article className="rounded-md bg-panel/50 p-3 text-center" key={label}>
-            <p className="text-xs font-semibold text-ink/55">{label}</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{value}</p>
-          </article>
-        ))}
-      </div>
-      <HooperTrendChart currentValue={loadData.hooper} />
-      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("hooper")} type="button">
-        Ver detalle
-      </button>
-      <p className="mt-4 rounded-md bg-mint px-3 py-3 text-sm font-medium text-moss">
-        Alerta: {loadData.hooperStatus === "Controlado" ? "mantener plan previsto" : "revisar carga antes de progresar"}
-      </p>
-    </section>
-  );
-}
-
-function HooperTrendChart({ currentValue }: { currentValue: number }) {
-  const values = [currentValue - 2, currentValue - 1, currentValue, currentValue + 1, currentValue, currentValue - 1, currentValue].map((value) => Math.max(value, 1));
-  const maxValue = Math.max(...values, 12);
-
-  return (
-    <div className="mt-4 flex h-24 items-end gap-2 rounded-md bg-panel/45 p-3">
-      {values.map((value, index) => (
-        <div className="flex flex-1 flex-col items-center gap-1" key={`${value}-${index}`}>
-          <div
-            className="w-full rounded-t bg-gradient-to-t from-moss to-steel"
-            style={{ height: `${Math.max(16, (value / maxValue) * 72)}px` }}
-          />
-          <span className="text-[10px] font-semibold text-ink/45">{index + 1}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FatigueHeatmap({
-  client,
-  loadData,
-  onOpenDetail
-}: {
-  client: CoachClient;
-  loadData: ReturnType<typeof getClientLoadData>;
-  onOpenDetail: (section: DashboardDetailSection) => void;
-}) {
-  const days = ["L", "M", "X", "J", "V", "S", "D"];
-  const maxLoad = Math.max(...client.dailyLoads, 1);
-
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-semibold text-ink">Mapa de fatiga</h3>
-          <p className="mt-1 text-sm text-ink/55">Carga diaria, Hooper y tendencia de riesgo del cliente activo.</p>
-        </div>
-        <span className={`rounded-md border px-3 py-1 text-sm font-semibold ${clientStatusClass(loadData.acwrStatus)}`}>
-          ACWR {loadData.acwr.toFixed(2)}
-        </span>
-      </div>
-      <div className="mt-4 grid grid-cols-7 gap-2">
-        {client.dailyLoads.map((load, index) => {
-          const intensity = load / maxLoad;
-          const colorClass = intensity > 0.8 ? "bg-red-100 text-red-800" : intensity > 0.45 ? "bg-amber-100 text-amber-800" : "bg-emerald-50 text-emerald-800";
-
-          return (
-            <article className={`rounded-md border border-line p-3 text-center ${colorClass}`} key={`${days[index]}-${load}`}>
-              <p className="text-xs font-semibold">{days[index]}</p>
-              <p className="mt-2 text-lg font-semibold">{load}</p>
-              <p className="mt-1 text-[11px] font-medium">UA</p>
-            </article>
-          );
-        })}
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <ClientInfoCard label="Hooper" value={`${loadData.hooper}/25`} />
-        <ClientInfoCard label="DOMS" value={`${client.hooper.soreness}/5`} />
-        <ClientInfoCard label="Sueno" value={`${client.hooper.sleep}/5`} />
-      </div>
-      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("fatigue-map")} type="button">
-        Ver detalle
-      </button>
-    </section>
-  );
-}
-
-function RiskControlCards({
-  client,
-  loadData,
-  onOpenDetail
-}: {
-  client: CoachClient;
-  loadData: ReturnType<typeof getClientLoadData>;
-  onOpenDetail: (section: DashboardDetailSection) => void;
-}) {
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h3 className="font-semibold text-ink">Riesgo / control</h3>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
-        <MetricPill label="Readiness" status={client.readiness < 80 ? "Vigilar" : "Controlado"} value={`${client.readiness}%`} />
-        <MetricPill label="Carga 7 dias" status={loadData.acwrStatus} value={`${loadData.weeklyLoad.toFixed(0)} UA`} />
-        <MetricPill label="Referencia 28 dias" status="Controlado" value={`${client.chronicLoad} UA`} />
-      </div>
-      <p className="mt-4 text-sm text-ink/60">{client.coachNotes}</p>
-      <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenDetail("acwr")} type="button">
-        Ver detalle ACWR
-      </button>
-    </section>
-  );
-}
-
 function MetricPill({ label, status, value }: { label: string; status: string; value: string }) {
   return (
     <article className={`rounded-md border p-3 ${clientStatusClass(status)}`}>
@@ -1719,152 +1797,6 @@ function MetricPill({ label, status, value }: { label: string; status: string; v
       <p className="mt-1 text-lg font-semibold">{value}</p>
       <p className="mt-1 text-xs font-semibold">{status}</p>
     </article>
-  );
-}
-
-function ActivePlanning({
-  client,
-  onOpenClientSheet
-}: {
-  client: CoachClient;
-  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
-}) {
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h3 className="font-semibold text-ink">Planificación activa</h3>
-      <div className="mt-4 rounded-md bg-panel/55 p-4">
-        <p className="text-lg font-semibold text-ink">{client.planning.currentBlock}</p>
-        <p className="mt-1 text-sm text-ink/55">{client.planning.currentWeek} - {client.planning.distribution}</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal} />
-          <ClientInfoCard label="Objetivo secundario" value={client.planning.secondaryGoal} />
-        </div>
-      </div>
-      <div className="mt-4 grid gap-2">
-        {client.planning.nextSessions.map((session) => (
-          <p className="rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70" key={session}>
-            {session}
-          </p>
-        ))}
-      </div>
-      {onOpenClientSheet ? (
-        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">
-          Ver detalle
-        </button>
-      ) : null}
-    </section>
-  );
-}
-
-function RecentSessions({
-  clientId,
-  onOpenClientSheet,
-  sessions
-}: {
-  clientId?: string;
-  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
-  sessions: ClientSessionRecord[];
-}) {
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h3 className="font-semibold text-ink">Sesiones recientes</h3>
-      <div className="mt-4 grid gap-3">
-        {sessions.map((session) => (
-          <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${session.summary}`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="font-semibold text-ink">{session.type}</p>
-                <p className="mt-1 text-sm text-ink/65">{session.summary}</p>
-              </div>
-              <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
-                {calculateSessionLoad(session.rpe, session.duration)} UA
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-ink/50">{session.date} - RPE {session.rpe} - {session.duration} min</p>
-          </article>
-        ))}
-      </div>
-      {clientId && onOpenClientSheet ? (
-        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(clientId, "training")} type="button">
-          Ver detalle
-        </button>
-      ) : null}
-    </section>
-  );
-}
-
-function ClientAssessmentsSummary({
-  assessments,
-  clientId,
-  onOpenClientSheet
-}: {
-  assessments: ClientAssessment[];
-  clientId?: string;
-  onOpenClientSheet?: (clientId: string, sheet: SheetId) => void;
-}) {
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="font-semibold text-ink">Valoraciones</h3>
-        <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" type="button">
-          Nueva valoracion
-        </button>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {assessments.map((assessment) => (
-          <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}`}>
-            <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
-            <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
-            <p className="mt-1 text-sm text-ink/65">{assessment.result}</p>
-            <div className="mt-3 flex items-center justify-between gap-2 text-xs text-ink/50">
-              <span>{assessment.date}</span>
-              <button className="font-semibold text-moss" type="button">{assessment.action}</button>
-            </div>
-          </article>
-        ))}
-      </div>
-      {clientId && onOpenClientSheet ? (
-        <button className="mt-4 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenClientSheet(clientId, "assessments")} type="button">
-          Ver detalle
-        </button>
-      ) : null}
-    </section>
-  );
-}
-
-function QuickAccess({
-  client,
-  onOpenClientSheet,
-  onOpenDetails
-}: {
-  client: CoachClient;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
-  onOpenDetails: () => void;
-}) {
-  const quickLinks: { label: string; sheet?: SheetId; action?: () => void }[] = [
-    { label: "Planificación", sheet: "planning" },
-    { label: "Sesiones", sheet: "training" },
-    { label: "Metricas", sheet: "weeklyLoad" },
-    { label: "Valoraciones", sheet: "assessments" },
-    { label: "Ficha inicial", action: onOpenDetails }
-  ];
-
-  return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h3 className="font-semibold text-ink">Accesos rapidos</h3>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {quickLinks.map((link) => (
-          <button
-            className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white"
-            key={link.label}
-            onClick={() => (link.sheet ? onOpenClientSheet(client.id, link.sheet) : link.action?.())}
-            type="button"
-          >
-            {link.label}
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -5026,6 +4958,148 @@ function getReviewExercises(session: ReviewSessionRecord) {
   return {
     plannedExercises,
     performedExercises
+  };
+}
+
+function hasDashboardValue(value: unknown) {
+  return value !== null && value !== undefined && `${value}`.trim() !== "";
+}
+
+function getDashboardNumber(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const parsed = Number(value.replace(",", ".").trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDashboardSrpe(session: DashboardSessionRecord) {
+  const explicitSrpe = getDashboardNumber(session.sRPE ?? session.srpe);
+  if (explicitSrpe !== null) return explicitSrpe;
+
+  const duration = getDashboardNumber(session.actualDurationMinutes ?? session.duration);
+  const rpe = getDashboardNumber(session.finalRpe ?? session.rpe);
+  if (duration === null || rpe === null || duration <= 0 || rpe <= 0) return null;
+
+  return calculateSessionLoad(rpe, duration);
+}
+
+function hasDashboardRealSessionData(session: DashboardSessionRecord) {
+  return Boolean(
+    session.completed ||
+    hasDashboardValue(session.duration) ||
+    hasDashboardValue(session.rpe) ||
+    hasDashboardValue(session.finalRpe) ||
+    hasDashboardValue(session.actualDurationMinutes) ||
+    hasDashboardValue(session.sRPE) ||
+    hasDashboardValue(session.srpe) ||
+    hasDashboardValue(session.finalNotes) ||
+    hasDashboardValue(session.notes) ||
+    (session.performedExercises?.length ?? 0) > 0
+  );
+}
+
+function isDashboardPendingReview(session: DashboardSessionRecord) {
+  if (session.reviewStatus === "reviewed") return false;
+  return hasDashboardRealSessionData(session);
+}
+
+function hasDashboardExerciseData(session: DashboardSessionRecord) {
+  return Boolean(
+    (session.performedExercises?.length ?? 0) > 0 ||
+    (session.plannedExercises?.length ?? 0) > 0 ||
+    (session.exercises?.length ?? 0) > 0
+  );
+}
+
+function getDashboardSessionInput(session: DashboardSessionRecord): TrainingSessionInput {
+  return {
+    completed: session.completed,
+    exercises: session.exercises,
+    performedExercises: session.performedExercises,
+    plannedExercises: session.plannedExercises
+  };
+}
+
+function getDashboardEventDays(client: CoachClient) {
+  const eventDate = client.planning.eventDate ?? client.nextEvent?.match(/\d{1,2}\/\d{1,2}\/\d{4}/)?.[0];
+  if (!eventDate || eventDate === "sin fecha") return null;
+
+  const dateMatch = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const slashMatch = eventDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const parsed = dateMatch
+    ? new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]))
+    : slashMatch
+      ? new Date(Number(slashMatch[3]), Number(slashMatch[2]) - 1, Number(slashMatch[1]))
+      : null;
+
+  if (!parsed || Number.isNaN(parsed.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+  return Math.ceil((parsed.getTime() - today.getTime()) / 86_400_000);
+}
+
+function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof getClientLoadData>) {
+  const sessions = (client.sessionRecords ?? []) as DashboardSessionRecord[];
+  const trainingSessions = sessions.map(getDashboardSessionInput);
+  const sessionsWithSrpe = sessions
+    .map((session) => ({ session, srpe: getDashboardSrpe(session) }))
+    .filter((entry): entry is { session: DashboardSessionRecord; srpe: number } => entry.srpe !== null);
+  const hasExerciseData = sessions.some(hasDashboardExerciseData);
+  const weeklyExternalLoad = hasExerciseData
+    ? calculateWeeklyExternalLoad(trainingSessions, exerciseLibrary)
+    : null;
+  const loadByPattern = hasExerciseData
+    ? calculateWeeklyExternalLoadByPattern(trainingSessions, exerciseLibrary)
+    : {};
+  const muscleSets = hasExerciseData
+    ? calculateWeeklyMuscleSets(trainingSessions, exerciseLibrary)
+    : {};
+  const plannedSessions = client.planning.nextSessions?.length ?? 0;
+  const completedSessions = sessions.filter(hasDashboardRealSessionData).length;
+  const adherencePercent = plannedSessions > 0
+    ? Math.min(100, Math.round((completedSessions / plannedSessions) * 100))
+    : null;
+  const pendingReviews = sessions.filter(isDashboardPendingReview).length;
+  const latestSession = [...sessions].reverse().find(hasDashboardRealSessionData) ?? sessions.at(-1) ?? null;
+  const latestRpe = latestSession ? getDashboardNumber(latestSession.finalRpe ?? latestSession.rpe) : null;
+  const eventDays = getDashboardEventDays(client);
+  const strongestPattern = Object.entries(loadByPattern).sort(([, a], [, b]) => b - a)[0] ?? null;
+  const strongestMuscle = Object.entries(muscleSets).sort(([, a], [, b]) => b - a)[0] ?? null;
+  const alerts: string[] = [];
+
+  if (latestRpe !== null && latestRpe >= 8) alerts.push("Última sesión con RPE alto. Revisar recuperación.");
+  if (loadData.weeklyLoad >= 2200) alerts.push("sRPE semanal alto. Revisar distribución de carga.");
+  if (strongestPattern && weeklyExternalLoad && strongestPattern[1] / weeklyExternalLoad >= 0.55) {
+    alerts.push(`Carga concentrada en ${strongestPattern[0]}. Revisar distribución.`);
+  }
+  if (strongestMuscle && Object.values(muscleSets).reduce((total, value) => total + value, 0) > 0) {
+    const totalMuscleSets = Object.values(muscleSets).reduce((total, value) => total + value, 0);
+    if (strongestMuscle[1] / totalMuscleSets >= 0.35) alerts.push(`Fatiga concentrada en ${strongestMuscle[0]}. Vigilar tolerancia.`);
+  }
+  if (adherencePercent !== null && adherencePercent < 70) alerts.push("Adherencia baja. Revisar disponibilidad o ajuste semanal.");
+  if (pendingReviews > 0) alerts.push("Hay sesiones pendientes de revisar.");
+  if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) alerts.push("Lesiones o limitaciones registradas. Revisar antes de progresar.");
+  if (eventDays !== null && eventDays >= 0 && eventDays <= 14) alerts.push("Evento próximo: ajustar carga si procede.");
+
+  const generalStatus = loadData.weeklyLoad >= 2200 || latestRpe !== null && latestRpe >= 8
+    ? "Alta carga"
+    : pendingReviews > 0 || adherencePercent !== null && adherencePercent < 70
+      ? "Revisar"
+      : "Estable";
+
+  return {
+    adherencePercent,
+    alerts,
+    completedSessions,
+    generalStatus,
+    hasExerciseData,
+    loadByPattern,
+    muscleSets,
+    plannedSessions,
+    sessions,
+    sessionsWithSrpe,
+    weeklyExternalLoad
   };
 }
 
