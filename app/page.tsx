@@ -261,6 +261,13 @@ export default function ClientsPage() {
               <CoachTrainingPlanner
                 client={scopedClient}
                 clients={clients}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
                 sessionTemplates={sessionTemplates}
                 setSessionTemplates={setSessionTemplates}
               />
@@ -1525,7 +1532,7 @@ function CoachTodayView({
     isSameCalendarDay(parseDateValue(session.date), today)
   );
   const pendingReviews = allSessions
-    .filter(({ session }) => hasDisplayValue(session.duration) && hasDisplayValue(session.rpe))
+    .filter(({ session }) => isSessionPendingReview(session as ReviewSessionRecord))
     .sort((a, b) => getSessionDateTime(b.session) - getSessionDateTime(a.session))
     .slice(0, 6);
   const alerts = clients.flatMap((client) => {
@@ -1533,7 +1540,7 @@ function CoachTodayView({
     const clientAlerts: { client: CoachClient; label: string; tone: string }[] = [];
     const event = getClientEvent(client);
     const hasPendingReview = (client.sessionRecords ?? []).some((session) =>
-      hasDisplayValue(session.duration) && hasDisplayValue(session.rpe)
+      isSessionPendingReview(session as ReviewSessionRecord)
     );
 
     if (hasPendingReview) {
@@ -4830,11 +4837,13 @@ function getPlanningWeekNumber(currentWeek: string) {
 function CoachTrainingPlanner({
   client,
   clients,
+  onUpdateClient,
   sessionTemplates,
   setSessionTemplates
 }: {
   client?: CoachClient | null;
   clients: CoachClient[];
+  onUpdateClient: (updatedClient: CoachClient) => void;
   sessionTemplates: SessionTemplate[];
   setSessionTemplates: React.Dispatch<React.SetStateAction<SessionTemplate[]>>;
 }) {
@@ -4898,6 +4907,14 @@ function CoachTrainingPlanner({
   };
   const removeStrengthExercise = (exerciseId: string) => {
     setStrengthExercises((current) => current.filter((exercise) => exercise.id !== exerciseId));
+  };
+  const markSessionAsReviewed = (sessionIndex: number) => {
+    onUpdateClient({
+      ...activeSessionClient,
+      sessionRecords: (activeSessionClient.sessionRecords ?? []).map((session, index) =>
+        index === sessionIndex ? { ...session, reviewStatus: "reviewed" } : session
+      )
+    });
   };
   const plannedTemplateExercises = strengthExercises.map((exercise) => ({
     block: exercise.block,
@@ -5440,7 +5457,11 @@ function CoachTrainingPlanner({
         </button>
         </>
         ) : activeSessionPanel === "history" ? (
-          <SessionHistoryPanel client={activeSessionClient} onPlanNewSession={() => setActiveSessionPanel("planner")} />
+          <SessionHistoryPanel
+            client={activeSessionClient}
+            onMarkSessionReviewed={markSessionAsReviewed}
+            onPlanNewSession={() => setActiveSessionPanel("planner")}
+          />
         ) : (
           <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
             <p className="text-sm font-semibold text-ink/55">
@@ -5470,6 +5491,8 @@ type ReviewSessionExercise = SessionExerciseInput & {
   targetRir?: number | string | null;
 };
 
+type SessionReviewStatus = "pending" | "reviewed";
+
 type ReviewSessionRecord = ClientSessionRecord & {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
@@ -5480,6 +5503,7 @@ type ReviewSessionRecord = ClientSessionRecord & {
   mesocycle?: string | null;
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
+  reviewStatus?: SessionReviewStatus;
   sessionNumber?: number | string | null;
   srpe?: number | string | null;
   sRPE?: number | string | null;
@@ -5576,6 +5600,31 @@ function hasExerciseChanges(planned?: ReviewSessionExercise, performed?: ReviewS
   );
 }
 
+function hasRealSessionData(session: ReviewSessionRecord) {
+  return Boolean(
+    session.completed ||
+    hasDisplayValue(session.duration) ||
+    hasDisplayValue(session.rpe) ||
+    hasDisplayValue(session.finalRpe) ||
+    hasDisplayValue(session.actualDurationMinutes) ||
+    hasDisplayValue(session.sRPE) ||
+    hasDisplayValue(session.srpe) ||
+    hasDisplayValue(session.finalNotes) ||
+    hasDisplayValue(session.notes) ||
+    (session.performedExercises?.length ?? 0) > 0
+  );
+}
+
+function getSessionReviewStatus(session: ReviewSessionRecord): SessionReviewStatus | null {
+  if (session.reviewStatus === "reviewed") return "reviewed";
+  if (hasRealSessionData(session)) return "pending";
+  return null;
+}
+
+function isSessionPendingReview(session: ReviewSessionRecord) {
+  return getSessionReviewStatus(session) === "pending";
+}
+
 function getSessionStatus(session: ReviewSessionRecord) {
   if (session.status) return session.status;
   if (session.completed || hasDisplayValue(session.duration) || hasDisplayValue(session.rpe) || hasDisplayValue(session.finalRpe)) {
@@ -5623,9 +5672,11 @@ function getSessionSrpe(session: ReviewSessionRecord) {
 
 function SessionHistoryPanel({
   client,
+  onMarkSessionReviewed,
   onPlanNewSession
 }: {
   client: CoachClient;
+  onMarkSessionReviewed: (sessionIndex: number) => void;
   onPlanNewSession: () => void;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
@@ -5649,6 +5700,7 @@ function SessionHistoryPanel({
             const sessionKey = `${session.date}-${session.summary}-${sessionIndex}`;
             const isOpen = openSessionKey === sessionKey;
             const status = getSessionStatus(session);
+            const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
             const sessionLoadInput = buildSessionLoadInput(session);
@@ -5671,6 +5723,11 @@ function SessionHistoryPanel({
                       <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
                         {status}
                       </span>
+                      {reviewStatus === "reviewed" ? (
+                        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                          Revisada
+                        </span>
+                      ) : null}
                     </div>
                     <h3 className="mt-2 text-lg font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h3>
                     <p className="mt-1 text-sm text-ink/65">{displayValue(session.summary, "Sin resumen especificado")}</p>
@@ -5708,7 +5765,22 @@ function SessionHistoryPanel({
                   <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
                     <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
                       <section className="rounded-md border border-line bg-white p-4">
-                        <h4 className="font-semibold text-ink">Resumen de sesión</h4>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <h4 className="font-semibold text-ink">Resumen de sesión</h4>
+                          {reviewStatus === "reviewed" ? (
+                            <span className="w-fit rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                              Revisada
+                            </span>
+                          ) : reviewStatus === "pending" ? (
+                            <button
+                              className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                              onClick={() => onMarkSessionReviewed(sessionIndex)}
+                              type="button"
+                            >
+                              Marcar como revisada
+                            </button>
+                          ) : null}
+                        </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <ClientInfoCard label="Fecha" value={displayValue(session.date)} />
                           <ClientInfoCard label="Tipo" value={displayValue(session.type)} />
