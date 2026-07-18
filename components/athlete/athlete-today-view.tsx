@@ -63,8 +63,10 @@ type AthleteClient = {
 
 type AthleteTodayViewProps<TClient extends AthleteClient> = {
   client: TClient | null;
+  onShowCalendar: () => void;
   onShowHistory: () => void;
   onShowPlanning: () => void;
+  onShowWeeklyLoad: () => void;
   onUpdateClient: (updatedClient: TClient) => void;
 };
 
@@ -104,7 +106,14 @@ function createAthleteExerciseEntries(session: AthleteSessionRecord | null) {
   }));
 }
 
-export function AthleteTodayView<TClient extends AthleteClient>({ client, onShowHistory, onShowPlanning, onUpdateClient }: AthleteTodayViewProps<TClient>) {
+export function AthleteTodayView<TClient extends AthleteClient>({
+  client,
+  onShowCalendar,
+  onShowHistory,
+  onShowPlanning,
+  onShowWeeklyLoad,
+  onUpdateClient
+}: AthleteTodayViewProps<TClient>) {
   const todayKey = getLocalDateKey();
   const sessionIndex = client
     ? client.sessionRecords.findIndex((record) => record.date === todayKey)
@@ -180,8 +189,10 @@ export function AthleteTodayView<TClient extends AthleteClient>({ client, onShow
       <AthleteEmptyState
         clientName={client.name}
         message="No tienes ninguna sesión asignada para hoy."
+        onShowCalendar={onShowCalendar}
         onShowHistory={onShowHistory}
         onShowPlanning={onShowPlanning}
+        onShowWeeklyLoad={onShowWeeklyLoad}
       />
     );
   }
@@ -323,27 +334,45 @@ export function AthleteTodayView<TClient extends AthleteClient>({ client, onShow
 function AthleteEmptyState({
   clientName,
   message,
+  onShowCalendar,
   onShowHistory,
-  onShowPlanning
+  onShowPlanning,
+  onShowWeeklyLoad
 }: {
   clientName?: string;
   message: string;
+  onShowCalendar?: () => void;
   onShowHistory?: () => void;
   onShowPlanning?: () => void;
+  onShowWeeklyLoad?: () => void;
 }) {
   return (
     <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Sesión de hoy</h2>
       {clientName ? <p className="mt-1 text-sm font-medium text-ink/70">{clientName}</p> : null}
       <p className="mt-3 text-sm text-ink/60">{message}</p>
-      {onShowHistory && onShowPlanning ? (
-        <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+      {onShowCalendar && onShowHistory && onShowPlanning && onShowWeeklyLoad ? (
+        <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            onClick={onShowCalendar}
+            type="button"
+          >
+            Ver calendario
+          </button>
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            onClick={onShowWeeklyLoad}
+            type="button"
+          >
+            Ver carga semanal
+          </button>
           <button
             className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
             onClick={onShowHistory}
             type="button"
           >
-            Ver sesiones anteriores
+            Ver historial
           </button>
           <button
             className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/90"

@@ -10,6 +10,13 @@ type SidebarProps = {
 };
 
 export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollapsed, role }: SidebarProps) {
+  const visibleNavItems = navItems
+    .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
+    .sort((left, right) => {
+      if (role === "coach") return 0;
+      return athleteMainNavIds.indexOf(left.id as SheetId) - athleteMainNavIds.indexOf(right.id as SheetId);
+    });
+
   return (
     <aside
       className={`hidden h-screen shrink-0 overflow-y-auto border-r border-line bg-panel/85 py-6 transition-[width,padding] duration-200 lg:block ${
@@ -40,12 +47,14 @@ export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollaps
       </div>
 
       <nav className="mt-8 space-y-1">
-        {navItems
-          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
-          .map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;
-          const label = role === "athlete" && item.id === "training" ? "Historial" : item.label;
+          const label = role === "athlete" && item.id === "training"
+            ? "Historial"
+            : role === "athlete" && item.id === "weeklyLoad"
+              ? "Carga semanal"
+              : item.label;
           return (
             <button
               aria-label={label}

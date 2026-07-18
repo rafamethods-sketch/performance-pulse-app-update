@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
+import { AthleteCalendarView } from "@/components/athlete/athlete-calendar-view";
 import { AthleteHistoryView } from "@/components/athlete/athlete-history-view";
 import { AthletePlanningView } from "@/components/athlete/athlete-planning-view";
 import { AthleteTodayView } from "@/components/athlete/athlete-today-view";
@@ -313,8 +314,10 @@ export default function ClientsPage() {
             ) : (
               <AthleteTodayView
                 client={athleteClient}
+                onShowCalendar={() => setActiveSheet("calendar")}
                 onShowHistory={() => setActiveSheet("training")}
                 onShowPlanning={() => setActiveSheet("planning")}
+                onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
                     currentClients.map((listedClient) =>
@@ -339,8 +342,10 @@ export default function ClientsPage() {
             ) : (
               <AthleteTodayView
                 client={athleteClient}
+                onShowCalendar={() => setActiveSheet("calendar")}
                 onShowHistory={() => setActiveSheet("training")}
                 onShowPlanning={() => setActiveSheet("planning")}
+                onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
                     currentClients.map((listedClient) =>
@@ -382,11 +387,15 @@ export default function ClientsPage() {
               }
             />
           ) : activeSheet === "calendar" ? (
-            <CalendarView
-              client={role === "coach" ? null : selectedClient}
-              clients={clients}
-              onOpenTrainingSession={openTrainingSession}
-            />
+            role === "coach" ? (
+              <CalendarView
+                client={null}
+                clients={clients}
+                onOpenTrainingSession={openTrainingSession}
+              />
+            ) : (
+              <AthleteCalendarView client={athleteClient} />
+            )
           ) : activeSheet === "fatigue" ? (
             <FatigueMapView />
           ) : activeSheet === "weeklyLoad" ? (

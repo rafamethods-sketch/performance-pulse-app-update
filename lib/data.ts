@@ -65,7 +65,7 @@ export const navItems: NavItem[] = [
 ];
 
 export const coachMainNavIds: SheetId[] = ["today", "clients", "calendar", "training", "progressions", "resources", "messages"];
-export const athleteMainNavIds: SheetId[] = ["today", "training", "planning", "weeklyLoad"];
+export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning"];
 
 export const coachStats = [
   { label: "Clientes registrados", value: "24", trend: "+3 este mes" },

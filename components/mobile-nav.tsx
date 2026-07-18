@@ -8,6 +8,13 @@ type MobileNavProps = {
 };
 
 export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) {
+  const visibleNavItems = navItems
+    .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
+    .sort((left, right) => {
+      if (role === "coach") return 0;
+      return athleteMainNavIds.indexOf(left.id as SheetId) - athleteMainNavIds.indexOf(right.id as SheetId);
+    });
+
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-panel/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 lg:hidden">
       <div className="mb-3 flex items-center justify-between">
@@ -24,12 +31,14 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
         </div>
       </div>
       <nav className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
-        {navItems
-          .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
-          .map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === activeSheet;
-          const label = role === "athlete" && item.id === "training" ? "Historial" : item.label;
+          const label = role === "athlete" && item.id === "training"
+            ? "Historial"
+            : role === "athlete" && item.id === "weeklyLoad"
+              ? "Carga semanal"
+              : item.label;
           return (
             <button
               aria-label={label}
