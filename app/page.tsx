@@ -44,6 +44,7 @@ import {
   type PlanningMethod,
   type WeeklyDistribution
 } from "@/lib/planning-config";
+import { calculateFatigueZones, type FatigueZoneLevel } from "@/lib/fatigue-zones";
 import {
   bodyRegionLabels,
   bodyRegions,
@@ -3986,6 +3987,9 @@ function CoachTrainingPlanner({
   const fatigueAlerts = calculateMuscleFatigue()
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
+  const weeklyZoneAlerts = calculateFatigueZones(
+    (activeSessionClient.sessionRecords ?? []).filter((session) => hasRealSessionData(session) && isSessionThisWeek(session.date))
+  ).filter((zone) => zone.level === "moderate" || zone.level === "high");
   useEffect(() => {
     setSelectedBlockWeek(activePlanningWeek);
   }, [activePlanningWeek, activeSessionClient.id]);
@@ -4336,7 +4340,7 @@ function CoachTrainingPlanner({
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm font-semibold text-amber-900">Lesiones / limitaciones</p>
             <p className="mt-2 text-sm text-amber-800">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
@@ -4350,6 +4354,26 @@ function CoachTrainingPlanner({
                 </span>
               )) : (
                 <span className="text-sm text-red-800">Sin grupos en alerta alta.</span>
+              )}
+            </div>
+          </div>
+          <div className="rounded-md border border-line bg-panel/35 p-4">
+            <p className="text-sm font-semibold text-ink">Zonas a vigilar</p>
+            <div className="mt-2 grid gap-2">
+              {weeklyZoneAlerts.length > 0 ? weeklyZoneAlerts.map((zone) => (
+                <div
+                  className={`rounded-md px-3 py-2 text-xs font-semibold ${getPlanningZoneAlertClass(zone.level)}`}
+                  key={zone.key}
+                >
+                  <p>{zone.label}</p>
+                  <p className="mt-1 font-medium">
+                    {zone.level === "high"
+                      ? "Carga alta esta semana. Valora recuperación y objetivo de la sesión."
+                      : "Carga moderada esta semana."}
+                  </p>
+                </div>
+              )) : (
+                <span className="text-sm font-medium text-ink/55">Sin zonas especialmente cargadas esta semana.</span>
               )}
             </div>
           </div>
@@ -4791,6 +4815,42 @@ function hasRealSessionData(session: ReviewSessionRecord) {
     hasDisplayValue(session.notes) ||
     (session.performedExercises?.length ?? 0) > 0
   );
+}
+
+function getReviewSessionDate(value?: string | null) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const dateMatch = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!dateMatch) return null;
+
+  const [, day, month, year] = dateMatch;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isSessionThisWeek(value?: string | null) {
+  const date = getReviewSessionDate(value);
+  if (!date) return false;
+
+  const start = new Date();
+  const day = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+
+  return date >= start && date < end;
+}
+
+function getPlanningZoneAlertClass(level: FatigueZoneLevel) {
+  if (level === "high") return "border border-red-200 bg-red-50 text-red-700";
+  if (level === "moderate") return "border border-amber-200 bg-amber-50 text-amber-800";
+  return "border border-line bg-panel text-ink/50";
 }
 
 function getSessionReviewStatus(session: ReviewSessionRecord): SessionReviewStatus | null {
