@@ -52,6 +52,8 @@ type ReviewSessionRecord = {
   notes?: string | null;
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
+  reviewedAt?: string;
+  reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
   rpe?: number | string | null;
   srpe?: number | string | null;
@@ -309,6 +311,16 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       <p className="font-semibold text-ink">Notas del deportista</p>
                       <p className="mt-1">{notes || "Sin notas registradas"}</p>
                     </div>
+                    {session.reviewStatus === "reviewed" ? (
+                      <div className="rounded-md border border-line bg-mint/50 p-3 text-sm text-ink/70">
+                        <p className="font-semibold text-ink">Feedback del entrenador</p>
+                        <p className="mt-1">{session.reviewNotes || "Sesión revisada por tu entrenador."}</p>
+                      </div>
+                    ) : session.reviewStatus === "pending" ? (
+                      <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/55">
+                        Pendiente de revisión
+                      </p>
+                    ) : null}
                     {exerciseCount > 0 ? (
                       <div className="grid gap-3">
                         {detailRows.map(({ planned, performed }, exerciseIndex) => (
