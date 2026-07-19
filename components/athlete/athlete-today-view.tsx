@@ -225,7 +225,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           <ClientInfoCard label="Tipo" value={session.type} />
           <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
         </div>
-        <div className="mt-4 rounded-md bg-panel/45 p-4">
+        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
           <p className="text-xs font-semibold uppercase text-ink/50">Resumen / objetivo</p>
           <p className="mt-2 text-sm font-medium text-ink">{session.summary}</p>
         </div>
@@ -241,7 +241,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
             <h3 className="text-lg font-semibold text-ink">Wellness previo</h3>
             <p className="mt-1 text-sm text-ink/60">Valora cómo te encuentras antes de empezar.</p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 grid gap-3">
               {athleteWellnessFields.map((field) => (
                 <div className="rounded-md border border-line bg-panel/35 p-3" key={field.key}>
                   <p className="text-sm font-medium text-ink">{field.label}</p>
@@ -308,7 +308,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                 <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
                   Notas generales
                   <textarea
-                    className="min-h-24 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+                    className="min-h-20 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setAthleteSessionNotes(event.target.value)}
                     placeholder="Sensaciones, molestias o cambios realizados"
                     value={athleteSessionNotes}
@@ -389,7 +389,7 @@ function AthleteEmptyState({
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <div className={`rounded-md bg-panel/45 px-3 py-2 ${className}`}>
+    <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
       <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
@@ -423,13 +423,13 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
       <p className="font-semibold text-ink">{exerciseName}</p>
       <p className="mt-1 text-xs text-ink/55">Bloque: {exercise.block || exercise.section || "Principal"}</p>
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/65">
-        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedSets || "-"} series</span>
-        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedReps || "-"} reps</span>
-        <span className="rounded-md bg-white px-2 py-1">{exercise.plannedLoad || "-"} kg</span>
-        <span className="rounded-md bg-white px-2 py-1">Descanso {exercise.plannedRest || "-"}</span>
-        <span className="rounded-md bg-white px-2 py-1">RIR {exercise.plannedRir || "-"}</span>
+        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedSets || "-"} series</span>
+        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedReps || "-"} reps</span>
+        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedLoad || "-"} kg</span>
+        <span className="rounded-md border border-line bg-white px-2 py-1">Descanso {exercise.plannedRest || "-"}</span>
+        <span className="rounded-md border border-line bg-white px-2 py-1">RIR {exercise.plannedRir || "-"}</span>
       </div>
-      {exercise.observation ? <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
+      {exercise.observation ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <AthleteExerciseInput label="Series realizadas" onChange={(value) => onUpdate(index, { sets: value })} value={exercise.sets} />
         <AthleteExerciseInput label="Reps realizadas" onChange={(value) => onUpdate(index, { reps: value })} value={exercise.reps} />

@@ -194,11 +194,17 @@ function getAthleteDate(value?: string | null) {
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <div className={`rounded-md bg-panel/45 px-3 py-2 ${className}`}>
+    <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
       <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function getHistoryBadgeClass(label: string) {
+  if (label === "Revisada") return "bg-mint text-moss";
+  if (label === "Pendiente de revisar") return "bg-amber-100 text-amber-800";
+  return "bg-blue-50 text-blue-700";
 }
 
 function AthleteEmptyState({ clientName, message }: { clientName?: string; message: string }) {
@@ -255,7 +261,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     <h3 className="mt-1 font-semibold text-ink">{displayValue(session.type, "Sesión")}</h3>
                     <p className="mt-1 text-sm text-ink/60">{displayValue(session.summary, "Sin resumen")}</p>
                   </div>
-                  <span className="w-fit rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                  <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${getHistoryBadgeClass(getAthleteSessionReviewLabel(session))}`}>
                     {getAthleteSessionReviewLabel(session)}
                   </span>
                 </div>
@@ -280,7 +286,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       <ClientInfoCard label="Estrés" value={session.wellness?.stress ? `${session.wellness.stress}/5` : "Sin registrar"} />
                       <ClientInfoCard label="DOMS" value={session.wellness?.soreness ? `${session.wellness.soreness}/5` : "Sin registrar"} />
                     </div>
-                    <div className="rounded-md bg-panel/45 p-3 text-sm text-ink/65">
+                    <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
                       <p className="font-semibold text-ink">Notas del deportista</p>
                       <p className="mt-1">{notes || "Sin notas registradas"}</p>
                     </div>
@@ -298,7 +304,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                                 ["RIR", getPlannedValue(planned, "rir"), getPerformedValue(performed, "rir")],
                                 ["RPE ejercicio", undefined, performed?.exerciseRpe]
                               ] as const).map(([label, plannedValue, performedValue]) => (
-                                <div className="rounded-md bg-white px-3 py-2 text-sm" key={label}>
+                                <div className="rounded-md border border-line bg-white px-3 py-2 text-sm" key={label}>
                                   <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
                                   <p className="mt-1 text-ink/70">Plan: <span className="font-semibold text-ink">{displayValue(plannedValue, "-")}</span></p>
                                   <p className="text-ink/70">Real: <span className="font-semibold text-ink">{displayValue(performedValue, "-")}</span></p>
@@ -306,7 +312,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                               ))}
                             </div>
                             {hasDisplayValue(performed?.athleteNotes) ? (
-                              <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{performed?.athleteNotes}</p>
+                              <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{performed?.athleteNotes}</p>
                             ) : null}
                           </article>
                         ))}

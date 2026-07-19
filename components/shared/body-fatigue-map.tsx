@@ -45,7 +45,7 @@ export function BodyFatigueMap({ zones }: BodyFatigueMapProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.8fr)_1fr] lg:items-center">
       <div className="rounded-md border border-line bg-panel/35 p-4">
-        <svg aria-label="Mapa corporal de fatiga" className="mx-auto h-auto w-full max-w-xs" role="img" viewBox="0 0 240 360">
+        <svg aria-label="Mapa corporal de fatiga" className="mx-auto h-auto w-full max-w-[240px]" role="img" viewBox="0 0 240 360">
           <circle cx="120" cy="34" fill="#eef4f0" r="24" stroke="#d3ded8" strokeWidth="2" />
           <rect fill={levelStyles[getZoneLevel(zonesByKey, "upperPush")].fill} height="58" rx="22" stroke="#ffffff" strokeWidth="3" width="96" x="72" y="68" />
           <path d="M72 78 C42 98 34 128 31 165" fill="none" stroke={levelStyles[getZoneLevel(zonesByKey, "upperPull")].fill} strokeLinecap="round" strokeWidth="22" />

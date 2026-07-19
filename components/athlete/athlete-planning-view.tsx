@@ -37,7 +37,7 @@ function displayValue(value: unknown, fallback = "Sin especificar") {
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <div className={`rounded-md bg-panel/45 px-3 py-2 ${className}`}>
+    <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
       <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
@@ -59,9 +59,17 @@ export function AthletePlanningView({ client }: { client: AthletePlanningClient 
   }
 
   return (
-    <section className="mt-5 grid gap-4">
+    <section className="mt-5 grid gap-5">
       <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-        <h2 className="text-lg font-semibold text-ink">Planificación</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Planificación</h2>
+            <p className="mt-1 text-sm text-ink/60">Vista solo lectura de tu planificación actual.</p>
+          </div>
+          <span className="w-fit rounded-md bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
+            Solo lectura
+          </span>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <ClientInfoCard label="Modelo" value={planning.method ? getPlanningMethodLabel(planning.method) : "Sin especificar"} />
           <ClientInfoCard label="Bloque actual" value={displayValue(planning.currentBlock, "Sin asignar")} />
@@ -69,14 +77,19 @@ export function AthletePlanningView({ client }: { client: AthletePlanningClient 
           <ClientInfoCard label="Objetivo principal" value={displayValue(planning.primaryGoal, "Sin especificar")} />
         </div>
         {planning.secondaryGoal ? (
-          <div className="mt-3 rounded-md bg-panel/45 p-3 text-sm text-ink/65">
+          <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
             <span className="font-semibold text-ink">Objetivo secundario: </span>{planning.secondaryGoal}
           </div>
         ) : null}
       </article>
 
       <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-        <h3 className="font-semibold text-ink">Roadmap de mesociclos</h3>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-semibold text-ink">Roadmap de mesociclos</h3>
+          <span className="w-fit rounded-md bg-panel px-2 py-1 text-xs font-semibold text-ink/55">
+            {blocks.length} mesociclos
+          </span>
+        </div>
         {blocks.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {blocks.map((block, index) => {
@@ -87,11 +100,15 @@ export function AthletePlanningView({ client }: { client: AthletePlanningClient 
 
               return (
                 <div className="rounded-md border border-line bg-panel/35 p-4" key={block.id ?? `${block.name}-${index}`}>
-                  <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
-                  <h4 className="mt-1 font-semibold text-ink">{displayValue(block.name, "Sin nombre")}</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
+                    <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                      Semana {start}-{end}
+                    </span>
+                  </div>
+                  <h4 className="mt-3 font-semibold text-ink">{displayValue(block.name, "Sin nombre")}</h4>
                   <p className="mt-1 text-sm text-ink/60">{duration ? `${duration} semanas` : "Duración sin especificar"}</p>
-                  <p className="mt-1 text-sm text-ink/60">Semana {start}-{end}</p>
-                  <p className="mt-2 text-sm text-ink/70">{displayValue(block.primaryObjective, "Objetivo sin especificar")}</p>
+                  <p className="mt-3 text-sm text-ink/70">{displayValue(block.primaryObjective, "Objetivo sin especificar")}</p>
                 </div>
               );
             })}
@@ -112,13 +129,13 @@ export function AthletePlanningView({ client }: { client: AthletePlanningClient 
         {(planning.nextSessions?.length ?? 0) > 0 ? (
           <div className="mt-4 grid gap-2">
             {planning.nextSessions?.map((session, index) => (
-              <p className="rounded-md bg-panel/45 px-3 py-2 text-sm font-medium text-ink/70" key={`${session}-${index}`}>
+              <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/70" key={`${session}-${index}`}>
                 {session}
               </p>
             ))}
           </div>
         ) : (
-          <p className="mt-4 rounded-md bg-panel/45 px-3 py-2 text-sm text-ink/55">
+          <p className="mt-4 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/55">
             No hay próximas sesiones listadas.
           </p>
         )}

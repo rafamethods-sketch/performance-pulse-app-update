@@ -97,8 +97,8 @@ function getStatusClass(status: string) {
   if (status === "Revisada") return "bg-mint text-moss";
   if (status === "Pendiente de revisar") return "bg-amber-100 text-amber-800";
   if (status === "Completada") return "bg-blue-50 text-blue-700";
-  if (status === "Planificada") return "bg-panel text-ink/70";
-  return "bg-white text-ink/45";
+  if (status === "Planificada") return "bg-blue-50 text-blue-700";
+  return "bg-panel text-ink/45";
 }
 
 export function AthleteCalendarView({ client }: { client: AthleteCalendarClient | null }) {
@@ -135,10 +135,17 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
   }
 
   return (
-    <section className="mt-5 grid gap-4">
+    <section className="mt-5 grid gap-5">
       <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-        <h2 className="text-lg font-semibold text-ink">Calendario</h2>
-        <p className="mt-1 text-sm text-ink/60">Semana actual de entrenamientos de {displayValue(client.name, "tu planificación")}.</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Calendario</h2>
+            <p className="mt-1 text-sm text-ink/60">Semana actual de entrenamientos de {displayValue(client.name, "tu planificación")}.</p>
+          </div>
+          <span className="w-fit rounded-md bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
+            Lunes a domingo
+          </span>
+        </div>
       </article>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
@@ -146,7 +153,7 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
           const daySessions = sessionsByDate.get(day.key) ?? [];
 
           return (
-            <article className="rounded-md border border-line bg-white p-3 shadow-soft" key={day.key}>
+            <article className="rounded-md border border-line bg-white p-4 shadow-soft" key={day.key}>
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-ink">{day.label}</h3>

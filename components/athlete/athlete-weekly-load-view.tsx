@@ -302,7 +302,7 @@ function getLoadIndex(totalSrpe: number) {
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <div className={`rounded-md bg-panel/45 px-3 py-2 ${className}`}>
+    <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
       <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
@@ -340,7 +340,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   }
 
   return (
-    <section className="mt-5 grid gap-4">
+    <section className="mt-5 grid gap-5">
       <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -358,7 +358,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
           <ClientInfoCard label="Sesiones de cardio" value={`${cardioSessions.length}`} />
         </div>
         {adherence !== null ? (
-          <div className="mt-4 rounded-md bg-panel/45 p-3 text-sm font-semibold text-ink/70">
+          <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm font-semibold text-ink/70">
             Adherencia semanal: {adherence}%
           </div>
         ) : null}
@@ -367,7 +367,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             <p className="font-semibold text-ink">Índice visual de carga</p>
             <p className="text-sm font-medium text-ink/65">{loadIndex.message}</p>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
             <div className={`h-full rounded-full ${loadIndex.barClassName}`} style={{ width: `${Math.min(100, (totalSrpe / 700) * 100)}%` }} />
           </div>
         </div>
@@ -388,7 +388,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
                   </div>
                   <span className="text-sm font-semibold text-moss">{srpe} UA</span>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
                   <div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
                 </div>
               </article>
@@ -417,7 +417,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
                         </span>
                       </div>
                     </div>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
                       <div className={`h-full rounded-full ${range.barClassName}`} style={{ width: `${Math.min(100, (item.value / Math.max(20, maxMuscleSets)) * 100)}%` }} />
                     </div>
                   </div>
@@ -429,7 +429,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
               Sin datos suficientes para estimar series efectivas.
             </p>
           )}
-          <p className="mt-4 rounded-md bg-panel/45 px-3 py-2 text-xs font-medium text-ink/60">
+          <p className="mt-4 rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-ink/60">
             Rangos orientativos de volumen semanal. Ajustar según objetivo, nivel, fase de la temporada, proximidad al fallo y tolerancia individual.
           </p>
         </article>
@@ -470,7 +470,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
                     <p className="text-sm font-semibold text-ink">{zone}</p>
                     <span className="text-sm font-semibold text-ink/70">{minutes} min</span>
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                  <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
                     <div className="h-full rounded-full bg-gradient-to-r from-steel to-moss" style={{ width: `${(minutes / maxCardioZoneMinutes) * 100}%` }} />
                   </div>
                 </div>
