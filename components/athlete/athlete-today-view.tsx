@@ -25,6 +25,7 @@ type AthleteExercise = {
   exerciseRpe?: number | string | null;
   id?: string | null;
   load?: number | string | null;
+  name?: string | null;
   observation?: string | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
@@ -40,6 +41,16 @@ type AthleteExercise = {
   targetRir?: number | string | null;
 };
 
+type AthleteSessionDiscomfort = {
+  bodyArea?: string;
+  exerciseId?: string;
+  exerciseName?: string;
+  hasDiscomfort: boolean;
+  intensity?: number;
+  notes?: string;
+  phase?: string;
+};
+
 type AthleteSessionRecord = {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
@@ -47,6 +58,7 @@ type AthleteSessionRecord = {
   date: string;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
+  discomfort?: AthleteSessionDiscomfort;
   performedExercises?: AthleteExercise[];
   plannedExercises?: AthleteExercise[];
   reviewStatus?: "pending" | "reviewed";
@@ -90,6 +102,18 @@ const athleteWellnessFields: Array<{ key: keyof AthleteWellness; label: string }
   { key: "stress", label: "Estrés" },
   { key: "soreness", label: "DOMS" },
   { key: "motivation", label: "Motivación" }
+];
+
+const discomfortPhases = [
+  "Calentamiento",
+  "Inicio de la serie",
+  "Fase excéntrica",
+  "Fase concéntrica",
+  "Fase isométrica",
+  "Aterrizaje / impacto",
+  "Final de la serie",
+  "Después del ejercicio",
+  "Después de la sesión"
 ];
 
 function getLocalDateKey(date = new Date()) {
@@ -162,6 +186,14 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
+  const [discomfortAnswer, setDiscomfortAnswer] = useState<"" | "no" | "yes">("");
+  const [discomfortDraft, setDiscomfortDraft] = useState({
+    bodyArea: "",
+    exerciseKey: "",
+    intensity: 0,
+    notes: "",
+    phase: ""
+  });
   const [validationMessage, setValidationMessage] = useState("");
   const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
     ? actualDurationMinutes * finalRpe
@@ -169,7 +201,14 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const wellnessComplete = Object.values(wellness).every((value) => value >= 1 && value <= 5);
   const finalRpeValid = finalRpe >= 1 && finalRpe <= 10;
   const durationValid = actualDurationMinutes > 0;
-  const canSubmitSession = finalRpeValid && durationValid;
+  const discomfortValid =
+    discomfortAnswer === "no" ||
+    (discomfortAnswer === "yes" &&
+      discomfortDraft.bodyArea.trim().length > 0 &&
+      discomfortDraft.phase.trim().length > 0 &&
+      discomfortDraft.intensity >= 1 &&
+      discomfortDraft.intensity <= 10);
+  const canSubmitSession = finalRpeValid && durationValid && discomfortValid;
 
   useEffect(() => {
     setWellness(session?.wellness ?? emptyAthleteWellness);
@@ -178,6 +217,14 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setActualDurationMinutes(0);
     setFinalRpe(0);
     setAthleteSessionNotes("");
+    setDiscomfortAnswer("");
+    setDiscomfortDraft({
+      bodyArea: "",
+      exerciseKey: "",
+      intensity: 0,
+      notes: "",
+      phase: ""
+    });
     setValidationMessage("");
   }, [session]);
 
@@ -199,11 +246,38 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       setValidationMessage("Introduce la duración real de la sesión para poder enviarla.");
       return;
     }
+    if (!discomfortAnswer) {
+      setValidationMessage("Indica si has tenido alguna molestia durante la sesión.");
+      return;
+    }
+    if (!discomfortValid) {
+      setValidationMessage("Completa zona corporal, fase e intensidad de la molestia para poder enviar la sesión.");
+      return;
+    }
+
+    const discomfortExerciseIndex = Number(discomfortDraft.exerciseKey);
+    const discomfortExercise = Number.isInteger(discomfortExerciseIndex)
+      ? performedExercises[discomfortExerciseIndex]
+      : undefined;
+    const discomfort: AthleteSessionDiscomfort = discomfortAnswer === "yes"
+      ? {
+          bodyArea: discomfortDraft.bodyArea.trim(),
+          exerciseId: discomfortExercise?.exerciseId ?? undefined,
+          exerciseName: discomfortExercise?.exerciseName ?? discomfortExercise?.name ?? undefined,
+          hasDiscomfort: true,
+          intensity: discomfortDraft.intensity,
+          notes: discomfortDraft.notes.trim() || undefined,
+          phase: discomfortDraft.phase
+        }
+      : {
+          hasDiscomfort: false
+        };
 
     const updatedSession: AthleteSessionRecord = {
       ...session,
       actualDurationMinutes,
       completed: true,
+      discomfort,
       finalNotes: athleteSessionNotes.trim(),
       finalRpe,
       performedExercises,
@@ -354,6 +428,89 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     Introduce el RPE final de la sesión para poder enviarla.
                   </p>
                 ) : null}
+                <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+                  <p className="text-sm font-semibold text-ink">¿Has tenido alguna molestia durante la sesión?</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {([
+                      ["no", "No"],
+                      ["yes", "Sí"]
+                    ] as const).map(([value, label]) => (
+                      <button
+                        aria-pressed={discomfortAnswer === value}
+                        className={`rounded-md border px-4 py-2 text-sm font-semibold ${discomfortAnswer === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
+                        key={value}
+                        onClick={() => {
+                          setDiscomfortAnswer(value);
+                          setValidationMessage("");
+                        }}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {!discomfortAnswer ? (
+                    <p className="mt-2 text-sm font-medium text-amber-800">Responde esta pregunta para poder enviar la sesión.</p>
+                  ) : null}
+
+                  {discomfortAnswer === "yes" ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-2 text-sm font-medium text-ink/75">
+                        Zona corporal
+                        <input
+                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, bodyArea: event.target.value }))}
+                          placeholder="Ej: rodilla derecha, lumbar, hombro"
+                          value={discomfortDraft.bodyArea}
+                        />
+                      </label>
+                      <label className="space-y-2 text-sm font-medium text-ink/75">
+                        Ejercicio relacionado
+                        <select
+                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, exerciseKey: event.target.value }))}
+                          value={discomfortDraft.exerciseKey}
+                        >
+                          <option value="">Sin asociar</option>
+                          {performedExercises.map((exercise, index) => (
+                            <option key={`${exercise.id || exercise.exerciseName}-${index}`} value={`${index}`}>
+                              {exercise.exerciseName || exercise.name || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-2 text-sm font-medium text-ink/75">
+                        Fase del ejercicio
+                        <select
+                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, phase: event.target.value }))}
+                          value={discomfortDraft.phase}
+                        >
+                          <option value="">Selecciona una fase</option>
+                          {discomfortPhases.map((phase) => (
+                            <option key={phase} value={phase}>{phase}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <AthleteNumberField
+                        label="Intensidad 1-10"
+                        max={10}
+                        min={1}
+                        onChange={(value) => setDiscomfortDraft((current) => ({ ...current, intensity: value }))}
+                        value={discomfortDraft.intensity}
+                      />
+                      <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                        Descripción breve
+                        <textarea
+                          className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, notes: event.target.value }))}
+                          placeholder="Opcional: cuándo apareció, sensación, si cambió al ajustar..."
+                          value={discomfortDraft.notes}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
                 <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
                   Notas generales
                   <textarea
@@ -450,14 +607,14 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
   );
 }
 
-function AthleteNumberField({ label, max, onChange, value }: { label: string; max?: number; onChange: (value: number) => void; value: number }) {
+function AthleteNumberField({ label, max, min = 0, onChange, value }: { label: string; max?: number; min?: number; onChange: (value: number) => void; value: number }) {
   return (
     <label className="space-y-2 text-sm font-medium text-ink/75">
       {label}
       <input
         className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
         max={max}
-        min={0}
+        min={min}
         onChange={(event) => onChange(Number(event.target.value))}
         type="number"
         value={value || ""}

@@ -67,6 +67,7 @@ import {
   type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
+import { calculateSessionDeviation, type SessionDiscomfort } from "@/lib/session-deviation";
 import { supabase } from "@/lib/supabase";
 import {
   athleteAdherence,
@@ -526,6 +527,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   block?: string | null;
   completed?: boolean;
   date: string;
+  discomfort?: SessionDiscomfort;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
   performedExercises?: ConnectedSessionExercise[];
@@ -4687,6 +4689,7 @@ function CoachTrainingPlanner({
 
 type ReviewSessionExercise = SessionExerciseInput & {
   actualRest?: number | string | null;
+  actualRpe?: number | string | null;
   athleteNotes?: string | null;
   block?: string | null;
   exerciseRpe?: number | string | null;
@@ -4696,8 +4699,10 @@ type ReviewSessionExercise = SessionExerciseInput & {
   observation?: string | null;
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
+  perceivedExertion?: number | string | null;
   rest?: number | string | null;
   rir?: number | string | null;
+  rpe?: number | string | null;
   section?: string | null;
   targetRir?: number | string | null;
 };
@@ -4708,6 +4713,7 @@ type ReviewSessionRecord = ClientSessionRecord & {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
   completed?: boolean;
+  discomfort?: SessionDiscomfort;
   exercises?: ReviewSessionExercise[];
   finalNotes?: string | null;
   finalRpe?: number | string | null;
@@ -4940,16 +4946,16 @@ function SessionHistoryPanel({
     [client.sessionRecords]
   );
 
-  function getReviewDraft(sessionKey: string, session: ReviewSessionRecord) {
-    return reviewDrafts[sessionKey] ?? session.reviewNotes ?? "";
+  function getReviewDraft(sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
+    return reviewDrafts[sessionKey] ?? session.reviewNotes ?? suggestedReviewNotes;
   }
 
   function updateReviewDraft(sessionKey: string, value: string) {
     setReviewDrafts((current) => ({ ...current, [sessionKey]: value }));
   }
 
-  function saveReview(sessionIndex: number, sessionKey: string, session: ReviewSessionRecord) {
-    onMarkSessionReviewed(sessionIndex, getReviewDraft(sessionKey, session));
+  function saveReview(sessionIndex: number, sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
+    onMarkSessionReviewed(sessionIndex, getReviewDraft(sessionKey, session, suggestedReviewNotes));
     setEditingReviewKey("");
   }
 
@@ -4993,6 +4999,7 @@ function SessionHistoryPanel({
             const srpe = getSessionSrpe(session);
             const duration = session.actualDurationMinutes ?? session.duration;
             const rpe = session.finalRpe ?? session.rpe;
+            const sessionDeviation = calculateSessionDeviation(session);
             const detailRows = Array.from({ length: exerciseCount }, (_, index) => ({
               performed: performedExercises[index],
               planned: plannedExercises[index]
@@ -5112,11 +5119,11 @@ function SessionHistoryPanel({
                                 className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-sm text-ink outline-none focus:border-moss"
                                 onChange={(event) => updateReviewDraft(sessionKey, event.target.value)}
                                 placeholder="Escribe feedback para el deportista: sensaciones, técnica, ajustes para la próxima sesión..."
-                                value={getReviewDraft(sessionKey, session)}
+                                value={getReviewDraft(sessionKey, session, sessionDeviation.suggestedReviewNotes)}
                               />
                               <button
                                 className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                                onClick={() => saveReview(sessionIndex, sessionKey, session)}
+                                onClick={() => saveReview(sessionIndex, sessionKey, session, sessionDeviation.suggestedReviewNotes)}
                                 type="button"
                               >
                                 {reviewStatus === "reviewed" ? "Guardar feedback" : "Marcar como revisada"}
@@ -5139,6 +5146,72 @@ function SessionHistoryPanel({
                             </span>
                           ) : null}
                         </div>
+
+                        <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h5 className="font-semibold text-ink">Session Deviation</h5>
+                              <p className="mt-1 text-sm text-ink/55">Cumplimiento y respuesta del ejercicio respecto a lo planificado.</p>
+                            </div>
+                            <span className="w-fit rounded-md bg-white px-3 py-1 text-xs font-semibold text-ink/65">
+                              Cumplimiento global: {sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "Sin datos suficientes"}
+                            </span>
+                          </div>
+
+                          {sessionDeviation.exerciseSummaries.length > 0 ? (
+                            <div className="mt-3 grid gap-2">
+                              {sessionDeviation.exerciseSummaries.map((exerciseDeviation, deviationIndex) => {
+                                const isRelevantDeviation =
+                                  exerciseDeviation.completionStatus !== "completed" ||
+                                  exerciseDeviation.dropStatus === "moderate" ||
+                                  exerciseDeviation.dropStatus === "high" ||
+                                  exerciseDeviation.effortStatus === "harder" ||
+                                  exerciseDeviation.effortStatus === "easier";
+
+                                return (
+                                  <article className="rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70" key={`${exerciseDeviation.exerciseName}-${deviationIndex}`}>
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                      <p className="font-semibold text-ink">{exerciseDeviation.exerciseName}</p>
+                                      {isRelevantDeviation ? (
+                                        <span className="w-fit rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                                          Desviación
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                      <p>
+                                        Cumplimiento: <span className="font-semibold text-ink">{exerciseDeviation.completionPct !== null ? `${Math.round(exerciseDeviation.completionPct)}%` : "Sin datos suficientes"}</span>{" "}
+                                        <span className="text-ink/55">({exerciseDeviation.completionLabel})</span>
+                                      </p>
+                                      <p>
+                                        Caída: <span className="font-semibold text-ink">{exerciseDeviation.dropPct !== null ? `${Math.round(exerciseDeviation.dropPct)}%` : exerciseDeviation.dropLabel}</span>
+                                        {exerciseDeviation.dropPct !== null ? <span className="text-ink/55"> ({exerciseDeviation.dropLabel})</span> : null}
+                                      </p>
+                                      <p className="sm:col-span-2">
+                                        Esfuerzo: <span className="font-semibold text-ink">{exerciseDeviation.effortLabel}</span>
+                                      </p>
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="mt-3 rounded-md border border-dashed border-line bg-white p-3 text-sm text-ink/55">
+                              Sin datos suficientes para calcular desviación.
+                            </p>
+                          )}
+
+                          {session.discomfort?.hasDiscomfort ? (
+                            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                              <p className="font-semibold">Molestia reportada</p>
+                              <p className="mt-1">
+                                Zona: {session.discomfort.bodyArea || "Sin especificar"} · Fase: {session.discomfort.phase || "Sin especificar"} · Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10
+                              </p>
+                              {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
+                              {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
+                            </div>
+                          ) : null}
+                        </section>
 
                         {exerciseCount > 0 ? (
                           <div className="mt-4 grid gap-3">

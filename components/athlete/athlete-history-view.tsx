@@ -45,6 +45,15 @@ type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
   completed?: boolean;
   date: string;
+  discomfort?: {
+    bodyArea?: string;
+    exerciseId?: string;
+    exerciseName?: string;
+    hasDiscomfort: boolean;
+    intensity?: number;
+    notes?: string;
+    phase?: string;
+  };
   duration?: number | string | null;
   exercises?: ReviewSessionExercise[];
   finalNotes?: string | null;
@@ -311,6 +320,16 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       <p className="font-semibold text-ink">Notas del deportista</p>
                       <p className="mt-1">{notes || "Sin notas registradas"}</p>
                     </div>
+                    {session.discomfort?.hasDiscomfort ? (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        <p className="font-semibold">Molestia reportada</p>
+                        <p className="mt-1">Zona corporal: {session.discomfort.bodyArea || "Sin especificar"}</p>
+                        {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
+                        <p className="mt-1">Fase: {session.discomfort.phase || "Sin especificar"}</p>
+                        <p className="mt-1">Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10</p>
+                        {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
+                      </div>
+                    ) : null}
                     {session.reviewStatus === "reviewed" ? (
                       <div className="rounded-md border border-line bg-mint/50 p-3 text-sm text-ink/70">
                         <p className="font-semibold text-ink">Feedback del entrenador</p>
