@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { calculateSessionLoad } from "@/lib/client-metrics";
+import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/lib/cardio-deviation";
 import { getExerciseById } from "@/lib/exercises";
 
 type AthleteWellness = {
@@ -43,6 +44,8 @@ type ReviewSessionExercise = {
 
 type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
+  cardioPlan?: CardioPlan;
+  cardioResult?: CardioResult;
   completed?: boolean;
   date: string;
   discomfort?: {
@@ -207,6 +210,16 @@ function getAthleteSessionReviewLabel(session: ReviewSessionRecord) {
   return "Enviada";
 }
 
+function formatCardioZoneMinutes(timeInZones?: CardioResult["timeInZones"]) {
+  if (!timeInZones) return [];
+  return (["z1", "z2", "z3", "z4", "z5"] as const)
+    .map((zone) => ({
+      label: zone.toUpperCase(),
+      minutes: Math.round((timeInZones[zone] ?? 0) / 60)
+    }))
+    .filter((zone) => zone.minutes > 0);
+}
+
 function getAthleteDate(value?: string | null) {
   if (!value) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -278,6 +291,10 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             const notes = getAthleteSessionNotes(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
+            const cardioDeviation = session.cardioPlan || session.cardioResult
+              ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
+              : null;
+            const cardioZones = formatCardioZoneMinutes(session.cardioResult?.timeInZones);
             const detailRows = Array.from({ length: exerciseCount }, (_, exerciseIndex) => ({
               performed: performedExercises[exerciseIndex],
               planned: plannedExercises[exerciseIndex]
@@ -328,6 +345,27 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         <p className="mt-1">Fase: {session.discomfort.phase || "Sin especificar"}</p>
                         <p className="mt-1">Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10</p>
                         {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
+                      </div>
+                    ) : null}
+                    {cardioDeviation ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <p className="font-semibold text-ink">Cardio / resistencia</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <p>Duración realizada: <span className="font-semibold text-ink">{session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Sin registrar"}</span></p>
+                          <p>Distancia: <span className="font-semibold text-ink">{session.cardioResult?.distanceMeters ? `${session.cardioResult.distanceMeters} m` : "Sin registrar"}</span></p>
+                          <p>Zona objetivo: <span className="font-semibold text-ink">{session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}</span></p>
+                          <p>RPE percibido: <span className="font-semibold text-ink">{session.cardioResult?.perceivedRpe ? `${session.cardioResult.perceivedRpe}/10` : "Sin registrar"}</span></p>
+                        </div>
+                        {cardioZones.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {cardioZones.map((zone) => (
+                              <span className="rounded-md bg-white px-3 py-1 text-xs font-semibold text-ink/65" key={zone.label}>
+                                {zone.label}: {zone.minutes} min
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-3 rounded-md bg-white px-3 py-2">{cardioDeviation.reading}</p>
                       </div>
                     ) : null}
                     {session.reviewStatus === "reviewed" ? (

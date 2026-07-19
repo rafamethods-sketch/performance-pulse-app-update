@@ -68,6 +68,14 @@ import {
   type TrainingSessionInput
 } from "@/lib/session-load";
 import type { CardioActivitySummary, CardioConnectionStatus } from "@/lib/cardio-activities";
+import {
+  analyzeCardioDeviation,
+  generateCardioFeedbackSuggestion,
+  getCardioCompletionLabel,
+  type CardioPlan,
+  type CardioResult,
+  type CardioZone
+} from "@/lib/cardio-deviation";
 import { calculateSessionDeviation, type SessionDiscomfort } from "@/lib/session-deviation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -526,6 +534,8 @@ type ConnectedSessionExercise = SessionExerciseInput & {
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
+  cardioPlan?: CardioPlan;
+  cardioResult?: CardioResult;
   completed?: boolean;
   date: string;
   discomfort?: SessionDiscomfort;
@@ -3970,7 +3980,51 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
   }
 };
 
-const cardioSessionModes = ["Carrera", "Ciclismo", "Natacion", "Remo / ergometro", "Otro"];
+const cardioSportOptions: Array<{ label: string; value: NonNullable<CardioPlan["sport"]> }> = [
+  { label: "Carrera", value: "run" },
+  { label: "Ciclismo", value: "ride" },
+  { label: "Natación", value: "swim" },
+  { label: "Remo", value: "row" },
+  { label: "Caminar", value: "walk" },
+  { label: "Otro", value: "other" }
+];
+const cardioZoneOptions: Array<{ label: string; value: CardioZone }> = [
+  { label: "Z1", value: "z1" },
+  { label: "Z2", value: "z2" },
+  { label: "Z3", value: "z3" },
+  { label: "Z4", value: "z4" },
+  { label: "Z5", value: "z5" }
+];
+
+type CardioPlanDraft = {
+  notes: string;
+  sport: NonNullable<CardioPlan["sport"]>;
+  targetDistanceMeters: string;
+  targetDurationMinutes: string;
+  targetRpeMax: string;
+  targetRpeMin: string;
+  targetZone: "" | CardioZone;
+};
+
+function buildCardioPlanFromDraft(draft: CardioPlanDraft): CardioPlan | undefined {
+  const plan: CardioPlan = {};
+  const targetDurationMinutes = Number(draft.targetDurationMinutes);
+  const targetDistanceMeters = Number(draft.targetDistanceMeters);
+  const targetRpeMin = Number(draft.targetRpeMin);
+  const targetRpeMax = Number(draft.targetRpeMax);
+
+  if (draft.sport) plan.sport = draft.sport;
+  if (Number.isFinite(targetDurationMinutes) && targetDurationMinutes > 0) plan.targetDurationMinutes = targetDurationMinutes;
+  if (draft.targetZone) plan.targetZone = draft.targetZone;
+  if (Number.isFinite(targetRpeMin) && targetRpeMin > 0) plan.targetRpeMin = targetRpeMin;
+  if (Number.isFinite(targetRpeMax) && targetRpeMax > 0) plan.targetRpeMax = targetRpeMax;
+  if (Number.isFinite(targetDistanceMeters) && targetDistanceMeters > 0) plan.targetDistanceMeters = targetDistanceMeters;
+  if (draft.notes.trim()) plan.notes = draft.notes.trim();
+
+  return Object.keys(plan).length > 1 || plan.targetDurationMinutes || plan.targetZone || plan.targetDistanceMeters || plan.notes
+    ? plan
+    : undefined;
+}
 
 function getPlanningWeekNumber(currentWeek: string) {
   const match = currentWeek.match(/\d+/);
@@ -4004,6 +4058,15 @@ function CoachTrainingPlanner({
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
   const [sessionTargetRpe, setSessionTargetRpe] = useState("");
+  const [cardioPlanDraft, setCardioPlanDraft] = useState<CardioPlanDraft>({
+    notes: "",
+    sport: "run",
+    targetDistanceMeters: "",
+    targetDurationMinutes: "",
+    targetRpeMax: "",
+    targetRpeMin: "",
+    targetZone: ""
+  });
   const [sessionSendMessage, setSessionSendMessage] = useState("");
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -4065,6 +4128,9 @@ function CoachTrainingPlanner({
   const removeStrengthExercise = (exerciseId: string) => {
     setStrengthExercises((current) => current.filter((exercise) => exercise.id !== exerciseId));
   };
+  const updateCardioPlanDraft = (field: keyof CardioPlanDraft, value: string) => {
+    setCardioPlanDraft((current) => ({ ...current, [field]: value }));
+  };
   const markSessionAsReviewed = (sessionIndex: number, reviewNotes = "") => {
     onUpdateClient({
       ...activeSessionClient,
@@ -4123,8 +4189,10 @@ function CoachTrainingPlanner({
       plannedSets: exercise.sets,
       section: exercise.block
     }));
+    const cardioPlan = buildCardioPlanFromDraft(cardioPlanDraft);
     const plannedRecord: ClientSessionRecord = {
       block: currentBlockLabel || "Sin asignar",
+      cardioPlan,
       completed: false,
       date: sessionDate,
       performedExercises: [],
@@ -4613,39 +4681,88 @@ function CoachTrainingPlanner({
           </>
         ) : sessionType === "Cardio" ? (
           <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-            <h3 className="font-semibold text-ink">Sesion de cardio</h3>
+            <h3 className="font-semibold text-ink">Cardio / resistencia</h3>
+            <p className="mt-1 text-sm text-ink/55">Bloque opcional para comparar el trabajo planificado con el registro real.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Modalidad
-                <select className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss">
-                  {cardioSessionModes.map((mode) => (
-                    <option key={mode}>{mode}</option>
+                Deporte / modalidad
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateCardioPlanDraft("sport", event.target.value)}
+                  value={cardioPlanDraft.sport}
+                >
+                  {cardioSportOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Duracion estimada
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 45 min" />
+                Duración objetivo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  min={0}
+                  onChange={(event) => updateCardioPlanDraft("targetDurationMinutes", event.target.value)}
+                  placeholder="Minutos"
+                  type="number"
+                  value={cardioPlanDraft.targetDurationMinutes}
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Tiempo por zona
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. Z2 30 min + Z4 6x2 min" />
+                Zona objetivo
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateCardioPlanDraft("targetZone", event.target.value)}
+                  value={cardioPlanDraft.targetZone}
+                >
+                  <option value="">Sin zona objetivo</option>
+                  {cardioZoneOptions.map((zone) => (
+                    <option key={zone.value} value={zone.value}>{zone.label}</option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Distancia / metros
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 8 km / 1800 m" />
+                Distancia objetivo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  min={0}
+                  onChange={(event) => updateCardioPlanDraft("targetDistanceMeters", event.target.value)}
+                  placeholder="Metros"
+                  type="number"
+                  value={cardioPlanDraft.targetDistanceMeters}
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Intensidad externa
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="%VAM, %CP, %CSS, ritmo o potencia" />
+                RPE objetivo mínimo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  max={10}
+                  min={0}
+                  onChange={(event) => updateCardioPlanDraft("targetRpeMin", event.target.value)}
+                  placeholder="0-10"
+                  type="number"
+                  value={cardioPlanDraft.targetRpeMin}
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                FC estimada
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 145-165 ppm" />
+                RPE objetivo máximo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  max={10}
+                  min={0}
+                  onChange={(event) => updateCardioPlanDraft("targetRpeMax", event.target.value)}
+                  placeholder="0-10"
+                  type="number"
+                  value={cardioPlanDraft.targetRpeMax}
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-                Cadencia / brazada
-                <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" placeholder="Ej. 176 ppm carrera / 34 brazadas min" />
+                Notas
+                <textarea
+                  className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateCardioPlanDraft("notes", event.target.value)}
+                  placeholder="Ej: Z2 continua, progresivo suave, evitar picos"
+                  value={cardioPlanDraft.notes}
+                />
               </label>
             </div>
           </div>
@@ -4746,6 +4863,8 @@ type SessionReviewStatus = "pending" | "reviewed";
 type ReviewSessionRecord = ClientSessionRecord & {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
+  cardioPlan?: CardioPlan;
+  cardioResult?: CardioResult;
   completed?: boolean;
   discomfort?: SessionDiscomfort;
   exercises?: ReviewSessionExercise[];
@@ -4783,6 +4902,22 @@ function formatCardioSyncDate(value?: string) {
   if (!value) return "Sin sincronizar";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-ES");
+}
+
+function formatDurationSeconds(seconds: number | null) {
+  if (seconds === null) return "Sin datos";
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} min`;
+}
+
+function formatCardioZones(timeInZones?: CardioResult["timeInZones"]) {
+  if (!timeInZones) return [];
+  return cardioZoneOptions
+    .map((zone) => ({
+      label: zone.label,
+      seconds: timeInZones[zone.value] ?? 0
+    }))
+    .filter((zone) => zone.seconds > 0);
 }
 
 function formatTrainingBlock(session: ReviewSessionRecord, client: CoachClient) {
@@ -5046,6 +5181,14 @@ function SessionHistoryPanel({
             const duration = session.actualDurationMinutes ?? session.duration;
             const rpe = session.finalRpe ?? session.rpe;
             const sessionDeviation = calculateSessionDeviation(session);
+            const hasCardioDeviation = Boolean(session.cardioPlan || session.cardioResult);
+            const cardioDeviation = hasCardioDeviation
+              ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
+              : null;
+            const suggestedReviewNotes = [
+              sessionDeviation.suggestedReviewNotes,
+              cardioDeviation ? generateCardioFeedbackSuggestion(cardioDeviation) : ""
+            ].filter(Boolean).join(" ");
             const detailRows = Array.from({ length: exerciseCount }, (_, index) => ({
               performed: performedExercises[index],
               planned: plannedExercises[index]
@@ -5165,11 +5308,11 @@ function SessionHistoryPanel({
                                 className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-sm text-ink outline-none focus:border-moss"
                                 onChange={(event) => updateReviewDraft(sessionKey, event.target.value)}
                                 placeholder="Escribe feedback para el deportista: sensaciones, técnica, ajustes para la próxima sesión..."
-                                value={getReviewDraft(sessionKey, session, sessionDeviation.suggestedReviewNotes)}
+                                value={getReviewDraft(sessionKey, session, suggestedReviewNotes)}
                               />
                               <button
                                 className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                                onClick={() => saveReview(sessionIndex, sessionKey, session, sessionDeviation.suggestedReviewNotes)}
+                                onClick={() => saveReview(sessionIndex, sessionKey, session, suggestedReviewNotes)}
                                 type="button"
                               >
                                 {reviewStatus === "reviewed" ? "Guardar feedback" : "Marcar como revisada"}
@@ -5258,6 +5401,66 @@ function SessionHistoryPanel({
                             </div>
                           ) : null}
                         </section>
+
+                        {cardioDeviation ? (
+                          <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <h5 className="font-semibold text-ink">Cardio Deviation</h5>
+                                <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
+                              </div>
+                              <span className="w-fit rounded-md bg-white px-3 py-1 text-xs font-semibold text-ink/65">
+                                {cardioDeviation.reading}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              <ClientInfoCard
+                                label="Duración"
+                                value={`${session.cardioPlan?.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Plan sin especificar"} / ${session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Real sin registrar"}`}
+                              />
+                              <ClientInfoCard
+                                label="Cumplimiento duración"
+                                value={cardioDeviation.durationCompletionPct !== null ? `${Math.round(cardioDeviation.durationCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.durationStatus)}` : "Sin datos suficientes"}
+                              />
+                              <ClientInfoCard
+                                label="Zona objetivo"
+                                value={session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}
+                              />
+                              <ClientInfoCard
+                                label="Tiempo en zona"
+                                value={cardioDeviation.targetZonePct !== null ? `${Math.round(cardioDeviation.targetZonePct)}% · ${cardioDeviation.zoneStatusLabel}` : "Sin datos de zonas suficientes"}
+                              />
+                              <ClientInfoCard
+                                label="Por debajo de zona"
+                                value={formatDurationSeconds(cardioDeviation.timeBelowTargetZoneSeconds)}
+                              />
+                              <ClientInfoCard
+                                label="Por encima de zona"
+                                value={formatDurationSeconds(cardioDeviation.timeAboveTargetZoneSeconds)}
+                              />
+                              <ClientInfoCard
+                                label="RPE cardio"
+                                value={session.cardioResult?.perceivedRpe ? `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"} / real ${session.cardioResult.perceivedRpe} · ${cardioDeviation.rpeLabel}` : "Sin RPE de cardio"}
+                              />
+                              <ClientInfoCard
+                                label="Distancia"
+                                value={cardioDeviation.distanceCompletionPct !== null ? `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}` : "Sin datos suficientes"}
+                              />
+                            </div>
+                            {formatCardioZones(session.cardioResult?.timeInZones).length > 0 ? (
+                              <div className="mt-3 rounded-md border border-line bg-white p-3">
+                                <p className="text-xs font-semibold uppercase text-ink/45">Distribución Z1-Z5</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {formatCardioZones(session.cardioResult?.timeInZones).map((zone) => (
+                                    <span className="rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65" key={zone.label}>
+                                      {zone.label}: {formatDurationSeconds(zone.seconds)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </section>
+                        ) : null}
 
                         {exerciseCount > 0 ? (
                           <div className="mt-4 grid gap-3">

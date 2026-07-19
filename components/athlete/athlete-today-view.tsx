@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getExerciseById } from "@/lib/exercises";
+import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 
 type AthleteWellness = {
   fatigue: number;
@@ -54,6 +55,8 @@ type AthleteSessionDiscomfort = {
 type AthleteSessionRecord = {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
+  cardioPlan?: CardioPlan;
+  cardioResult?: CardioResult;
   completed?: boolean;
   date: string;
   finalNotes?: string | null;
@@ -116,6 +119,23 @@ const discomfortPhases = [
   "Después de la sesión"
 ];
 
+const cardioZoneFields: Array<{ key: CardioZone; label: string }> = [
+  { key: "z1", label: "Z1" },
+  { key: "z2", label: "Z2" },
+  { key: "z3", label: "Z3" },
+  { key: "z4", label: "Z4" },
+  { key: "z5", label: "Z5" }
+];
+
+const cardioSportLabels: Record<NonNullable<CardioPlan["sport"]>, string> = {
+  other: "Otro",
+  ride: "Ciclismo",
+  row: "Remo",
+  run: "Carrera",
+  swim: "Natación",
+  walk: "Caminar"
+};
+
 function getLocalDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -145,6 +165,33 @@ function normalizeSetDetails(exercise: AthleteExercise) {
       setNumber: index + 1
     };
   });
+}
+
+function buildCardioResultFromDraft(draft: {
+  distanceMeters: string;
+  durationMinutes: string;
+  perceivedRpe: string;
+  timeInZonesMinutes: Record<CardioZone, string>;
+}): CardioResult | undefined {
+  const durationMinutes = parsePositiveNumber(draft.durationMinutes);
+  const distanceMeters = parsePositiveNumber(draft.distanceMeters);
+  const perceivedRpe = parsePositiveNumber(draft.perceivedRpe);
+  const timeInZones: CardioResult["timeInZones"] = {};
+
+  cardioZoneFields.forEach((zone) => {
+    const minutes = parsePositiveNumber(draft.timeInZonesMinutes[zone.key]);
+    if (minutes > 0) timeInZones![zone.key] = minutes * 60;
+  });
+
+  const result: CardioResult = {
+    source: "manual"
+  };
+  if (durationMinutes > 0) result.durationMinutes = durationMinutes;
+  if (distanceMeters > 0) result.distanceMeters = distanceMeters;
+  if (perceivedRpe > 0) result.perceivedRpe = perceivedRpe;
+  if (Object.keys(timeInZones).length > 0) result.timeInZones = timeInZones;
+
+  return Object.keys(result).length > 1 ? result : undefined;
 }
 
 function createAthleteExerciseEntries(session: AthleteSessionRecord | null) {
@@ -194,6 +241,18 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     notes: "",
     phase: ""
   });
+  const [cardioResultDraft, setCardioResultDraft] = useState({
+    distanceMeters: "",
+    durationMinutes: "",
+    perceivedRpe: "",
+    timeInZonesMinutes: {
+      z1: "",
+      z2: "",
+      z3: "",
+      z4: "",
+      z5: ""
+    } as Record<CardioZone, string>
+  });
   const [validationMessage, setValidationMessage] = useState("");
   const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
     ? actualDurationMinutes * finalRpe
@@ -224,6 +283,18 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       intensity: 0,
       notes: "",
       phase: ""
+    });
+    setCardioResultDraft({
+      distanceMeters: "",
+      durationMinutes: "",
+      perceivedRpe: "",
+      timeInZonesMinutes: {
+        z1: "",
+        z2: "",
+        z3: "",
+        z4: "",
+        z5: ""
+      }
     });
     setValidationMessage("");
   }, [session]);
@@ -276,6 +347,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     const updatedSession: AthleteSessionRecord = {
       ...session,
       actualDurationMinutes,
+      cardioResult: session.cardioPlan ? buildCardioResultFromDraft(cardioResultDraft) : session.cardioResult,
       completed: true,
       discomfort,
       finalNotes: athleteSessionNotes.trim(),
@@ -408,6 +480,93 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                   )}
                 </div>
               </section>
+
+              {session.cardioPlan ? (
+                <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-ink">Cardio / resistencia</h3>
+                      <p className="mt-1 text-sm text-ink/60">Registra solo datos agregados de la parte de cardio.</p>
+                    </div>
+                    <span className="w-fit rounded-md bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/65">
+                      {session.cardioPlan.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin zona objetivo"}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <ClientInfoCard label="Modalidad" value={session.cardioPlan.sport ? cardioSportLabels[session.cardioPlan.sport] : "Sin especificar"} />
+                    <ClientInfoCard label="Duración objetivo" value={session.cardioPlan.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Sin especificar"} />
+                    <ClientInfoCard label="Distancia objetivo" value={session.cardioPlan.targetDistanceMeters ? `${session.cardioPlan.targetDistanceMeters} m` : "Sin especificar"} />
+                    <ClientInfoCard
+                      label="RPE objetivo"
+                      value={session.cardioPlan.targetRpeMin && session.cardioPlan.targetRpeMax ? `${session.cardioPlan.targetRpeMin}-${session.cardioPlan.targetRpeMax}/10` : "Sin especificar"}
+                    />
+                  </div>
+                  {session.cardioPlan.notes ? (
+                    <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{session.cardioPlan.notes}</p>
+                  ) : null}
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Duración real en minutos
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        min={0}
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, durationMinutes: event.target.value }))}
+                        type="number"
+                        value={cardioResultDraft.durationMinutes}
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Distancia real
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        min={0}
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, distanceMeters: event.target.value }))}
+                        placeholder="Metros"
+                        type="number"
+                        value={cardioResultDraft.distanceMeters}
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                      RPE percibido de cardio
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        max={10}
+                        min={0}
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, perceivedRpe: event.target.value }))}
+                        placeholder="Opcional"
+                        type="number"
+                        value={cardioResultDraft.perceivedRpe}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                    <p className="text-sm font-semibold text-ink">Tiempo en zonas</p>
+                    <p className="mt-1 text-xs text-ink/50">Introduce minutos por zona solo si los tienes. Se guardan internamente en segundos.</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                      {cardioZoneFields.map((zone) => (
+                        <label className="space-y-1 text-xs font-semibold text-ink/60" key={zone.key}>
+                          {zone.label}
+                          <input
+                            className="h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
+                            min={0}
+                            onChange={(event) =>
+                              setCardioResultDraft((current) => ({
+                                ...current,
+                                timeInZonesMinutes: {
+                                  ...current.timeInZonesMinutes,
+                                  [zone.key]: event.target.value
+                                }
+                              }))
+                            }
+                            type="number"
+                            value={cardioResultDraft.timeInZonesMinutes[zone.key]}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              ) : null}
 
               <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
