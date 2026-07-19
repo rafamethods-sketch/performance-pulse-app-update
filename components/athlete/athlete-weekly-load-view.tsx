@@ -18,6 +18,10 @@ type AthleteWeeklyExercise = MuscleFatigueExercise & {
   reps?: number | string | null;
   rpe?: number | string | null;
   sets?: number | string | null;
+  setDetails?: Array<{
+    reps?: number | string | null;
+    setNumber: number;
+  }>;
 };
 
 type CardioZone = "Z1" | "Z2" | "Z3" | "Z4" | "Z5";
@@ -130,6 +134,8 @@ function getExerciseSets(exercise: AthleteWeeklyExercise) {
 }
 
 function getExerciseReps(exercise: AthleteWeeklyExercise) {
+  const setDetailsRepSum = getSetDetailsRepSum(exercise);
+  if (setDetailsRepSum > 0) return setDetailsRepSum;
   return parsePositiveNumber(exercise.reps ?? exercise.plannedReps);
 }
 
@@ -137,12 +143,18 @@ function getExerciseLoad(exercise: AthleteWeeklyExercise) {
   return parsePositiveNumber(exercise.load ?? exercise.plannedLoad);
 }
 
+function getSetDetailsRepSum(exercise: AthleteWeeklyExercise) {
+  return (exercise.setDetails ?? []).reduce((total, detail) => total + parsePositiveNumber(detail.reps), 0);
+}
+
 function calculateWeeklyTonnage(sessions: AthleteWeeklySession[]) {
   return sessions.reduce((sessionTotal, session) => (
     sessionTotal + getSessionExercises(session).reduce((exerciseTotal, exercise) => {
       const load = getExerciseLoad(exercise);
       if (load <= 0) return exerciseTotal;
-      return exerciseTotal + getExerciseSets(exercise) * getExerciseReps(exercise) * load;
+      const setDetailsRepSum = getSetDetailsRepSum(exercise);
+      const totalReps = setDetailsRepSum > 0 ? setDetailsRepSum : getExerciseSets(exercise) * getExerciseReps(exercise);
+      return exerciseTotal + totalReps * load;
     }, 0)
   ), 0);
 }

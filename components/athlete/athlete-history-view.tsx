@@ -34,6 +34,10 @@ type ReviewSessionExercise = {
   rir?: number | string | null;
   section?: string | null;
   sets?: number | string | null;
+  setDetails?: Array<{
+    reps?: number | string | null;
+    setNumber: number;
+  }>;
   targetRir?: number | string | null;
 };
 
@@ -69,6 +73,21 @@ function hasDisplayValue(value: unknown) {
 
 function displayValue(value: unknown, fallback = "Sin especificar") {
   return hasDisplayValue(value) ? `${value}` : fallback;
+}
+
+function parsePositiveNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function getSetDetailsReps(entry?: ReviewSessionExercise) {
+  return (entry?.setDetails ?? [])
+    .map((detail) => parsePositiveNumber(detail.reps))
+    .filter((reps) => reps > 0);
+}
+
+function getSetDetailsRepSum(entry?: ReviewSessionExercise) {
+  return getSetDetailsReps(entry).reduce((total, reps) => total + reps, 0);
 }
 
 function getReviewExercises(session: ReviewSessionRecord) {
@@ -113,7 +132,7 @@ function getPerformedValue(entry: ReviewSessionExercise | undefined, field: "set
     case "sets":
       return entry.sets;
     case "reps":
-      return entry.reps;
+      return getSetDetailsRepSum(entry) || entry.reps;
     case "load":
       return entry.load;
     case "rest":
@@ -313,6 +332,12 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                             </div>
                             {hasDisplayValue(performed?.athleteNotes) ? (
                               <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{performed?.athleteNotes}</p>
+                            ) : null}
+                            {getSetDetailsReps(performed).length > 0 ? (
+                              <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
+                                <span className="font-semibold text-ink">Detalle por serie: </span>
+                                {getSetDetailsReps(performed).join(" / ")} reps
+                              </p>
                             ) : null}
                           </article>
                         ))}

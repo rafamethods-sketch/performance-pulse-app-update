@@ -11,6 +11,11 @@ type AthleteWellness = {
   stress: number;
 };
 
+type AthleteSetDetail = {
+  reps?: number | string | null;
+  setNumber: number;
+};
+
 type AthleteExercise = {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
@@ -31,6 +36,7 @@ type AthleteExercise = {
   rir?: number | string | null;
   section?: string | null;
   sets?: number | string | null;
+  setDetails?: AthleteSetDetail[];
   targetRir?: number | string | null;
 };
 
@@ -93,17 +99,48 @@ function getLocalDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function parsePositiveNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function getExerciseSetCount(exercise: AthleteExercise) {
+  return Math.max(1, Math.round(parsePositiveNumber(exercise.sets ?? exercise.plannedSets) || 1));
+}
+
+function getSetDetailsRepSum(setDetails?: AthleteSetDetail[]) {
+  return (setDetails ?? []).reduce((total, detail) => total + parsePositiveNumber(detail.reps), 0);
+}
+
+function normalizeSetDetails(exercise: AthleteExercise) {
+  const count = getExerciseSetCount(exercise);
+  return Array.from({ length: count }, (_, index) => {
+    const existing = exercise.setDetails?.[index];
+    return {
+      reps: existing?.reps ?? "",
+      setNumber: index + 1
+    };
+  });
+}
+
 function createAthleteExerciseEntries(session: AthleteSessionRecord | null) {
-  return (session?.plannedExercises ?? []).map<AthleteExercise>((exercise) => ({
-    ...exercise,
-    athleteNotes: "",
-    exerciseRpe: "",
-    load: exercise.plannedLoad ?? exercise.load ?? "",
-    reps: exercise.plannedReps ?? exercise.reps ?? "",
-    rest: exercise.plannedRest ?? exercise.rest ?? "",
-    rir: exercise.plannedRir ?? exercise.targetRir ?? "",
-    sets: exercise.plannedSets ?? exercise.sets ?? ""
-  }));
+  return (session?.plannedExercises ?? []).map<AthleteExercise>((exercise) => {
+    const nextExercise = {
+      ...exercise,
+      athleteNotes: "",
+      exerciseRpe: "",
+      load: exercise.plannedLoad ?? exercise.load ?? "",
+      reps: exercise.plannedReps ?? exercise.reps ?? "",
+      rest: exercise.plannedRest ?? exercise.rest ?? "",
+      rir: exercise.plannedRir ?? exercise.targetRir ?? "",
+      sets: exercise.plannedSets ?? exercise.sets ?? ""
+    };
+
+    return {
+      ...nextExercise,
+      setDetails: normalizeSetDetails(nextExercise)
+    };
+  });
 }
 
 export function AthleteTodayView<TClient extends AthleteClient>({
@@ -130,6 +167,9 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     ? actualDurationMinutes * finalRpe
     : null;
   const wellnessComplete = Object.values(wellness).every((value) => value >= 1 && value <= 5);
+  const finalRpeValid = finalRpe >= 1 && finalRpe <= 10;
+  const durationValid = actualDurationMinutes > 0;
+  const canSubmitSession = finalRpeValid && durationValid;
 
   useEffect(() => {
     setWellness(session?.wellness ?? emptyAthleteWellness);
@@ -151,8 +191,12 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
   function submitSession() {
     if (!client || !session || sessionIndex < 0) return;
-    if (actualDurationMinutes <= 0 || finalRpe <= 0) {
-      setValidationMessage("Completa la duración real y el RPE final antes de enviar.");
+    if (!finalRpeValid) {
+      setValidationMessage("Introduce el RPE final de la sesión para poder enviarla.");
+      return;
+    }
+    if (!durationValid) {
+      setValidationMessage("Introduce la duración real de la sesión para poder enviarla.");
       return;
     }
 
@@ -305,6 +349,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                   <AthleteNumberField label="Duración real en minutos" onChange={setActualDurationMinutes} value={actualDurationMinutes} />
                   <AthleteNumberField label="RPE final de sesión" max={10} onChange={setFinalRpe} value={finalRpe} />
                 </div>
+                {!finalRpeValid ? (
+                  <p className="mt-3 text-sm font-medium text-amber-800">
+                    Introduce el RPE final de la sesión para poder enviarla.
+                  </p>
+                ) : null}
                 <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
                   Notas generales
                   <textarea
@@ -314,7 +363,12 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     value={athleteSessionNotes}
                   />
                 </label>
-                <button className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={submitSession} type="button">
+                <button
+                  className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!canSubmitSession}
+                  onClick={submitSession}
+                  type="button"
+                >
                   Enviar sesión al entrenador
                 </button>
                 {validationMessage ? <p className="mt-3 text-sm font-medium text-red-700">{validationMessage}</p> : null}
@@ -418,6 +472,30 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
   onUpdate: (index: number, updates: Partial<AthleteExercise>) => void;
 }) {
   const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
+  const setDetails = normalizeSetDetails(exercise);
+
+  function updateSets(value: string) {
+    const nextExercise = { ...exercise, sets: value };
+    const nextSetDetails = normalizeSetDetails(nextExercise);
+    const repSum = getSetDetailsRepSum(nextSetDetails);
+    onUpdate(index, {
+      reps: repSum > 0 ? `${repSum}` : exercise.reps,
+      setDetails: nextSetDetails,
+      sets: value
+    });
+  }
+
+  function updateSetDetail(setIndex: number, reps: string) {
+    const nextSetDetails = setDetails.map((detail, detailIndex) =>
+      detailIndex === setIndex ? { ...detail, reps } : detail
+    );
+    const repSum = getSetDetailsRepSum(nextSetDetails);
+    onUpdate(index, {
+      reps: repSum > 0 ? `${repSum}` : exercise.reps,
+      setDetails: nextSetDetails
+    });
+  }
+
   return (
     <article className="rounded-md border border-line bg-panel/35 p-4">
       <p className="font-semibold text-ink">{exerciseName}</p>
@@ -431,13 +509,33 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
       </div>
       {exercise.observation ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <AthleteExerciseInput label="Series realizadas" onChange={(value) => onUpdate(index, { sets: value })} value={exercise.sets} />
+        <AthleteExerciseInput label="Series realizadas" onChange={updateSets} value={exercise.sets} />
         <AthleteExerciseInput label="Reps realizadas" onChange={(value) => onUpdate(index, { reps: value })} value={exercise.reps} />
         <AthleteExerciseInput label="Carga real" onChange={(value) => onUpdate(index, { load: value })} value={exercise.load} />
         <AthleteExerciseInput label="Descanso real" onChange={(value) => onUpdate(index, { actualRest: value, rest: value })} value={exercise.actualRest ?? exercise.rest} />
         <AthleteExerciseInput label="RPE ejercicio" max={10} onChange={(value) => onUpdate(index, { exerciseRpe: value })} value={exercise.exerciseRpe} />
         <AthleteExerciseInput label="RIR real" onChange={(value) => onUpdate(index, { rir: value })} value={exercise.rir} />
       </div>
+      <details className="mt-3 rounded-md border border-line bg-white">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink/70">
+          Detalle por serie
+        </summary>
+        <div className="grid gap-2 border-t border-line p-3">
+          {setDetails.map((detail, setIndex) => (
+            <label className="grid grid-cols-[1fr_96px] items-center gap-3 text-xs font-medium text-ink/65" key={detail.setNumber}>
+              Serie {detail.setNumber}
+              <input
+                className="h-9 w-full rounded-md border border-line bg-panel/35 px-2 text-sm text-ink outline-none focus:border-moss"
+                min={0}
+                onChange={(event) => updateSetDetail(setIndex, event.target.value)}
+                placeholder="Reps"
+                type="number"
+                value={detail.reps ?? ""}
+              />
+            </label>
+          ))}
+        </div>
+      </details>
       <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65">
         Notas del deportista
         <textarea

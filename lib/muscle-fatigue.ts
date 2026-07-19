@@ -20,6 +20,10 @@ export type MuscleFatigueExercise = {
   reps?: number | string | null;
   rpe?: number | string | null;
   sets?: number | string | null;
+  setDetails?: Array<{
+    reps?: number | string | null;
+    setNumber: number;
+  }>;
 };
 
 export type MuscleFatigueSession = {
@@ -87,6 +91,10 @@ function getExerciseRpe(exercise: MuscleFatigueExercise, session: MuscleFatigueS
   return sessionRpe > 0 ? sessionRpe : null;
 }
 
+function getSetDetailsRepSum(exercise: MuscleFatigueExercise) {
+  return (exercise.setDetails ?? []).reduce((total, detail) => total + parsePositiveNumber(detail.reps), 0);
+}
+
 function getMuscleLevel(relative: number): MuscleFatigueLevel {
   if (relative <= 0) return "none";
   if (relative <= 25) return "low";
@@ -106,9 +114,11 @@ export function calculateWeeklyMuscleFatigue(sessions: MuscleFatigueSession[]): 
       const libraryExercise = getExerciseById(exercise.exerciseId);
       if (!libraryExercise?.fatigueMap) return;
 
-      const sets = parsePositiveNumber(exercise.sets ?? exercise.plannedSets);
-      const reps = parsePositiveNumber(exercise.reps ?? exercise.plannedReps);
-      if (sets <= 0 || reps <= 0) return;
+      const setDetailsRepSum = getSetDetailsRepSum(exercise);
+      const totalReps = setDetailsRepSum > 0
+        ? setDetailsRepSum
+        : parsePositiveNumber(exercise.sets ?? exercise.plannedSets) * parsePositiveNumber(exercise.reps ?? exercise.plannedReps);
+      if (totalReps <= 0) return;
 
       const rpe = getExerciseRpe(exercise, session);
       if (!rpe) {
@@ -119,7 +129,7 @@ export function calculateWeeklyMuscleFatigue(sessions: MuscleFatigueSession[]): 
       muscleFatigueGroups.forEach((group) => {
         const involvement = group.mapKeys.reduce((total, mapKey) => total + (libraryExercise.fatigueMap[mapKey] ?? 0), 0);
         if (involvement <= 0) return;
-        scores[group.key] += sets * reps * (rpe / 10) * involvement;
+        scores[group.key] += totalReps * (rpe / 10) * involvement;
       });
     });
   });
