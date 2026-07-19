@@ -3,15 +3,20 @@
 import { useMemo } from "react";
 import { BodyFatigueMap } from "@/components/shared/body-fatigue-map";
 import { calculateSessionLoad } from "@/lib/client-metrics";
-import { calculateFatigueZones, type FatigueZoneExercise } from "@/lib/fatigue-zones";
 import { getExerciseById } from "@/lib/exercises";
+import { calculateWeeklyMuscleFatigue, type MuscleFatigueExercise, type MuscleFatigueLevel } from "@/lib/muscle-fatigue";
 
-type AthleteWeeklyExercise = FatigueZoneExercise & {
+type AthleteWeeklyExercise = MuscleFatigueExercise & {
+  actualRpe?: number | string | null;
+  exerciseName?: string | null;
+  exerciseRpe?: number | string | null;
   load?: number | string | null;
+  perceivedExertion?: number | string | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
   plannedSets?: number | string | null;
   reps?: number | string | null;
+  rpe?: number | string | null;
   sets?: number | string | null;
 };
 
@@ -300,6 +305,14 @@ function getLoadIndex(totalSrpe: number) {
   };
 }
 
+function getMuscleLevelLabel(level: MuscleFatigueLevel) {
+  if (level === "very_high") return "muy alta";
+  if (level === "high") return "alta";
+  if (level === "moderate") return "moderada";
+  if (level === "low") return "baja";
+  return "sin carga";
+}
+
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
     <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
@@ -320,7 +333,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   const adherence = plannedThisWeek > 0 ? Math.round((weeklySessions.length / plannedThisWeek) * 100) : null;
   const maxSrpe = Math.max(1, ...weeklySessions.map((session) => getSessionSrpe(session) ?? 0));
   const loadIndex = getLoadIndex(totalSrpe);
-  const fatigueZoneResults = calculateFatigueZones(weeklySessions);
+  const muscleFatigue = calculateWeeklyMuscleFatigue(weeklySessions);
   const totalTonnage = calculateWeeklyTonnage(weeklySessions);
   const strengthSessions = weeklySessions.filter(isStrengthSession);
   const cardioSessions = weeklySessions.filter(isCardioSession);
@@ -435,15 +448,36 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
         </article>
 
         <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <h3 className="font-semibold text-ink">Mapa de fatiga por zonas</h3>
-          <p className="mt-1 text-sm text-ink/60">Estimación orientativa según las sesiones registradas esta semana.</p>
-          {fatigueZoneResults.length > 0 ? (
-            <div className="mt-4">
-              <BodyFatigueMap zones={fatigueZoneResults} />
+          <h3 className="font-semibold text-ink">Mapa de fatiga muscular</h3>
+          <p className="mt-1 text-sm text-ink/60">Estimación visual según ejercicios realizados, series, repeticiones, RPE e implicación muscular.</p>
+          {muscleFatigue.hasData ? (
+            <div className="mt-4 grid gap-4">
+              <BodyFatigueMap muscles={muscleFatigue.results} />
+              <div className="rounded-md border border-line bg-panel/35 p-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Top 3 músculos más cargados</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {muscleFatigue.topMuscles.map((muscle) => (
+                    <div className="rounded-md border border-line bg-white px-3 py-2" key={muscle.key}>
+                      <p className="text-sm font-semibold text-ink">{muscle.label}</p>
+                      <p className="mt-1 text-xs font-medium text-ink/55">
+                        {muscle.relative}% relativo · {getMuscleLevelLabel(muscle.level)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs font-medium text-ink/55">
+                  Intensidad relativa respecto al músculo más cargado de la semana.
+                </p>
+                {muscleFatigue.incomplete ? (
+                  <p className="mt-2 text-xs font-medium text-amber-800">
+                    Estimación parcial: algunas sesiones no tienen RPE registrado.
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : (
             <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm font-semibold text-ink/55">
-              Sin datos suficientes para estimar fatiga por zonas.
+              Sin datos suficientes para estimar la fatiga muscular esta semana.
             </p>
           )}
         </article>
