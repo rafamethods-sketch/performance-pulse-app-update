@@ -67,6 +67,7 @@ import {
   type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
+import type { CardioActivitySummary, CardioConnectionStatus } from "@/lib/cardio-activities";
 import { calculateSessionDeviation, type SessionDiscomfort } from "@/lib/session-deviation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -530,6 +531,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   discomfort?: SessionDiscomfort;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
+  linkedCardioActivityId?: string;
   performedExercises?: ConnectedSessionExercise[];
   plannedExercises?: ConnectedSessionExercise[];
   reviewedAt?: string;
@@ -547,6 +549,8 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
 };
 type CoachClient = Omit<BaseCoachClient, "sessionRecords"> & {
   availableEquipment?: string;
+  cardioActivities?: CardioActivitySummary[];
+  cardioConnections?: CardioConnectionStatus[];
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -1622,6 +1626,7 @@ function ClientDetailsView({
       title: "Notas del entrenador"
     }
   ];
+  const intervalsConnection = client.cardioConnections?.find((connection) => connection.provider === "intervals");
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -1749,6 +1754,35 @@ function ClientDetailsView({
               </div>
             </article>
           ))}
+          <article className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Conexiones</h3>
+            <div className="mt-4 rounded-md border border-line bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-semibold text-ink">Intervals.icu</p>
+                  <p className="mt-1 text-sm text-ink/55">
+                    La app solo guardará un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
+                  </p>
+                </div>
+                <span className="w-fit rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65">
+                  {getCardioConnectionLabel(intervalsConnection?.status)}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
+                  <p className="text-xs font-semibold uppercase text-ink/45">Estado</p>
+                  <p className="mt-1 text-sm font-semibold text-ink">{getCardioConnectionLabel(intervalsConnection?.status)}</p>
+                </div>
+                <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
+                  <p className="text-xs font-semibold uppercase text-ink/45">Última sincronización</p>
+                  <p className="mt-1 text-sm font-semibold text-ink">{formatCardioSyncDate(intervalsConnection?.lastSyncAt)}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs font-medium text-ink/45">
+                La integración real debe hacerse desde backend/API route/Supabase Edge Function.
+              </p>
+            </div>
+          </article>
         </div>
       )}
     </section>
@@ -4737,6 +4771,18 @@ function hasDisplayValue(value: unknown) {
 
 function displayValue(value: unknown, fallback = "Sin especificar") {
   return hasDisplayValue(value) ? `${value}` : fallback;
+}
+
+function getCardioConnectionLabel(status?: CardioConnectionStatus["status"]) {
+  if (status === "connected") return "Conectado";
+  if (status === "pending") return "Pendiente";
+  return "No conectado";
+}
+
+function formatCardioSyncDate(value?: string) {
+  if (!value) return "Sin sincronizar";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-ES");
 }
 
 function formatTrainingBlock(session: ReviewSessionRecord, client: CoachClient) {
