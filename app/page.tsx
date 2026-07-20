@@ -523,9 +523,12 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   block?: string | null;
   exerciseRpe?: number | string | null;
   id?: string | null;
+  intensityMethod?: StrengthIntensityMethod | null;
   observation?: string | null;
+  percent1RM?: number | string | null;
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
+  plannedRpe?: number | string | null;
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
@@ -539,6 +542,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   completed?: boolean;
   date: string;
   discomfort?: SessionDiscomfort;
+  enduranceMethod?: EnduranceIntensityMethod;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
   linkedCardioActivityId?: string;
@@ -550,6 +554,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   sessionNumber?: number | string | null;
   sRPE?: number | string | null;
   status?: string | null;
+  strengthMethod?: StrengthIntensityMethod;
   summary: string;
   targetRpe?: number | string | null;
   type: string;
@@ -3907,26 +3912,32 @@ function getFatigueDisplayGroup(muscleKey: string) {
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
 type CoachSessionPanel = "planner" | "history" | null;
 type StrengthSessionBlock = "activation" | "auxiliary" | "main";
+type StrengthIntensityMethod = "rir" | "rpe" | "percent_1rm" | "kg" | "external_load";
+type EnduranceIntensityMethod = "zones" | "rounds" | "thresholds";
 type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
   exerciseId: string;
   exerciseSearch: string;
   id: string;
+  intensityMethod?: "" | StrengthIntensityMethod;
   load: string;
   observation: string;
+  percent1RM?: string;
   reps: string;
   rest: string;
   sets: string;
   targetRir: string;
   targetRpe: string;
 };
-type SessionTemplateExercise = Omit<PlannedStrengthExerciseDraft, "targetRpe">;
+type SessionTemplateExercise = PlannedStrengthExerciseDraft;
 type SessionTemplate = {
   createdAt: string;
   description: string;
+  enduranceMethod?: EnduranceIntensityMethod;
   id: string;
   name: string;
   sessionType: CoachSessionType;
+  strengthMethod?: StrengthIntensityMethod;
   strengthExercises: SessionTemplateExercise[];
   summary: string;
 };
@@ -3995,6 +4006,18 @@ const cardioZoneOptions: Array<{ label: string; value: CardioZone }> = [
   { label: "Z4", value: "z4" },
   { label: "Z5", value: "z5" }
 ];
+const strengthIntensityMethodOptions: Array<{ label: string; value: StrengthIntensityMethod }> = [
+  { label: "RIR", value: "rir" },
+  { label: "RPE", value: "rpe" },
+  { label: "%1RM", value: "percent_1rm" },
+  { label: "Kg", value: "kg" },
+  { label: "CE / Carga externa", value: "external_load" }
+];
+const enduranceIntensityMethodOptions: Array<{ label: string; value: EnduranceIntensityMethod }> = [
+  { label: "Zonas", value: "zones" },
+  { label: "Rondas", value: "rounds" },
+  { label: "Umbrales", value: "thresholds" }
+];
 
 type CardioPlanDraft = {
   notes: string;
@@ -4056,6 +4079,8 @@ function CoachTrainingPlanner({
   const [selectedBlockWeek, setSelectedBlockWeek] = useState(activePlanningWeek);
   const [sessionDate, setSessionDate] = useState("");
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
+  const [sessionStrengthMethod, setSessionStrengthMethod] = useState<StrengthIntensityMethod>("rir");
+  const [sessionEnduranceMethod, setSessionEnduranceMethod] = useState<EnduranceIntensityMethod>("zones");
   const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
   const [sessionTargetRpe, setSessionTargetRpe] = useState("");
   const [cardioPlanDraft, setCardioPlanDraft] = useState<CardioPlanDraft>({
@@ -4107,8 +4132,10 @@ function CoachTrainingPlanner({
         exerciseId: "",
         exerciseSearch: "",
         id: `exercise-${Date.now()}-${current.length}`,
+        intensityMethod: "",
         load: "",
         observation: "",
+        percent1RM: "",
         reps: "",
         rest: "",
         sets: "",
@@ -4151,12 +4178,15 @@ function CoachTrainingPlanner({
     exerciseId: exercise.exerciseId,
     exerciseSearch: exercise.exerciseSearch,
     id: exercise.id,
+    intensityMethod: exercise.intensityMethod,
     load: exercise.load,
     observation: exercise.observation,
+    percent1RM: exercise.percent1RM,
     reps: exercise.reps,
     rest: exercise.rest,
     sets: exercise.sets,
-    targetRir: exercise.targetRir
+    targetRir: exercise.targetRir,
+    targetRpe: exercise.targetRpe
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
@@ -4181,11 +4211,14 @@ function CoachTrainingPlanner({
       exerciseId: exercise.exerciseId || null,
       exerciseName: getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar"),
       id: exercise.id,
+      intensityMethod: exercise.intensityMethod || undefined,
       observation: exercise.observation,
+      percent1RM: exercise.percent1RM,
       plannedLoad: exercise.load,
       plannedReps: exercise.reps,
       plannedRest: exercise.rest,
       plannedRir: exercise.targetRir,
+      plannedRpe: exercise.targetRpe,
       plannedSets: exercise.sets,
       section: exercise.block
     }));
@@ -4195,10 +4228,12 @@ function CoachTrainingPlanner({
       cardioPlan,
       completed: false,
       date: sessionDate,
+      enduranceMethod: sessionEnduranceMethod,
       performedExercises: [],
       plannedExercises,
       sessionNumber,
       status: "Planificada",
+      strengthMethod: sessionStrengthMethod,
       summary: sessionSummary.trim() || "Sesión planificada",
       targetRpe: sessionTargetRpe,
       type: sessionType,
@@ -4225,9 +4260,11 @@ function CoachTrainingPlanner({
       {
         createdAt: new Date().toISOString(),
         description: templateDescription.trim(),
+        enduranceMethod: sessionEnduranceMethod,
         id: `template-${Date.now()}`,
         name: templateName.trim(),
         sessionType,
+        strengthMethod: sessionStrengthMethod,
         strengthExercises: plannedTemplateExercises,
         summary: sessionSummary.trim(),
       },
@@ -4239,12 +4276,17 @@ function CoachTrainingPlanner({
     if (strengthExercises.length > 0 && !window.confirm("Esto reemplazará los ejercicios actuales. ¿Continuar?")) return;
 
     setSessionType(template.sessionType);
+    setSessionStrengthMethod(template.strengthMethod ?? "rir");
+    setSessionEnduranceMethod(template.enduranceMethod ?? "zones");
     setSessionSummary(template.summary);
     setStrengthExercises(
       template.strengthExercises.map((exercise, index) => ({
         ...exercise,
         id: `exercise-${Date.now()}-${index}`,
-        targetRpe: ""
+        intensityMethod: exercise.intensityMethod ?? "",
+        percent1RM: exercise.percent1RM ?? "",
+        targetRir: exercise.targetRir ?? "",
+        targetRpe: exercise.targetRpe ?? ""
       }))
     );
   };
@@ -4276,6 +4318,7 @@ function CoachTrainingPlanner({
             const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
             const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
+            const effectiveIntensityMethod = exercise.intensityMethod || sessionStrengthMethod || "rir";
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
@@ -4354,7 +4397,22 @@ function CoachTrainingPlanner({
                   </p>
                 </div>
               ) : null}
-              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Metodo
+                  <select
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    onChange={(event) =>
+                      updateStrengthExercise(exercise.id, { intensityMethod: event.target.value as PlannedStrengthExerciseDraft["intensityMethod"] })
+                    }
+                    value={exercise.intensityMethod ?? ""}
+                  >
+                    <option value="">Heredar de sesion</option>
+                    {strengthIntensityMethodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Series
                   <input
@@ -4376,7 +4434,11 @@ function CoachTrainingPlanner({
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Carga
+                  {effectiveIntensityMethod === "kg"
+                    ? "Kg"
+                    : effectiveIntensityMethod === "external_load"
+                      ? "CE"
+                      : "Carga"}
                   <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
                     <input
                       className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
@@ -4397,16 +4459,41 @@ function CoachTrainingPlanner({
                     value={exercise.rest}
                   />
                 </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  RIR
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    min={0}
-                    onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
-                    type="number"
-                    value={exercise.targetRir}
-                  />
-                </label>
+                {effectiveIntensityMethod === "rpe" ? (
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    RPE
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      max={10}
+                      min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
+                      type="number"
+                      value={exercise.targetRpe}
+                    />
+                  </label>
+                ) : effectiveIntensityMethod === "percent_1rm" ? (
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    %1RM
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { percent1RM: event.target.value })}
+                      type="number"
+                      value={exercise.percent1RM ?? ""}
+                    />
+                  </label>
+                ) : effectiveIntensityMethod === "rir" ? (
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    RIR
+                    <input
+                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      min={0}
+                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
+                      type="number"
+                      value={exercise.targetRir}
+                    />
+                  </label>
+                ) : null}
               </div>
             </article>
             );
@@ -4556,6 +4643,32 @@ function CoachTrainingPlanner({
               type="number"
               value={sessionTargetRpe}
             />
+          </label>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Metodo de fuerza por defecto de la sesion
+            <select
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSessionStrengthMethod(event.target.value as StrengthIntensityMethod)}
+              value={sessionStrengthMethod}
+            >
+              {strengthIntensityMethodOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2 text-sm font-medium text-ink/75">
+            Metodo de resistencia por defecto
+            <select
+              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSessionEnduranceMethod(event.target.value as EnduranceIntensityMethod)}
+              value={sessionEnduranceMethod}
+            >
+              {enduranceIntensityMethodOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </label>
         </div>
         </section>
