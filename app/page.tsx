@@ -278,16 +278,20 @@ export default function ClientsPage() {
                   ? role === "coach" ? "Resumen del día" : "Hoy"
                   : activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
-                    ? `Dashboard - ${selectedClient?.name ?? "cliente"}`
+                    ? `Resumen - ${selectedClient?.name ?? "cliente"}`
                     : role === "coach" && trainerClientPanel === "details"
-                      ? `Ficha inicial - ${selectedClient?.name ?? "cliente"}`
+                      ? `Información - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "training"
                     ? role === "coach" ? "Sesiones" : "Historial"
                   : activeSheet === "assessments"
-                    ? "Valoraciones"
+                    ? "Tests"
                   : activeSheet === "calendar"
                     ? "Calendario"
+                  : activeSheet === "clientProgress"
+                    ? "Progreso"
+                  : activeSheet === "clientWellness"
+                    ? "Bienestar"
                   : activeSheet === "fatigue"
                     ? "Fatiga"
                   : activeSheet === "weeklyLoad"
@@ -397,6 +401,10 @@ export default function ClientsPage() {
                 )
               }
             />
+          ) : activeSheet === "clientProgress" ? (
+            role === "coach" ? <ClientProgressView client={scopedClient} /> : <DecisionDashboardView />
+          ) : activeSheet === "clientWellness" ? (
+            role === "coach" ? <ClientWellnessView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "calendar" ? (
             role === "coach" ? (
               <CalendarView
@@ -657,18 +665,13 @@ function ClientQuickNav({
   const links = [
     {
       active: activeSheet === "clients" && trainerClientPanel === "dashboard",
-      label: "Dashboard",
+      label: "Resumen",
       onClick: () => onOpenDashboard(client.id)
     },
     {
       active: activeSheet === "clients" && trainerClientPanel === "details",
-      label: "Detalles",
+      label: "Información",
       onClick: () => onOpenDetails(client.id)
-    },
-    {
-      active: activeSheet === "assessments",
-      label: "Valoraciones",
-      onClick: () => onOpenClientSheet(client.id, "assessments")
     },
     {
       active: activeSheet === "planning",
@@ -679,6 +682,21 @@ function ClientQuickNav({
       active: activeSheet === "training",
       label: "Sesiones",
       onClick: () => onOpenClientSheet(client.id, "training")
+    },
+    {
+      active: activeSheet === "assessments",
+      label: "Tests",
+      onClick: () => onOpenClientSheet(client.id, "assessments")
+    },
+    {
+      active: activeSheet === "clientProgress",
+      label: "Progreso",
+      onClick: () => onOpenClientSheet(client.id, "clientProgress")
+    },
+    {
+      active: activeSheet === "clientWellness",
+      label: "Bienestar",
+      onClick: () => onOpenClientSheet(client.id, "clientWellness")
     }
   ];
 
@@ -742,7 +760,7 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
     <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y valoraciones pertenezcan al cliente activo.
+        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y tests pertenezcan al cliente activo.
       </p>
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
         Ir a Clientes
@@ -1433,23 +1451,23 @@ function CoachClientsView({
                     onClick={() => onOpenDashboard(listedClient.id)}
                     type="button"
                   >
-                    Dashboard
+                    Resumen
                   </button>
                   <button
-                    aria-label={`Detalles de ${listedClient.name}`}
+                    aria-label={`Información de ${listedClient.name}`}
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenDetails(listedClient.id)}
-                    title={`Detalles de ${listedClient.name}`}
+                    title={`Información de ${listedClient.name}`}
                     type="button"
                   >
-                    Detalles
+                    Información
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
                     type="button"
                   >
-                    Valoraciones
+                    Tests
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -1801,6 +1819,106 @@ function ClientDetailsView({
         </div>
       )}
     </section>
+  );
+}
+
+function ClientProgressView({ client }: { client?: CoachClient | null }) {
+  const assessments = client?.assessments ?? [];
+  const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
+  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "Antropometría");
+  const otherTests = assessments.filter((assessment) => assessment.type !== "Fuerza" && assessment.type !== "Antropometría");
+  const completedSessions = (client?.sessionRecords ?? []).filter((session) => session.completed || session.status === "Completada");
+
+  if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
+
+  return (
+    <div className="mt-6 grid gap-5">
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <h2 className="text-lg font-semibold text-ink">Progreso de {client.name}</h2>
+        <p className="mt-1 text-sm text-ink/55">Vista inicial para reunir tests, marcas y evolución sin añadir cálculos nuevos.</p>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ClientProgressCard title="Marcas máximas / tests de fuerza" items={strengthTests} />
+        <ClientProgressCard title="Otros tests" items={otherTests} />
+        <ClientProgressCard title="Composición corporal" items={bodyCompositionTests} />
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <h3 className="font-semibold text-ink">Carga / evolución</h3>
+          {completedSessions.length > 0 ? (
+            <div className="mt-3 grid gap-2">
+              <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
+              <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ClientProgressCard({ items, title }: { items: ClientAssessment[]; title: string }) {
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">{title}</h3>
+      {items.length > 0 ? (
+        <div className="mt-3 grid gap-2">
+          {items.slice(0, 4).map((item, index) => (
+            <article className="rounded-md border border-line bg-panel/35 p-3" key={`${item.date}-${item.name}-${index}`}>
+              <p className="text-sm font-semibold text-ink">{item.name}</p>
+              <p className="mt-1 text-sm text-moss">{item.result}</p>
+              <p className="mt-1 text-xs text-ink/45">{item.date}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+      )}
+    </section>
+  );
+}
+
+function ClientWellnessView({ client }: { client?: CoachClient | null }) {
+  const records = client?.sessionRecords ?? [];
+  const wellnessRecords = records.filter((session) => session.wellness);
+  const latestWellness = wellnessRecords[0]?.wellness;
+  const discomfortRecords = records.filter((session) => session.discomfort?.hasDiscomfort || session.discomfort?.notes);
+
+  if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
+
+  return (
+    <div className="mt-6 grid gap-5">
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
+        <p className="mt-1 text-sm text-ink/55">Vista inicial con datos disponibles de wellness, sesiones y molestias recientes.</p>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ClientInfoCard label="Preparación reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavía"} />
+        <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Energía / fatiga" value={latestWellness?.fatigue ? `${latestWellness.fatigue}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Recuperación muscular" value={latestWellness?.soreness ? `${latestWellness.soreness}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Ánimo / estrés" value={latestWellness?.stress ? `${latestWellness.stress}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavía"} />
+      </div>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <h3 className="font-semibold text-ink">Notas recientes</h3>
+        {discomfortRecords.length > 0 ? (
+          <div className="mt-3 grid gap-2">
+            {discomfortRecords.slice(0, 3).map((session, index) => (
+              <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
+                <p className="text-sm font-semibold text-ink">{session.date}</p>
+                <p className="mt-1 text-sm text-ink/60">{session.discomfort?.notes || "Molestia registrada sin notas."}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -3500,7 +3618,7 @@ function AssessmentsView({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">
-              {client ? `Valoraciones de ${client.name}` : "Valoraciones"}
+              {client ? `Tests de ${client.name}` : "Tests"}
             </h2>
             <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
           </div>
@@ -3510,20 +3628,20 @@ function AssessmentsView({
             onClick={() => setShowNewAssessmentForm(true)}
             type="button"
           >
-            Nueva valoración
+            Nuevo test
           </button>
         </div>
 
         {showNewAssessmentForm ? (
           <form className="mt-5 rounded-md border border-line bg-panel/35 p-4" onSubmit={(event) => event.preventDefault()}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="font-semibold text-ink">{isEditingAssessment ? "Editar valoración" : "Nueva valoración"}</h3>
+              <h3 className="font-semibold text-ink">{isEditingAssessment ? "Editar test" : "Nuevo test"}</h3>
               <div className="flex flex-wrap gap-2">
                 <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
                   Cancelar
                 </button>
                 <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
-                  {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
+                  {isEditingAssessment ? "Guardar cambios" : "Guardar test"}
                 </button>
               </div>
             </div>
