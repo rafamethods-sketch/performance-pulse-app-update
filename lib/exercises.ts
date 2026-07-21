@@ -226,7 +226,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Empujar de forma brusca", "Perder la alineación de rodilla", "Bloquear la respiración"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Core", "Gemelos"],
-        fatigueMap: { quadriceps: 0.6, glutes: 0.5, adductors: 0.3, core: 0.2, calves: 0.2 }
+        fatigueMap: { quadriceps: 0.6, glutes: 0.5, adductors: 0.2, hamstrings: 0.1, core: 0.1, calves: 0.2 }
       }),
       squatExercise({
         name: "Sentadilla asistida con feedback manual",
@@ -236,7 +236,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Colapsar las rodillas", "Levantar talones", "Depender totalmente del soporte"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Core", "Erectores espinales", "Gemelos"],
-        fatigueMap: { quadriceps: 0.7, glutes: 0.6, adductors: 0.3, core: 0.2, spinalErectors: 0.2, calves: 0.2 }
+        fatigueMap: { quadriceps: 0.7, glutes: 0.6, adductors: 0.3, hamstrings: 0.1, spinalErectors: 0.2, core: 0.2, calves: 0.2 }
       }),
       squatExercise({
         name: "Wall sit iso",
@@ -246,7 +246,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Hundirse sin control", "Juntar las rodillas", "Apoyar solo las puntas de los pies"],
         primaryMuscles: ["Cuádriceps"],
         secondaryMuscles: ["Glúteo mayor", "Aductores", "Gemelos"],
-        fatigueMap: { quadriceps: 0.8, glutes: 0.4, adductors: 0.3, calves: 0.2 }
+        fatigueMap: { quadriceps: 0.85, glutes: 0.35, adductors: 0.2, hamstrings: 0.1, core: 0.1, calves: 0.15 }
       }),
       squatExercise({
         name: "Spanish squat",
@@ -256,7 +256,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Perder tensión de la banda", "Inclinarse excesivamente", "Rebotar abajo"],
         primaryMuscles: ["Cuádriceps"],
         secondaryMuscles: ["Glúteo mayor", "Core", "Gemelos"],
-        fatigueMap: { quadriceps: 0.9, glutes: 0.4, core: 0.2, calves: 0.2 }
+        fatigueMap: { quadriceps: 0.9, glutes: 0.35, adductors: 0.1, hamstrings: 0.1, core: 0.15, calves: 0.15 }
       })
     ]
   },
