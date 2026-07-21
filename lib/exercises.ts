@@ -44,11 +44,13 @@ export type ExerciseBlock =
   | "Quad accessories"
   | "Hamstring accessories"
   | "Glute accessories"
+  | "Abductor accessories"
   | "Adductor accessories"
   | "Calf & ankle accessories"
   | "Neck and spine mobility"
   | "Upper body mobility"
   | "Lower body mobility"
+  | "Hip mobility & activation"
   | "Integrated mobility";
 
 export type FatigueMap = Partial<Record<FatigueMapKey, number>>;
@@ -117,7 +119,7 @@ export type WeeklyExerciseSetInput = {
 type ExerciseSeed = Omit<
   ExerciseDefinition,
   "allowedSessionSections" | "block" | "bodyRegion" | "exerciseType" | "id" | "pattern" | "rank"
->;
+> & { id?: string };
 
 type ExerciseGroupSeed = {
   block: ExerciseBlock;
@@ -184,11 +186,13 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Quad accessories",
   "Hamstring accessories",
   "Glute accessories",
+  "Abductor accessories",
   "Adductor accessories",
   "Calf & ankle accessories",
   "Neck and spine mobility",
   "Upper body mobility",
   "Lower body mobility",
+  "Hip mobility & activation",
   "Integrated mobility"
 ];
 
@@ -1028,16 +1032,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Glute accessories",
     exercises: [
       squatExercise({
-        name: "Hip abduction machine",
-        equipment: ["Máquina"],
-        technicalDescription:
-          "Abduce la cadera en máquina manteniendo pelvis estable y recorrido controlado. Busca tensión local en gluteo medio sin balancear el tronco.",
-        errorsToAvoid: ["Rebotar al final", "Inclinar el tronco", "Usar rango sin control"],
-        primaryMuscles: ["Glúteo medio"],
-        secondaryMuscles: ["Glúteo mayor"],
-        fatigueMap: { gluteMed: 1, glutes: 0.5 }
-      }),
-      squatExercise({
         name: "Cable kickback",
         equipment: ["Polea"],
         technicalDescription:
@@ -1056,6 +1050,62 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo mayor"],
         secondaryMuscles: ["Isquios", "Estabilizadores lumbares"],
         fatigueMap: { glutes: 1, hamstrings: 0.4, lumbarStabilizers: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "lower-body-accessories-abductor-accessories",
+    pattern: "Lower Body Accessories",
+    block: "Abductor accessories",
+    exercises: [
+      squatExercise({
+        name: "Abducción de cadera en decúbito lateral",
+        equipment: ["Peso corporal", "Miniband", "Tobillera"],
+        technicalDescription:
+          "Ejercicio accesorio para abductores de cadera en decúbito lateral. Elevar la pierna superior manteniendo pelvis estable y controlando tanto la subida como la bajada. Puede progresarse con miniband o tobillera.",
+        errorsToAvoid: [
+          "Rotar la pelvis",
+          "Llevar la pierna hacia delante como flexión de cadera",
+          "Usar impulso",
+          "Elevar la pierna perdiendo alineación",
+          "Arquear la zona lumbar"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.7, glutes: 0.25, core: 0.15 }
+      }),
+      squatExercise({
+        name: "Abducción de cadera unilateral de pie en polea baja",
+        equipment: ["Polea baja", "Tobillera"],
+        technicalDescription:
+          "Ejercicio accesorio unilateral para abductores de cadera con carga cuantificable. Separar la pierna lateralmente desde la cadera, manteniendo el tronco estable y controlando la fase excéntrica.",
+        errorsToAvoid: [
+          "Inclinar el tronco",
+          "Rotar la pelvis",
+          "Usar demasiada carga",
+          "Perder control de la pierna de apoyo",
+          "Hacer el movimiento con impulso"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.8, glutes: 0.25, core: 0.25, quadriceps: 0.1, calves: 0.1 }
+      }),
+      squatExercise({
+        id: "lower-body-accessories-glutes-1",
+        name: "Abducción en máquina sentada",
+        equipment: ["Máquina"],
+        technicalDescription:
+          "Ejercicio accesorio para abductores de cadera en máquina. Separar las piernas contra la resistencia manteniendo espalda y pelvis estables, controlando el recorrido completo.",
+        errorsToAvoid: [
+          "Usar impulso",
+          "Despegar la pelvis o la espalda del respaldo",
+          "Usar más carga de la que permite controlar",
+          "Hacer repeticiones parciales sin control",
+          "Perder control en la fase de vuelta"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.85, glutes: 0.3, core: 0.1 }
       })
     ]
   },
@@ -2210,6 +2260,79 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ]
   },
   {
+    slug: "mobility-movement-prep-hip-mobility-activation",
+    pattern: "Mobility / Movement Prep",
+    block: "Hip mobility & activation",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        name: "Abducción-aducción de cadera en decúbito supino",
+        equipment: ["Peso corporal", "Miniband"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de cadera en decúbito supino. Realizar abducción y aducción controlada de la pierna manteniendo la pelvis estable. Puede realizarse con peso corporal o con miniband suave como variante de activación, especialmente en la fase de abducción.",
+        errorsToAvoid: [
+          "Rotar la pelvis",
+          "Arquear la zona lumbar",
+          "Buscar demasiado rango perdiendo control",
+          "Mover la pierna con impulso",
+          "Convertir el movimiento en flexión de cadera"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Aductores", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.25, adductors: 0.25, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Abducción de cadera en cuadrupedia",
+        equipment: ["Peso corporal", "Miniband"],
+        technicalDescription:
+          "Ejercicio de activación y control lumbopélvico en cuadrupedia. Separar la rodilla hacia fuera manteniendo columna y pelvis estables. Puede realizarse con peso corporal o con miniband suave para aumentar la activación.",
+        errorsToAvoid: [
+          "Rotar la pelvis",
+          "Hundir la zona lumbar",
+          "Desplazar demasiado el peso corporal",
+          "Convertirlo en extensión de cadera",
+          "Usar impulso"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.45, glutes: 0.25, core: 0.2 }
+      }),
+      squatExercise({
+        name: "Clamshell con miniband",
+        equipment: ["Miniband"],
+        technicalDescription:
+          "Ejercicio de activación de glúteo medio en decúbito lateral con caderas y rodillas flexionadas. Mantener los pies juntos y abrir la rodilla superior contra la resistencia de la miniband sin rotar la pelvis.",
+        errorsToAvoid: [
+          "Girar la pelvis hacia atrás",
+          "Separar los pies",
+          "Hacer el movimiento demasiado rápido",
+          "Compensar con la zona lumbar",
+          "Perder tensión de la miniband"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.5, glutes: 0.25, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Abducción de cadera en 90-90",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de cadera en posición 90-90. Trabajar la apertura de cadera manteniendo control pélvico y rango cómodo. Usarlo como preparación antes del trabajo de tren inferior.",
+        errorsToAvoid: [
+          "Compensar con inclinación del tronco",
+          "Forzar el rango",
+          "Perder control de la pelvis",
+          "Convertirlo en movimiento lumbar",
+          "Buscar más amplitud a costa del control"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Aductores", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.3, adductors: 0.2, core: 0.15 }
+      })
+    ]
+  },
+  {
     slug: "mobility-movement-prep-integrated",
     pattern: "Mobility / Movement Prep",
     block: "Integrated mobility",
@@ -2551,7 +2674,7 @@ export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((gro
     allowedSessionSections,
     bodyRegion: patternBodyRegions[group.pattern],
     exerciseType,
-    id: `${group.slug}-${index + 1}`,
+    id: exercise.id ?? `${group.slug}-${index + 1}`,
     pattern: group.pattern,
     block: group.block,
     rank: index + 1
