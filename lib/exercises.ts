@@ -1342,6 +1342,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { glutes: 0.9, quadriceps: 0.9, hamstrings: 0.7, traps: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
       }),
       squatExercise({
+        id: "olympic-derivatives-power-muscle-snatch",
+        name: "Muscle snatch",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Derivado olímpico de arrancada orientado a la extensión potente de cadera, rodilla y tobillo y al tirón vertical hasta una recepción alta sin profundidad de sentadilla. Priorizar trayectoria cercana de la barra, extensión completa y control overhead.",
+        errorsToAvoid: [
+          "tirar con los brazos demasiado pronto",
+          "alejar la barra del cuerpo",
+          "no completar la extensión de cadera",
+          "recibir con hombros inestables",
+          "arquear la zona lumbar en la posición overhead",
+          "usar demasiada carga para el nivel técnico"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Deltoides"],
+        secondaryMuscles: ["Isquiosurales", "Gemelos", "Trapecio", "Core", "Manguito rotador"],
+        fatigueMap: { glutes: 0.45, quadriceps: 0.4, hamstrings: 0.3, calves: 0.25, shoulders: 0.4, upperBack: 0.3, traps: 0.3, rotatorCuff: 0.2, core: 0.25 }
+      }),
+      squatExercise({
         name: "Hang power snatch",
         equipment: ["Barra"],
         technicalDescription:
@@ -1360,6 +1378,42 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio", "Upper back"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
         fatigueMap: { glutes: 0.8, quadriceps: 0.8, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-push-jerk",
+        name: "Push jerk",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Derivado olímpico de empuje vertical en el que se utiliza un dip-drive de piernas para impulsar la barra y recibirla sobre la cabeza con flexión parcial de rodillas. Trabaja transferencia de fuerza desde tren inferior hacia overhead y estabilidad en recepción.",
+        errorsToAvoid: [
+          "hacer el dip demasiado profundo",
+          "perder verticalidad del tronco",
+          "empujar la barra hacia delante",
+          "no bloquear de forma estable sobre la cabeza",
+          "recibir con rodillas colapsadas",
+          "perder control de core y costillas"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
+        secondaryMuscles: ["Gemelos", "Tríceps", "Trapecio", "Core", "Manguito rotador"],
+        fatigueMap: { quadriceps: 0.45, glutes: 0.35, calves: 0.25, shoulders: 0.45, triceps: 0.25, upperBack: 0.25, traps: 0.25, rotatorCuff: 0.25, core: 0.3 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-split-jerk",
+        name: "Split jerk",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Derivado olímpico de empuje vertical con recepción en split stance. Utiliza el impulso de piernas para elevar la barra y una recepción asimétrica para estabilizarla sobre la cabeza. Requiere coordinación, velocidad bajo la barra, control del split y estabilidad overhead.",
+        errorsToAvoid: [
+          "separar poco los pies en la recepción",
+          "recibir con el peso mal repartido",
+          "perder la línea de la barra sobre el centro de masas",
+          "colapsar la rodilla adelantada",
+          "arquear la zona lumbar",
+          "recuperar los pies sin control"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
+        secondaryMuscles: ["Isquiosurales", "Gemelos", "Tríceps", "Glúteo medio", "Core", "Manguito rotador"],
+        fatigueMap: { quadriceps: 0.45, glutes: 0.4, hamstrings: 0.25, calves: 0.25, gluteMed: 0.25, shoulders: 0.45, triceps: 0.25, rotatorCuff: 0.25, core: 0.3 }
       })
     ]
   },
