@@ -51,6 +51,8 @@ export type ExerciseBlock =
   | "Upper body mobility"
   | "Lower body mobility"
   | "Hip mobility & activation"
+  | "Ankle mobility"
+  | "Thoracic & trunk mobility"
   | "Integrated mobility";
 
 export type FatigueMap = Partial<Record<FatigueMapKey, number>>;
@@ -193,6 +195,8 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Upper body mobility",
   "Lower body mobility",
   "Hip mobility & activation",
+  "Ankle mobility",
+  "Thoracic & trunk mobility",
   "Integrated mobility"
 ];
 
@@ -2180,44 +2184,20 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { cervicalSpine: 0.5, upperTraps: 0.2, neckFlexors: 0.2 }
       }),
       squatExercise({
-        name: "Cat-cow",
+        name: "Cat-cow / Cat camel",
         equipment: ["Peso corporal"],
         technicalDescription:
-          "Alterna flexión y extensión de columna en cuadrupedia con respiración controlada. El movimiento debe ser suave y segmentado.",
-        errorsToAvoid: ["Mover solo el cuello", "Hacerlo con dolor", "Perder respiración"],
+          "Ejercicio de movilidad suave de columna en cuadrupedia. Alternar flexión y extensión de columna coordinando pelvis, columna torácica y cervical de forma controlada.",
+        errorsToAvoid: [
+          "Hacer el movimiento rápido",
+          "Forzar el cuello",
+          "Hundir la zona lumbar sin control",
+          "Bloquear la respiración",
+          "Mover solo la zona cervical o solo la lumbar"
+        ],
         primaryMuscles: ["Columna torácica", "Estabilizadores lumbares"],
         secondaryMuscles: ["Core"],
-        fatigueMap: { thoracicSpine: 0.4, lumbarStabilizers: 0.3, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Thoracic rotation drill",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Realiza rotaciónes torácicas controladas manteniendo pelvis estable y respiración fluida. Debe moverse la parte alta de la espalda sin compensar desde la zona lumbar.",
-        errorsToAvoid: ["Rotar desde la pelvis", "Forzar el cuello", "Buscar rango con dolor"],
-        primaryMuscles: ["Columna torácica"],
-        secondaryMuscles: ["Oblicuos", "Hombros"],
-        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.1 }
-      }),
-      squatExercise({
-        name: "Open book rotation",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Desde decúbito lateral, abre el brazo superior siguiendo la rotación torácica sin perder la posición de cadera. Controla la respiración y el retorno.",
-        errorsToAvoid: ["Girar la pelvis", "Forzar hombro", "Hacer rebotes"],
-        primaryMuscles: ["Columna torácica"],
-        secondaryMuscles: ["Oblicuos", "Hombros"],
-        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.2 }
-      }),
-      squatExercise({
-        name: "Quadruped thoracic rotation",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "En cuadrupedia, rota el tronco llevando el codo o la mano hacia el techo. Mantén pelvis estable y rango controlado.",
-        errorsToAvoid: ["Mover la pelvis", "Colapsar el apoyo", "Rotar desde el cuello"],
-        primaryMuscles: ["Columna torácica"],
-        secondaryMuscles: ["Oblicuos", "Hombros", "Core"],
-        fatigueMap: { thoracicSpine: 0.5, obliques: 0.2, shoulders: 0.2, core: 0.1 }
+        fatigueMap: { spinalErectors: 0.15, core: 0.15 }
       })
     ]
   },
@@ -2277,36 +2257,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exerciseType: "mobility",
     allowedSessionSections: ["activation"],
     exercises: [
-      squatExercise({
-        name: "Ankle mobility drill",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Trabaja la dorsiflexión del tobillo con rodilla avanzando sobre el pie y talón apoyado. Mantén el arco activo y controla el rango.",
-        errorsToAvoid: ["Levantar el talón", "Colapsar el arco del pie", "Rebotar sin control"],
-        primaryMuscles: ["Tobillo"],
-        secondaryMuscles: ["Gemelos", "Tibial anterior"],
-        fatigueMap: { ankles: 0.5, calves: 0.2, tibialisAnterior: 0.2 }
-      }),
-      squatExercise({
-        name: "Hip CARs",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Realiza círculos articulares de cadera lentos y activos manteniendo pelvis estable. Prioriza control del rango antes que amplitud.",
-        errorsToAvoid: ["Rotar la pelvis", "Perder equilibrio", "Forzar el rango"],
-        primaryMuscles: ["Caderas"],
-        secondaryMuscles: ["Glúteos", "Core"],
-        fatigueMap: { hips: 0.5, glutes: 0.2, core: 0.2 }
-      }),
-      squatExercise({
-        name: "90/90 hip switch",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Alterna posiciónes 90/90 de cadera con control, manteniendo tronco estable y apoyo de manos solo si es necesario.",
-        errorsToAvoid: ["Dejar caer las rodillas", "Compensar con lumbar", "Moverse sin control"],
-        primaryMuscles: ["Caderas"],
-        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
-        fatigueMap: { hips: 0.5, glutes: 0.2, adductors: 0.2, core: 0.2 }
-      }),
       squatExercise({
         name: "Adductor rockback",
         equipment: ["Peso corporal"],
@@ -2389,6 +2339,221 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Aductores", "Core / estabilizadores lumbopélvicos"],
         fatigueMap: { gluteMed: 0.3, adductors: 0.2, core: 0.15 }
+      }),
+      squatExercise({
+        name: "Bisagra de cadera con pica",
+        equipment: ["Pica", "PVC"],
+        technicalDescription:
+          "Ejercicio de movilidad y aprendizaje del patrón de bisagra de cadera. Colocar la pica en contacto con cabeza, zona dorsal y sacro, y llevar la cadera hacia atrás manteniendo columna neutra y control de la pelvis.",
+        errorsToAvoid: [
+          "Perder contacto con la pica",
+          "Flexionar demasiado las rodillas",
+          "Redondear la zona lumbar",
+          "Convertirlo en una sentadilla",
+          "Mover la columna en vez de la cadera"
+        ],
+        primaryMuscles: ["Glúteos", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core"],
+        fatigueMap: { glutes: 0.25, hamstrings: 0.25, spinalErectors: 0.15, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-lower-body-2",
+        name: "Circunducción de cadera sentado en silla",
+        equipment: ["Peso corporal", "Silla"],
+        technicalDescription:
+          "Ejercicio de movilidad de cadera en posición sentada. Realizar círculos controlados con la cadera, combinando flexión, abducción y rotación sin compensar con el tronco.",
+        errorsToAvoid: [
+          "Inclinar el tronco para ganar rango",
+          "Mover la pelvis en exceso",
+          "Usar impulso",
+          "Perder control del recorrido",
+          "Forzar el rango"
+        ],
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
+        fatigueMap: { gluteMed: 0.25, glutes: 0.2, adductors: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Circunducción de cadera en decúbito supino",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad de cadera en decúbito supino. Dibujar círculos controlados con la pierna desde la cadera, diferenciándolo de la abducción-aducción simple, que solo se mueve de lado a lado.",
+        errorsToAvoid: [
+          "Arquear la zona lumbar",
+          "Mover la pelvis",
+          "Hacer círculos demasiado grandes sin control",
+          "Usar impulso",
+          "Convertirlo en flexión lumbar"
+        ],
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
+        fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.1 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-lower-body-3",
+        name: "Rotaciones de cadera en 90-90",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de rotación interna y externa de cadera en posición 90-90. Cambiar de lado o trabajar rotaciones manteniendo pelvis y tronco controlados. Puede realizarse con apoyo de manos como regresión o sin apoyo como progresión.",
+        errorsToAvoid: [
+          "Compensar con inclinación del tronco",
+          "Perder control de la pelvis",
+          "Forzar la rodilla",
+          "Mover desde la zona lumbar en vez de la cadera",
+          "Hacer el cambio con impulso"
+        ],
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
+        fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-integrated-2",
+        name: "Sentadilla asiática",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Sentadilla profunda mantenida utilizada como movilidad global de tren inferior. Buscar una posición profunda con talones apoyados, cadera baja, rodillas flexionadas y tronco lo más erguido posible dentro del rango disponible.",
+        errorsToAvoid: [
+          "Despegar los talones sin control",
+          "Colapsar rodillas hacia dentro",
+          "Redondear excesivamente la espalda",
+          "Forzar el rango",
+          "Perder la respiración o tensión relajada"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteos"],
+        secondaryMuscles: ["Aductores", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.25, glutes: 0.25, adductors: 0.2, calves: 0.2, core: 0.15 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-ankle-mobility",
+    pattern: "Mobility / Movement Prep",
+    block: "Ankle mobility",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        id: "mobility-movement-prep-lower-body-1",
+        name: "Dorsiflexión de tobillo asistida semiarrodillado",
+        equipment: ["Mancuerna"],
+        technicalDescription:
+          "Ejercicio de movilidad de dorsiflexión en posición semiarrodillada. Llevar la rodilla hacia delante sobre el pie usando una mancuerna como asistencia o carga suave, manteniendo el talón apoyado y controlando la alineación de la rodilla.",
+        errorsToAvoid: ["Levantar el talón", "Colapsar la rodilla hacia dentro", "Girar el pie", "Usar demasiada carga", "Perder control del rango final"],
+        primaryMuscles: ["Tobillo"],
+        secondaryMuscles: ["Gemelos", "Cuádriceps", "Glúteos", "Core"],
+        fatigueMap: { calves: 0.2, quadriceps: 0.1, glutes: 0.1, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Dorsiflexión resistida con superband",
+        equipment: ["Superband"],
+        technicalDescription:
+          "Ejercicio de movilidad de tobillo con resistencia/asistencia de superband. Colocar la banda para facilitar el deslizamiento articular y llevar la rodilla hacia delante manteniendo el talón apoyado.",
+        errorsToAvoid: ["Colocar mal la banda", "Perder apoyo del talón", "Colapsar la rodilla hacia dentro", "Hacer rebotes sin control", "Forzar dolor en el tobillo"],
+        primaryMuscles: ["Tobillo"],
+        secondaryMuscles: ["Gemelos", "Cuádriceps", "Core"],
+        fatigueMap: { calves: 0.2, quadriceps: 0.1, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Dorsiflexión de tobillo con abducción de cadera semiarrodillado",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad combinada de tobillo y cadera. En posición semiarrodillada, llevar la rodilla hacia delante y ligeramente hacia fuera, buscando dorsiflexión y apertura de cadera con control.",
+        errorsToAvoid: ["Levantar el talón", "Perder alineación pie-rodilla", "Rotar la pelvis", "Forzar demasiado la cadera", "Hacer el movimiento con impulso"],
+        primaryMuscles: ["Tobillo", "Caderas"],
+        secondaryMuscles: ["Gemelos", "Glúteo medio", "Aductores", "Core"],
+        fatigueMap: { calves: 0.2, gluteMed: 0.25, adductors: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Dorsiflexión alterna en sentadilla profunda",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio integrado de movilidad de tobillo en sentadilla profunda. Mantener la posición profunda y alternar el avance de cada rodilla hacia delante, trabajando la dorsiflexión de una pierna y luego de la otra.",
+        errorsToAvoid: ["Despegar los talones", "Perder la posición profunda", "Colapsar rodillas hacia dentro", "Redondear excesivamente la espalda", "Moverse demasiado rápido"],
+        primaryMuscles: ["Tobillo", "Caderas"],
+        secondaryMuscles: ["Gemelos", "Cuádriceps", "Glúteos", "Core"],
+        fatigueMap: { calves: 0.25, quadriceps: 0.2, glutes: 0.2, core: 0.15 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-thoracic-trunk-mobility",
+    pattern: "Mobility / Movement Prep",
+    block: "Thoracic & trunk mobility",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        id: "mobility-movement-prep-neck-spine-3",
+        name: "Rotación torácica sentado con brazos en pecho",
+        equipment: ["Peso corporal", "Silla"],
+        technicalDescription:
+          "Ejercicio básico de rotación torácica en sedestación. Sentarse con pelvis estable, cruzar brazos sobre el pecho y rotar el tronco hacia un lado y otro sin compensar con la pelvis.",
+        errorsToAvoid: ["Girar la pelvis", "Inclinar el tronco", "Elevar los hombros", "Forzar el cuello", "Hacer el movimiento rápido y sin control"],
+        primaryMuscles: ["Columna torácica"],
+        secondaryMuscles: ["Core", "Erectores espinales", "Oblicuos"],
+        fatigueMap: { core: 0.2, spinalErectors: 0.15, obliques: 0.2 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-neck-spine-4",
+        name: "Rotación torácica tumbado lateral (Open book)",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad torácica en decúbito lateral. Mantener rodillas flexionadas y pelvis estable, abrir el brazo y el pecho hacia el techo y hacia atrás como si se abriera un libro.",
+        errorsToAvoid: ["Despegar las rodillas", "Girar la pelvis", "Arquear la zona lumbar", "Forzar el hombro", "Mover solo el brazo sin rotar el tronco"],
+        primaryMuscles: ["Columna torácica"],
+        secondaryMuscles: ["Core", "Erectores espinales", "Oblicuos"],
+        fatigueMap: { core: 0.15, spinalErectors: 0.15, obliques: 0.2 }
+      }),
+      squatExercise({
+        name: "Rotación torácica semiarrodillado en pared",
+        equipment: ["Pared"],
+        technicalDescription:
+          "Variante típica de open book en posición semiarrodillada junto a una pared. Mantener pelvis estable, usar la pared como referencia y abrir el pecho rotando desde la columna torácica. Puede hacerse también sin pared como variante.",
+        errorsToAvoid: ["Rotar la pelvis", "Perder la posición semiarrodillada", "Inclinar el tronco", "Forzar el hombro contra la pared", "Mover solo el brazo sin acompañar con el pecho"],
+        primaryMuscles: ["Columna torácica"],
+        secondaryMuscles: ["Core", "Erectores espinales", "Oblicuos", "Glúteos"],
+        fatigueMap: { core: 0.2, spinalErectors: 0.15, obliques: 0.2, glutes: 0.1 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-neck-spine-5",
+        name: "Rotación torácica en cuadrupedia",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad torácica en cuadrupedia. Desde apoyo de manos y rodillas, rotar el tronco llevando el codo o la mano hacia el techo manteniendo pelvis y zona lumbar controladas.",
+        errorsToAvoid: ["Hundir la zona lumbar", "Desplazar demasiado el peso", "Rotar la pelvis", "Forzar el cuello", "Mover solo el brazo sin rotación torácica"],
+        primaryMuscles: ["Columna torácica"],
+        secondaryMuscles: ["Core", "Erectores espinales", "Oblicuos", "Hombros"],
+        fatigueMap: { core: 0.2, spinalErectors: 0.15, obliques: 0.2, shoulders: 0.1 }
+      }),
+      squatExercise({
+        name: "Inclinación lateral de tronco",
+        equipment: ["Peso corporal", "Pared"],
+        technicalDescription:
+          "Ejercicio de movilidad lateral del tronco. Realizar inclinación lateral controlada buscando apertura de la cadena lateral y control entre costillas y pelvis. Variante básica: sentado en pared. Variante progresiva: semiarrodillado.",
+        errorsToAvoid: ["Rotar el tronco en vez de inclinar", "Elevar el hombro", "Perder control de pelvis", "Compensar con la zona lumbar", "Forzar el rango"],
+        primaryMuscles: ["Columna torácica", "Core"],
+        secondaryMuscles: ["Erectores espinales", "Oblicuos"],
+        fatigueMap: { core: 0.2, spinalErectors: 0.15, obliques: 0.25 }
+      }),
+      squatExercise({
+        name: "Zancada adelante + rotación de tronco",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio integrado de movilidad de cadera y tronco. Realizar una zancada adelante y rotar el tronco hacia la pierna adelantada o hacia el lado abierto según el objetivo, manteniendo control de pelvis y rodilla.",
+        errorsToAvoid: ["Perder alineación de la rodilla adelantada", "Rotar desde la lumbar sin control", "Perder equilibrio", "Colapsar la cadera", "Hacer la rotación con impulso"],
+        primaryMuscles: ["Caderas", "Columna torácica"],
+        secondaryMuscles: ["Glúteos", "Cuádriceps", "Aductores", "Core", "Gemelos"],
+        fatigueMap: { glutes: 0.25, quadriceps: 0.2, adductors: 0.15, core: 0.25, calves: 0.1 }
+      }),
+      squatExercise({
+        name: "Zancada lateral + rotación de tronco",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio integrado de movilidad de cadera, aductores y tronco. Realizar zancada lateral y añadir rotación de tronco, preferentemente hacia la pierna flexionada como referencia principal. La rotación hacia el lado abierto puede usarse como variante.",
+        errorsToAvoid: ["Colapsar la rodilla de la pierna flexionada", "Perder apoyo del pie", "Forzar demasiado los aductores", "Rotar sin controlar la pelvis", "Usar impulso"],
+        primaryMuscles: ["Caderas", "Columna torácica"],
+        secondaryMuscles: ["Glúteos", "Glúteo medio", "Aductores", "Cuádriceps", "Core", "Gemelos"],
+        fatigueMap: { glutes: 0.25, gluteMed: 0.2, adductors: 0.25, quadriceps: 0.2, core: 0.25, calves: 0.1 }
       })
     ]
   },
@@ -2408,16 +2573,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Caderas", "Columna torácica"],
         secondaryMuscles: ["Aductores", "Flexores cadera", "Hombros"],
         fatigueMap: { hips: 0.5, thoracicSpine: 0.4, adductors: 0.2, hipFlexors: 0.2, shoulders: 0.1 }
-      }),
-      squatExercise({
-        name: "Deep squat pry",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Mantén una sentadilla profunda y moviliza suavemente caderas y tobillos con ayuda de los codos. Conserva apoyo completo del pie.",
-        errorsToAvoid: ["Levantar talones", "Colapsar rodillas", "Forzar profundidad dolorosa"],
-        primaryMuscles: ["Caderas", "Tobillos"],
-        secondaryMuscles: ["Aductores", "Glúteos", "Core"],
-        fatigueMap: { hips: 0.4, ankles: 0.3, adductors: 0.2, glutes: 0.2, core: 0.1 }
       }),
       squatExercise({
         name: "Inchworm",
