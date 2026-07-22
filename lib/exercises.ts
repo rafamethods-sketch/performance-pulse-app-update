@@ -100,6 +100,32 @@ export type FatigueMapKey =
   | "forearms"
   | "upperBack";
 
+export type ExerciseVariantType =
+  | "material"
+  | "stance"
+  | "grip"
+  | "range"
+  | "tempo"
+  | "support"
+  | "direction"
+  | "start_position"
+  | "reception"
+  | "complex"
+  | "progression"
+  | "regression";
+
+export type ExerciseVariantDifficulty = "basic" | "intermediate" | "advanced";
+
+export type ExerciseVariant = {
+  id: string;
+  name: string;
+  type: ExerciseVariantType;
+  difficulty?: ExerciseVariantDifficulty;
+  equipment?: string[];
+  description?: string;
+  coachingNotes?: string;
+};
+
 export type ExerciseDefinition = {
   bodyRegion: BodyRegion;
   block: ExerciseBlock;
@@ -115,6 +141,7 @@ export type ExerciseDefinition = {
   secondaryMuscles: string[];
   technicalDescription: string;
   allowedSessionSections: SessionExerciseSection[];
+  variants?: ExerciseVariant[];
 };
 
 export type WeeklyExerciseSetInput = {
@@ -545,6 +572,28 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Alargar el contacto", "Aterrizar con ruido excesivo", "Perder alineación de rodilla"],
         primaryMuscles: ["Gemelos", "Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Core", "Hamstrings"],
+        variants: [
+          {
+            id: "drop-jump-box",
+            name: "Drop jump desde cajón",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal / cajón"],
+            description:
+              "Variante realizada desde cajón bajo, priorizando contacto breve y rebote vertical controlado.",
+            coachingNotes:
+              "Usar una altura que permita mantener rigidez, alineación y tiempo de contacto corto."
+          },
+          {
+            id: "drop-jump-unilateral-step",
+            name: "Drop jump unilateral desde step",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Peso corporal / step"],
+            description: "Variante unilateral con mayor demanda de control de tobillo, rodilla y cadera.",
+            coachingNotes: "No progresar a esta variante si el aterrizaje bilateral no es estable."
+          }
+        ],
         fatigueMap: { calves: 1, quadriceps: 0.8, glutes: 0.7, adductors: 0.4, core: 0.4, hamstrings: 0.3 }
       })
     ]
@@ -619,6 +668,26 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Hiperextender lumbar", "Perder la retroversion final", "Separar rodillas sin control"],
         primaryMuscles: ["Glúteo mayor"],
         secondaryMuscles: ["Isquios", "Aductores", "Core", "Erectores espinales"],
+        variants: [
+          {
+            id: "hip-thrust-barbell",
+            name: "Hip thrust con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante cargada con barra para aumentar la sobrecarga de extensión de cadera.",
+            coachingNotes: "Ajustar protección de cadera y mantener retroversión pélvica controlada arriba."
+          },
+          {
+            id: "hip-thrust-unilateral",
+            name: "Hip thrust unilateral",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Mancuerna", "Barra"],
+            description: "Variante unilateral con mayor demanda de estabilidad pélvica y control de cadera.",
+            coachingNotes: "Evitar rotación de pelvis y pérdida de extensión completa."
+          }
+        ],
         fatigueMap: { glutes: 1, hamstrings: 0.5, adductors: 0.3, core: 0.3, spinalErectors: 0.2 }
       }),
       squatExercise({

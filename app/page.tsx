@@ -55,7 +55,9 @@ import {
   searchExercises,
   type BodyRegion,
   type ExerciseDefinition,
-  type ExercisePattern
+  type ExercisePattern,
+  type ExerciseVariantDifficulty,
+  type ExerciseVariantType
 } from "@/lib/exercises";
 import {
   calculateExternalLoadByPattern,
@@ -2685,6 +2687,28 @@ function PlanningCalendarPreview({
     </section>
   );
 }
+
+const exerciseVariantTypeLabels: Record<ExerciseVariantType, string> = {
+  complex: "Complejo",
+  direction: "Dirección",
+  grip: "Agarre",
+  material: "Material",
+  progression: "Progresión",
+  range: "Rango",
+  reception: "Recepción",
+  regression: "Regresión",
+  stance: "Apoyo / posición",
+  start_position: "Posición inicial",
+  support: "Soporte",
+  tempo: "Tempo"
+};
+
+const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string> = {
+  advanced: "Avanzada",
+  basic: "Básica",
+  intermediate: "Intermedia"
+};
+
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower_body");
   const availablePatterns = getExercisePatternsByBodyRegion(activeBodyRegion);
@@ -2802,6 +2826,46 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
               <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
             </div>
+
+            {selectedExercise.variants?.length ? (
+              <div className="mt-4 rounded-md border border-line p-4">
+                <h3 className="text-sm font-semibold text-ink">Variantes</h3>
+                <div className="mt-3 grid gap-3">
+                  {selectedExercise.variants.map((variant) => (
+                    <article className="rounded-md bg-panel/45 p-3" key={variant.id}>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-ink">{variant.name}</h4>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">
+                              {exerciseVariantTypeLabels[variant.type]}
+                            </span>
+                            {variant.difficulty ? (
+                              <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                                {exerciseVariantDifficultyLabels[variant.difficulty]}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {variant.equipment?.length ? (
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                            {variant.equipment.join(" / ")}
+                          </span>
+                        ) : null}
+                      </div>
+                      {variant.description ? (
+                        <p className="mt-3 text-sm leading-6 text-ink/70">{variant.description}</p>
+                      ) : null}
+                      {variant.coachingNotes ? (
+                        <p className="mt-2 rounded-md bg-white px-3 py-2 text-sm text-ink/65">
+                          {variant.coachingNotes}
+                        </p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded-md border border-line p-4">
