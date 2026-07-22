@@ -1550,6 +1550,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Saltar hacia delante", "Recibir con codos lentos", "Perder rigidez del tronco"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        variants: [
+          {
+            id: "hang-power-clean-variant-low-hang",
+            name: "Low hang power clean",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante desde posición baja del hang, aumentando la demanda de control de cadera y trayectoria de la barra.",
+            coachingNotes: "Evitar perder la espalda alta o alejar la barra."
+          },
+          {
+            id: "hang-power-clean-variant-hip",
+            name: "Hip power clean",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante desde la cadera que reduce recorrido y enfatiza la extensión final.",
+            coachingNotes: "Buscar extensión rápida y recepción alta estable."
+          },
+          {
+            id: "hang-power-clean-variant-split",
+            name: "Hang power clean split",
+            type: "reception",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description: "Variante con recepción en split stance para aumentar la demanda coordinativa y asimétrica.",
+            coachingNotes: "No usar si el deportista aún no controla la recepción bilateral."
+          },
+          {
+            id: "hang-power-clean-variant-kettlebell-unilateral",
+            name: "Hang power clean unilateral con kettlebell",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Kettlebell"],
+            description:
+              "Variante unilateral con kettlebell desde hang, útil para trabajar potencia con menor complejidad que la barra.",
+            coachingNotes: "Controlar la recepción de la kettlebell y evitar compensaciones del tronco."
+          }
+        ],
         fatigueMap: { glutes: 0.9, quadriceps: 0.8, hamstrings: 0.7, traps: 0.7, spinalErectors: 0.5, core: 0.4, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
       }),
       squatExercise({
@@ -1560,6 +1600,57 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Tirar temprano con brazos", "Recibir bajo o inestable", "Alejar la barra"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        variants: [
+          {
+            id: "power-clean-variant-low-hang-power-clean",
+            name: "Low hang power clean",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Power clean iniciado desde posición baja del hang, manteniendo recepción alta y mayor demanda de control de la trayectoria.",
+            coachingNotes: "Mantener tensión en isquiosurales y espalda alta antes de iniciar el tirón."
+          },
+          {
+            id: "power-clean-variant-hip-power-clean",
+            name: "Hip power clean",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Power clean iniciado desde la cadera para enfatizar la extensión final, la velocidad de tirón y la recepción alta.",
+            coachingNotes: "No anticipar la flexión de brazos antes de completar la extensión."
+          },
+          {
+            id: "power-clean-variant-hang-power-clean-split",
+            name: "Hang power clean split",
+            type: "reception",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante desde hang con recepción en split, útil para trabajar velocidad bajo la barra y control asimétrico.",
+            coachingNotes: "Mantener una recepción estable y recuperar los pies con control."
+          },
+          {
+            id: "power-clean-variant-unilateral-box-kettlebell",
+            name: "Hang power clean unilateral al cajón con kettlebell",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Kettlebell", "Cajón"],
+            description:
+              "Variante unilateral con apoyo en cajón que combina extensión de cadera, coordinación unilateral y recepción controlada.",
+            coachingNotes: "Evitar que el cajón provoque pérdida de alineación de rodilla y cadera."
+          },
+          {
+            id: "power-clean-variant-unilateral-box-dumbbell",
+            name: "Hang power clean unilateral al cajón con mancuerna",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Mancuerna", "Cajón"],
+            description: "Variante unilateral con mancuerna y apoyo en cajón, orientada a potencia unilateral y coordinación global.",
+            coachingNotes: "Usar cargas moderadas y priorizar velocidad limpia sobre carga."
+          }
+        ],
         fatigueMap: { glutes: 0.9, hamstrings: 0.7, quadriceps: 0.8, traps: 0.7, spinalErectors: 0.5, calves: 0.4, core: 0.4, forearms: 0.3, upperBack: 0.5 }
       }),
       squatExercise({
@@ -1570,6 +1661,66 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Colapsar en la recepción", "Perder codos altos", "Separar la barra del cuerpo"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        variants: [
+          {
+            id: "clean-variant-hang-clean",
+            name: "Hang clean",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Variante de clean iniciada desde posición de hang, reduciendo la complejidad de la salida desde el suelo y centrando el trabajo en la extensión potente y la recepción.",
+            coachingNotes: "Mantener la barra cerca del cuerpo y no tirar con brazos antes de completar la extensión."
+          },
+          {
+            id: "clean-variant-low-hang-clean",
+            name: "Low hang clean",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante iniciada desde una posición baja del hang, con mayor demanda de control postural, trayectoria de barra y tensión de cadena posterior.",
+            coachingNotes: "No bajar más de lo que permita mantener columna neutra y barra cercana."
+          },
+          {
+            id: "clean-variant-hip-clean",
+            name: "Hip clean",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante iniciada desde la cadera para enfatizar la extensión final y la velocidad bajo la barra.",
+            coachingNotes:
+              "Evitar convertirlo en un tirón de brazos; la intención debe venir de la extensión de cadera."
+          },
+          {
+            id: "clean-variant-split-clean",
+            name: "Split clean",
+            type: "reception",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description: "Variante de clean con recepción en split stance, aumentando la demanda coordinativa y el control asimétrico.",
+            coachingNotes: "Priorizar una recepción estable antes de aumentar carga."
+          },
+          {
+            id: "clean-variant-kettlebell-clean-unilateral",
+            name: "Clean unilateral con kettlebell",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Kettlebell"],
+            description:
+              "Variante unilateral con kettlebell que permite trabajar triple extensión, recepción unilateral y coordinación con menor carga absoluta.",
+            coachingNotes: "Evitar golpear la kettlebell contra el antebrazo y mantener control del tronco."
+          },
+          {
+            id: "clean-variant-kettlebell-clean-tandem",
+            name: "Clean unilateral tándem con kettlebell",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Kettlebell"],
+            description: "Variante unilateral en posición tándem con mayor demanda de estabilidad, control frontal y coordinación.",
+            coachingNotes: "Usar cargas bajas y mantener alineación de pelvis y tronco."
+          }
+        ],
         fatigueMap: { glutes: 0.9, quadriceps: 0.9, hamstrings: 0.7, traps: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3, upperBack: 0.5 }
       }),
       squatExercise({
@@ -1598,6 +1749,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Recibir con hombros inestables", "Alejar la barra", "Perder velocidad bajo la barra"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio", "Upper back"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
+        variants: [
+          {
+            id: "hang-power-snatch-variant-low-hang",
+            name: "Low hang power snatch",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description: "Variante desde posición baja del hang, con mayor demanda de control de bisagra y trayectoria.",
+            coachingNotes: "Mantener la barra cerca y recibir con hombros activos."
+          },
+          {
+            id: "hang-power-snatch-variant-hip",
+            name: "Hip power snatch",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante desde la cadera para enfatizar extensión final y velocidad overhead.",
+            coachingNotes: "No compensar con hiperextensión lumbar al recibir."
+          },
+          {
+            id: "hang-power-snatch-variant-split",
+            name: "Hang power snatch split",
+            type: "reception",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con recepción en split, útil para trabajar coordinación avanzada y estabilidad overhead asimétrica.",
+            coachingNotes: "Priorizar estabilidad de recepción antes de aumentar carga."
+          },
+          {
+            id: "hang-power-snatch-variant-landmine-unilateral",
+            name: "Hang snatch unilateral con landmine",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description:
+              "Variante unilateral con landmine desde hang, reduciendo la exigencia técnica de la barra y manteniendo intención potente.",
+            coachingNotes: "Controlar que la carga no desplace el tronco lateralmente."
+          }
+        ],
         fatigueMap: { glutes: 0.8, quadriceps: 0.7, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.4, core: 0.5, calves: 0.4, forearms: 0.3 }
       }),
       squatExercise({
@@ -1608,6 +1799,57 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Perder la barra hacia delante", "Recibir sin bloqueo estable", "Romper la posición de espalda en la salida"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio", "Upper back"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
+        variants: [
+          {
+            id: "power-snatch-variant-low-hang-power-snatch",
+            name: "Low hang power snatch",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Power snatch iniciado desde posición baja del hang, con recepción alta y mayor demanda técnica de trayectoria.",
+            coachingNotes: "Mantener la barra cerca y no perder estabilidad overhead."
+          },
+          {
+            id: "power-snatch-variant-hip-power-snatch",
+            name: "Hip power snatch",
+            type: "start_position",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Power snatch iniciado desde la cadera, enfatizando extensión final, tirón vertical y recepción overhead alta.",
+            coachingNotes: "Priorizar velocidad y control overhead sobre carga."
+          },
+          {
+            id: "power-snatch-variant-power-snatch-split",
+            name: "Power snatch split",
+            type: "reception",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con recepción en split stance, aumentando la complejidad coordinativa y la estabilidad overhead asimétrica.",
+            coachingNotes: "Usar solo con deportistas que controlen bien la recepción overhead."
+          },
+          {
+            id: "power-snatch-variant-landmine-snatch-unilateral",
+            name: "Snatch unilateral con landmine",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description:
+              "Variante unilateral con landmine que simplifica la trayectoria overhead y permite trabajar potencia diagonal/unilateral.",
+            coachingNotes: "Mantener control de tronco y evitar empujar la carga solo con el brazo."
+          },
+          {
+            id: "power-snatch-variant-landmine-switch-snatch",
+            name: "Switch snatch con landmine",
+            type: "complex",
+            difficulty: "advanced",
+            equipment: ["Landmine"],
+            description: "Variante dinámica con cambio de lado en landmine, orientada a potencia, coordinación y control global.",
+            coachingNotes: "Usar cargas bajas y controlar la transición entre lados."
+          }
+        ],
         fatigueMap: { glutes: 0.8, quadriceps: 0.8, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3 }
       }),
       squatExercise({
@@ -1626,6 +1868,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
         secondaryMuscles: ["Gemelos", "Tríceps", "Trapecio", "Core", "Manguito rotador"],
+        variants: [
+          {
+            id: "push-jerk-variant-push-press",
+            name: "Push press",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Mancuernas"],
+            description:
+              "Variante sin recepción baja marcada, útil como paso previo para aprender el dip-drive y la transferencia de piernas al empuje overhead.",
+            coachingNotes: "Mantener dip vertical y bloqueo overhead estable."
+          },
+          {
+            id: "push-jerk-variant-unilateral-push-press",
+            name: "Push press unilateral",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Kettlebell"],
+            description:
+              "Variante unilateral que permite trabajar transferencia de piernas a empuje overhead con menor carga absoluta y mayor demanda de control.",
+            coachingNotes: "Evitar inclinación lateral del tronco durante el drive."
+          },
+          {
+            id: "push-jerk-variant-landmine-push-press",
+            name: "Landmine push press",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Variante con landmine que orienta el empuje en trayectoria diagonal y reduce la exigencia overhead pura.",
+            coachingNotes: "Mantener control de costillas y no empujar solo con el brazo."
+          },
+          {
+            id: "push-jerk-variant-clean-push-press-kettlebell",
+            name: "Clean + push press unilateral con kettlebell",
+            type: "complex",
+            difficulty: "advanced",
+            equipment: ["Kettlebell"],
+            description:
+              "Complejo unilateral que combina clean y push press con kettlebell, útil para potencia global, coordinación y transferencia.",
+            coachingNotes: "Separar claramente recepción del clean y drive del push press."
+          }
+        ],
         fatigueMap: { quadriceps: 0.45, glutes: 0.35, calves: 0.25, shoulders: 0.45, triceps: 0.25, upperBack: 0.25, traps: 0.25, rotatorCuff: 0.25, core: 0.3 }
       }),
       squatExercise({
@@ -1644,6 +1927,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Tríceps", "Glúteo medio", "Core", "Manguito rotador"],
+        variants: [
+          {
+            id: "split-jerk-variant-asymmetric-start",
+            name: "Split jerk con inicio asimétrico",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con inicio asimétrico para aumentar la demanda de control del split y la coordinación de la recepción.",
+            coachingNotes: "Usar solo si el split jerk básico ya es estable."
+          },
+          {
+            id: "split-jerk-variant-behind-neck",
+            name: "Split jerk tras nuca",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante iniciada desde posición tras nuca, reduciendo la interferencia del rack frontal pero aumentando la exigencia de movilidad y estabilidad.",
+            coachingNotes: "Evitar si hay molestias de hombro o limitaciones overhead."
+          },
+          {
+            id: "split-jerk-variant-power-jerk",
+            name: "Power jerk",
+            type: "reception",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Variante con recepción bilateral parcial, útil como alternativa al split para trabajar drive vertical y recepción overhead.",
+            coachingNotes: "Mantener pies paralelos y rodillas alineadas en la recepción."
+          }
+        ],
         fatigueMap: { quadriceps: 0.45, glutes: 0.4, hamstrings: 0.25, calves: 0.25, gluteMed: 0.25, shoulders: 0.45, triceps: 0.25, rotatorCuff: 0.25, core: 0.3 }
       })
     ]
