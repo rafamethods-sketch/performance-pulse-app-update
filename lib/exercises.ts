@@ -822,6 +822,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             equipment: ["Peso corporal", "Mancuerna", "Barra"],
             description: "Variante unilateral con mayor demanda de estabilidad pélvica y control de cadera.",
             coachingNotes: "Evitar rotación de pelvis y pérdida de extensión completa."
+          },
+          {
+            id: "hip-thrust-variant-dumbbell",
+            name: "Hip thrust con mancuerna",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuerna"],
+            description:
+              "Variante cargada con mancuerna, útil como progresión intermedia entre peso corporal y barra.",
+            coachingNotes: "Mantener control pélvico arriba y evitar hiperextensión lumbar."
+          },
+          {
+            id: "hip-thrust-variant-asymmetric-barbell",
+            name: "Hip thrust asimétrico con barra",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con apoyo asimétrico que aumenta la demanda de control pélvico y estabilidad de cadera.",
+            coachingNotes: "Evitar rotación de pelvis y mantener empuje equilibrado."
+          },
+          {
+            id: "hip-thrust-variant-unilateral-dumbbell",
+            name: "Hip thrust unilateral con mancuerna",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Mancuerna"],
+            description:
+              "Variante unilateral cargada con mancuerna para aumentar la sobrecarga de extensión de cadera y control pélvico.",
+            coachingNotes: "Usar carga moderada y evitar que la pelvis caiga o rote."
+          },
+          {
+            id: "hip-thrust-variant-eccentric-unilateral-dumbbell",
+            name: "Hip thrust excéntrico unilateral con mancuerna",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Mancuerna"],
+            description:
+              "Variante unilateral con énfasis excéntrico para aumentar el control de la bajada y la demanda sobre glúteo e isquiosurales.",
+            coachingNotes: "Controlar la fase excéntrica sin perder alineación de pelvis."
           }
         ],
         fatigueMap: { glutes: 1, hamstrings: 0.5, adductors: 0.3, core: 0.3, spinalErectors: 0.2 }
@@ -844,6 +884,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Redondear espalda", "Convertirlo en sentadilla", "Alejar la carga"],
         primaryMuscles: ["Isquios", "Glúteo mayor"],
         secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
+        variants: [
+          {
+            id: "romanian-deadlift-variant-barbell",
+            name: "Romanian deadlift con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante bilateral con barra para sobrecarga progresiva del patrón hinge.",
+            coachingNotes: "Mantener barra cercana, espalda neutra y tensión activa en isquiosurales."
+          },
+          {
+            id: "romanian-deadlift-variant-dumbbells",
+            name: "Romanian deadlift con mancuernas",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuernas"],
+            description:
+              "Variante con mancuernas que facilita ajuste de recorrido y puede ser más accesible técnicamente.",
+            coachingNotes: "Evitar que las mancuernas se alejen del cuerpo."
+          },
+          {
+            id: "romanian-deadlift-variant-single-leg",
+            name: "Romanian deadlift unilateral",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Mancuerna", "Kettlebell"],
+            description:
+              "Variante unilateral con mayor demanda de equilibrio, control pélvico y estabilidad de cadera.",
+            coachingNotes: "Mantener pelvis cuadrada y no abrir la cadera de la pierna libre."
+          },
+          {
+            id: "romanian-deadlift-variant-deficit",
+            name: "Romanian deadlift en déficit",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Barra", "Mancuernas", "Plataforma"],
+            description:
+              "Variante con mayor rango de movimiento, aumentando la demanda sobre isquiosurales y control de bisagra.",
+            coachingNotes: "Usar solo si se mantiene columna neutra y control del rango."
+          }
+        ],
         fatigueMap: { hamstrings: 1, glutes: 0.8, spinalErectors: 0.5, core: 0.3, adductors: 0.3 }
       }),
       squatExercise({
@@ -862,6 +943,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Isquiosurales", "Glúteo mayor", "Erectores espinales"],
         secondaryMuscles: ["Aductores", "Core", "Upper back"],
+        variants: [
+          {
+            id: "good-morning-variant-barbell",
+            name: "Buenos días con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Variante clásica con barra para trabajar bisagra de cadera, control lumbar y cadena posterior.",
+            coachingNotes: "Usar cargas conservadoras y priorizar control técnico."
+          },
+          {
+            id: "good-morning-variant-smith-machine",
+            name: "Buenos días en multipower",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Multipower"],
+            description:
+              "Variante guiada en multipower que reduce la demanda de estabilización libre y facilita el control de trayectoria.",
+            coachingNotes: "Ajustar posición para que el movimiento siga siendo una bisagra de cadera."
+          },
+          {
+            id: "good-morning-variant-zercher",
+            name: "Buenos días Zercher",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con barra en posición Zercher, aumentando la demanda de core, espalda alta y control del tronco.",
+            coachingNotes: "Usar cargas bajas y evitar pérdida de postura por la posición anterior de la carga."
+          }
+        ],
         fatigueMap: { hamstrings: 0.75, glutes: 0.65, spinalErectors: 0.65, adductors: 0.25, core: 0.35, upperBack: 0.25 }
       }),
       squatExercise({
@@ -872,6 +985,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Perder tensión inicial", "Levantar cadera antes que hombros", "Bloquear con extensión lumbar"],
         primaryMuscles: ["Glúteo mayor", "Isquios"],
         secondaryMuscles: ["Cuádriceps", "Erectores espinales", "Core", "Aductores"],
+        variants: [
+          {
+            id: "trap-bar-deadlift-variant-high-handles",
+            name: "Peso muerto con barra hexagonal agarre alto",
+            type: "range",
+            difficulty: "basic",
+            equipment: ["Barra hexagonal"],
+            description:
+              "Variante con agarres altos que reduce el rango de movimiento y facilita la posición inicial.",
+            coachingNotes: "Útil como entrada técnica antes de progresar a agarres bajos."
+          },
+          {
+            id: "trap-bar-deadlift-variant-low-handles",
+            name: "Peso muerto con barra hexagonal agarre bajo",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Barra hexagonal"],
+            description: "Variante con agarres bajos y mayor rango de movimiento.",
+            coachingNotes: "Mantener control de tronco y empuje equilibrado de piernas."
+          },
+          {
+            id: "trap-bar-deadlift-variant-jump",
+            name: "Trap bar jump",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Barra hexagonal"],
+            description:
+              "Variante balística con barra hexagonal orientada a potencia de extensión de cadera, rodilla y tobillo.",
+            coachingNotes: "Usar cargas ligeras y no programarlo como fuerza máxima."
+          }
+        ],
         fatigueMap: { glutes: 0.9, hamstrings: 0.8, quadriceps: 0.5, spinalErectors: 0.5, core: 0.3, adductors: 0.3 }
       }),
       squatExercise({
@@ -882,6 +1026,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Redondear lumbar", "Tirar con la barra lejos", "Bloquear con hiperextensión"],
         primaryMuscles: ["Glúteo mayor", "Isquios", "Erectores espinales"],
         secondaryMuscles: ["Cuádriceps", "Core", "Aductores", "Gemelos"],
+        variants: [
+          {
+            id: "conventional-deadlift-variant-deficit",
+            name: "Peso muerto convencional en déficit",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Barra", "Plataforma"],
+            description:
+              "Variante con mayor rango de movimiento para aumentar demanda inicial de fuerza y control de posición.",
+            coachingNotes: "Usar solo si el deportista mantiene buena posición desde el suelo."
+          },
+          {
+            id: "conventional-deadlift-variant-block-pull",
+            name: "Peso muerto desde bloques",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Bloques"],
+            description:
+              "Variante con menor rango de movimiento, útil para trabajar sobrecarga o posiciones específicas del tirón.",
+            coachingNotes: "Evitar convertirlo en una extensión lumbar; mantener empuje de piernas y cadera."
+          },
+          {
+            id: "conventional-deadlift-variant-paused",
+            name: "Peso muerto con pausa",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Barra"],
+            description:
+              "Variante con pausa en una posición concreta del tirón para mejorar control, tensión y trayectoria.",
+            coachingNotes: "Mantener tensión durante la pausa sin perder posición lumbar."
+          }
+        ],
         fatigueMap: { glutes: 0.9, hamstrings: 0.9, spinalErectors: 0.7, quadriceps: 0.4, core: 0.4, adductors: 0.3, calves: 0.2 }
       })
     ]
@@ -1272,6 +1448,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Dar un paso demasiado corto", "Perder equilibrio", "Impulsarse con la pierna trasera"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        variants: [
+          {
+            id: "reverse-lunge-variant-dumbbells",
+            name: "Zancada hacia atrás con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description:
+              "Variante cargada con mancuernas para progresar la fuerza unilateral manteniendo libertad de movimiento.",
+            coachingNotes: "Mantener paso atrás controlado y rodilla delantera alineada."
+          },
+          {
+            id: "reverse-lunge-variant-goblet",
+            name: "Zancada hacia atrás goblet",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Kettlebell"],
+            description:
+              "Variante con carga anterior tipo goblet, útil para facilitar postura erguida y control del tronco.",
+            coachingNotes: "No dejar que la carga provoque flexión excesiva de tronco."
+          },
+          {
+            id: "reverse-lunge-variant-smith-machine",
+            name: "Zancada hacia atrás en multipower",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Multipower"],
+            description: "Variante guiada que facilita estabilidad y permite sobrecarga controlada.",
+            coachingNotes: "Ajustar la posición para que el recorrido no fuerce la rodilla ni la cadera."
+          },
+          {
+            id: "reverse-lunge-variant-landmine",
+            name: "Zancada trasera con landmine",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Variante con landmine que añade una trayectoria diagonal y demanda de control del tronco.",
+            coachingNotes: "Evitar rotar el tronco hacia la carga."
+          }
+        ],
         fatigueMap: { quadriceps: 0.8, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.3, core: 0.3 }
       }),
       squatExercise({
@@ -1282,6 +1498,36 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Acelerar sin control", "Cruzar los pies", "Perder alineación de rodilla"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        variants: [
+          {
+            id: "walking-lunge-variant-dumbbells",
+            name: "Zancada frontal alterna con mancuerna",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description: "Variante cargada de zancada alterna para trabajar fuerza unilateral y control dinámico.",
+            coachingNotes: "Mantener pasos consistentes y tronco estable."
+          },
+          {
+            id: "walking-lunge-variant-eccentric-dumbbells",
+            name: "Zancada excéntrica con mancuernas",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Mancuernas"],
+            description:
+              "Variante con énfasis excéntrico para aumentar control de la bajada y tolerancia unilateral.",
+            coachingNotes: "Controlar el descenso sin perder alineación de rodilla y pelvis."
+          },
+          {
+            id: "walking-lunge-variant-front-rack",
+            name: "Walking lunge en front rack",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Kettlebells", "Mancuernas", "Barra"],
+            description: "Variante con carga en front rack que aumenta la demanda de tronco y espalda alta.",
+            coachingNotes: "Mantener costillas controladas y no perder postura por la carga anterior."
+          }
+        ],
         fatigueMap: { quadriceps: 0.9, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.4, core: 0.3 }
       }),
       squatExercise({
@@ -1292,6 +1538,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Impulsarse con la pierna de abajo", "Dejar caer la pelvis", "Perder control en la bajada"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        variants: [
+          {
+            id: "step-up-variant-dumbbells",
+            name: "Step-up con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Cajón"],
+            description:
+              "Variante cargada con mancuernas para progresar fuerza unilateral en extensión de cadera y rodilla.",
+            coachingNotes: "Empujar desde la pierna del cajón y evitar impulsarse con la pierna trasera."
+          },
+          {
+            id: "step-up-variant-contralateral-load",
+            name: "Step-up con carga contralateral",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Kettlebell", "Cajón"],
+            description:
+              "Variante con carga contralateral que aumenta la demanda de estabilidad lateral y control de pelvis.",
+            coachingNotes: "Evitar inclinación lateral del tronco hacia la carga."
+          },
+          {
+            id: "step-up-variant-high-box",
+            name: "Step-up a cajón alto",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Cajón"],
+            description: "Variante con mayor altura de cajón para aumentar rango y demanda de cadera.",
+            coachingNotes: "No usar alturas que obliguen a compensar con impulso o pérdida de pelvis."
+          }
+        ],
         fatigueMap: { quadriceps: 0.8, glutes: 0.8, adductors: 0.4, hamstrings: 0.3, calves: 0.3, core: 0.3 }
       })
     ]
@@ -1329,6 +1606,36 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Perder profundidad controlada", "Cerrar la rodilla", "Inclinarse sin control"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        variants: [
+          {
+            id: "front-foot-elevated-split-squat-variant-dumbbells",
+            name: "Front foot elevated split squat con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Plataforma"],
+            description:
+              "Variante cargada con mancuernas para progresar fuerza unilateral con mayor rango de la pierna adelantada.",
+            coachingNotes: "Mantener control de rodilla y pelvis durante todo el rango."
+          },
+          {
+            id: "front-foot-elevated-split-squat-variant-goblet",
+            name: "Front foot elevated split squat goblet",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Kettlebell", "Plataforma"],
+            description: "Variante con carga anterior tipo goblet para facilitar postura y control de tronco.",
+            coachingNotes: "No dejar que la carga anterior limite la profundidad o provoque flexión excesiva."
+          },
+          {
+            id: "front-foot-elevated-split-squat-variant-deficit",
+            name: "Deficit split squat",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Mancuernas", "Plataformas"],
+            description: "Variante con ambos pies elevados para aumentar rango de movimiento y demanda unilateral.",
+            coachingNotes: "Usar solo si el deportista controla bien el front foot elevated split squat."
+          }
+        ],
         fatigueMap: { quadriceps: 1, glutes: 0.8, adductors: 0.5, hamstrings: 0.3, calves: 0.2, core: 0.3 }
       }),
       squatExercise({
@@ -1339,6 +1646,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Apoyar demasiado peso atrás", "Perder equilibrio", "Cerrar rodilla delantera"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquios", "Gemelos", "Core"],
+        variants: [
+          {
+            id: "bulgarian-split-squat-variant-dumbbells",
+            name: "Búlgara con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Banco"],
+            description:
+              "Variante cargada con mancuernas para progresar la fuerza unilateral manteniendo libertad de movimiento.",
+            coachingNotes: "Mantener pelvis estable y controlar la profundidad."
+          },
+          {
+            id: "bulgarian-split-squat-variant-smith-machine",
+            name: "Búlgara en multipower",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Multipower", "Banco"],
+            description: "Variante guiada que permite mayor estabilidad y sobrecarga controlada.",
+            coachingNotes: "Ajustar la posición del banco para evitar tensión excesiva en la cadera trasera."
+          },
+          {
+            id: "bulgarian-split-squat-variant-front-rack",
+            name: "Búlgara en front rack",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Kettlebells", "Mancuernas", "Barra", "Banco"],
+            description:
+              "Variante con carga anterior que aumenta la demanda de tronco, espalda alta y control postural.",
+            coachingNotes: "Mantener costillas controladas y evitar inclinarse hacia delante en exceso."
+          }
+        ],
         fatigueMap: { quadriceps: 1, glutes: 0.9, adductors: 0.5, hamstrings: 0.3, calves: 0.2, core: 0.3 }
       }),
       squatExercise({
