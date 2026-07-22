@@ -4,6 +4,7 @@ export type ExercisePattern =
   | "Lunge / Unilateral Force"
   | "Lower Body Accessories"
   | "Olympic derivatives"
+  | "Speed & Agility Skills"
   | "Gait & Carry"
   | "Push / Upper Body Press"
   | "Pull / Upper Body Pull"
@@ -32,6 +33,10 @@ export type ExerciseBlock =
   | "Potencia"
   | "Pliometria"
   | "Conditioning"
+  | "Acceleration / Linear Speed"
+  | "Deceleration / Change of Direction"
+  | "Footwork / Coordination"
+  | "Reactive Agility"
   | "Rotation"
   | "Anti-rotation"
   | "Lateral flexion"
@@ -137,6 +142,7 @@ export const exercisePatterns: ExercisePattern[] = [
   "Lunge / Unilateral Force",
   "Lower Body Accessories",
   "Olympic derivatives",
+  "Speed & Agility Skills",
   "Gait & Carry",
   "Push / Upper Body Press",
   "Pull / Upper Body Pull",
@@ -162,6 +168,7 @@ export const patternBodyRegions: Record<ExercisePattern, BodyRegion> = {
   "Pull / Upper Body Pull": "upper_body",
   "Upper Body Accessories": "upper_body",
   "Olympic derivatives": "global_movement",
+  "Speed & Agility Skills": "global_movement",
   "Gait & Carry": "global_movement",
   "Core / Trunk Control": "global_movement",
   "Mobility / Movement Prep": "global_movement"
@@ -175,6 +182,10 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Potencia",
   "Pliometria",
   "Conditioning",
+  "Acceleration / Linear Speed",
+  "Deceleration / Change of Direction",
+  "Footwork / Coordination",
+  "Reactive Agility",
   "Rotation",
   "Anti-rotation",
   "Lateral flexion",
@@ -1330,6 +1341,196 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquios", "Trapecio", "Upper back"],
         secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos"],
         fatigueMap: { glutes: 0.8, quadriceps: 0.8, hamstrings: 0.7, traps: 0.8, upperBack: 0.7, spinalErectors: 0.5, core: 0.5, calves: 0.4, forearms: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "speed-agility-skills-acceleration-linear-speed",
+    pattern: "Speed & Agility Skills",
+    block: "Acceleration / Linear Speed",
+    exercises: [
+      squatExercise({
+        id: "speed-agility-skills-acceleration-linear-5-10m",
+        name: "Aceleración lineal 5-10 m",
+        equipment: ["Campo", "Pista"],
+        technicalDescription:
+          "Ejercicio de aceleración corta orientado a mejorar la salida, la inclinación del cuerpo, la aplicación horizontal de fuerza y la frecuencia inicial de apoyos en distancias de 5 a 10 metros.",
+        errorsToAvoid: [
+          "Salir demasiado erguido",
+          "Dar pasos demasiado largos al inicio",
+          "Apoyar el pie muy por delante del centro de masas",
+          "Perder tensión de tronco",
+          "Frenar antes de completar la distancia",
+          "Mirar al suelo en exceso"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Isquiosurales"],
+        secondaryMuscles: ["Gemelos", "Core", "Flexores de cadera"],
+        fatigueMap: { quadriceps: 0.5, glutes: 0.5, hamstrings: 0.4, calves: 0.35, hipFlexors: 0.25, core: 0.2 }
+      }),
+      squatExercise({
+        id: "speed-agility-skills-linear-sprint-20-30m",
+        name: "Sprint lineal 20-30 m",
+        equipment: ["Campo", "Pista"],
+        technicalDescription:
+          "Sprint lineal de 20 a 30 metros orientado a trabajar aceleración prolongada y transición hacia mayor velocidad. Mantener técnica de carrera eficiente, postura progresivamente más alta y aplicación de fuerza coordinada.",
+        errorsToAvoid: [
+          "Salir sin intención máxima",
+          "Perder coordinación de brazos",
+          "Talonear por delante del cuerpo",
+          "Tensar hombros y cuello",
+          "Acortar en exceso la zancada",
+          "Desacelerar antes de terminar"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
+        secondaryMuscles: ["Gemelos", "Flexores de cadera", "Core"],
+        fatigueMap: { glutes: 0.5, hamstrings: 0.45, quadriceps: 0.45, calves: 0.4, hipFlexors: 0.25, core: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "speed-agility-skills-deceleration-change-direction",
+    pattern: "Speed & Agility Skills",
+    block: "Deceleration / Change of Direction",
+    exercises: [
+      squatExercise({
+        id: "speed-agility-skills-acceleration-deceleration-5-10m",
+        name: "Aceleración + frenada 5-10 m",
+        equipment: ["Campo", "Pista", "Conos"],
+        technicalDescription:
+          "Ejercicio de aceleración corta seguida de frenada controlada. Acelerar entre 5 y 10 metros y detenerse en el menor espacio posible manteniendo buena alineación de cadera, rodilla y pie.",
+        errorsToAvoid: [
+          "Frenar con el tronco demasiado erguido",
+          "Colapsar rodillas hacia dentro",
+          "Apoyar muy estrecho",
+          "Perder equilibrio al detenerse",
+          "Usar demasiados pasos de frenada sin control",
+          "Mirar al suelo todo el tiempo"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
+        secondaryMuscles: ["Isquiosurales", "Gemelos", "Aductores", "Glúteo medio", "Core"],
+        fatigueMap: { quadriceps: 0.65, glutes: 0.55, hamstrings: 0.3, calves: 0.35, adductors: 0.2, gluteMed: 0.25, core: 0.25 }
+      }),
+      squatExercise({
+        id: "speed-agility-skills-sprint-change-direction",
+        name: "Sprint con cambio de dirección",
+        equipment: ["Campo", "Pista", "Conos"],
+        technicalDescription:
+          "Sprint con frenada, cambio de dirección y nueva aceleración. Trabaja la capacidad de desacelerar, reorientar el cuerpo y aplicar fuerza en una nueva dirección.",
+        errorsToAvoid: [
+          "Llegar demasiado alto al cambio de dirección",
+          "Colapsar la rodilla de apoyo",
+          "Girar solo con el tronco",
+          "Apoyar el pie demasiado lejos del cuerpo",
+          "Perder el control de la cadera",
+          "Reiniciar la aceleración sin estabilidad"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquiosurales"],
+        secondaryMuscles: ["Glúteo medio", "Aductores", "Gemelos", "Core"],
+        fatigueMap: { glutes: 0.55, quadriceps: 0.55, hamstrings: 0.35, calves: 0.35, gluteMed: 0.3, adductors: 0.3, core: 0.3 }
+      })
+    ]
+  },
+  {
+    slug: "speed-agility-skills-footwork-coordination",
+    pattern: "Speed & Agility Skills",
+    block: "Footwork / Coordination",
+    exercises: [
+      squatExercise({
+        id: "speed-agility-skills-ladder-front-in-out",
+        name: "Escalera de agilidad: apoyos frontales dentro-fuera",
+        equipment: ["Escalera de agilidad"],
+        technicalDescription:
+          "Ejercicio de coordinación de pies con escalera de agilidad. Realizar apoyos frontales dentro y fuera de los espacios manteniendo ritmo, control postural y precisión de pisada. Variantes: 1 dentro-fuera, 2 dentro-fuera, 2 dentro y 2 fuera, skipping frontal.",
+        errorsToAvoid: [
+          "Mirar solo al suelo",
+          "Perder ritmo de brazos",
+          "Pisar la escalera continuamente",
+          "Elevar demasiado el centro de masas",
+          "Moverse rápido sin precisión",
+          "Bloquear la respiración"
+        ],
+        primaryMuscles: ["Gemelos", "Cuádriceps"],
+        secondaryMuscles: ["Flexores de cadera", "Core", "Tibial anterior"],
+        fatigueMap: { calves: 0.35, quadriceps: 0.3, hipFlexors: 0.25, tibialisAnterior: 0.2, core: 0.15 }
+      }),
+      squatExercise({
+        id: "speed-agility-skills-ladder-lateral-in-out",
+        name: "Escalera de agilidad: apoyos laterales dentro-fuera",
+        equipment: ["Escalera de agilidad"],
+        technicalDescription:
+          "Ejercicio de coordinación lateral con escalera de agilidad. Realizar apoyos dentro-fuera en desplazamiento lateral manteniendo cadera baja, control de rodilla y ritmo de pies. Variantes: lateral 2 dentro-fuera, lateral dentro-fuera, skipping lateral, apoyos laterales alternos.",
+        errorsToAvoid: [
+          "Cruzar pies sin intención",
+          "Perder orientación lateral",
+          "Colapsar rodillas",
+          "Subir demasiado el centro de masas",
+          "Perder ritmo de brazos",
+          "Sacrificar precisión por velocidad"
+        ],
+        primaryMuscles: ["Gemelos", "Cuádriceps", "Glúteo medio"],
+        secondaryMuscles: ["Aductores", "Core", "Glúteo mayor"],
+        fatigueMap: { calves: 0.35, quadriceps: 0.3, gluteMed: 0.3, adductors: 0.2, glutes: 0.2, core: 0.2 }
+      }),
+      squatExercise({
+        id: "speed-agility-skills-ladder-cross-rotation",
+        name: "Escalera de agilidad: cruces y rotaciones",
+        equipment: ["Escalera de agilidad"],
+        technicalDescription:
+          "Ejercicio de coordinación con patrones cruzados y rotaciones sobre escalera de agilidad. Trabaja orientación corporal, disociación cadera-tronco y control de apoyos en patrones no lineales. Variantes: cruces laterales, cruce trasero, doble apoyo con rotación, 2 dentro y 2 fuera cruzando.",
+        errorsToAvoid: [
+          "Rotar sin controlar la pelvis",
+          "Cruzar los pies perdiendo equilibrio",
+          "Mirar solo al suelo",
+          "Perder coordinación de brazos",
+          "Acelerar sin precisión",
+          "Bloquear la cadera"
+        ],
+        primaryMuscles: ["Cuádriceps", "Gemelos", "Core"],
+        secondaryMuscles: ["Glúteo medio", "Aductores", "Glúteo mayor"],
+        fatigueMap: { quadriceps: 0.3, calves: 0.3, core: 0.3, gluteMed: 0.25, adductors: 0.2, glutes: 0.2 }
+      }),
+      squatExercise({
+        id: "speed-agility-skills-ladder-pogos-jumps",
+        name: "Escalera de agilidad: pogos y saltos",
+        equipment: ["Escalera de agilidad"],
+        technicalDescription:
+          "Ejercicio de coordinación y reactividad de pies con pequeños saltos, pogos y entradas/salidas sobre escalera. Priorizar contactos rápidos, alineación de tobillo-rodilla-cadera y control del aterrizaje. Variantes: pogos dentro-fuera, pogos cruzados, salto bipodal dentro-fuera, salto unilateral dentro-fuera.",
+        errorsToAvoid: [
+          "Contactos largos y pesados",
+          "Hundirse en cada apoyo",
+          "Colapsar rodillas",
+          "Perder rigidez activa del tobillo",
+          "Saltar demasiado alto",
+          "Perder ritmo"
+        ],
+        primaryMuscles: ["Gemelos", "Cuádriceps"],
+        secondaryMuscles: ["Glúteo mayor", "Glúteo medio", "Core", "Tibial anterior"],
+        fatigueMap: { calves: 0.45, quadriceps: 0.35, glutes: 0.25, gluteMed: 0.2, tibialisAnterior: 0.2, core: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "speed-agility-skills-reactive-agility",
+    pattern: "Speed & Agility Skills",
+    block: "Reactive Agility",
+    exercises: [
+      squatExercise({
+        id: "speed-agility-skills-reactive-four-colors",
+        name: "Agilidad 4 colores",
+        equipment: ["Conos", "Luces", "Tarjetas de colores"],
+        technicalDescription:
+          "Ejercicio de agilidad reactiva basado en estímulos visuales. El deportista debe reaccionar a una señal de color y desplazarse hacia el cono o zona correspondiente, priorizando percepción, decisión, primer apoyo y control de frenada.",
+        errorsToAvoid: [
+          "Anticipar la señal",
+          "Moverse antes del estímulo",
+          "Perder postura al reaccionar",
+          "Frenar sin control",
+          "Mirar al suelo en vez de al estímulo",
+          "No recuperar posición inicial"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
+        secondaryMuscles: ["Glúteo medio", "Aductores", "Isquiosurales", "Core"],
+        fatigueMap: { quadriceps: 0.45, glutes: 0.45, calves: 0.35, gluteMed: 0.3, adductors: 0.25, hamstrings: 0.25, core: 0.3 }
       })
     ]
   },
