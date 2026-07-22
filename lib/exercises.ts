@@ -1115,14 +1115,74 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Adductor accessories",
     exercises: [
       squatExercise({
-        name: "Hip adduction machine",
+        id: "lower-body-accessories-adductors-2",
+        name: "Aducción isométrica de cadera sentado",
+        equipment: ["Bloque de yoga", "Pelota", "Fitball"],
+        technicalDescription:
+          "Ejercicio accesorio isométrico para aductores de cadera en posición sentada. Colocar un bloque de yoga, pelota o fitball entre las rodillas y realizar una presión controlada hacia la línea media manteniendo pelvis y tronco estables.",
+        errorsToAvoid: [
+          "Contener la respiración",
+          "Redondear la espalda",
+          "Inclinar el tronco",
+          "Presionar de forma brusca",
+          "Perder la posición neutra de pelvis",
+          "Generar dolor o molestia excesiva"
+        ],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor"],
+        fatigueMap: { adductors: 0.65, core: 0.15, glutes: 0.1 }
+      }),
+      squatExercise({
+        id: "lower-body-accessories-adductors-3",
+        name: "Aducción de cadera en decúbito lateral",
+        equipment: ["Bloque de yoga", "Pelota", "Fitball"],
+        technicalDescription:
+          "Ejercicio accesorio para aductores de cadera en decúbito lateral. Trabajar la aproximación de la pierna hacia la línea media manteniendo la pelvis estable. El bloque de yoga, pelota o fitball puede utilizarse como referencia, apoyo o resistencia ligera según la variante.",
+        errorsToAvoid: [
+          "Rotar la pelvis",
+          "Usar impulso",
+          "Flexionar demasiado la cadera",
+          "Perder alineación de tronco y pelvis",
+          "Buscar más recorrido a costa del control",
+          "Arquear la zona lumbar"
+        ],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { adductors: 0.7, glutes: 0.15, core: 0.15 }
+      }),
+      squatExercise({
+        id: "lower-body-accessories-adductors-4",
+        name: "Aducción de cadera unilateral de pie en polea baja",
+        equipment: ["Polea baja", "Tobillera"],
+        technicalDescription:
+          "Ejercicio accesorio unilateral para aductores de cadera con carga cuantificable. Llevar la pierna hacia la línea media desde la cadera manteniendo el tronco estable, la pierna de apoyo controlada y la fase excéntrica lenta.",
+        errorsToAvoid: [
+          "Inclinar el tronco",
+          "Rotar la pelvis",
+          "Usar demasiada carga",
+          "Hacer el movimiento con impulso",
+          "Perder control de la pierna de apoyo"
+        ],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor", "Cuádriceps", "Gemelos"],
+        fatigueMap: { adductors: 0.8, core: 0.25, glutes: 0.15, quadriceps: 0.1, calves: 0.1 }
+      }),
+      squatExercise({
+        id: "lower-body-accessories-adductors-1",
+        name: "Aducción en máquina sentada",
         equipment: ["Máquina"],
         technicalDescription:
-          "Aduce la cadera en máquina manteniendo pelvis estable y tensión continua. Controla la vuelta sin rebotes y usa un rango tolerado.",
-        errorsToAvoid: ["Rebotar", "Perder postura", "Forzar apertura dolorosa"],
+          "Ejercicio accesorio para aductores de cadera en máquina. Aproximar las piernas contra la resistencia manteniendo espalda y pelvis estables, controlando el recorrido completo y la fase de vuelta.",
+        errorsToAvoid: [
+          "Usar impulso",
+          "Despegar la pelvis o la espalda del respaldo",
+          "Usar más carga de la que permite controlar",
+          "Hacer repeticiones parciales sin control",
+          "Perder tensión en la fase excéntrica"
+        ],
         primaryMuscles: ["Aductores"],
-        secondaryMuscles: ["Core"],
-        fatigueMap: { adductors: 1, core: 0.1 }
+        secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor"],
+        fatigueMap: { adductors: 0.85, core: 0.1, glutes: 0.1 }
       })
     ]
   },
