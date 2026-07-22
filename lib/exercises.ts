@@ -352,6 +352,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { quadriceps: 1, glutes: 0.7, adductors: 0.4, calves: 0.2 }
       }),
       squatExercise({
+        id: "squat-vertical-force-hypertrophy-belt-squat",
+        name: "Belt squat",
+        equipment: ["Máquina", "Cinturón de carga"],
+        technicalDescription:
+          "Variante de sentadilla con carga aplicada desde la cadera mediante cinturón o máquina específica. Permite entrenar el patrón de sentadilla con menor carga axial sobre la columna, manteniendo énfasis en cuádriceps y glúteo mayor.",
+        errorsToAvoid: [
+          "perder profundidad útil por exceso de carga",
+          "colapsar las rodillas hacia dentro",
+          "inclinar excesivamente el tronco",
+          "dejar que la pelvis se desplace sin control",
+          "empujar solo con la punta del pie",
+          "usar el cinturón demasiado bajo o mal ajustado"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
+        secondaryMuscles: ["Aductores", "Isquiosurales", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.85, glutes: 0.75, adductors: 0.35, hamstrings: 0.2, calves: 0.2, core: 0.2 }
+      }),
+      squatExercise({
         name: "Hack squat",
         equipment: ["Máquina"],
         technicalDescription:
@@ -426,6 +444,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Pliometria",
     exercises: [
       squatExercise({
+        id: "squat-vertical-force-plyometric-tall-to-short-landing",
+        name: "Tall to Short Landing",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de aterrizaje en el que el deportista pasa de una posición alta a una posición atlética baja de forma rápida y controlada. Sirve para enseñar absorción de fuerza, rigidez útil, control de rodilla-cadera-tobillo y preparación para drop landings y saltos reactivos.",
+        errorsToAvoid: [
+          "caer con rodillas colapsadas hacia dentro",
+          "perder contacto completo del pie",
+          "hundirse demasiado sin control",
+          "bloquear las rodillas al aterrizar",
+          "perder la posición del tronco",
+          "hacer el gesto lento y sin intención reactiva"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
+        secondaryMuscles: ["Isquiosurales", "Glúteo medio", "Core"],
+        fatigueMap: { quadriceps: 0.55, glutes: 0.45, calves: 0.4, hamstrings: 0.25, gluteMed: 0.25, core: 0.25 }
+      }),
+      squatExercise({
         name: "Drop landing",
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
@@ -436,6 +472,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { quadriceps: 0.7, glutes: 0.6, calves: 0.6, adductors: 0.4, core: 0.3, hamstrings: 0.3 }
       }),
       squatExercise({
+        id: "squat-vertical-force-plyometric-drop-landing-unilateral",
+        name: "Drop landing unilateral",
+        equipment: ["Peso corporal", "Cajon"],
+        technicalDescription:
+          "Aterrizaje unilateral desde una pequeña altura orientado a mejorar la absorción de fuerza, el control de rodilla y la estabilidad de cadera y tobillo. Priorizar caída silenciosa, alineación y control antes de progresar a saltos reactivos.",
+        errorsToAvoid: [
+          "colapsar rodilla hacia dentro",
+          "aterrizar con el tronco descontrolado",
+          "caer de puntillas sin controlar talón",
+          "usar una altura excesiva",
+          "perder equilibrio tras el contacto",
+          "buscar velocidad antes que control"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
+        secondaryMuscles: ["Glúteo medio", "Isquiosurales", "Core"],
+        fatigueMap: { quadriceps: 0.6, glutes: 0.5, calves: 0.45, gluteMed: 0.4, hamstrings: 0.25, core: 0.3 }
+      }),
+      squatExercise({
         name: "Pogo jump bilateral",
         equipment: ["Peso corporal"],
         technicalDescription:
@@ -444,6 +498,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Gemelos"],
         secondaryMuscles: ["Cuádriceps", "Glúteo mayor", "Core"],
         fatigueMap: { calves: 1, quadriceps: 0.4, glutes: 0.3, core: 0.2 }
+      }),
+      squatExercise({
+        id: "squat-vertical-force-plyometric-single-leg-pogo",
+        name: "Pogo unilateral",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Saltos reactivos unilaterales de baja amplitud orientados al trabajo de rigidez de tobillo, reactividad del complejo pie-tobillo y control vertical con apoyo único. Mantener contacto breve, alineación estable y rebote elástico.",
+        errorsToAvoid: [
+          "hundirse demasiado en cada contacto",
+          "perder rigidez de tobillo",
+          "colapsar la rodilla hacia dentro",
+          "balancear excesivamente el tronco",
+          "buscar altura en vez de contacto breve",
+          "realizarlo con dolor en pie, Aquiles o rodilla"
+        ],
+        primaryMuscles: ["Gemelos", "Sóleo", "Cuádriceps"],
+        secondaryMuscles: ["Glúteo medio", "Glúteo mayor", "Core"],
+        fatigueMap: { calves: 0.8, soleus: 0.7, quadriceps: 0.35, gluteMed: 0.35, glutes: 0.25, core: 0.2 }
       }),
       squatExercise({
         name: "Low hurdle hop",
@@ -568,6 +640,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Isquios", "Glúteo mayor"],
         secondaryMuscles: ["Erectores espinales", "Core", "Aductores"],
         fatigueMap: { hamstrings: 1, glutes: 0.8, spinalErectors: 0.5, core: 0.3, adductors: 0.3 }
+      }),
+      squatExercise({
+        id: "hinge-horizontal-force-strength-good-morning",
+        name: "Good morning",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Ejercicio de bisagra de cadera con barra orientado al control de la flexión de cadera, la extensión de cadera y la resistencia de la cadena posterior. Mantener columna neutra, desplazamiento de cadera hacia atrás y tensión activa en isquiosurales, glúteos y erectores espinales.",
+        errorsToAvoid: [
+          "flexionar la columna lumbar",
+          "convertirlo en una sentadilla",
+          "bajar más de lo que permite la movilidad de cadera",
+          "perder tensión en la espalda alta",
+          "usar demasiada carga para el nivel técnico",
+          "bloquear las rodillas en exceso"
+        ],
+        primaryMuscles: ["Isquiosurales", "Glúteo mayor", "Erectores espinales"],
+        secondaryMuscles: ["Aductores", "Core", "Upper back"],
+        fatigueMap: { hamstrings: 0.75, glutes: 0.65, spinalErectors: 0.65, adductors: 0.25, core: 0.35, upperBack: 0.25 }
       }),
       squatExercise({
         name: "Peso muerto con barra hexagonal",
@@ -701,6 +791,42 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { glutes: 0.7, hamstrings: 0.7, calves: 0.6, quadriceps: 0.4, adductors: 0.3, core: 0.3 }
       }),
       squatExercise({
+        id: "hinge-horizontal-force-plyometric-horizontal-bounds",
+        name: "Bounds horizontales",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Saltos horizontales alternos orientados a producir y absorber fuerza en dirección horizontal. Trabajan extensión potente de cadera, control de la recepción y transferencia hacia aceleración y desplazamientos deportivos.",
+        errorsToAvoid: [
+          "aterrizar con la rodilla colapsada",
+          "buscar distancia perdiendo control",
+          "no terminar la extensión de cadera",
+          "caer con demasiada rigidez",
+          "perder la orientación del tronco",
+          "convertirlo en carrera sin fase de salto clara"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
+        secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
+        fatigueMap: { glutes: 0.65, hamstrings: 0.55, quadriceps: 0.45, calves: 0.35, gluteMed: 0.3, core: 0.25 }
+      }),
+      squatExercise({
+        id: "hinge-horizontal-force-plyometric-horizontal-hops",
+        name: "Hops horizontales",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Saltos horizontales repetidos con énfasis en reactividad, rigidez útil y desplazamiento hacia delante. Mantener contactos controlados, orientación horizontal y producción de fuerza desde cadera y tobillo.",
+        errorsToAvoid: [
+          "perder control de la recepción",
+          "hundirse demasiado en cada apoyo",
+          "buscar velocidad sin estabilidad",
+          "caer con rodilla colapsada",
+          "usar demasiada distancia entre contactos",
+          "perder alineación de pelvis y tronco"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Gemelos"],
+        secondaryMuscles: ["Cuádriceps", "Glúteo medio", "Core"],
+        fatigueMap: { glutes: 0.6, hamstrings: 0.55, calves: 0.45, quadriceps: 0.35, gluteMed: 0.3, core: 0.25 }
+      }),
+      squatExercise({
         name: "Repeated broad jump",
         equipment: ["Peso corporal"],
         technicalDescription:
@@ -719,6 +845,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo mayor", "Isquios", "Gemelos"],
         secondaryMuscles: ["Cuádriceps", "Aductores", "Core"],
         fatigueMap: { glutes: 0.7, hamstrings: 0.7, calves: 0.9, quadriceps: 0.4, adductors: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        id: "hinge-horizontal-force-plyometric-horizontal-drop-jump",
+        name: "Drop jump horizontal",
+        equipment: ["Peso corporal", "Cajon bajo"],
+        technicalDescription:
+          "Ejercicio reactivo en el que se cae desde una pequeña altura y se proyecta el cuerpo hacia delante con un salto horizontal. Combina absorción rápida, orientación horizontal de la fuerza y reactividad tras el contacto.",
+        errorsToAvoid: [
+          "usar una altura excesiva",
+          "pasar demasiado tiempo en el suelo",
+          "no proyectar la cadera hacia delante",
+          "aterrizar sin control",
+          "colapsar rodillas o tobillos",
+          "perder rigidez del tronco"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
+        secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
+        fatigueMap: { glutes: 0.65, hamstrings: 0.55, quadriceps: 0.5, calves: 0.4, gluteMed: 0.3, core: 0.3 }
       })
     ]
   },
@@ -1106,6 +1250,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
         fatigueMap: { gluteMed: 0.7, glutes: 0.25, core: 0.15 }
+      }),
+      squatExercise({
+        id: "lower-body-accessories-abductors-monster-walk-miniband",
+        name: "Monster walk con miniband",
+        equipment: ["Miniband"],
+        technicalDescription:
+          "Desplazamiento controlado con miniband orientado al trabajo de abductores de cadera, especialmente glúteo medio y glúteo menor. Mantener ligera flexión de cadera y rodilla, pelvis estable y tensión constante en la banda durante los pasos.",
+        errorsToAvoid: [
+          "juntar los pies y perder tensión en la banda",
+          "compensar con inclinación lateral del tronco",
+          "rotar excesivamente los pies hacia fuera",
+          "colapsar las rodillas hacia dentro",
+          "dar pasos demasiado largos perdiendo control",
+          "convertirlo en un ejercicio rápido sin control postural"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Cuádriceps", "Core"],
+        fatigueMap: { gluteMed: 0.8, glutes: 0.35, quadriceps: 0.2, core: 0.25 }
       }),
       squatExercise({
         name: "Abducción de cadera unilateral de pie en polea baja",
@@ -2325,6 +2487,24 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Dorsal ancho", "Bíceps"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
         fatigueMap: { lats: 0.8, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.5, core: 0.4 }
+      }),
+      squatExercise({
+        id: "pull-upper-body-pull-plyometric-power-pull-up",
+        name: "Dominada de potencia",
+        equipment: ["Peso corporal", "Barra"],
+        technicalDescription:
+          "Variante explosiva de dominada orientada a producir fuerza rápidamente en tracción vertical. Buscar intención máxima de subida, control escapular y recepción controlada en la bajada, sin perder posición de hombros.",
+        errorsToAvoid: [
+          "tirar solo con brazos sin depresión escapular",
+          "perder control en la bajada",
+          "compensar con balanceo excesivo",
+          "llevar el cuello hacia delante",
+          "hacer repeticiones explosivas sin rango útil",
+          "continuar cuando se pierde velocidad o técnica"
+        ],
+        primaryMuscles: ["Dorsal", "Bíceps", "Trapecio medio"],
+        secondaryMuscles: ["Romboides", "Deltoides posterior", "Antebrazos", "Core"],
+        fatigueMap: { lats: 0.75, biceps: 0.55, rearDelts: 0.3, forearms: 0.3, core: 0.2 }
       })
     ]
   },
