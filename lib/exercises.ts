@@ -496,6 +496,28 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Caer con rodillas hacia dentro", "Aterrizar muy rigido", "Perder equilibrio"],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
         secondaryMuscles: ["Aductores", "Core", "Hamstrings"],
+        variants: [
+          {
+            id: "drop-landing-variant-box-bilateral",
+            name: "Caída bilateral del cajón",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Peso corporal", "Cajón"],
+            description:
+              "Variante de aterrizaje bilateral desde cajón, orientada a aprender absorción de fuerza y alineación de rodilla, cadera y tobillo.",
+            coachingNotes: "Usar alturas bajas y buscar una caída silenciosa y estable."
+          },
+          {
+            id: "drop-landing-variant-lateral",
+            name: "Caída lateral",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Cajón bajo"],
+            description:
+              "Variante de aterrizaje con desplazamiento lateral, útil para introducir demandas frontales y control de cadera.",
+            coachingNotes: "Evitar colapso de rodilla hacia dentro y pérdida de control del tronco."
+          }
+        ],
         fatigueMap: { quadriceps: 0.7, glutes: 0.6, calves: 0.6, adductors: 0.4, core: 0.3, hamstrings: 0.3 }
       }),
       squatExercise({
@@ -524,6 +546,48 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Flexionar demasiado las rodillas", "Perder ritmo", "Caer pesado"],
         primaryMuscles: ["Gemelos"],
         secondaryMuscles: ["Cuádriceps", "Glúteo mayor", "Core"],
+        variants: [
+          {
+            id: "pogo-bilateral-variant-assisted",
+            name: "Pogos asistidos bilaterales",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Peso corporal", "Soporte"],
+            description:
+              "Variante asistida para aprender ritmo, rigidez de tobillo y contacto breve con menor demanda de control.",
+            coachingNotes: "Usar soporte solo para facilitar el gesto, no para descargar completamente el peso."
+          },
+          {
+            id: "pogo-bilateral-variant-band-assisted",
+            name: "Pogos asistidos con goma",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Peso corporal", "Goma elástica"],
+            description: "Variante asistida con goma para reducir impacto y facilitar la reactividad inicial.",
+            coachingNotes: "Mantener contactos cortos y evitar que la goma altere la postura."
+          },
+          {
+            id: "pogo-bilateral-variant-coordinative-extensive",
+            name: "Pogos dinámicos coordinativos extensivos",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante coordinativa de baja-moderada intensidad para trabajar ritmo, elasticidad y control de apoyos.",
+            coachingNotes: "Priorizar coordinación y calidad de contacto por encima de altura."
+          },
+          {
+            id: "pogo-bilateral-variant-coordinative-intensive",
+            name: "Pogos dinámicos coordinativos intensivos",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante coordinativa más intensa con mayor exigencia de rigidez, ritmo y tolerancia de contactos.",
+            coachingNotes:
+              "Reducir volumen si aparece pérdida de rebote o molestias en Aquiles, pie o rodilla."
+          }
+        ],
         fatigueMap: { calves: 1, quadriceps: 0.4, glutes: 0.3, core: 0.2 }
       }),
       squatExercise({
@@ -542,6 +606,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Gemelos", "Sóleo", "Cuádriceps"],
         secondaryMuscles: ["Glúteo medio", "Glúteo mayor", "Core"],
+        variants: [
+          {
+            id: "single-leg-pogo-variant-assisted",
+            name: "Pogos asistidos unilaterales",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Soporte"],
+            description:
+              "Variante unilateral asistida para introducir reactividad a una pierna con menor demanda de equilibrio.",
+            coachingNotes: "Usar soporte mínimo y mantener alineación de tobillo, rodilla y cadera."
+          },
+          {
+            id: "single-leg-pogo-variant-band-assisted",
+            name: "Pogos unilaterales asistidos con goma",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Goma elástica"],
+            description: "Variante unilateral asistida con goma para reducir impacto y facilitar el rebote.",
+            coachingNotes: "No usar la goma para compensar una mala estabilidad del apoyo."
+          },
+          {
+            id: "single-leg-pogo-variant-front",
+            name: "Pogos unilaterales frontales",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Pogos unilaterales con pequeño desplazamiento frontal, orientados a reactividad y control dinámico.",
+            coachingNotes: "Mantener contactos breves y evitar desplazamientos excesivos."
+          },
+          {
+            id: "single-leg-pogo-variant-lateral",
+            name: "Pogos laterales unilaterales",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Pogos unilaterales con desplazamiento lateral, aumentando la demanda de control frontal y estabilidad de cadera.",
+            coachingNotes: "Priorizar alineación y control antes de aumentar amplitud."
+          }
+        ],
         fatigueMap: { calves: 0.8, soleus: 0.7, quadriceps: 0.35, gluteMed: 0.35, glutes: 0.25, core: 0.2 }
       }),
       squatExercise({
@@ -592,6 +697,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             equipment: ["Peso corporal / step"],
             description: "Variante unilateral con mayor demanda de control de tobillo, rodilla y cadera.",
             coachingNotes: "No progresar a esta variante si el aterrizaje bilateral no es estable."
+          },
+          {
+            id: "drop-jump-variant-asymmetric-step",
+            name: "Drop jump asimétrico desde step",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Step"],
+            description:
+              "Variante asimétrica del drop jump que aumenta la demanda de control unilateral, alineación y reactividad.",
+            coachingNotes:
+              "Usar solo si el deportista controla bien el drop jump bilateral y los aterrizajes unilaterales."
+          },
+          {
+            id: "drop-jump-variant-lateral",
+            name: "Drop jump lateral",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Cajón bajo"],
+            description: "Variante con orientación lateral que combina caída, contacto breve y rebote hacia el lado.",
+            coachingNotes: "Priorizar estabilidad de cadera y rodilla antes de buscar distancia lateral."
+          },
+          {
+            id: "drop-jump-variant-continuous",
+            name: "Drop jumps continuos",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Cajón bajo"],
+            description:
+              "Secuencia de drop jumps repetidos para trabajar reactividad y tolerancia a contactos sucesivos.",
+            coachingNotes:
+              "Cortar la serie si aumenta demasiado el tiempo de contacto o se pierde alineación."
           }
         ],
         fatigueMap: { calves: 1, quadriceps: 0.8, glutes: 0.7, adductors: 0.4, core: 0.4, hamstrings: 0.3 }
@@ -875,6 +1011,48 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
         secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
+        variants: [
+          {
+            id: "horizontal-bounds-variant-extensive",
+            name: "Bounds horizontales extensivos",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante de bounds con énfasis en volumen, ritmo y control de la recepción, sin buscar máxima distancia.",
+            coachingNotes: "Mantener calidad de apoyo y dirección horizontal estable."
+          },
+          {
+            id: "horizontal-bounds-variant-intensive",
+            name: "Bounds horizontales intensivos",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante de mayor intensidad orientada a producir más distancia horizontal y absorber fuerzas mayores.",
+            coachingNotes: "Usar menos repeticiones y más descanso que en bounds extensivos."
+          },
+          {
+            id: "horizontal-bounds-variant-diagonal",
+            name: "Bounds en diagonal",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con orientación diagonal que añade demanda frontal y transversal al salto horizontal.",
+            coachingNotes: "Evitar que la búsqueda de diagonal reduzca el control de rodilla y pelvis."
+          },
+          {
+            id: "horizontal-bounds-variant-half-kneeling-start",
+            name: "Bounds horizontales desde posición semiarrodillada",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante iniciada desde posición semiarrodillada para aumentar la demanda de salida, coordinación y producción horizontal.",
+            coachingNotes: "Mantener salida potente sin perder alineación inicial."
+          }
+        ],
         fatigueMap: { glutes: 0.65, hamstrings: 0.55, quadriceps: 0.45, calves: 0.35, gluteMed: 0.3, core: 0.25 }
       }),
       squatExercise({
@@ -893,6 +1071,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Gemelos"],
         secondaryMuscles: ["Cuádriceps", "Glúteo medio", "Core"],
+        variants: [
+          {
+            id: "horizontal-hops-variant-extensive",
+            name: "Hops horizontales extensivos",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con énfasis extensivo para trabajar ritmo, elasticidad y repetición de contactos horizontales.",
+            coachingNotes: "Mantener contactos estables y evitar fatiga técnica."
+          },
+          {
+            id: "horizontal-hops-variant-obstacles",
+            name: "Hops horizontales con obstáculos",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Vallas bajas"],
+            description:
+              "Variante con obstáculos bajos para aumentar la precisión, la reactividad y el control de trayectoria.",
+            coachingNotes: "Usar obstáculos bajos y separaciones que no comprometan la técnica."
+          },
+          {
+            id: "horizontal-hops-variant-inertia",
+            name: "Hops horizontales con inercia",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con mayor continuidad e inercia hacia delante, orientada a transferencia a aceleración y desplazamiento.",
+            coachingNotes: "No permitir que la velocidad reduzca la calidad del apoyo."
+          },
+          {
+            id: "horizontal-hops-variant-half-kneeling-start",
+            name: "Hops horizontales desde posición semiarrodillada",
+            type: "start_position",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description: "Variante iniciada desde posición semiarrodillada para trabajar salida horizontal y coordinación.",
+            coachingNotes: "Buscar una primera acción potente sin perder control de tronco."
+          }
+        ],
         fatigueMap: { glutes: 0.6, hamstrings: 0.55, calves: 0.45, quadriceps: 0.35, gluteMed: 0.3, core: 0.25 }
       }),
       squatExercise({
@@ -931,6 +1150,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
         secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
+        variants: [
+          {
+            id: "horizontal-drop-jump-variant-from-bench",
+            name: "Drop jump horizontal desde banco",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Banco bajo"],
+            description: "Variante desde banco bajo con proyección horizontal tras el contacto.",
+            coachingNotes: "Usar altura baja y cortar si el contacto se vuelve lento."
+          },
+          {
+            id: "horizontal-drop-jump-variant-continuous",
+            name: "Drop jumps horizontales continuos",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Secuencia continua de drop jumps horizontales para trabajar contactos repetidos y proyección hacia delante.",
+            coachingNotes: "Mantener contactos cortos y recepción controlada en cada repetición."
+          },
+          {
+            id: "horizontal-drop-jump-variant-rotational",
+            name: "Drop jumps rotacionales",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con componente rotacional, aumentando la demanda de control transversal y estabilidad en la recepción.",
+            coachingNotes: "Usar con deportistas que ya controlen bien los drop jumps horizontales."
+          }
+        ],
         fatigueMap: { glutes: 0.65, hamstrings: 0.55, quadriceps: 0.5, calves: 0.4, gluteMed: 0.3, core: 0.3 }
       })
     ]
@@ -1183,6 +1433,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Perder ritmo", "Caer con apoyo inestable", "Cruzar demasiado la pierna libre"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Aductores"],
         secondaryMuscles: ["Gemelos", "Isquios", "Core"],
+        variants: [
+          {
+            id: "skater-bound-variant-lateral-double",
+            name: "Salto lateral doble",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con doble acción lateral para trabajar continuidad, control frontal y transferencia a desplazamientos laterales.",
+            coachingNotes: "Evitar que el segundo salto se haga sin estabilidad previa."
+          },
+          {
+            id: "skater-bound-variant-square",
+            name: "Salto lateral en cuadrado",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante que organiza los saltos laterales en patrón de cuadrado, aumentando la demanda de orientación y control.",
+            coachingNotes: "Mantener cada recepción estable antes de cambiar de dirección."
+          },
+          {
+            id: "skater-bound-variant-medball",
+            name: "Salto lateral con medball",
+            type: "complex",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Balón medicinal"],
+            description:
+              "Variante que añade balón medicinal para aumentar la demanda coordinativa y de control del tronco.",
+            coachingNotes: "Usar balón ligero y evitar que el tronco arrastre la recepción."
+          }
+        ],
         fatigueMap: { glutes: 0.9, quadriceps: 0.8, adductors: 0.5, calves: 0.6, hamstrings: 0.4, core: 0.4 }
       }),
       squatExercise({
@@ -1203,6 +1485,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Colapsar al aterrizar", "Perder control del pie", "Repetir sin estabilidad"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Gemelos"],
         secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        variants: [
+          {
+            id: "single-leg-bound-variant-45-degree",
+            name: "Saltos 45º unilaterales alternos",
+            type: "direction",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description: "Variante con dirección diagonal a 45º, útil para control unilateral en dirección no lineal.",
+            coachingNotes: "Controlar rodilla y pelvis en cada aterrizaje."
+          },
+          {
+            id: "single-leg-bound-variant-horizontal-double",
+            name: "Salto doble horizontal unilateral",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con dos saltos horizontales unilaterales consecutivos, aumentando demanda de reactividad y tolerancia.",
+            coachingNotes: "No usar si el deportista no puede estabilizar un salto unilateral simple."
+          },
+          {
+            id: "single-leg-bound-variant-from-bench",
+            name: "Salto unilateral horizontal desde banco",
+            type: "support",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Banco bajo"],
+            description:
+              "Variante con salida desde banco bajo para aumentar la demanda de absorción y proyección horizontal unilateral.",
+            coachingNotes: "Mantener baja la altura y priorizar control sobre distancia."
+          }
+        ],
         fatigueMap: { glutes: 0.8, quadriceps: 0.8, calves: 0.8, adductors: 0.4, hamstrings: 0.4, core: 0.4 }
       }),
       squatExercise({
@@ -1213,6 +1526,36 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Saltar demasiado alto", "Aterrizar sin control", "Perder ritmo lateral"],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Gemelos"],
         secondaryMuscles: ["Aductores", "Isquios", "Core"],
+        variants: [
+          {
+            id: "lateral-hurdle-hop-variant-single-leg",
+            name: "Lateral hurdle hop unilateral",
+            type: "stance",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Vallas bajas"],
+            description:
+              "Variante unilateral del salto lateral sobre valla, con mayor demanda de control frontal y reactividad.",
+            coachingNotes: "Usar vallas bajas y volumen reducido."
+          },
+          {
+            id: "lateral-hurdle-hop-variant-alternating",
+            name: "Lateral hurdle hop alterno",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Vallas bajas"],
+            description: "Variante alterna para trabajar ritmo, coordinación y cambio de apoyo lateral.",
+            coachingNotes: "Mantener contactos controlados y evitar perder la línea de desplazamiento."
+          },
+          {
+            id: "lateral-hurdle-hop-variant-continuous",
+            name: "Lateral hurdle hops continuos",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Vallas bajas"],
+            description: "Secuencia continua de saltos laterales sobre valla para trabajar reactividad lateral.",
+            coachingNotes: "Cortar la serie si se pierde rigidez o alineación."
+          }
+        ],
         fatigueMap: { glutes: 0.8, quadriceps: 0.7, calves: 0.8, adductors: 0.5, hamstrings: 0.3, core: 0.4 }
       })
     ]
@@ -2575,6 +2918,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Aterrizar rigido", "Perder postura", "Abrir codos sin control"],
         primaryMuscles: ["Pectoral", "Tríceps"],
         secondaryMuscles: ["Deltoides anterior", "Core", "Serrato anterior"],
+        variants: [
+          {
+            id: "plyo-push-up-variant-clap",
+            name: "Flexiones con palmada",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante explosiva con palmada que exige mayor producción de fuerza y control de recepción.",
+            coachingNotes:
+              "Usar solo si el deportista mantiene buena alineación en flexiones explosivas básicas."
+          },
+          {
+            id: "plyo-push-up-variant-explosive",
+            name: "Flexiones explosivas",
+            type: "progression",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description: "Variante explosiva sin palmada, orientada a intención máxima de empuje y recepción controlada.",
+            coachingNotes: "Priorizar velocidad de salida y control escapular."
+          },
+          {
+            id: "plyo-push-up-variant-eccentric-explosive",
+            name: "Flexiones excéntricas explosivas",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Peso corporal"],
+            description: "Variante que combina control excéntrico con acción concéntrica explosiva.",
+            coachingNotes: "No permitir pérdida de tronco o colapso escapular durante la bajada."
+          }
+        ],
         fatigueMap: { chest: 0.9, triceps: 0.8, anteriorDelts: 0.7, core: 0.4, serratusAnterior: 0.4 }
       }),
       squatExercise({
