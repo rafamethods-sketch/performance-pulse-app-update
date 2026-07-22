@@ -49,6 +49,7 @@ export type ExerciseBlock =
   | "Calf & ankle accessories"
   | "Neck and spine mobility"
   | "Upper body mobility"
+  | "Shoulder mobility & activation"
   | "Lower body mobility"
   | "Hip mobility & activation"
   | "Ankle mobility"
@@ -193,6 +194,7 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Calf & ankle accessories",
   "Neck and spine mobility",
   "Upper body mobility",
+  "Shoulder mobility & activation",
   "Lower body mobility",
   "Hip mobility & activation",
   "Ankle mobility",
@@ -2247,6 +2249,127 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Hombros"],
         secondaryMuscles: ["Pectoral", "Dorsal", "Manguito rotador"],
         fatigueMap: { shoulders: 0.4, chest: 0.2, lats: 0.2, rotatorCuff: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "mobility-movement-prep-shoulder-mobility-activation",
+    pattern: "Mobility / Movement Prep",
+    block: "Shoulder mobility & activation",
+    exerciseType: "mobility",
+    allowedSessionSections: ["activation"],
+    exercises: [
+      squatExercise({
+        name: "Circunducción de hombro con pica",
+        equipment: ["Pica", "PVC"],
+        technicalDescription:
+          "Ejercicio de movilidad global de hombro utilizando una pica como guía. Realizar circunducciones amplias y controladas buscando movilidad escapulohumeral sin compensar con la zona lumbar.",
+        errorsToAvoid: [
+          "Arquear la zona lumbar",
+          "Elevar excesivamente los hombros",
+          "Flexionar los codos para ganar rango",
+          "Mover rápido sin control",
+          "Forzar dolor en el hombro"
+        ],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Espalda alta", "Core"],
+        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.2, upperBack: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Flexión máxima de hombro con pica",
+        equipment: ["Pica", "PVC"],
+        technicalDescription:
+          "Ejercicio de movilidad de flexión de hombro. Elevar la pica por encima de la cabeza manteniendo costillas controladas, columna neutra y brazos extendidos dentro del rango disponible.",
+        errorsToAvoid: [
+          "Arquear la zona lumbar",
+          "Abrir demasiado las costillas",
+          "Flexionar los codos",
+          "Elevar hombros hacia las orejas",
+          "Forzar el rango final"
+        ],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Dorsal", "Espalda alta", "Core"],
+        fatigueMap: { shoulders: 0.25, lats: 0.2, upperBack: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Rotación interna y externa de hombro",
+        equipment: ["Peso corporal", "Pica", "Banda suave"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de rotación interna y externa de hombro. Trabajar el rango disponible manteniendo escápula controlada y sin compensar con tronco o cuello.",
+        errorsToAvoid: [
+          "Adelantar la cabeza",
+          "Elevar el hombro",
+          "Rotar el tronco para ganar rango",
+          "Forzar dolor",
+          "Perder control escapular"
+        ],
+        primaryMuscles: ["Manguito rotador"],
+        secondaryMuscles: ["Hombros", "Espalda alta", "Core"],
+        fatigueMap: { rotatorCuff: 0.3, shoulders: 0.2, upperBack: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Rotación externa de hombro en pared sentado",
+        equipment: ["Pared", "Banco"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de rotación externa de hombro con referencia de pared. Mantener espalda estable, brazo apoyado o guiado por la pared y buscar rotación externa controlada sin compensar con la columna.",
+        errorsToAvoid: [
+          "Arquear la espalda",
+          "Separar la escápula sin control",
+          "Elevar el hombro",
+          "Forzar el rango",
+          "Mover el cuello para compensar"
+        ],
+        primaryMuscles: ["Manguito rotador"],
+        secondaryMuscles: ["Hombros", "Espalda alta", "Core"],
+        fatigueMap: { rotatorCuff: 0.35, shoulders: 0.2, upperBack: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Antepulsión y retropulsión de hombro con superband",
+        equipment: ["Superband"],
+        technicalDescription:
+          "Ejercicio de movilidad y control escapulohumeral con superband. Realizar movimientos controlados de antepulsión y retropulsión del hombro manteniendo tronco estable y tensión suave de la banda.",
+        errorsToAvoid: [
+          "Usar demasiada tensión de banda",
+          "Compensar con el tronco",
+          "Elevar los hombros",
+          "Perder control escapular",
+          "Hacer rebotes rápidos"
+        ],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Espalda alta", "Manguito rotador", "Core"],
+        fatigueMap: { shoulders: 0.25, upperBack: 0.2, rotatorCuff: 0.2, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Retropulsión con rotación con superband",
+        equipment: ["Superband"],
+        technicalDescription:
+          "Ejercicio de movilidad de hombro con énfasis en retropulsión y rotación. Usar la superband como asistencia suave para abrir el hombro y mejorar control del rango posterior sin perder posición costal y escapular.",
+        errorsToAvoid: [
+          "Tirar con demasiada fuerza de la banda",
+          "Arquear la zona lumbar",
+          "Elevar el hombro",
+          "Girar el tronco para compensar",
+          "Forzar dolor en la parte anterior del hombro"
+        ],
+        primaryMuscles: ["Hombros", "Manguito rotador"],
+        secondaryMuscles: ["Espalda alta", "Core"],
+        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.25, upperBack: 0.2, core: 0.1 }
+      }),
+      squatExercise({
+        name: "Flexo-extensión de hombro con fitball",
+        equipment: ["Fitball"],
+        technicalDescription:
+          "Ejercicio de movilidad de hombro y tronco usando fitball como apoyo. Deslizar los brazos sobre el fitball buscando flexión y extensión controlada de hombro, manteniendo respiración y control de columna.",
+        errorsToAvoid: [
+          "Hundir la zona lumbar",
+          "Perder control de las costillas",
+          "Cargar demasiado peso sobre el fitball",
+          "Elevar los hombros",
+          "Moverse rápido sin control"
+        ],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Espalda alta", "Dorsal", "Core"],
+        fatigueMap: { shoulders: 0.2, upperBack: 0.15, lats: 0.15, core: 0.15 }
       })
     ]
   },
