@@ -48,9 +48,7 @@ export type ExerciseBlock =
   | "Adductor accessories"
   | "Calf & ankle accessories"
   | "Neck and spine mobility"
-  | "Upper body mobility"
   | "Shoulder mobility & activation"
-  | "Lower body mobility"
   | "Hip mobility & activation"
   | "Ankle mobility"
   | "Thoracic & trunk mobility"
@@ -193,9 +191,7 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Adductor accessories",
   "Calf & ankle accessories",
   "Neck and spine mobility",
-  "Upper body mobility",
   "Shoulder mobility & activation",
-  "Lower body mobility",
   "Hip mobility & activation",
   "Ankle mobility",
   "Thoracic & trunk mobility",
@@ -1038,6 +1034,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     block: "Glute accessories",
     exercises: [
       squatExercise({
+        id: "lower-body-accessories-glutes-cable-kickback",
         name: "Cable kickback",
         equipment: ["Polea"],
         technicalDescription:
@@ -2204,13 +2201,14 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ]
   },
   {
-    slug: "mobility-movement-prep-upper-body",
+    slug: "mobility-movement-prep-shoulder-mobility-activation",
     pattern: "Mobility / Movement Prep",
-    block: "Upper body mobility",
+    block: "Shoulder mobility & activation",
     exerciseType: "mobility",
     allowedSessionSections: ["activation"],
     exercises: [
       squatExercise({
+        id: "mobility-movement-prep-upper-body-1",
         name: "Shoulder CARs",
         equipment: ["Peso corporal"],
         technicalDescription:
@@ -2221,6 +2219,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { shoulders: 0.5, rotatorCuff: 0.3, upperTraps: 0.1 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-upper-body-2",
         name: "Scapular mobility drill",
         equipment: ["Peso corporal", "Banda elástica"],
         technicalDescription:
@@ -2231,6 +2230,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { serratusAnterior: 0.3, traps: 0.2, shoulders: 0.2 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-upper-body-3",
         name: "Wall slide",
         equipment: ["Pared", "Banda elástica"],
         technicalDescription:
@@ -2241,6 +2241,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { shoulders: 0.4, serratusAnterior: 0.3, lowerTraps: 0.2, core: 0.1 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-upper-body-4",
         name: "Band shoulder dislocates",
         equipment: ["Banda elástica", "Pica"],
         technicalDescription:
@@ -2249,16 +2250,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Hombros"],
         secondaryMuscles: ["Pectoral", "Dorsal", "Manguito rotador"],
         fatigueMap: { shoulders: 0.4, chest: 0.2, lats: 0.2, rotatorCuff: 0.2 }
-      })
-    ]
-  },
-  {
-    slug: "mobility-movement-prep-shoulder-mobility-activation",
-    pattern: "Mobility / Movement Prep",
-    block: "Shoulder mobility & activation",
-    exerciseType: "mobility",
-    allowedSessionSections: ["activation"],
-    exercises: [
+      }),
       squatExercise({
         name: "Circunducción de hombro con pica",
         equipment: ["Pica", "PVC"],
@@ -2374,25 +2366,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     ]
   },
   {
-    slug: "mobility-movement-prep-lower-body",
-    pattern: "Mobility / Movement Prep",
-    block: "Lower body mobility",
-    exerciseType: "mobility",
-    allowedSessionSections: ["activation"],
-    exercises: [
-      squatExercise({
-        name: "Adductor rockback",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Desde cuadrupedia con una pierna extendida lateralmente, lleva la cadera atrás y vuelve con control. Mantén columna neutra y tensión tolerable.",
-        errorsToAvoid: ["Redondear lumbar", "Forzar la ingle", "Rebotar"],
-        primaryMuscles: ["Aductores"],
-        secondaryMuscles: ["Caderas", "Core"],
-        fatigueMap: { adductors: 0.4, hips: 0.3, core: 0.1 }
-      })
-    ]
-  },
-  {
     slug: "mobility-movement-prep-hip-mobility-activation",
     pattern: "Mobility / Movement Prep",
     block: "Hip mobility & activation",
@@ -2464,6 +2437,17 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { gluteMed: 0.3, adductors: 0.2, core: 0.15 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-adductor-rockback",
+        name: "Adductor rockback",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde cuadrupedia con una pierna extendida lateralmente, lleva la cadera atrás y vuelve con control. Mantén columna neutra y tensión tolerable.",
+        errorsToAvoid: ["Redondear lumbar", "Forzar la ingle", "Rebotar"],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Caderas", "Core"],
+        fatigueMap: { adductors: 0.4, hips: 0.3, core: 0.1 }
+      }),
+      squatExercise({
         name: "Bisagra de cadera con pica",
         equipment: ["Pica", "PVC"],
         technicalDescription:
@@ -2528,6 +2512,25 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Caderas", "Glúteo medio"],
         secondaryMuscles: ["Glúteos", "Aductores", "Core"],
         fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-b-stance-internal-rotation",
+        name: "B-stance con rotación interna de cadera",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de cadera en posición B-stance. Colocar una pierna adelantada como pierna principal y la pierna trasera como apoyo ligero. Desde esa posición, inclinar el tronco de forma controlada manteniendo columna estable y permitir una rotación interna suave hacia la pierna adelantada, buscando control de pelvis y cadera sin carga externa.",
+        errorsToAvoid: [
+          "Cargar demasiado la pierna trasera",
+          "Colapsar la rodilla de la pierna adelantada",
+          "Rotar desde la zona lumbar en vez de desde la cadera",
+          "Perder columna neutra",
+          "Buscar rango excesivo sin control",
+          "Convertirlo en una sentadilla",
+          "Perder apoyo estable del pie delantero"
+        ],
+        primaryMuscles: ["Glúteo mayor", "Isquiosurales"],
+        secondaryMuscles: ["Glúteo medio", "Aductores", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { glutes: 0.3, hamstrings: 0.25, gluteMed: 0.2, adductors: 0.1, core: 0.15 }
       }),
       squatExercise({
         id: "mobility-movement-prep-integrated-2",
@@ -2698,6 +2701,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { hips: 0.5, thoracicSpine: 0.4, adductors: 0.2, hipFlexors: 0.2, shoulders: 0.1 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-integrated-3",
         name: "Inchworm",
         equipment: ["Peso corporal"],
         technicalDescription:
