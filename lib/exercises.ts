@@ -43,6 +43,7 @@ export type ExerciseBlock =
   | "Anti-lateral flexion"
   | "Flexion-extension"
   | "Anti-flexion-extension"
+  | "Ground support & transitions"
   | "Chest accessories"
   | "Shoulder accessories"
   | "Arm accessories"
@@ -192,6 +193,7 @@ export const exerciseBlocks: ExerciseBlock[] = [
   "Anti-lateral flexion",
   "Flexion-extension",
   "Anti-flexion-extension",
+  "Ground support & transitions",
   "Chest accessories",
   "Shoulder accessories",
   "Arm accessories",
@@ -764,6 +766,23 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Gemelos", "Core"],
         fatigueMap: { quadriceps: 0.8, glutes: 0.6, adductors: 0.5, calves: 0.3, core: 0.3 }
+      }),
+      squatExercise({
+        id: "lunge-unilateral-force-control-step-down-mp",
+        name: "Step Down MP",
+        equipment: ["Cajon", "Step"],
+        technicalDescription:
+          "Ejercicio unilateral de control de descenso desde cajón o step, con énfasis en alineación cadera-rodilla-pie, control excéntrico y estabilidad lumbopélvica.",
+        errorsToAvoid: [
+          "colapsar la rodilla hacia dentro",
+          "dejar caer la pelvis",
+          "perder control del pie",
+          "bajar demasiado rápido",
+          "compensar con inclinación excesiva del tronco"
+        ],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
+        secondaryMuscles: ["Glúteo medio", "Aductores", "Gemelos", "Core"],
+        fatigueMap: { quadriceps: 0.55, glutes: 0.4, gluteMed: 0.3, adductors: 0.2, calves: 0.15, core: 0.2 }
       })
     ]
   },
@@ -2308,6 +2327,23 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 }
       }),
       squatExercise({
+        id: "upper-body-accessories-shoulder-band-pull-apart",
+        name: "Band Pull Apart",
+        equipment: ["Banda elástica"],
+        technicalDescription:
+          "Ejercicio accesorio de tracción horizontal con banda elástica orientado a deltoides posterior, manguito rotador y control escapular. Separar la banda manteniendo brazos controlados y escápulas estables.",
+        errorsToAvoid: [
+          "arquear la zona lumbar",
+          "encoger hombros",
+          "flexionar demasiado los codos",
+          "tirar con impulso",
+          "perder control escapular"
+        ],
+        primaryMuscles: ["Deltoides posterior", "Manguito rotador"],
+        secondaryMuscles: ["Trapecio medio", "Romboides", "Core"],
+        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.3, upperBack: 0.3, traps: 0.2, core: 0.1 }
+      }),
+      squatExercise({
         name: "Face pull",
         equipment: ["Polea", "Banda"],
         technicalDescription:
@@ -2431,6 +2467,23 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { serratusAnterior: 0.3, traps: 0.2, shoulders: 0.2 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-shoulder-mobility-activation-scapular-retraction-band",
+        name: "Retracción escapular con goma",
+        equipment: ["Banda elástica"],
+        technicalDescription:
+          "Ejercicio de activación y control escapular con banda elástica. Realizar retracción escapular manteniendo cuello relajado, costillas controladas y sin compensar con extensión lumbar.",
+        errorsToAvoid: [
+          "encoger los hombros",
+          "tirar con los brazos en vez de mover escápulas",
+          "arquear la zona lumbar",
+          "adelantar la cabeza",
+          "usar demasiada tensión de banda"
+        ],
+        primaryMuscles: ["Espalda alta", "Trapecio"],
+        secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Hombros", "Core"],
+        fatigueMap: { upperBack: 0.3, traps: 0.25, lowerTraps: 0.2, rotatorCuff: 0.15, shoulders: 0.15, core: 0.1 }
+      }),
+      squatExercise({
         id: "mobility-movement-prep-upper-body-3",
         name: "Wall slide",
         equipment: ["Pared", "Banda elástica"],
@@ -2442,53 +2495,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { shoulders: 0.4, serratusAnterior: 0.3, lowerTraps: 0.2, core: 0.1 }
       }),
       squatExercise({
-        id: "mobility-movement-prep-upper-body-4",
-        name: "Band shoulder dislocates",
-        equipment: ["Banda elástica", "Pica"],
-        technicalDescription:
-          "Lleva la banda o pica por encima de la cabeza y hacia atrás con agarre amplio. Mantén costillas abajo y rango sin dolor.",
-        errorsToAvoid: ["Arquear lumbar", "Forzar hombro", "Flexionar codos en exceso"],
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Pectoral", "Dorsal", "Manguito rotador"],
-        fatigueMap: { shoulders: 0.4, chest: 0.2, lats: 0.2, rotatorCuff: 0.2 }
-      }),
-      squatExercise({
-        name: "Circunducción de hombro con pica",
-        equipment: ["Pica", "PVC"],
-        technicalDescription:
-          "Ejercicio de movilidad global de hombro utilizando una pica como guía. Realizar circunducciones amplias y controladas buscando movilidad escapulohumeral sin compensar con la zona lumbar.",
-        errorsToAvoid: [
-          "Arquear la zona lumbar",
-          "Elevar excesivamente los hombros",
-          "Flexionar los codos para ganar rango",
-          "Mover rápido sin control",
-          "Forzar dolor en el hombro"
-        ],
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Manguito rotador", "Espalda alta", "Core"],
-        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.2, upperBack: 0.15, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Flexión máxima de hombro con pica",
-        equipment: ["Pica", "PVC"],
-        technicalDescription:
-          "Ejercicio de movilidad de flexión de hombro. Elevar la pica por encima de la cabeza manteniendo costillas controladas, columna neutra y brazos extendidos dentro del rango disponible.",
-        errorsToAvoid: [
-          "Arquear la zona lumbar",
-          "Abrir demasiado las costillas",
-          "Flexionar los codos",
-          "Elevar hombros hacia las orejas",
-          "Forzar el rango final"
-        ],
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Dorsal", "Espalda alta", "Core"],
-        fatigueMap: { shoulders: 0.25, lats: 0.2, upperBack: 0.15, core: 0.1 }
-      }),
-      squatExercise({
+        id: "mobility-movement-prep-shoulder-mobility-activation-7",
         name: "Rotación interna y externa de hombro",
-        equipment: ["Peso corporal", "Pica", "Banda suave"],
+        equipment: ["Peso corporal", "Pica", "Banda suave", "Pared", "Banco"],
         technicalDescription:
-          "Ejercicio de movilidad y control de rotación interna y externa de hombro. Trabajar el rango disponible manteniendo escápula controlada y sin compensar con tronco o cuello.",
+          "Ejercicio de movilidad y control de rotación interna y externa de hombro. Trabajar el rango disponible manteniendo escápula controlada y sin compensar con tronco o cuello. Puede realizarse sentado con referencia de pared como regresión para controlar mejor la rotación externa.",
         errorsToAvoid: [
           "Adelantar la cabeza",
           "Elevar el hombro",
@@ -2501,26 +2512,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { rotatorCuff: 0.3, shoulders: 0.2, upperBack: 0.15, core: 0.1 }
       }),
       squatExercise({
-        name: "Rotación externa de hombro en pared sentado",
-        equipment: ["Pared", "Banco"],
+        id: "mobility-movement-prep-shoulder-mobility-activation-external-rotation-band",
+        name: "Rotación externa con goma",
+        equipment: ["Banda elástica"],
         technicalDescription:
-          "Ejercicio de movilidad y control de rotación externa de hombro con referencia de pared. Mantener espalda estable, brazo apoyado o guiado por la pared y buscar rotación externa controlada sin compensar con la columna.",
+          "Ejercicio de activación del manguito rotador con banda elástica. Mantener el codo próximo al cuerpo o apoyado según variante, controlar la escápula y realizar rotación externa sin compensar con tronco ni muñeca.",
         errorsToAvoid: [
-          "Arquear la espalda",
-          "Separar la escápula sin control",
-          "Elevar el hombro",
-          "Forzar el rango",
-          "Mover el cuello para compensar"
+          "separar excesivamente el codo",
+          "girar el tronco",
+          "elevar el hombro",
+          "perder control escapular",
+          "usar demasiada tensión de banda",
+          "mover la muñeca en vez del hombro"
         ],
         primaryMuscles: ["Manguito rotador"],
         secondaryMuscles: ["Hombros", "Espalda alta", "Core"],
-        fatigueMap: { rotatorCuff: 0.35, shoulders: 0.2, upperBack: 0.15, core: 0.1 }
+        fatigueMap: { rotatorCuff: 0.4, shoulders: 0.2, upperBack: 0.2, core: 0.1 }
       }),
       squatExercise({
-        name: "Antepulsión y retropulsión de hombro con superband",
+        id: "mobility-movement-prep-upper-body-4",
+        name: "Movilidad de hombro con pica",
+        equipment: ["Pica", "PVC", "Banda elástica"],
+        technicalDescription:
+          "Ejercicio de movilidad global de hombro con pica, PVC o banda. Agrupa circunducciones de hombro, flexión máxima de hombro y pasadas tipo band shoulder dislocates, manteniendo costillas controladas y rango sin dolor.",
+        errorsToAvoid: [
+          "Arquear la zona lumbar",
+          "Elevar excesivamente los hombros",
+          "Flexionar los codos para ganar rango",
+          "Mover rápido sin control",
+          "Forzar dolor en el hombro"
+        ],
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Pectoral", "Dorsal", "Espalda alta", "Core"],
+        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.2, chest: 0.15, lats: 0.15, upperBack: 0.15, core: 0.1 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-shoulder-mobility-activation-shoulder-band-mobility",
+        name: "Movilidad de hombro con superband",
         equipment: ["Superband"],
         technicalDescription:
-          "Ejercicio de movilidad y control escapulohumeral con superband. Realizar movimientos controlados de antepulsión y retropulsión del hombro manteniendo tronco estable y tensión suave de la banda.",
+          "Ejercicio de movilidad y control escapulohumeral con superband. Agrupa variantes de antepulsión y retropulsión de hombro, incluyendo retropulsión con rotación, usando asistencia suave sin perder posición costal ni control escapular.",
         errorsToAvoid: [
           "Usar demasiada tensión de banda",
           "Compensar con el tronco",
@@ -2528,27 +2559,12 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder control escapular",
           "Hacer rebotes rápidos"
         ],
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Espalda alta", "Manguito rotador", "Core"],
-        fatigueMap: { shoulders: 0.25, upperBack: 0.2, rotatorCuff: 0.2, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Retropulsión con rotación con superband",
-        equipment: ["Superband"],
-        technicalDescription:
-          "Ejercicio de movilidad de hombro con énfasis en retropulsión y rotación. Usar la superband como asistencia suave para abrir el hombro y mejorar control del rango posterior sin perder posición costal y escapular.",
-        errorsToAvoid: [
-          "Tirar con demasiada fuerza de la banda",
-          "Arquear la zona lumbar",
-          "Elevar el hombro",
-          "Girar el tronco para compensar",
-          "Forzar dolor en la parte anterior del hombro"
-        ],
         primaryMuscles: ["Hombros", "Manguito rotador"],
         secondaryMuscles: ["Espalda alta", "Core"],
         fatigueMap: { shoulders: 0.25, rotatorCuff: 0.25, upperBack: 0.2, core: 0.1 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-shoulder-mobility-activation-11",
         name: "Flexo-extensión de hombro con fitball",
         equipment: ["Fitball"],
         technicalDescription:
@@ -2574,10 +2590,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     allowedSessionSections: ["activation"],
     exercises: [
       squatExercise({
-        name: "Abducción-aducción de cadera en decúbito supino",
+        id: "mobility-movement-prep-hip-mobility-activation-1",
+        name: "Movilidad de cadera en decúbito supino",
         equipment: ["Peso corporal", "Miniband"],
         technicalDescription:
-          "Ejercicio de movilidad y control de cadera en decúbito supino. Realizar abducción y aducción controlada de la pierna manteniendo la pelvis estable. Puede realizarse con peso corporal o con miniband suave como variante de activación, especialmente en la fase de abducción.",
+          "Ejercicio de movilidad y control de cadera en decúbito supino. Agrupa variantes de abducción-aducción y circunducción de cadera, manteniendo pelvis estable y recorrido controlado. Puede realizarse con peso corporal o miniband suave como activación.",
         errorsToAvoid: [
           "Rotar la pelvis",
           "Arquear la zona lumbar",
@@ -2585,84 +2602,9 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Mover la pierna con impulso",
           "Convertir el movimiento en flexión de cadera"
         ],
-        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
-        secondaryMuscles: ["Aductores", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.25, adductors: 0.25, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Abducción de cadera en cuadrupedia",
-        equipment: ["Peso corporal", "Miniband"],
-        technicalDescription:
-          "Ejercicio de activación y control lumbopélvico en cuadrupedia. Separar la rodilla hacia fuera manteniendo columna y pelvis estables. Puede realizarse con peso corporal o con miniband suave para aumentar la activación.",
-        errorsToAvoid: [
-          "Rotar la pelvis",
-          "Hundir la zona lumbar",
-          "Desplazar demasiado el peso corporal",
-          "Convertirlo en extensión de cadera",
-          "Usar impulso"
-        ],
-        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
-        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.45, glutes: 0.25, core: 0.2 }
-      }),
-      squatExercise({
-        name: "Clamshell con miniband",
-        equipment: ["Miniband"],
-        technicalDescription:
-          "Ejercicio de activación de glúteo medio en decúbito lateral con caderas y rodillas flexionadas. Mantener los pies juntos y abrir la rodilla superior contra la resistencia de la miniband sin rotar la pelvis.",
-        errorsToAvoid: [
-          "Girar la pelvis hacia atrás",
-          "Separar los pies",
-          "Hacer el movimiento demasiado rápido",
-          "Compensar con la zona lumbar",
-          "Perder tensión de la miniband"
-        ],
-        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
-        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.5, glutes: 0.25, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Abducción de cadera en 90-90",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Ejercicio de movilidad y control de cadera en posición 90-90. Trabajar la apertura de cadera manteniendo control pélvico y rango cómodo. Usarlo como preparación antes del trabajo de tren inferior.",
-        errorsToAvoid: [
-          "Compensar con inclinación del tronco",
-          "Forzar el rango",
-          "Perder control de la pelvis",
-          "Convertirlo en movimiento lumbar",
-          "Buscar más amplitud a costa del control"
-        ],
-        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
-        secondaryMuscles: ["Aductores", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.3, adductors: 0.2, core: 0.15 }
-      }),
-      squatExercise({
-        id: "mobility-movement-prep-hip-mobility-activation-adductor-rockback",
-        name: "Adductor rockback",
-        equipment: ["Peso corporal"],
-        technicalDescription:
-          "Desde cuadrupedia con una pierna extendida lateralmente, lleva la cadera atrás y vuelve con control. Mantén columna neutra y tensión tolerable.",
-        errorsToAvoid: ["Redondear lumbar", "Forzar la ingle", "Rebotar"],
-        primaryMuscles: ["Aductores"],
-        secondaryMuscles: ["Caderas", "Core"],
-        fatigueMap: { adductors: 0.4, hips: 0.3, core: 0.1 }
-      }),
-      squatExercise({
-        name: "Bisagra de cadera con pica",
-        equipment: ["Pica", "PVC"],
-        technicalDescription:
-          "Ejercicio de movilidad y aprendizaje del patrón de bisagra de cadera. Colocar la pica en contacto con cabeza, zona dorsal y sacro, y llevar la cadera hacia atrás manteniendo columna neutra y control de la pelvis.",
-        errorsToAvoid: [
-          "Perder contacto con la pica",
-          "Flexionar demasiado las rodillas",
-          "Redondear la zona lumbar",
-          "Convertirlo en una sentadilla",
-          "Mover la columna en vez de la cadera"
-        ],
-        primaryMuscles: ["Glúteos", "Isquios"],
-        secondaryMuscles: ["Erectores espinales", "Core"],
-        fatigueMap: { glutes: 0.25, hamstrings: 0.25, spinalErectors: 0.15, core: 0.15 }
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
+        fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.1 }
       }),
       squatExercise({
         id: "mobility-movement-prep-lower-body-2",
@@ -2682,20 +2624,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { gluteMed: 0.25, glutes: 0.2, adductors: 0.15, core: 0.1 }
       }),
       squatExercise({
-        name: "Circunducción de cadera en decúbito supino",
-        equipment: ["Peso corporal"],
+        id: "mobility-movement-prep-hip-mobility-activation-2",
+        name: "Abducción de cadera en cuadrupedia",
+        equipment: ["Peso corporal", "Miniband"],
         technicalDescription:
-          "Ejercicio de movilidad de cadera en decúbito supino. Dibujar círculos controlados con la pierna desde la cadera, diferenciándolo de la abducción-aducción simple, que solo se mueve de lado a lado.",
+          "Ejercicio de activación y control lumbopélvico en cuadrupedia. Separar la rodilla hacia fuera manteniendo columna y pelvis estables. Puede realizarse con peso corporal o con miniband suave para aumentar la activación.",
         errorsToAvoid: [
-          "Arquear la zona lumbar",
-          "Mover la pelvis",
-          "Hacer círculos demasiado grandes sin control",
-          "Usar impulso",
-          "Convertirlo en flexión lumbar"
+          "Rotar la pelvis",
+          "Hundir la zona lumbar",
+          "Desplazar demasiado el peso corporal",
+          "Convertirlo en extensión de cadera",
+          "Usar impulso"
         ],
-        primaryMuscles: ["Caderas", "Glúteo medio"],
-        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
-        fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.1 }
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.45, glutes: 0.25, core: 0.2 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-3",
+        name: "Clamshell con miniband",
+        equipment: ["Miniband"],
+        technicalDescription:
+          "Ejercicio de activación de glúteo medio en decúbito lateral con caderas y rodillas flexionadas. Mantener los pies juntos y abrir la rodilla superior contra la resistencia de la miniband sin rotar la pelvis.",
+        errorsToAvoid: [
+          "Girar la pelvis hacia atrás",
+          "Separar los pies",
+          "Hacer el movimiento demasiado rápido",
+          "Compensar con la zona lumbar",
+          "Perder tensión de la miniband"
+        ],
+        primaryMuscles: ["Glúteo medio", "Glúteo menor"],
+        secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
+        fatigueMap: { gluteMed: 0.5, glutes: 0.25, core: 0.1 }
       }),
       squatExercise({
         id: "mobility-movement-prep-lower-body-3",
@@ -2715,6 +2675,40 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.2, core: 0.15 }
       }),
       squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-hip-internal-rotation",
+        name: "Rotación interna de cadera",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio de movilidad y control de rotación interna de cadera. Trabajar el rango disponible manteniendo pelvis estable y evitando compensaciones lumbares o de rodilla.",
+        errorsToAvoid: [
+          "mover la pelvis para ganar rango",
+          "forzar la rodilla",
+          "compensar con la zona lumbar",
+          "perder control del recorrido",
+          "buscar rango con dolor"
+        ],
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core"],
+        fatigueMap: { gluteMed: 0.3, glutes: 0.2, adductors: 0.15, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-supported-hip-internal-rotation",
+        name: "Rotación interna apoyo de cadera",
+        equipment: ["Peso corporal", "Soporte"],
+        technicalDescription:
+          "Ejercicio de control de cadera con apoyo, orientado a mejorar la rotación interna y la estabilidad lumbopélvica. Mantener apoyo estable, pelvis controlada y rotar desde la cadera sin perder alineación de rodilla y pie.",
+        errorsToAvoid: [
+          "colapsar la rodilla",
+          "perder apoyo del pie",
+          "rotar desde la lumbar",
+          "desplazar la pelvis sin control",
+          "forzar el rango"
+        ],
+        primaryMuscles: ["Caderas", "Glúteo medio"],
+        secondaryMuscles: ["Glúteos", "Aductores", "Core", "Cuádriceps"],
+        fatigueMap: { gluteMed: 0.35, glutes: 0.25, adductors: 0.15, core: 0.2, quadriceps: 0.1 }
+      }),
+      squatExercise({
         id: "mobility-movement-prep-hip-mobility-activation-b-stance-internal-rotation",
         name: "B-stance con rotación interna de cadera",
         equipment: ["Peso corporal"],
@@ -2732,6 +2726,34 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Glúteo mayor", "Isquiosurales"],
         secondaryMuscles: ["Glúteo medio", "Aductores", "Core / estabilizadores lumbopélvicos"],
         fatigueMap: { glutes: 0.3, hamstrings: 0.25, gluteMed: 0.2, adductors: 0.1, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-6",
+        name: "Bisagra de cadera con pica",
+        equipment: ["Pica", "PVC"],
+        technicalDescription:
+          "Ejercicio de movilidad y aprendizaje del patrón de bisagra de cadera. Colocar la pica en contacto con cabeza, zona dorsal y sacro, y llevar la cadera hacia atrás manteniendo columna neutra y control de la pelvis.",
+        errorsToAvoid: [
+          "Perder contacto con la pica",
+          "Flexionar demasiado las rodillas",
+          "Redondear la zona lumbar",
+          "Convertirlo en una sentadilla",
+          "Mover la columna en vez de la cadera"
+        ],
+        primaryMuscles: ["Glúteos", "Isquios"],
+        secondaryMuscles: ["Erectores espinales", "Core"],
+        fatigueMap: { glutes: 0.25, hamstrings: 0.25, spinalErectors: 0.15, core: 0.15 }
+      }),
+      squatExercise({
+        id: "mobility-movement-prep-hip-mobility-activation-adductor-rockback",
+        name: "Adductor rockback",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde cuadrupedia con una pierna extendida lateralmente, lleva la cadera atrás y vuelve con control. Mantén columna neutra y tensión tolerable.",
+        errorsToAvoid: ["Redondear lumbar", "Forzar la ingle", "Rebotar"],
+        primaryMuscles: ["Aductores"],
+        secondaryMuscles: ["Caderas", "Core"],
+        fatigueMap: { adductors: 0.4, hips: 0.3, core: 0.1 }
       }),
       squatExercise({
         id: "mobility-movement-prep-integrated-2",
@@ -2911,6 +2933,99 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Hombros", "Caderas"],
         secondaryMuscles: ["Isquios", "Gemelos", "Core"],
         fatigueMap: { shoulders: 0.3, hips: 0.3, hamstrings: 0.2, calves: 0.2, core: 0.2 }
+      })
+    ]
+  },
+  {
+    slug: "core-trunk-control-ground-support",
+    pattern: "Core / Trunk Control",
+    block: "Ground support & transitions",
+    exercises: [
+      squatExercise({
+        id: "core-trunk-control-ground-support-bear-walk-unilateral",
+        name: "Bear walk unilateral",
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Ejercicio global de apoyo y desplazamiento en cuadrupedia con énfasis en control unilateral, estabilidad de tronco, cintura escapular y cadera. Avanzar o mantener posición alternando apoyos sin perder alineación.",
+        errorsToAvoid: [
+          "hundir la zona lumbar",
+          "rotar excesivamente la pelvis",
+          "perder apoyo activo de manos",
+          "elevar demasiado la cadera",
+          "mover rápido sin control"
+        ],
+        primaryMuscles: ["Core", "Hombros"],
+        secondaryMuscles: ["Serrato anterior", "Glúteos", "Cuádriceps"],
+        fatigueMap: { core: 0.35, shoulders: 0.3, serratusAnterior: 0.25, glutes: 0.2, quadriceps: 0.15 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-ground-support-turkish-get-up-start",
+        name: "Turkish get-up: inicio",
+        equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
+        technicalDescription:
+          "Primera fase del levantamiento turco. Desde decúbito supino, mantener un brazo estable hacia arriba y realizar el inicio del incorporado controlando hombro, tronco y respiración.",
+        errorsToAvoid: [
+          "perder verticalidad del brazo",
+          "encoger el hombro",
+          "impulsarse sin control",
+          "perder tensión abdominal",
+          "mirar al suelo en vez de controlar la carga/brazo"
+        ],
+        primaryMuscles: ["Core", "Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos"],
+        fatigueMap: { shoulders: 0.3, rotatorCuff: 0.25, core: 0.35, obliques: 0.25, glutes: 0.15 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-ground-support-turkish-get-up-second-step",
+        name: "Turkish get-up: segundo paso",
+        equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
+        technicalDescription:
+          "Segunda fase del levantamiento turco, progresando desde el apoyo inicial hacia una posición más estable de transición. Priorizar control del hombro, apoyo del brazo libre y estabilidad del tronco.",
+        errorsToAvoid: [
+          "perder alineación del brazo elevado",
+          "colapsar el apoyo",
+          "rotar sin control",
+          "perder respiración",
+          "acelerar la transición"
+        ],
+        primaryMuscles: ["Core", "Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos", "Cuádriceps"],
+        fatigueMap: { shoulders: 0.35, rotatorCuff: 0.25, core: 0.35, obliques: 0.25, glutes: 0.2, quadriceps: 0.1 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-ground-support-turkish-get-up-third-step",
+        name: "Turkish get-up: tercer paso",
+        equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
+        technicalDescription:
+          "Tercera fase del levantamiento turco, integrando transición de cadera y apoyo inferior. Mantener brazo estable, tronco activo y control de cadera durante el paso.",
+        errorsToAvoid: [
+          "perder verticalidad del brazo",
+          "colapsar la cadera",
+          "apoyar la rodilla sin control",
+          "perder orientación del tronco",
+          "ir demasiado rápido"
+        ],
+        primaryMuscles: ["Core", "Hombros"],
+        secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos", "Cuádriceps"],
+        fatigueMap: { shoulders: 0.35, rotatorCuff: 0.25, core: 0.35, obliques: 0.25, glutes: 0.25, quadriceps: 0.15 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-ground-support-turkish-get-up-complete",
+        name: "Turkish get-up completo",
+        equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
+        technicalDescription:
+          "Levantamiento turco completo, integrando estabilidad de hombro, control de tronco, transición de cadera, apoyo unilateral y coordinación global desde el suelo hasta la posición de pie y vuelta.",
+        errorsToAvoid: [
+          "perder verticalidad del brazo",
+          "acelerar las transiciones",
+          "colapsar hombro o muñeca",
+          "perder estabilidad de cadera",
+          "no controlar la bajada",
+          "perder respiración"
+        ],
+        primaryMuscles: ["Core", "Hombros", "Glúteos"],
+        secondaryMuscles: ["Manguito rotador", "Oblicuos", "Cuádriceps", "Isquiosurales"],
+        fatigueMap: { shoulders: 0.4, rotatorCuff: 0.3, core: 0.4, obliques: 0.25, glutes: 0.3, quadriceps: 0.2, hamstrings: 0.15 }
       })
     ]
   },
