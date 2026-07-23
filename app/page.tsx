@@ -4761,10 +4761,13 @@ function CoachTrainingPlanner({
     percent1RM: exercise.percent1RM,
     reps: exercise.reps,
     rest: exercise.rest,
+    selectedEquipment: exercise.selectedEquipment || undefined,
+    selectedVariantId: exercise.selectedVariantId || undefined,
+    selectedVariantName: exercise.selectedVariantName || undefined,
     sets: exercise.sets,
     targetRir: exercise.targetRir,
     targetRpe: exercise.targetRpe,
-    targetVelocity: exercise.targetVelocity
+    targetVelocity: exercise.targetVelocity || undefined
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
@@ -4867,6 +4870,9 @@ function CoachTrainingPlanner({
         id: `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
         percent1RM: exercise.percent1RM ?? "",
+        selectedEquipment: exercise.selectedEquipment ?? "",
+        selectedVariantId: exercise.selectedVariantId ?? "",
+        selectedVariantName: exercise.selectedVariantName ?? "",
         targetRir: exercise.targetRir ?? "",
         targetRpe: exercise.targetRpe ?? "",
         targetVelocity: exercise.targetVelocity ?? ""
