@@ -1911,7 +1911,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Balancear el cuerpo", "Soltar la fase de bajada", "Usar un rango doloroso"],
         primaryMuscles: ["Cuádriceps"],
         secondaryMuscles: ["Flexores cadera"],
-        fatigueMap: { quadriceps: 1, hipFlexors: 0.2 }
+        fatigueMap: { quadriceps: 1, hipFlexors: 0.2 },
+        variants: [
+          {
+            id: "leg-extension-variant-bilateral",
+            name: "Extensión de rodilla bilateral",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante bilateral en máquina para trabajar extensión de rodilla con trayectoria guiada.",
+            coachingNotes: "Ajustar el eje de la máquina con la rodilla y controlar la fase excéntrica."
+          },
+          {
+            id: "leg-extension-variant-unilateral",
+            name: "Extensión de rodilla unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante unilateral útil para ajustar asimetrías y controlar mejor la carga por pierna.",
+            coachingNotes: "Evitar compensar con la pelvis o levantar la cadera del asiento."
+          },
+          {
+            id: "leg-extension-variant-paused",
+            name: "Leg extension con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en extensión para aumentar control y tensión del cuádriceps.",
+            coachingNotes: "Pausar sin bloquear agresivamente la rodilla."
+          },
+          {
+            id: "leg-extension-variant-eccentric",
+            name: "Leg extension excéntrica",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Máquina"],
+            description:
+              "Variante con énfasis excéntrico para aumentar el control de la bajada y la demanda del cuádriceps.",
+            coachingNotes: "Usar cargas moderadas y mantener una bajada controlada."
+          }
+        ]
       })
     ]
   },
@@ -1928,7 +1967,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Levantar la pelvis", "Balancear la carga", "Soltar la bajada"],
         primaryMuscles: ["Isquios"],
         secondaryMuscles: ["Gemelos"],
-        fatigueMap: { hamstrings: 1, calves: 0.2 }
+        fatigueMap: { hamstrings: 1, calves: 0.2 },
+        variants: [
+          {
+            id: "lying-leg-curl-variant-bilateral",
+            name: "Curl femoral tumbado bilateral",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante bilateral en máquina para trabajar flexión de rodilla con apoyo en decúbito prono.",
+            coachingNotes: "Mantener pelvis apoyada y evitar arquear la zona lumbar."
+          },
+          {
+            id: "lying-leg-curl-variant-unilateral",
+            name: "Curl femoral tumbado unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante unilateral para ajustar carga por pierna y detectar asimetrías.",
+            coachingNotes: "Evitar rotar la pelvis durante la flexión de rodilla."
+          },
+          {
+            id: "lying-leg-curl-variant-paused",
+            name: "Curl femoral tumbado con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en la flexión para aumentar control y tensión en isquiosurales.",
+            coachingNotes: "Pausar sin perder apoyo de pelvis ni compensar con lumbar."
+          },
+          {
+            id: "lying-leg-curl-variant-eccentric",
+            name: "Curl femoral tumbado excéntrico",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Máquina"],
+            description: "Variante con énfasis en la fase excéntrica para aumentar control y demanda posterior.",
+            coachingNotes: "Usar carga que permita controlar toda la bajada."
+          }
+        ]
       }),
       squatExercise({
         name: "Seated leg curl",
@@ -1938,7 +2015,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Mover la cadera", "Rebotar al final", "Usar rango parcial sin criterio"],
         primaryMuscles: ["Isquios"],
         secondaryMuscles: ["Gemelos"],
-        fatigueMap: { hamstrings: 1, calves: 0.2 }
+        fatigueMap: { hamstrings: 1, calves: 0.2 },
+        variants: [
+          {
+            id: "seated-leg-curl-variant-bilateral",
+            name: "Curl femoral sentado bilateral",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante bilateral sentada para trabajar flexión de rodilla con la cadera flexionada.",
+            coachingNotes: "Ajustar respaldo y eje de rodilla antes de cargar."
+          },
+          {
+            id: "seated-leg-curl-variant-unilateral",
+            name: "Curl femoral sentado unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante unilateral que permite individualizar carga y controlar asimetrías.",
+            coachingNotes: "Mantener pelvis estable y no despegarse del respaldo."
+          },
+          {
+            id: "seated-leg-curl-variant-paused",
+            name: "Curl femoral sentado con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en la flexión para enfatizar control y tensión en isquiosurales.",
+            coachingNotes: "No perder posición de cadera durante la pausa."
+          },
+          {
+            id: "seated-leg-curl-variant-eccentric",
+            name: "Curl femoral sentado excéntrico",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Máquina"],
+            description: "Variante con bajada controlada para aumentar la demanda excéntrica de los isquiosurales.",
+            coachingNotes: "Reducir carga si se pierde control de la fase excéntrica."
+          }
+        ]
       }),
       squatExercise({
         name: "Nordic curl",
@@ -1948,7 +2063,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Flexionar la cadera", "Caer sin control", "Perder alineación tronco-muslo"],
         primaryMuscles: ["Isquios"],
         secondaryMuscles: ["Glúteo mayor", "Gemelos", "Estabilizadores lumbares"],
-        fatigueMap: { hamstrings: 1, glutes: 0.3, calves: 0.2, lumbarStabilizers: 0.2 }
+        fatigueMap: { hamstrings: 1, glutes: 0.3, calves: 0.2, lumbarStabilizers: 0.2 },
+        variants: [
+          {
+            id: "nordic-curl-variant-assisted",
+            name: "Nordic curl asistido",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["Peso corporal", "Soporte", "Banda elástica"],
+            description: "Regresión del Nordic curl con asistencia para controlar la bajada y facilitar el retorno.",
+            coachingNotes: "Usar asistencia suficiente para mantener alineación de cadera y tronco."
+          },
+          {
+            id: "nordic-curl-variant-eccentric",
+            name: "Nordic curl excéntrico",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Soporte"],
+            description:
+              "Variante con énfasis excéntrico, buscando controlar la bajada el mayor tiempo posible.",
+            coachingNotes: "No romper la línea hombro-cadera-rodilla durante la bajada."
+          },
+          {
+            id: "nordic-curl-variant-partial",
+            name: "Nordic curl parcial",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Soporte"],
+            description: "Variante con rango parcial para progresar tolerancia y control antes del rango completo.",
+            coachingNotes: "Aumentar el rango solo si se mantiene control técnico."
+          },
+          {
+            id: "nordic-curl-variant-full",
+            name: "Nordic curl completo",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Soporte"],
+            description: "Variante completa con mayor demanda excéntrica y concéntrica de isquiosurales.",
+            coachingNotes: "Reservar para deportistas con buena tolerancia posterior y control lumbo-pélvico."
+          }
+        ]
       })
     ]
   },
@@ -1966,7 +2120,48 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Arquear lumbar", "Rotar la pelvis", "Usar impulso"],
         primaryMuscles: ["Glúteo mayor"],
         secondaryMuscles: ["Isquios", "Estabilizadores lumbares"],
-        fatigueMap: { glutes: 0.9, hamstrings: 0.3, lumbarStabilizers: 0.2 }
+        fatigueMap: { glutes: 0.9, hamstrings: 0.3, lumbarStabilizers: 0.2 },
+        variants: [
+          {
+            id: "cable-kickback-variant-standing",
+            name: "Patada de glúteo en polea de pie",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Polea", "Tobillera"],
+            description: "Variante de pie para trabajar extensión de cadera con tensión continua.",
+            coachingNotes: "Mantener pelvis estable y evitar arquear la zona lumbar."
+          },
+          {
+            id: "cable-kickback-variant-quadruped",
+            name: "Patada de glúteo en polea en cuadrupedia",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Tobillera"],
+            description:
+              "Variante en cuadrupedia que facilita focalizar la extensión de cadera con mayor control de tronco.",
+            coachingNotes: "No rotar la pelvis ni perder apoyo de manos y rodillas."
+          },
+          {
+            id: "cable-kickback-variant-straight-leg",
+            name: "Patada de glúteo en polea con rodilla extendida",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Tobillera"],
+            description:
+              "Variante con rodilla más extendida que modifica la sensación de trabajo en extensión de cadera.",
+            coachingNotes: "Evitar convertirlo en una extensión lumbar."
+          },
+          {
+            id: "cable-kickback-variant-bent-knee",
+            name: "Patada de glúteo en polea con rodilla flexionada",
+            type: "range",
+            difficulty: "basic",
+            equipment: ["Polea", "Tobillera"],
+            description:
+              "Variante con rodilla flexionada para focalizar la extensión de cadera reduciendo la palanca.",
+            coachingNotes: "Mantener el movimiento desde la cadera, no desde la espalda."
+          }
+        ]
       }),
       squatExercise({
         name: "Hip extension machine",
@@ -1976,7 +2171,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Hiperextender lumbar", "Perder apoyo de pelvis", "Soltar la vuelta"],
         primaryMuscles: ["Glúteo mayor"],
         secondaryMuscles: ["Isquios", "Estabilizadores lumbares"],
-        fatigueMap: { glutes: 1, hamstrings: 0.4, lumbarStabilizers: 0.2 }
+        fatigueMap: { glutes: 1, hamstrings: 0.4, lumbarStabilizers: 0.2 },
+        variants: [
+          {
+            id: "hip-extension-machine-variant-unilateral",
+            name: "Extensión de cadera unilateral en máquina",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante unilateral guiada para trabajar extensión de cadera con estabilidad externa.",
+            coachingNotes: "Ajustar el apoyo para que el movimiento salga de la cadera y no de la zona lumbar."
+          },
+          {
+            id: "hip-extension-machine-variant-straight-leg",
+            name: "Extensión de cadera en máquina con rodilla extendida",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con rodilla más extendida que aumenta la palanca y modifica la demanda posterior.",
+            coachingNotes: "Usar carga moderada y controlar el rango."
+          },
+          {
+            id: "hip-extension-machine-variant-bent-knee",
+            name: "Extensión de cadera en máquina con rodilla flexionada",
+            type: "range",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante con rodilla flexionada para reducir palanca y facilitar el control del gesto.",
+            coachingNotes: "Evitar compensar con lumbar en la fase final."
+          },
+          {
+            id: "hip-extension-machine-variant-paused",
+            name: "Extensión de cadera en máquina con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en extensión para aumentar control y tensión en glúteo.",
+            coachingNotes: "Pausar sin perder posición pélvica."
+          }
+        ]
       })
     ]
   },
@@ -2144,7 +2377,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Rebotar", "Caer hacia el borde del pie", "Acortar el rango"],
         primaryMuscles: ["Gemelos"],
         secondaryMuscles: ["Sóleo"],
-        fatigueMap: { calves: 1, soleus: 0.4 }
+        fatigueMap: { calves: 1, soleus: 0.4 },
+        variants: [
+          {
+            id: "standing-calf-raise-variant-machine",
+            name: "Elevación de talones de pie en máquina",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante guiada para trabajar flexión plantar con rodilla extendida.",
+            coachingNotes: "Controlar recorrido completo sin rebotar abajo."
+          },
+          {
+            id: "standing-calf-raise-variant-dumbbells",
+            name: "Elevación de talones de pie con mancuernas",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuernas"],
+            description: "Variante con mancuernas para trabajar gemelos con carga libre.",
+            coachingNotes: "Mantener equilibrio y controlar la bajada."
+          },
+          {
+            id: "standing-calf-raise-variant-unilateral",
+            name: "Elevación de talones unilateral de pie",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Mancuerna", "Máquina"],
+            description: "Variante unilateral para ajustar carga por pierna y aumentar la demanda de control.",
+            coachingNotes: "Evitar rotar el tobillo o perder alineación del pie."
+          },
+          {
+            id: "standing-calf-raise-variant-paused-stretch",
+            name: "Elevación de talones con pausa abajo",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina", "Mancuernas", "Step"],
+            description: "Variante con pausa en posición de estiramiento para aumentar control del rango.",
+            coachingNotes: "Pausar sin colapsar el arco del pie."
+          }
+        ]
       }),
       squatExercise({
         name: "Seated calf raise",
@@ -2154,7 +2425,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Rebotar abajo", "Usar recorrido parcial", "Perder apoyo del antepié"],
         primaryMuscles: ["Sóleo"],
         secondaryMuscles: ["Gemelos"],
-        fatigueMap: { soleus: 1, calves: 0.6 }
+        fatigueMap: { soleus: 1, calves: 0.6 },
+        variants: [
+          {
+            id: "seated-calf-raise-variant-machine",
+            name: "Elevación de talones sentado en máquina",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante sentada para trabajar flexión plantar con rodilla flexionada.",
+            coachingNotes: "Controlar el rango completo y evitar rebotes."
+          },
+          {
+            id: "seated-calf-raise-variant-dumbbell",
+            name: "Elevación de talones sentado con mancuerna",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuerna", "Banco"],
+            description:
+              "Variante con mancuerna apoyada sobre la rodilla para trabajar flexión plantar en sedestación.",
+            coachingNotes: "Proteger la rodilla y mantener control del recorrido."
+          },
+          {
+            id: "seated-calf-raise-variant-unilateral",
+            name: "Elevación de talones sentado unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina", "Mancuerna", "Banco"],
+            description: "Variante unilateral para ajustar la carga por lado y controlar asimetrías.",
+            coachingNotes: "Mantener el pie estable y controlar la fase excéntrica."
+          },
+          {
+            id: "seated-calf-raise-variant-paused",
+            name: "Elevación de talones sentado con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina", "Mancuerna", "Banco"],
+            description: "Variante con pausa arriba o abajo para mejorar control del recorrido.",
+            coachingNotes: "Evitar rebotes y mantener tensión continua."
+          }
+        ]
       }),
       squatExercise({
         name: "Tibialis raise",
@@ -2164,7 +2474,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Mover todo el cuerpo", "Usar impulso", "Acortar el rango"],
         primaryMuscles: ["Tibial anterior"],
         secondaryMuscles: ["Gemelos"],
-        fatigueMap: { tibialisAnterior: 1, calves: 0.1 }
+        fatigueMap: { tibialisAnterior: 1, calves: 0.1 },
+        variants: [
+          {
+            id: "tibialis-raise-variant-wall",
+            name: "Tibialis raise en pared",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Peso corporal", "Pared"],
+            description: "Variante apoyada en pared para trabajar dorsiflexión con carga corporal ajustable.",
+            coachingNotes: "Alejar más los pies solo si se mantiene control del recorrido."
+          },
+          {
+            id: "tibialis-raise-variant-machine",
+            name: "Tibialis raise en máquina",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante en máquina para trabajar dorsiflexión con carga externa controlada.",
+            coachingNotes: "Evitar compensar con movimiento de rodilla o cadera."
+          },
+          {
+            id: "tibialis-raise-variant-band",
+            name: "Dorsiflexión resistida con banda",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Banda elástica"],
+            description: "Variante con banda elástica para trabajar dorsiflexores con resistencia progresiva.",
+            coachingNotes: "Controlar la vuelta y mantener el tobillo alineado."
+          },
+          {
+            id: "tibialis-raise-variant-unilateral",
+            name: "Tibialis raise unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Pared", "Máquina", "Banda elástica"],
+            description: "Variante unilateral para ajustar carga por lado y detectar asimetrías.",
+            coachingNotes: "Mantener rango completo sin rotar el pie."
+          }
+        ]
       })
     ]
   },
