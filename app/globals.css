@@ -99,6 +99,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 input,
 select,
 textarea {
@@ -175,6 +180,47 @@ textarea::placeholder {
   background:
     radial-gradient(circle at top left, rgb(var(--color-accent) / 0.12), transparent 30rem),
     linear-gradient(135deg, rgb(var(--color-background)) 0%, rgb(var(--color-panel)) 100%);
+}
+
+.theme-shell button.bg-ink,
+.theme-shell a.bg-ink {
+  background-color: rgb(var(--color-accent)) !important;
+  color: white !important;
+}
+
+.theme-shell button.bg-ink:hover,
+.theme-shell a.bg-ink:hover {
+  background-color: rgb(var(--color-accent-hover)) !important;
+}
+
+.theme-shell button.bg-ink:disabled,
+.theme-shell button.bg-ink[aria-disabled="true"] {
+  background-color: rgb(var(--color-panel)) !important;
+  color: rgb(var(--color-muted-text)) !important;
+  opacity: 0.72;
+}
+
+.theme-shell button.border-line.bg-white,
+.theme-shell a.border-line.bg-white {
+  background-color: rgb(var(--color-surface-subtle) / 0.52) !important;
+  color: rgb(var(--color-text) / 0.78) !important;
+}
+
+.theme-shell button.border-line.bg-white:hover,
+.theme-shell a.border-line.bg-white:hover {
+  background-color: rgb(var(--color-surface-subtle) / 0.88) !important;
+  color: rgb(var(--color-text)) !important;
+}
+
+.theme-shell button.border-red-200,
+.theme-shell a.border-red-200 {
+  background-color: rgb(var(--color-danger-soft) / 0.52) !important;
+  color: rgb(var(--color-danger)) !important;
+}
+
+.theme-shell button.border-red-200:hover,
+.theme-shell a.border-red-200:hover {
+  background-color: rgb(var(--color-danger-soft) / 0.82) !important;
 }
 
 .scrollbar-none {
