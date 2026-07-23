@@ -542,6 +542,9 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
+  selectedEquipment?: string | null;
+  selectedVariantId?: string | null;
+  selectedVariantName?: string | null;
   targetRir?: number | string | null;
 };
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
@@ -4107,6 +4110,9 @@ type PlannedStrengthExerciseDraft = {
   percent1RM?: string;
   reps: string;
   rest: string;
+  selectedEquipment?: string;
+  selectedVariantId?: string;
+  selectedVariantName?: string;
   sets: string;
   targetRir: string;
   targetRpe: string;
@@ -4334,6 +4340,15 @@ function CoachTrainingPlanner({
       current.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...updates } : exercise)
     );
   };
+  const selectStrengthLibraryExercise = (draftExerciseId: string, libraryExercise: ExerciseDefinition) => {
+    updateStrengthExercise(draftExerciseId, {
+      exerciseId: libraryExercise.id,
+      exerciseSearch: libraryExercise.name,
+      selectedEquipment: libraryExercise.equipment.length === 1 ? libraryExercise.equipment[0] : "",
+      selectedVariantId: "",
+      selectedVariantName: ""
+    });
+  };
   const removeStrengthExercise = (exerciseId: string) => {
     setStrengthExercises((current) => current.filter((exercise) => exercise.id !== exerciseId));
   };
@@ -4402,6 +4417,9 @@ function CoachTrainingPlanner({
       plannedRir: exercise.targetRir,
       plannedRpe: exercise.targetRpe,
       plannedSets: exercise.sets,
+      selectedEquipment: exercise.selectedEquipment || undefined,
+      selectedVariantId: exercise.selectedVariantId || undefined,
+      selectedVariantName: exercise.selectedVariantName || undefined,
       section: exercise.block
     }));
     const cardioPlan = buildCardioPlanFromDraft(cardioPlanDraft);
@@ -4501,6 +4519,11 @@ function CoachTrainingPlanner({
             const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
             const effectiveIntensityMethod = exercise.intensityMethod || sessionStrengthMethod || "rir";
+            const equipmentOptions = selectedLibraryExercise?.equipment ?? [];
+            const selectedVariant =
+              selectedLibraryExercise?.variants?.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
+            const hasSelectedEquipment = Boolean(exercise.selectedEquipment);
+            const hasSelectedVariant = Boolean(exercise.selectedVariantName);
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
@@ -4526,7 +4549,10 @@ function CoachTrainingPlanner({
                     onChange={(event) =>
                       updateStrengthExercise(exercise.id, {
                         exerciseId: "",
-                        exerciseSearch: event.target.value
+                        exerciseSearch: event.target.value,
+                        selectedEquipment: "",
+                        selectedVariantId: "",
+                        selectedVariantName: ""
                       })
                     }
                     placeholder="Buscar ejercicio..."
@@ -4539,12 +4565,7 @@ function CoachTrainingPlanner({
                         <button
                           className="block w-full border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
                           key={libraryExercise.id}
-                          onClick={() =>
-                            updateStrengthExercise(exercise.id, {
-                              exerciseId: libraryExercise.id,
-                              exerciseSearch: libraryExercise.name
-                            })
-                          }
+                          onClick={() => selectStrengthLibraryExercise(exercise.id, libraryExercise)}
                           type="button"
                         >
                           <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
@@ -4573,10 +4594,69 @@ function CoachTrainingPlanner({
                   <p className="font-semibold">
                     {selectedLibraryExercise.pattern} - {selectedLibraryExercise.block} - {selectedLibraryExercise.equipment.join(" / ")}
                   </p>
+                  {hasSelectedEquipment || hasSelectedVariant ? (
+                    <p className="mt-1 font-semibold text-moss/90">
+                      {hasSelectedEquipment ? `Material: ${exercise.selectedEquipment}` : ""}
+                      {hasSelectedEquipment && hasSelectedVariant ? " · " : ""}
+                      {hasSelectedVariant ? `Variante: ${exercise.selectedVariantName}` : ""}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-moss/80">
                     Principales: {selectedLibraryExercise.primaryMuscles.join(", ") || "pendiente"} - Secundarios:{" "}
                     {selectedLibraryExercise.secondaryMuscles.join(", ") || "pendiente"}
                   </p>
+                </div>
+              ) : null}
+              {selectedLibraryExercise && (equipmentOptions.length > 0 || selectedLibraryExercise.variants?.length) ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {equipmentOptions.length > 0 ? (
+                    <label className="space-y-1 text-xs font-semibold text-ink/55">
+                      Material
+                      <select
+                        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateStrengthExercise(exercise.id, { selectedEquipment: event.target.value })}
+                        value={exercise.selectedEquipment ?? ""}
+                      >
+                        <option value="">Seleccionar material</option>
+                        {equipmentOptions.map((equipment) => (
+                          <option key={equipment} value={equipment}>{equipment}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {selectedLibraryExercise.variants?.length ? (
+                    <label className="space-y-1 text-xs font-semibold text-ink/55">
+                      Variante
+                      <select
+                        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                        onChange={(event) => {
+                          const variant = selectedLibraryExercise.variants?.find((item) => item.id === event.target.value);
+                          updateStrengthExercise(exercise.id, {
+                            selectedVariantId: variant?.id ?? "",
+                            selectedVariantName: variant?.name ?? ""
+                          });
+                        }}
+                        value={exercise.selectedVariantId ?? ""}
+                      >
+                        <option value="">Sin variante específica</option>
+                        {selectedLibraryExercise.variants.map((variant) => (
+                          <option key={variant.id} value={variant.id}>{variant.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {selectedVariant ? (
+                    <div className="rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65 md:col-span-2">
+                      <p className="font-semibold text-ink">
+                        {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} · {exerciseVariantTypeLabels[selectedVariant.type]}
+                      </p>
+                      {selectedVariant.coachingNotes ? (
+                        <p className="mt-1">{selectedVariant.coachingNotes}</p>
+                      ) : selectedVariant.description ? (
+                        <p className="mt-1">{selectedVariant.description}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
