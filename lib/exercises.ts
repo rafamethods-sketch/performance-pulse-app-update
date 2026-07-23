@@ -3095,6 +3095,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Colapsar la lumbar", "Abrir codos sin control", "No completar el empuje"],
         primaryMuscles: ["Pectoral", "Tríceps"],
         secondaryMuscles: ["Deltoides anterior", "Serrato anterior", "Core"],
+        variants: [
+          {
+            id: "push-up-variant-knee",
+            name: "Push-up con rodillas apoyadas",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["Peso corporal"],
+            description: "Regresión del push-up que reduce la carga relativa y facilita el control de tronco y escápulas.",
+            coachingNotes: "Mantener línea hombro-cadera-rodilla y evitar colapsar la zona lumbar."
+          },
+          {
+            id: "push-up-variant-deficit",
+            name: "Push-up en déficit",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Soportes"],
+            description:
+              "Variante con mayor rango de movimiento para aumentar la demanda de pectoral, hombro anterior y control escapular.",
+            coachingNotes: "Usar solo si el deportista mantiene control en el rango completo."
+          },
+          {
+            id: "push-up-variant-weighted",
+            name: "Push-up lastrado",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Disco", "Chaleco lastrado"],
+            description: "Variante con carga externa para progresar fuerza de empuje horizontal.",
+            coachingNotes: "Colocar la carga de forma estable y no perder rigidez del tronco."
+          },
+          {
+            id: "push-up-variant-close-grip",
+            name: "Push-up agarre cerrado",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal"],
+            description:
+              "Variante con manos más próximas para aumentar la participación relativa de tríceps y demanda de control escapular.",
+            coachingNotes: "Evitar abrir excesivamente los codos o perder alineación de muñeca."
+          }
+        ],
         fatigueMap: { chest: 0.8, triceps: 0.7, anteriorDelts: 0.6, serratusAnterior: 0.5, core: 0.5 }
       }),
       squatExercise({
@@ -3105,6 +3145,55 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Rebotar la carga", "Perder retracción escapular", "Abrir codos de forma excesiva"],
         primaryMuscles: ["Pectoral", "Tríceps"],
         secondaryMuscles: ["Deltoides anterior", "Core", "Upper back"],
+        variants: [
+          {
+            id: "bench-press-variant-barbell",
+            name: "Press banca con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description:
+              "Variante clásica con barra para desarrollar fuerza de empuje horizontal con alta capacidad de sobrecarga.",
+            coachingNotes: "Mantener escápulas estables, pies apoyados y trayectoria controlada."
+          },
+          {
+            id: "bench-press-variant-dumbbells",
+            name: "Press banca con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description: "Variante con mancuernas que permite mayor libertad de movimiento y demanda de estabilización.",
+            coachingNotes: "Controlar la bajada y evitar perder simetría entre brazos."
+          },
+          {
+            id: "bench-press-variant-paused",
+            name: "Press banca con pausa",
+            type: "tempo",
+            difficulty: "advanced",
+            equipment: ["Barra", "Mancuernas"],
+            description: "Variante con pausa en la parte baja para mejorar control, fuerza desde parada y estabilidad.",
+            coachingNotes: "Mantener tensión durante la pausa sin hundir hombros ni perder posición escapular."
+          },
+          {
+            id: "bench-press-variant-close-grip",
+            name: "Press banca agarre cerrado",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante con agarre más cerrado que aumenta la demanda relativa de tríceps y control del empuje.",
+            coachingNotes: "No cerrar el agarre hasta comprometer muñecas u hombros."
+          },
+          {
+            id: "bench-press-variant-floor-press",
+            name: "Floor press",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Mancuernas"],
+            description:
+              "Variante con rango limitado por el suelo, útil para controlar hombro y enfatizar la fase media-final del empuje.",
+            coachingNotes: "Apoyar tríceps de forma controlada y no rebotar contra el suelo."
+          }
+        ],
         fatigueMap: { chest: 1, triceps: 0.8, anteriorDelts: 0.7, core: 0.2, upperBack: 0.2 }
       }),
       squatExercise({
@@ -3115,6 +3204,44 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Convertirlo en press vertical", "Elevar hombros", "Perder apoyo en el banco"],
         primaryMuscles: ["Pectoral", "Deltoides anterior", "Tríceps"],
         secondaryMuscles: ["Upper back", "Core"],
+        variants: [
+          {
+            id: "incline-bench-press-variant-barbell",
+            name: "Press inclinado con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante con barra orientada a empuje inclinado y sobrecarga progresiva.",
+            coachingNotes: "Mantener trayectoria estable y evitar convertirlo en press vertical."
+          },
+          {
+            id: "incline-bench-press-variant-dumbbells",
+            name: "Press inclinado con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description: "Variante con mancuernas que permite libertad de trayectoria y mayor demanda de estabilización.",
+            coachingNotes: "Controlar la bajada y mantener hombros activos."
+          },
+          {
+            id: "incline-bench-press-variant-low-incline",
+            name: "Press inclinado bajo",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Mancuernas", "Banco inclinado"],
+            description: "Variante con menor inclinación para acercar el estímulo al press horizontal.",
+            coachingNotes: "Elegir la inclinación según tolerancia de hombro y objetivo del empuje."
+          },
+          {
+            id: "incline-bench-press-variant-high-incline",
+            name: "Press inclinado alto",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Mancuernas", "Banco inclinado"],
+            description: "Variante con mayor inclinación, acercando el estímulo al press vertical.",
+            coachingNotes: "Evitar compensar con extensión lumbar."
+          }
+        ],
         fatigueMap: { chest: 0.9, anteriorDelts: 0.8, triceps: 0.7, upperBack: 0.2, core: 0.2 }
       }),
       squatExercise({
@@ -3125,6 +3252,44 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Rotar el tronco", "Elevar hombro al final", "Perder base de apoyo"],
         primaryMuscles: ["Deltoides anterior", "Pectoral", "Tríceps"],
         secondaryMuscles: ["Serrato anterior", "Core", "Trapecio superior"],
+        variants: [
+          {
+            id: "landmine-press-variant-standing",
+            name: "Landmine press de pie",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Variante de pie con empuje diagonal y demanda de control global.",
+            coachingNotes: "Mantener costillas controladas y no rotar el tronco en exceso."
+          },
+          {
+            id: "landmine-press-variant-half-kneeling",
+            name: "Landmine press semiarrodillado",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Variante semiarrodillada que aumenta la demanda de control lumbo-pélvico y estabilidad.",
+            coachingNotes: "Mantener pelvis estable y empujar en trayectoria diagonal limpia."
+          },
+          {
+            id: "landmine-press-variant-unilateral",
+            name: "Landmine press unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Variante unilateral para trabajar empuje diagonal con control antirotacional.",
+            coachingNotes: "Evitar que el tronco acompañe excesivamente la carga."
+          },
+          {
+            id: "landmine-press-variant-rotational",
+            name: "Landmine press rotacional",
+            type: "complex",
+            difficulty: "advanced",
+            equipment: ["Landmine"],
+            description: "Variante con componente rotacional para integrar empuje, tronco y transferencia global.",
+            coachingNotes: "Usar cargas moderadas y controlar la rotación desde cadera y tronco."
+          }
+        ],
         fatigueMap: { anteriorDelts: 0.8, chest: 0.6, triceps: 0.6, serratusAnterior: 0.4, core: 0.4, upperTraps: 0.3 }
       }),
       squatExercise({
@@ -3135,6 +3300,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Arquear lumbar", "Adelantar la cabeza", "No bloquear con control"],
         primaryMuscles: ["Deltoides anterior", "Tríceps"],
         secondaryMuscles: ["Deltoides lateral", "Trapecio superior", "Core", "Upper back"],
+        variants: [
+          {
+            id: "overhead-press-variant-barbell",
+            name: "Press militar con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra"],
+            description: "Variante bilateral con barra para desarrollar fuerza de empuje vertical.",
+            coachingNotes: "Mantener glúteos y abdomen activos, evitando hiperextensión lumbar."
+          },
+          {
+            id: "overhead-press-variant-dumbbells",
+            name: "Press militar con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description: "Variante con mancuernas que permite más libertad de movimiento y demanda de estabilización.",
+            coachingNotes: "Controlar la trayectoria y mantener hombros activos arriba."
+          },
+          {
+            id: "overhead-press-variant-seated",
+            name: "Press militar sentado",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Mancuernas", "Banco"],
+            description:
+              "Variante sentada que reduce la contribución de piernas y facilita el foco en empuje vertical.",
+            coachingNotes: "No compensar con hiperextensión lumbar."
+          },
+          {
+            id: "overhead-press-variant-unilateral",
+            name: "Press militar unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Kettlebell"],
+            description: "Variante unilateral con mayor demanda de control lateral y estabilidad del tronco.",
+            coachingNotes: "Evitar inclinarse hacia el lado contrario durante el empuje."
+          }
+        ],
         fatigueMap: { anteriorDelts: 1, lateralDelts: 0.6, triceps: 0.8, upperTraps: 0.4, core: 0.5, upperBack: 0.3 }
       })
     ]
@@ -3411,6 +3615,44 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Balancearse para tirar", "Redondear espalda", "Encoger hombros"],
         primaryMuscles: ["Espalda media", "Dorsal ancho"],
         secondaryMuscles: ["Bíceps", "Deltoides posterior", "Antebrazos"],
+        variants: [
+          {
+            id: "seated-cable-row-variant-neutral",
+            name: "Remo sentado agarre neutro",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Polea"],
+            description: "Variante con agarre neutro para trabajar tracción horizontal con recorrido controlado.",
+            coachingNotes: "Iniciar el movimiento desde escápulas y no desde balanceo del tronco."
+          },
+          {
+            id: "seated-cable-row-variant-wide",
+            name: "Remo sentado agarre amplio",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Barra larga"],
+            description: "Variante con agarre amplio que modifica la línea de tracción y demanda de espalda alta.",
+            coachingNotes: "Evitar elevar hombros y perder control escapular."
+          },
+          {
+            id: "seated-cable-row-variant-unilateral",
+            name: "Remo sentado unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante unilateral para ajustar trayectoria y trabajar control asimétrico.",
+            coachingNotes: "Evitar rotar el tronco hacia atrás para completar la repetición."
+          },
+          {
+            id: "seated-cable-row-variant-paused",
+            name: "Remo sentado con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante con pausa al final del tirón para enfatizar control escapular y tensión en espalda.",
+            coachingNotes: "Pausar sin encoger hombros ni arquear la zona lumbar."
+          }
+        ],
         fatigueMap: { midBack: 0.9, lats: 0.8, biceps: 0.5, rearDelts: 0.4, forearms: 0.4 }
       }),
       squatExercise({
@@ -3421,6 +3663,35 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Redondear lumbar", "Usar impulso de cadera", "Llevar hombros al cuello"],
         primaryMuscles: ["Espalda media", "Dorsal ancho"],
         secondaryMuscles: ["Bíceps", "Erectores espinales", "Antebrazos", "Deltoides posterior"],
+        variants: [
+          {
+            id: "t-bar-row-variant-landmine",
+            name: "Remo T con landmine",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Landmine"],
+            description: "Variante con landmine para trabajar tracción horizontal con alta capacidad de sobrecarga.",
+            coachingNotes: "Mantener bisagra estable y evitar tirar con impulso lumbar."
+          },
+          {
+            id: "t-bar-row-variant-chest-supported",
+            name: "Remo T con apoyo de pecho",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Máquina", "Banco inclinado", "Barra T"],
+            description: "Variante con apoyo de pecho que reduce la demanda lumbar y facilita focalizar en tracción.",
+            coachingNotes: "No despegar el pecho del apoyo para completar la repetición."
+          },
+          {
+            id: "t-bar-row-variant-wide-grip",
+            name: "Remo T agarre amplio",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Barra T", "Máquina"],
+            description: "Variante con agarre amplio para modificar la línea de tracción hacia espalda alta.",
+            coachingNotes: "Mantener hombros bajos y controlar el final del recorrido."
+          }
+        ],
         fatigueMap: { midBack: 0.9, lats: 0.8, biceps: 0.5, spinalErectors: 0.5, forearms: 0.5, rearDelts: 0.4 }
       }),
       squatExercise({
@@ -3431,6 +3702,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Balancearse", "Acortar el rango", "Tirar con cuello o hombros elevados"],
         primaryMuscles: ["Dorsal ancho", "Bíceps"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        variants: [
+          {
+            id: "assisted-pull-up-chin-up-variant-band",
+            name: "Dominada asistida con goma",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Banda elástica", "Barra"],
+            description:
+              "Variante asistida con banda para reducir la carga relativa y permitir practicar el patrón completo.",
+            coachingNotes: "Elegir una banda que ayude sin alterar demasiado la trayectoria."
+          },
+          {
+            id: "assisted-pull-up-chin-up-variant-machine",
+            name: "Dominada asistida en máquina",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Máquina asistida"],
+            description: "Variante asistida en máquina para ajustar la ayuda de forma más controlada.",
+            coachingNotes:
+              "Mantener control escapular y evitar depender de la asistencia para completar repeticiones de mala calidad."
+          },
+          {
+            id: "assisted-pull-up-chin-up-variant-foot-supported",
+            name: "Dominada asistida con apoyo de pies",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Barra", "Cajón"],
+            description: "Variante con apoyo de pies para modular la asistencia manualmente.",
+            coachingNotes: "Usar las piernas como ayuda mínima, no como empuje principal."
+          }
+        ],
         fatigueMap: { lats: 0.8, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.5, core: 0.3 }
       }),
       squatExercise({
@@ -3441,6 +3743,54 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Kipping sin objetivo", "No completar rango", "Encoger hombros al subir"],
         primaryMuscles: ["Dorsal ancho", "Bíceps"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos", "Core"],
+        variants: [
+          {
+            id: "pull-up-chin-up-variant-pronated",
+            name: "Dominada pronada",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Barra"],
+            description:
+              "Variante con agarre pronado, orientada a tracción vertical con alta demanda de dorsal, bíceps y control escapular.",
+            coachingNotes: "Iniciar con depresión escapular y evitar balanceo."
+          },
+          {
+            id: "pull-up-chin-up-variant-supinated",
+            name: "Chin-up / Dominada supina",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Barra"],
+            description: "Variante con agarre supino, normalmente con mayor participación relativa de flexores del codo.",
+            coachingNotes: "Mantener control escapular y no perder extensión torácica."
+          },
+          {
+            id: "pull-up-chin-up-variant-neutral",
+            name: "Dominada agarre neutro",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Barra neutra"],
+            description: "Variante con agarre neutro, útil para modificar tolerancia de hombro y codo.",
+            coachingNotes: "Mantener trayectoria controlada y evitar encoger hombros."
+          },
+          {
+            id: "pull-up-chin-up-variant-weighted",
+            name: "Dominada lastrada",
+            type: "progression",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Cinturón", "Disco", "Chaleco lastrado"],
+            description: "Variante con carga externa para progresar fuerza máxima de tracción vertical.",
+            coachingNotes: "Añadir carga solo si el rango y control escapular son sólidos."
+          },
+          {
+            id: "pull-up-chin-up-variant-eccentric",
+            name: "Dominada excéntrica",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Barra"],
+            description: "Variante con énfasis en la fase excéntrica para desarrollar control y fuerza específica.",
+            coachingNotes: "Controlar la bajada sin perder posición escapular ni colgarse pasivamente."
+          }
+        ],
         fatigueMap: { lats: 1, biceps: 0.7, midBack: 0.6, lowerTraps: 0.5, forearms: 0.6, core: 0.4 }
       })
     ]
@@ -3488,6 +3838,54 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Tirar detrás de la nuca sin criterio", "Balancear el tronco", "Perder depresión escapular"],
         primaryMuscles: ["Dorsal ancho", "Bíceps"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Antebrazos"],
+        variants: [
+          {
+            id: "lat-pulldown-variant-pronated",
+            name: "Jalón al pecho agarre prono",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Máquina", "Polea"],
+            description: "Variante de jalón con agarre prono para trabajar tracción vertical con recorrido controlado.",
+            coachingNotes: "Llevar la barra hacia la parte alta del pecho sin tirar con balanceo."
+          },
+          {
+            id: "lat-pulldown-variant-supinated",
+            name: "Jalón al pecho agarre supino",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Máquina", "Polea"],
+            description: "Variante con agarre supino que modifica la demanda de flexores del codo y dorsal.",
+            coachingNotes: "Mantener hombros bajos y controlar la fase excéntrica."
+          },
+          {
+            id: "lat-pulldown-variant-neutral",
+            name: "Jalón al pecho agarre neutro",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Máquina", "Polea", "Agarre neutro"],
+            description: "Variante con agarre neutro, útil para modificar comodidad de hombro y codo.",
+            coachingNotes: "Evitar inclinarse excesivamente hacia atrás."
+          },
+          {
+            id: "lat-pulldown-variant-unilateral",
+            name: "Jalón unilateral en polea",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante unilateral que permite ajustar trayectoria y trabajar control asimétrico.",
+            coachingNotes: "Evitar rotar el tronco para completar el tirón."
+          },
+          {
+            id: "lat-pulldown-variant-kneeling",
+            name: "Jalón semiarrodillado en polea",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description:
+              "Variante semiarrodillada que aumenta la demanda de control lumbo-pélvico y permite una trayectoria más libre.",
+            coachingNotes: "Mantener pelvis estable y no compensar con extensión lumbar."
+          }
+        ],
         fatigueMap: { lats: 0.9, biceps: 0.6, midBack: 0.5, lowerTraps: 0.4, forearms: 0.4 }
       }),
       squatExercise({
