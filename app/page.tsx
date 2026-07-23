@@ -615,6 +615,7 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   selectedEquipment?: string | null;
   selectedVariantId?: string | null;
   selectedVariantName?: string | null;
+  targetVelocity?: string | null;
   targetRir?: number | string | null;
 };
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
@@ -4446,7 +4447,7 @@ function getFatigueDisplayGroup(muscleKey: string) {
 type CoachSessionType = "Fuerza" | "Cardio" | "Mixta";
 type CoachSessionPanel = "planner" | "history" | null;
 type StrengthSessionBlock = "activation" | "auxiliary" | "main";
-type StrengthIntensityMethod = "rir" | "rpe" | "percent_1rm" | "kg" | "external_load";
+type StrengthIntensityMethod = "rir" | "rpe" | "percent_1rm" | "velocity" | "kg" | "external_load";
 type EnduranceIntensityMethod = "zones" | "rounds" | "thresholds";
 type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
@@ -4465,6 +4466,7 @@ type PlannedStrengthExerciseDraft = {
   sets: string;
   targetRir: string;
   targetRpe: string;
+  targetVelocity?: string;
 };
 type SessionTemplateExercise = PlannedStrengthExerciseDraft;
 type SessionTemplate = {
@@ -4544,18 +4546,11 @@ const cardioZoneOptions: Array<{ label: string; value: CardioZone }> = [
   { label: "Z5", value: "z5" }
 ];
 const strengthIntensityMethodOptions: Array<{ label: string; value: StrengthIntensityMethod }> = [
-  { label: "RIR", value: "rir" },
   { label: "RPE", value: "rpe" },
+  { label: "RIR", value: "rir" },
   { label: "%1RM", value: "percent_1rm" },
-  { label: "Kg", value: "kg" },
-  { label: "CE / Carga externa", value: "external_load" }
+  { label: "Velocidad de barra", value: "velocity" }
 ];
-const enduranceIntensityMethodOptions: Array<{ label: string; value: EnduranceIntensityMethod }> = [
-  { label: "Zonas", value: "zones" },
-  { label: "Rondas", value: "rounds" },
-  { label: "Umbrales", value: "thresholds" }
-];
-
 type CardioPlanDraft = {
   notes: string;
   sport: NonNullable<CardioPlan["sport"]>;
@@ -4630,6 +4625,7 @@ function CoachTrainingPlanner({
     targetZone: ""
   });
   const [sessionSendMessage, setSessionSendMessage] = useState("");
+  const [showSessionSummaryModal, setShowSessionSummaryModal] = useState(false);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateDescription, setTemplateDescription] = useState("");
@@ -4661,6 +4657,40 @@ function CoachTrainingPlanner({
       setActiveSessionPanel("history");
     }
   }, [activeSessionClient.id, targetTrainingSession]);
+  useEffect(() => {
+    if (!showSessionSummaryModal) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowSessionSummaryModal(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showSessionSummaryModal]);
+  const moveExerciseFieldFocus = (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+    exerciseId: string,
+    currentField: string
+  ) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+
+    const fieldOrder = ["sets", "reps", "load", "rest", "intensity"];
+    const currentIndex = fieldOrder.indexOf(currentField);
+    const nextIndex = event.key === "ArrowRight" ? currentIndex + 1 : currentIndex - 1;
+    if (currentIndex === -1 || nextIndex < 0 || nextIndex >= fieldOrder.length) return;
+
+    event.preventDefault();
+    document
+      .querySelector<HTMLElement>(`[data-planner-field="${exerciseId}-${fieldOrder[nextIndex]}"]`)
+      ?.focus();
+  };
   const addStrengthExercise = (block: StrengthSessionBlock) => {
     setStrengthExercises((current) => [
       ...current,
@@ -4669,7 +4699,7 @@ function CoachTrainingPlanner({
         exerciseId: "",
         exerciseSearch: "",
         id: `exercise-${Date.now()}-${current.length}`,
-        intensityMethod: "",
+        intensityMethod: "rir",
         load: "",
         observation: "",
         percent1RM: "",
@@ -4677,7 +4707,8 @@ function CoachTrainingPlanner({
         rest: "",
         sets: "",
         targetRir: "",
-        targetRpe: ""
+        targetRpe: "",
+        targetVelocity: ""
       }
     ]);
   };
@@ -4732,7 +4763,8 @@ function CoachTrainingPlanner({
     rest: exercise.rest,
     sets: exercise.sets,
     targetRir: exercise.targetRir,
-    targetRpe: exercise.targetRpe
+    targetRpe: exercise.targetRpe,
+    targetVelocity: exercise.targetVelocity
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
@@ -4766,6 +4798,7 @@ function CoachTrainingPlanner({
       plannedRir: exercise.targetRir,
       plannedRpe: exercise.targetRpe,
       plannedSets: exercise.sets,
+      targetVelocity: exercise.targetVelocity,
       selectedEquipment: exercise.selectedEquipment || undefined,
       selectedVariantId: exercise.selectedVariantId || undefined,
       selectedVariantName: exercise.selectedVariantName || undefined,
@@ -4835,14 +4868,41 @@ function CoachTrainingPlanner({
         intensityMethod: exercise.intensityMethod ?? "",
         percent1RM: exercise.percent1RM ?? "",
         targetRir: exercise.targetRir ?? "",
-        targetRpe: exercise.targetRpe ?? ""
+        targetRpe: exercise.targetRpe ?? "",
+        targetVelocity: exercise.targetVelocity ?? ""
       }))
     );
   };
   const deleteSessionTemplate = (templateId: string) => {
     setSessionTemplates((currentTemplates) => currentTemplates.filter((template) => template.id !== templateId));
   };
-  const renderStrengthBlock = (block: StrengthSessionBlock, title: string, buttonLabel: string) => {
+  const getExerciseIntensitySummary = (exercise: PlannedStrengthExerciseDraft) => {
+    const method = exercise.intensityMethod || "rir";
+    if (method === "rpe" && exercise.targetRpe) return `RPE ${exercise.targetRpe}`;
+    if (method === "rir" && exercise.targetRir) return `RIR ${exercise.targetRir}`;
+    if (method === "percent_1rm" && exercise.percent1RM) return `${exercise.percent1RM}%1RM`;
+    if (method === "velocity" && exercise.targetVelocity) return `${exercise.targetVelocity} m/s`;
+    return "";
+  };
+  const getExerciseSummaryLine = (exercise: PlannedStrengthExerciseDraft) => {
+    const name = getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar");
+    const volume = [exercise.sets, exercise.reps].filter(Boolean).length === 2
+      ? `${exercise.sets}x${exercise.reps}`
+      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
+    const intensity = getExerciseIntensitySummary(exercise);
+    const mainLine = [name, volume].filter(Boolean).join(" ");
+    const variantLine = exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "";
+
+    return {
+      main: `${mainLine}${intensity ? ` (${intensity})` : ""}`,
+      variant: variantLine
+    };
+  };
+  const confirmSendSessionToAthlete = () => {
+    sendSessionToAthlete();
+    setShowSessionSummaryModal(false);
+  };
+  const renderStrengthBlock = (block: StrengthSessionBlock, title: string) => {
     const blockExercises = strengthExercises.filter((exercise) => exercise.block === block);
 
     return (
@@ -4855,7 +4915,7 @@ function CoachTrainingPlanner({
             type="button"
           >
             <Plus size={16} />
-            {buttonLabel}
+            Añadir ejercicio
           </button>
         </div>
         <div className="mt-4 grid gap-3">
@@ -4867,12 +4927,10 @@ function CoachTrainingPlanner({
             const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
             const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
-            const effectiveIntensityMethod = exercise.intensityMethod || sessionStrengthMethod || "rir";
+            const effectiveIntensityMethod = exercise.intensityMethod || "rir";
             const equipmentOptions = selectedLibraryExercise?.equipment ?? [];
             const selectedVariant =
               selectedLibraryExercise?.variants?.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
-            const hasSelectedEquipment = Boolean(exercise.selectedEquipment);
-            const hasSelectedVariant = Boolean(exercise.selectedVariantName);
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
@@ -4938,24 +4996,6 @@ function CoachTrainingPlanner({
                   />
                 </label>
               </div>
-              {selectedLibraryExercise ? (
-                <div className="mt-3 rounded-md bg-mint px-3 py-3 text-sm text-moss">
-                  <p className="font-semibold">
-                    {selectedLibraryExercise.pattern} - {selectedLibraryExercise.block} - {selectedLibraryExercise.equipment.join(" / ")}
-                  </p>
-                  {hasSelectedEquipment || hasSelectedVariant ? (
-                    <p className="mt-1 font-semibold text-moss/90">
-                      {hasSelectedEquipment ? `Material: ${exercise.selectedEquipment}` : ""}
-                      {hasSelectedEquipment && hasSelectedVariant ? " · " : ""}
-                      {hasSelectedVariant ? `Variante: ${exercise.selectedVariantName}` : ""}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-moss/80">
-                    Principales: {selectedLibraryExercise.primaryMuscles.join(", ") || "pendiente"} - Secundarios:{" "}
-                    {selectedLibraryExercise.secondaryMuscles.join(", ") || "pendiente"}
-                  </p>
-                </div>
-              ) : null}
               {selectedLibraryExercise && (equipmentOptions.length > 0 || selectedLibraryExercise.variants?.length) ? (
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {equipmentOptions.length > 0 ? (
@@ -5016,9 +5056,8 @@ function CoachTrainingPlanner({
                     onChange={(event) =>
                       updateStrengthExercise(exercise.id, { intensityMethod: event.target.value as PlannedStrengthExerciseDraft["intensityMethod"] })
                     }
-                    value={exercise.intensityMethod ?? ""}
+                    value={exercise.intensityMethod || "rir"}
                   >
-                    <option value="">Heredar de sesion</option>
                     {strengthIntensityMethodOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -5028,8 +5067,10 @@ function CoachTrainingPlanner({
                   Series
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    data-planner-field={`${exercise.id}-sets`}
                     min={0}
                     onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
+                    onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "sets")}
                     type="number"
                     value={exercise.sets}
                   />
@@ -5038,23 +5079,23 @@ function CoachTrainingPlanner({
                   Reps
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    data-planner-field={`${exercise.id}-reps`}
                     min={0}
                     onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
+                    onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "reps")}
                     type="number"
                     value={exercise.reps}
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  {effectiveIntensityMethod === "kg"
-                    ? "Kg"
-                    : effectiveIntensityMethod === "external_load"
-                      ? "CE"
-                      : "Carga"}
+                  Carga
                   <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
                     <input
                       className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
+                      data-planner-field={`${exercise.id}-load`}
                       min={0}
                       onChange={(event) => updateStrengthExercise(exercise.id, { load: event.target.value })}
+                      onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "load")}
                       type="number"
                       value={exercise.load}
                     />
@@ -5065,7 +5106,9 @@ function CoachTrainingPlanner({
                   Descanso
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                    data-planner-field={`${exercise.id}-rest`}
                     onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
+                    onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "rest")}
                     placeholder="Descanso"
                     value={exercise.rest}
                   />
@@ -5075,9 +5118,12 @@ function CoachTrainingPlanner({
                     RPE
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      data-planner-field={`${exercise.id}-intensity`}
                       max={10}
                       min={0}
                       onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
+                      onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
+                      placeholder="0-10"
                       type="number"
                       value={exercise.targetRpe}
                     />
@@ -5087,24 +5133,46 @@ function CoachTrainingPlanner({
                     %1RM
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      data-planner-field={`${exercise.id}-intensity`}
                       min={0}
                       onChange={(event) => updateStrengthExercise(exercise.id, { percent1RM: event.target.value })}
+                      onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
+                      placeholder="%"
                       type="number"
                       value={exercise.percent1RM ?? ""}
                     />
                   </label>
-                ) : effectiveIntensityMethod === "rir" ? (
+                ) : effectiveIntensityMethod === "velocity" ? (
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                    Velocidad
+                    <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
+                      <input
+                        className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
+                        data-planner-field={`${exercise.id}-intensity`}
+                        onChange={(event) => updateStrengthExercise(exercise.id, { targetVelocity: event.target.value })}
+                        onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
+                        placeholder="m/s"
+                        type="number"
+                        value={exercise.targetVelocity ?? ""}
+                      />
+                      <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">m/s</span>
+                    </div>
+                  </label>
+                ) : (
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     RIR
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                      data-planner-field={`${exercise.id}-intensity`}
                       min={0}
                       onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
+                      onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
+                      placeholder="RIR"
                       type="number"
                       value={exercise.targetRir}
                     />
                   </label>
-                ) : null}
+                )}
               </div>
             </article>
             );
@@ -5256,32 +5324,6 @@ function CoachTrainingPlanner({
             />
           </label>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Metodo de fuerza por defecto de la sesion
-            <select
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setSessionStrengthMethod(event.target.value as StrengthIntensityMethod)}
-              value={sessionStrengthMethod}
-            >
-              {strengthIntensityMethodOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Metodo de resistencia por defecto
-            <select
-              className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setSessionEnduranceMethod(event.target.value as EnduranceIntensityMethod)}
-              value={sessionEnduranceMethod}
-            >
-              {enduranceIntensityMethodOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
         </section>
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -5399,9 +5441,9 @@ function CoachTrainingPlanner({
                 </span>
               </div>
             </div>
-            {renderStrengthBlock("activation", "Activacion", "Anadir ejercicio de activacion")}
-            {renderStrengthBlock("main", "Bloque principal", "Anadir ejercicio")}
-            {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional", "Anadir ejercicio auxiliar")}
+            {renderStrengthBlock("activation", "Activacion")}
+            {renderStrengthBlock("main", "Bloque principal")}
+            {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional")}
           </>
         ) : sessionType === "Cardio" ? (
           <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -5516,23 +5558,10 @@ function CoachTrainingPlanner({
           </label>
         </section>
 
-        <details className="mt-5 rounded-md border border-line bg-white p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-ink">
-            Escala RPE
-          </summary>
-          <div className="mt-3 grid gap-2 text-sm text-ink/65 sm:grid-cols-2">
-            <p className="rounded-md bg-panel/45 px-3 py-2">1-2: muy suave</p>
-            <p className="rounded-md bg-panel/45 px-3 py-2">3-4: suave / controlado</p>
-            <p className="rounded-md bg-panel/45 px-3 py-2">5-6: moderado</p>
-            <p className="rounded-md bg-panel/45 px-3 py-2">7-8: duro</p>
-            <p className="rounded-md bg-panel/45 px-3 py-2">9: muy duro</p>
-            <p className="rounded-md bg-panel/45 px-3 py-2">10: maximo</p>
-          </div>
-        </details>
 
         <button
           className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto"
-          onClick={sendSessionToAthlete}
+          onClick={() => setShowSessionSummaryModal(true)}
           type="button"
         >
           <Send size={18} />
@@ -5540,6 +5569,83 @@ function CoachTrainingPlanner({
         </button>
         {sessionSendMessage ? (
           <p className="mt-3 text-sm font-medium text-ink/65">{sessionSendMessage}</p>
+        ) : null}
+        {showSessionSummaryModal ? (
+          <div
+            aria-labelledby="session-summary-modal-title"
+            aria-modal="true"
+            className="assessment-modal-overlay"
+            onClick={() => setShowSessionSummaryModal(false)}
+            role="dialog"
+          >
+            <div className="assessment-modal-panel" onClick={(event) => event.stopPropagation()}>
+              <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-ink" id="session-summary-modal-title">Resumen de sesión</h3>
+                  <p className="mt-1 text-sm text-ink/55">Revisa la sesión antes de enviarla al deportista.</p>
+                </div>
+                <button
+                  aria-label="Cerrar"
+                  className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink"
+                  onClick={() => setShowSessionSummaryModal(false)}
+                  type="button"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+
+              <div className="assessment-modal-body grid gap-4 px-5 py-5">
+                {strengthExercises.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-medium text-ink/55">
+                    No hay ejercicios añadidos.
+                  </div>
+                ) : ([
+                  ["activation", "ACTIVACIÓN"],
+                  ["main", "BLOQUE PRINCIPAL"],
+                  ["auxiliary", "BLOQUE AUXILIAR / OPCIONAL"]
+                ] as const).map(([blockKey, blockLabel]) => {
+                  const exercisesInBlock = strengthExercises.filter((exercise) => exercise.block === blockKey);
+                  if (exercisesInBlock.length === 0) return null;
+
+                  return (
+                    <section className="rounded-md border border-line bg-white p-4" key={blockKey}>
+                      <p className="text-xs font-semibold uppercase text-ink/45">{blockLabel}</p>
+                      <div className="mt-3 grid gap-2">
+                        {exercisesInBlock.map((exercise) => {
+                          const summary = getExerciseSummaryLine(exercise);
+
+                          return (
+                            <div className="rounded-md bg-panel/35 px-3 py-2 text-sm text-ink/70" key={exercise.id}>
+                              <p className="font-semibold text-ink">{summary.main}</p>
+                              {summary.variant ? <p className="mt-1 text-xs font-medium text-ink/55">{summary.variant}</p> : null}
+                              {exercise.selectedEquipment ? <p className="mt-1 text-xs font-medium text-ink/55">Material: {exercise.selectedEquipment}</p> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+
+              <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
+                <button
+                  className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70"
+                  onClick={() => setShowSessionSummaryModal(false)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+                  onClick={confirmSendSessionToAthlete}
+                  type="button"
+                >
+                  Enviar al deportista
+                </button>
+              </footer>
+            </div>
+          </div>
         ) : null}
         </>
         ) : activeSessionPanel === "history" ? (
