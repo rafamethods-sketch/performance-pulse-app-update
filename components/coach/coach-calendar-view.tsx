@@ -1,15 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  Camera,
+  Dumbbell,
+  FileText,
+  Flag,
+  Gauge,
+  Paperclip,
+  Repeat2,
+  Ruler,
+  Target,
+  TrendingUp,
+  Zap
+} from "lucide-react";
 import { calendarSessions } from "@/lib/data";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "mt-6 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
-const dayCardClass = "rounded-md border border-line bg-panel/35 p-3";
-const sessionCardClass = "rounded-md border border-line bg-white p-3";
+const dayCardClass = "min-h-[156px] rounded-md border border-line bg-panel/35 p-3";
 const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90";
 const secondaryButtonClass = "rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60";
 const emptyStateClass = "rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55";
+const compactChipClass = "flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-soft";
 
 const calendarShortMonths: Record<string, string> = {
   Abr: "04",
@@ -65,6 +80,7 @@ type WeeklyCalendarSession = {
   clientId: string;
   clientName: string;
   date: Date;
+  eventKind?: string;
   rpeTarget?: string;
   sessionDate?: string;
   sessionIndex?: number;
@@ -108,15 +124,85 @@ function getWeeklySessionStatus(session: CoachSessionRecordForViews): WeeklyCale
 function getCalendarStatusClass(status: WeeklyCalendarSession["status"]) {
   switch (status) {
     case "Completada":
-      return "bg-mint text-moss";
+      return "border-moss/25 bg-mint text-moss";
     case "Pendiente de revisar":
-      return "bg-amber-50 text-amber-700";
+      return "border-clay/25 bg-wheat text-clay";
     case "Pendiente":
-      return "bg-panel text-ink/60";
+      return "border-line bg-panel text-ink/60";
     case "Planificada":
     default:
-      return "bg-blue-50 text-blue-700";
+      return "border-steel/25 bg-sky text-steel";
   }
+}
+
+function getCalendarStatusDotClass(status: WeeklyCalendarSession["status"]) {
+  switch (status) {
+    case "Completada":
+      return "bg-moss";
+    case "Pendiente de revisar":
+      return "bg-clay";
+    case "Pendiente":
+      return "bg-ink/35";
+    case "Planificada":
+    default:
+      return "bg-steel";
+  }
+}
+
+function getCalendarTypeConfig(session: Pick<WeeklyCalendarSession, "eventKind" | "summary" | "type">) {
+  const label = `${session.type} ${session.summary} ${session.eventKind ?? ""}`.toLowerCase();
+
+  if (label.includes("lesi")) {
+    return { Icon: AlertTriangle, className: "border-coral/25 bg-coral/10 text-coral", label: "Lesión" };
+  }
+  if (label.includes("foto")) {
+    return { Icon: Camera, className: "border-line bg-panel/60 text-ink/55", label: "Foto" };
+  }
+  if (label.includes("archivo")) {
+    return { Icon: Paperclip, className: "border-line bg-panel/60 text-ink/55", label: "Archivo" };
+  }
+  if (label.includes("nota")) {
+    return { Icon: FileText, className: "border-line bg-panel/60 text-ink/55", label: "Nota" };
+  }
+  if (label.includes("compet")) {
+    return { Icon: Flag, className: "border-clay/25 bg-wheat text-clay", label: "Competición" };
+  }
+  if (label.includes("antrop")) {
+    return { Icon: Ruler, className: "border-violet/40 bg-violet text-ink", label: "Antropometría" };
+  }
+  if (label.includes("salto") || label.includes("jump")) {
+    return { Icon: TrendingUp, className: "border-moss/25 bg-mint text-moss", label: "Test salto" };
+  }
+  if (label.includes("test") && (label.includes("resistencia") || label.includes("aerob") || label.includes("cardio"))) {
+    return { Icon: Activity, className: "border-steel/25 bg-sky text-steel", label: "Test resistencia" };
+  }
+  if (label.includes("test")) {
+    return { Icon: Gauge, className: "border-clay/25 bg-wheat text-clay", label: "Test fuerza" };
+  }
+  if (label.includes("concurrent") || label.includes("mixto")) {
+    return { Icon: Repeat2, className: "border-clay/25 bg-wheat text-clay", label: "Concurrente" };
+  }
+  if (label.includes("resistencia") || label.includes("cardio") || label.includes("aerob") || label.includes("umbral")) {
+    return { Icon: Zap, className: "border-steel/25 bg-sky text-steel", label: "Resistencia" };
+  }
+  if (label.includes("fuerza") || label.includes("strength")) {
+    return { Icon: Dumbbell, className: "border-coral/25 bg-coral/10 text-coral", label: "Fuerza" };
+  }
+
+  return { Icon: Target, className: "border-line bg-white text-ink/70", label: "Sesión" };
+}
+
+function getCalendarSessionDetail(session: WeeklyCalendarSession) {
+  return [
+    `Deportista: ${session.clientName}`,
+    `Fecha: ${formatDateShort(getDateKey(session.date))}`,
+    `Estado: ${session.status}`,
+    `Tipo: ${session.type}`,
+    `Sesión: ${session.summary}`,
+    `Bloque: ${session.block ?? "Sin asignar"}`,
+    `Semana y sesión: ${[session.week, session.sessionNumber].filter(Boolean).join(" - ") || "Sin especificar"}`,
+    `RPE objetivo: ${session.rpeTarget ?? "Sin especificar"}`
+  ].join("\n");
 }
 
 function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: Date[]) {
@@ -166,6 +252,7 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
       clientId: matchedClient.id,
       clientName: matchedClient.name,
       date,
+      eventKind: session.type,
       status: session.status === "Planificada" ? "Planificada" : "Pendiente" as WeeklyCalendarSession["status"],
       summary: session.title,
       type: session.type,
@@ -193,6 +280,7 @@ type CalendarViewProps = {
 
 export function CalendarView({ client, clients, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const baseWeekStart = getWeekStartDate(new Date());
   const selectedWeekStart = addCalendarDays(baseWeekStart, weekOffset * 7);
   const weekDates = Array.from({ length: 7 }, (_, index) => addCalendarDays(selectedWeekStart, index));
@@ -206,6 +294,34 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
   }));
   const weekEnd = weekDates[6];
   const weekRangeLabel = `Semana del ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(selectedWeekStart)} al ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(weekEnd)}`;
+  const sessionLegendItems = [
+    { Icon: Dumbbell, className: "border-coral/25 bg-coral/10 text-coral", label: "Fuerza" },
+    { Icon: Zap, className: "border-steel/25 bg-sky text-steel", label: "Resistencia" },
+    { Icon: Repeat2, className: "border-clay/25 bg-wheat text-clay", label: "Concurrente" }
+  ];
+  const eventLegendItems = [
+    { Icon: Gauge, className: "border-clay/25 bg-wheat text-clay", label: "Test fuerza" },
+    { Icon: Activity, className: "border-steel/25 bg-sky text-steel", label: "Test resistencia" },
+    { Icon: TrendingUp, className: "border-moss/25 bg-mint text-moss", label: "Test salto" },
+    { Icon: Flag, className: "border-clay/25 bg-wheat text-clay", label: "Competición" },
+    { Icon: AlertTriangle, className: "border-coral/25 bg-coral/10 text-coral", label: "Lesión" },
+    { Icon: FileText, className: "border-line bg-panel/60 text-ink/55", label: "Nota" },
+    { Icon: Camera, className: "border-line bg-panel/60 text-ink/55", label: "Foto" },
+    { Icon: Paperclip, className: "border-line bg-panel/60 text-ink/55", label: "Archivo" }
+  ];
+
+  function openCalendarSession(session: WeeklyCalendarSession) {
+    if (session.sessionIndex !== undefined || session.sessionDate) {
+      onOpenTrainingSession(session.clientId, {
+        clientId: session.clientId,
+        sessionDate: session.sessionDate ?? getDateKey(session.date),
+        sessionIndex: session.sessionIndex
+      });
+      return;
+    }
+
+    onOpenTrainingSession(session.clientId, { clientId: session.clientId });
+  }
 
   return (
     <section className={primaryCardClass}>
@@ -257,54 +373,44 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
           No hay sesiones programadas esta semana.
         </div>
       ) : (
-        <div className="mt-6 grid gap-3 md:grid-cols-2 2xl:grid-cols-7">
+        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           {sessionsByDay.map(({ date, label, sessions }) => (
             <section className={dayCardClass} key={getDateKey(date)}>
-              <div className="border-b border-line pb-3">
-                <p className="text-sm font-semibold text-ink">{label}</p>
-                <p className="mt-1 text-xl font-semibold text-moss">
-                  {new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date)}
+              <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{label}</p>
+                  <p className="mt-1 text-2xl font-semibold text-moss">
+                    {new Intl.DateTimeFormat("es-ES", { day: "2-digit" }).format(date)}
+                  </p>
+                </div>
+                <p className="rounded-md bg-white px-2 py-1 text-xs font-semibold uppercase text-ink/45">
+                  {new Intl.DateTimeFormat("es-ES", { month: "short" }).format(date)}
                 </p>
               </div>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 flex flex-col gap-2">
                 {sessions.length > 0 ? (
-                  sessions.map((session, index) => (
-                    <article className={sessionCardClass} key={`${session.clientId}-${session.summary}-${index}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-ink">{session.clientName}</p>
-                          <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(getDateKey(session.date))}</p>
-                        </div>
-                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getCalendarStatusClass(session.status)}`}>
-                          {session.status}
-                        </span>
-                      </div>
-                      <p className="mt-3 text-sm font-semibold text-ink">{session.type}</p>
-                      <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
-                      <div className="mt-3 grid gap-2">
-                        <ClientInfoCard label="Bloque / mesociclo" value={session.block ?? "Sin asignar"} />
-                        <ClientInfoCard label="Semana y sesión" value={[session.week, session.sessionNumber].filter(Boolean).join(" · ") || "Sin especificar"} />
-                        <ClientInfoCard label="RPE objetivo" value={session.rpeTarget ?? "Sin especificar"} />
-                      </div>
+                  sessions.map((session, index) => {
+                    const typeConfig = getCalendarTypeConfig(session);
+                    const Icon = typeConfig.Icon;
+                    const detail = getCalendarSessionDetail(session);
+
+                    return (
                       <button
-                        className={`mt-3 ${primaryButtonClass}`}
-                        onClick={() =>
-                          session.sessionIndex !== undefined || session.sessionDate
-                            ? onOpenTrainingSession(session.clientId, {
-                              clientId: session.clientId,
-                              sessionDate: session.sessionDate ?? getDateKey(session.date),
-                              sessionIndex: session.sessionIndex
-                            })
-                            : onOpenTrainingSession(session.clientId, { clientId: session.clientId })
-                        }
+                        aria-label={detail}
+                        className={`${compactChipClass} ${typeConfig.className}`}
+                        key={`${session.clientId}-${session.summary}-${index}`}
+                        onClick={() => setSelectedSession(session)}
+                        title={detail}
                         type="button"
                       >
-                        Ver sesión
+                        <Icon className="shrink-0" size={14} />
+                        <span className={`size-1.5 shrink-0 rounded-full ${getCalendarStatusDotClass(session.status)}`} />
+                        <span className="truncate">{client ? session.summary : session.clientName}</span>
                       </button>
-                    </article>
-                  ))
+                    );
+                  })
                 ) : (
-                  <p className="rounded-md bg-white px-3 py-4 text-center text-xs font-semibold text-ink/45">
+                  <p className="px-1 py-2 text-xs font-semibold text-ink/35">
                     Sin sesiones
                   </p>
                 )}
@@ -313,6 +419,61 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
           ))}
         </div>
       )}
+
+      <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <CalendarLegendGroup items={sessionLegendItems} title="Sesiones" />
+          <CalendarLegendGroup items={eventLegendItems} title="Eventos" />
+        </div>
+      </div>
+
+      {selectedSession ? (
+        <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-moss">Detalle seleccionado</p>
+              <h3 className="mt-1 text-base font-semibold text-ink">{selectedSession.summary}</h3>
+              <p className="mt-1 text-sm text-ink/55">{selectedSession.clientName} - {formatDateShort(getDateKey(selectedSession.date))}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${getCalendarStatusClass(selectedSession.status)}`}>
+                {selectedSession.status}
+              </span>
+              <button className={primaryButtonClass} onClick={() => openCalendarSession(selectedSession)} type="button">
+                Ver sesión
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ClientInfoCard label="Tipo" value={selectedSession.type || "Sin especificar"} />
+            <ClientInfoCard label="Bloque / mesociclo" value={selectedSession.block ?? "Sin asignar"} />
+            <ClientInfoCard label="Semana y sesión" value={[selectedSession.week, selectedSession.sessionNumber].filter(Boolean).join(" - ") || "Sin especificar"} />
+            <ClientInfoCard label="RPE objetivo" value={selectedSession.rpeTarget ?? "Sin especificar"} />
+          </div>
+        </section>
+      ) : null}
     </section>
+  );
+}
+
+function CalendarLegendGroup({
+  items,
+  title
+}: {
+  items: Array<{ Icon: typeof Dumbbell; className: string; label: string }>;
+  title: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-ink/45">{title}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {items.map(({ Icon, className, label }) => (
+          <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${className}`} key={label}>
+            <Icon size={13} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

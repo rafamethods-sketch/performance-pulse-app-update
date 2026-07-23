@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  ArrowLeft,
+  BarChart3,
+  CalendarDays,
   ClipboardCheck,
   Lock,
   Plus,
   Search,
   Send,
   Settings2,
+  Target,
   Trash2,
   Unlock,
 } from "lucide-react";
@@ -2227,6 +2231,7 @@ type EditablePlanningBlock = {
   secondaryObjective: string;
   weeklyDistribution: WeeklyDistribution;
 };
+type PlanningRoadmapBlock = EditablePlanningBlock & { endWeek: number; startWeek: number };
 
 const planningEventTypes: PlanningEventType[] = [
   "Competicion",
@@ -2249,6 +2254,45 @@ function getPlanningWeeks(peakDate: string, eventType: PlanningEventType) {
   if (!start || !peak || peak <= start) return 0;
   const dayMs = 1000 * 60 * 60 * 24;
   return Math.max(1, Math.ceil((peak.getTime() - start.getTime()) / dayMs / 7));
+}
+
+function getPlanningBlockStatus(block: PlanningRoadmapBlock, currentBlock?: string | null) {
+  if (currentBlock && block.name === currentBlock) return "En curso";
+  if (currentBlock) return "Próximo";
+  return block.startWeek === 1 ? "En curso" : "Próximo";
+}
+
+function getPlanningBlockStatusClass(status: string) {
+  switch (status) {
+    case "En curso":
+      return "border-moss/25 bg-mint text-moss";
+    case "Finalizado":
+      return "border-line bg-panel text-ink/55";
+    case "Próximo":
+    default:
+      return "border-steel/25 bg-sky text-steel";
+  }
+}
+
+function getPlanningBlockSessions(client: CoachClient, blockName: string) {
+  const normalizedBlockName = blockName.trim().toLowerCase();
+  return (client.sessionRecords ?? []).filter((session) => {
+    const blockValue = `${session.block ?? ""}`.trim().toLowerCase();
+    return blockValue && blockValue === normalizedBlockName;
+  });
+}
+
+function getPlanningBlockProgress(client: CoachClient, block: PlanningRoadmapBlock) {
+  const blockSessions = getPlanningBlockSessions(client, block.name);
+  const completedSessions = blockSessions.filter((session) =>
+    hasRealSessionData(session) || session.status === "Completada" || session.completed
+  ).length;
+
+  return {
+    completedSessions,
+    completionPct: blockSessions.length > 0 ? (completedSessions / blockSessions.length) * 100 : 0,
+    totalSessions: blockSessions.length
+  };
 }
 
 function downloadPlanningCalendarCsv({
@@ -2297,15 +2341,16 @@ function PlanningView({
   const [planningEventName, setPlanningEventName] = useState(client?.planning.eventName ?? "");
   const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
+  const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(client?.planning.blocks?.[0]?.id ?? null);
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
-  const roadmapBlocks = planningBlocks.reduce<
-    Array<EditablePlanningBlock & { endWeek: number; startWeek: number }>
-  >((items, block) => {
+  const roadmapBlocks = planningBlocks.reduce<PlanningRoadmapBlock[]>((items, block) => {
     const startWeek = items.length > 0 ? items[items.length - 1].endWeek + 1 : 1;
     const endWeek = startWeek + block.durationWeeks - 1;
     return [...items, { ...block, endWeek, startWeek }];
   }, []);
+  const selectedPlanningBlock =
+    roadmapBlocks.find((block) => block.id === selectedPlanningBlockId) ?? roadmapBlocks[0] ?? null;
   const selectedPlan = {
     blocks: planningBlocks,
     clientName: client?.name ?? "",
@@ -2321,6 +2366,7 @@ function PlanningView({
     setPlanningEventName(client?.planning.eventName ?? "");
     setPlanningPeakDate(client?.planning.eventDate ?? "");
     setPlanningMethod(client?.planning.method ?? "");
+    setSelectedPlanningBlockId(client?.planning.blocks?.[0]?.id ?? null);
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
@@ -2348,6 +2394,7 @@ function PlanningView({
 
   function deleteBlock(blockId: string) {
     setPlanningBlocks((blocks) => blocks.filter((block) => block.id !== blockId));
+    setSelectedPlanningBlockId((current) => current === blockId ? null : current);
   }
 
   function moveBlock(blockId: string, direction: -1 | 1) {
@@ -2397,34 +2444,71 @@ function PlanningView({
         </div>
 
         <div className="mt-5">
-          <h3 className="font-semibold text-ink">Roadmap de mesociclos</h3>
+          <h3 className="font-semibold text-ink">Bloques de entrenamiento</h3>
           {planningBlocks.length === 0 ? (
             <div className="mt-3 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
               Sin asignar
             </div>
           ) : (
-            <div className="mt-3 flex flex-col gap-3 md:flex-row md:flex-wrap">
-              {roadmapBlocks.map((block, index) => (
-                <div className="flex min-w-0 flex-1 items-stretch gap-3 md:min-w-[220px]" key={block.id}>
-                  <div className="min-w-0 flex-1 rounded-md border border-line bg-panel/35 p-4">
-                    <p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p>
-                    <p className="mt-1 font-semibold text-ink">{block.name}</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {roadmapBlocks.map((block, index) => {
+                const status = getPlanningBlockStatus(block, client.planning.currentBlock);
+                const progress = getPlanningBlockProgress(client, block);
+
+                return (
+                <div className="min-w-0" key={block.id}>
+                  <button
+                    className={`min-w-0 w-full rounded-md border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-soft ${
+                      selectedPlanningBlock?.id === block.id ? "border-moss bg-mint/35" : "border-line bg-panel/35"
+                    }`}
+                    onClick={() => setSelectedPlanningBlockId(block.id)}
+                    type="button"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase text-moss">Bloque {index + 1}</p>
+                        <p className="mt-1 truncate font-semibold text-ink">{block.name}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
+                        {status}
+                      </span>
+                    </div>
                     <div className="mt-3 grid gap-1 text-sm text-ink/60">
                       <p>{block.durationWeeks} semanas</p>
                       <p>Semana {block.startWeek}-{block.endWeek}</p>
                       <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
                       <p>Distribucion: {block.weeklyDistribution || "Sin asignar"}</p>
                     </div>
-                  </div>
-                  {index < roadmapBlocks.length - 1 ? (
-                    <div className="hidden items-center text-ink/35 md:flex">→</div>
-                  ) : null}
+                    <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
+                      <span>
+                        {progress.totalSessions > 0
+                          ? `${progress.completedSessions}/${progress.totalSessions} sesiones`
+                          : "Sesiones pendientes"}
+                      </span>
+                      <span>{Math.round(progress.completionPct)}%</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
+                        style={{ width: `${progress.completionPct}%` }}
+                      />
+                    </div>
+                  </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </section>
+
+      {selectedPlanningBlock ? (
+        <PlanningBlockDetail
+          block={selectedPlanningBlock}
+          client={client}
+          onBack={() => setSelectedPlanningBlockId(null)}
+        />
+      ) : null}
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
@@ -2531,13 +2615,13 @@ function PlanningView({
                       <p className="mt-1 text-sm text-ink/55">{block.durationWeeks} semanas - {block.weeklyDistribution}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === 0} onClick={() => moveBlock(block.id, -1)} type="button">
+                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === 0} onClick={(event) => { event.stopPropagation(); moveBlock(block.id, -1); }} type="button">
                         Subir
                       </button>
-                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === planningBlocks.length - 1} onClick={() => moveBlock(block.id, 1)} type="button">
+                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === planningBlocks.length - 1} onClick={(event) => { event.stopPropagation(); moveBlock(block.id, 1); }} type="button">
                         Bajar
                       </button>
-                      <button className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" onClick={() => deleteBlock(block.id)} type="button">
+                      <button className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" onClick={(event) => { event.stopPropagation(); deleteBlock(block.id); }} type="button">
                         Eliminar
                       </button>
                     </div>
@@ -2629,6 +2713,131 @@ function PlanningView({
         />
       </section>
     </div>
+  );
+}
+
+function PlanningBlockDetail({
+  block,
+  client,
+  onBack
+}: {
+  block: PlanningRoadmapBlock;
+  client: CoachClient;
+  onBack: () => void;
+}) {
+  const status = getPlanningBlockStatus(block, client.planning.currentBlock);
+  const progress = getPlanningBlockProgress(client, block);
+  const weekRows = Array.from({ length: block.durationWeeks }, (_, index) => block.startWeek + index);
+  const weekdays = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <button
+            className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60"
+            onClick={onBack}
+            type="button"
+          >
+            <ArrowLeft size={16} />
+            Volver a planificación
+          </button>
+          <p className="mt-5 text-xs font-semibold uppercase text-moss">Detalle del bloque</p>
+          <h2 className="mt-1 text-xl font-semibold text-ink">{block.name}</h2>
+          <p className="mt-2 max-w-3xl text-sm text-ink/60">
+            {block.notes || block.primaryObjective || "Bloque preparado para concretar sesiones desde la vista Sesiones."}
+          </p>
+        </div>
+        <span className={`w-fit rounded-md border px-3 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
+          {status}
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <ClientInfoCard label="Duración" value={`${block.durationWeeks} semanas`} />
+        <ClientInfoCard label="Fechas" value={`Semana ${block.startWeek}-${block.endWeek}`} />
+        <ClientInfoCard label="Distribución" value={block.weeklyDistribution || "Sin asignar"} />
+        <ClientInfoCard label="Objetivo" value={block.primaryObjective || "Sin definir"} />
+        <ClientInfoCard
+          label="Progreso"
+          value={progress.totalSessions > 0 ? `${progress.completedSessions}/${progress.totalSessions} sesiones` : "Sin sesiones registradas"}
+        />
+      </div>
+
+      <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Carga semanal del bloque</h3>
+            <p className="mt-1 text-sm text-ink/55">Resumen visual basado en sesiones ya registradas para este bloque.</p>
+          </div>
+          <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-ink">
+            {Math.round(progress.completionPct)}%
+          </span>
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
+            style={{ width: `${progress.completionPct}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-md border border-line bg-white p-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="text-moss" size={18} />
+          <h3 className="font-semibold text-ink">Calendario del bloque</h3>
+        </div>
+        <div className="mt-4 grid gap-3">
+          <div className="hidden grid-cols-[72px_repeat(7,minmax(0,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45 md:grid">
+            <span>Sem.</span>
+            {weekdays.map((day) => <span key={day}>{day}</span>)}
+          </div>
+          {weekRows.map((weekNumber) => (
+            <div className="grid gap-2 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-[72px_repeat(7,minmax(0,1fr))]" key={weekNumber}>
+              <div className="text-sm font-semibold text-ink">Semana {weekNumber}</div>
+              {weekdays.map((day, dayIndex) => (
+                <div className="min-h-12 rounded-md bg-white p-2" key={`${weekNumber}-${day}`}>
+                  <p className="mb-1 text-[10px] font-semibold uppercase text-ink/35 md:hidden">{day}</p>
+                  {dayIndex === 0 ? (
+                    <PlanningMiniChip Icon={Target} label={block.primaryObjective || "Objetivo"} tone="moss" />
+                  ) : null}
+                  {dayIndex === 2 ? (
+                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "Distribución"} tone="steel" />
+                  ) : null}
+                  {dayIndex === 4 ? (
+                    <PlanningMiniChip Icon={Plus} label="Sesiones" tone="ink" />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PlanningMiniChip({
+  Icon,
+  label,
+  tone
+}: {
+  Icon: typeof Target;
+  label: string;
+  tone: "ink" | "moss" | "steel";
+}) {
+  const className =
+    tone === "moss"
+      ? "border-moss/25 bg-mint text-moss"
+      : tone === "steel"
+        ? "border-steel/25 bg-sky text-steel"
+        : "border-line bg-panel text-ink/60";
+
+  return (
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold ${className}`}>
+      <Icon className="shrink-0" size={12} />
+      <span className="truncate">{label}</span>
+    </span>
   );
 }
 
