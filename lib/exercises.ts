@@ -4015,7 +4015,38 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Llevar hombros hacia delante", "Usar impulso", "Forzar rango con dolor"],
         primaryMuscles: ["Pectoral"],
         secondaryMuscles: ["Deltoides anterior", "Bíceps"],
-        fatigueMap: { chest: 1, anteriorDelts: 0.3, biceps: 0.1 }
+        fatigueMap: { chest: 1, anteriorDelts: 0.3, biceps: 0.1 },
+        variants: [
+          {
+            id: "pec-deck-variant-neutral-grip",
+            name: "Pec deck agarre neutro",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description:
+              "Variante con agarre neutro para trabajar aducción horizontal de hombro con trayectoria guiada.",
+            coachingNotes: "Mantener escápulas estables y no adelantar excesivamente los hombros al cerrar."
+          },
+          {
+            id: "pec-deck-variant-elbow-pads",
+            name: "Pec deck con apoyo de antebrazo",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description:
+              "Variante con apoyo de antebrazo que reduce la exigencia de agarre y facilita focalizar el trabajo en pectoral.",
+            coachingNotes: "Evitar empujar con las manos o perder control en la fase excéntrica."
+          },
+          {
+            id: "pec-deck-variant-paused",
+            name: "Pec deck con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en el cierre para aumentar control y tensión en el pectoral.",
+            coachingNotes: "Pausar sin encoger hombros ni perder posición torácica."
+          }
+        ]
       }),
       squatExercise({
         name: "Cable fly",
@@ -4025,7 +4056,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Convertirlo en press", "Perder postura", "Cruzar brazos con impulso"],
         primaryMuscles: ["Pectoral"],
         secondaryMuscles: ["Deltoides anterior", "Core"],
-        fatigueMap: { chest: 1, anteriorDelts: 0.4, core: 0.2 }
+        fatigueMap: { chest: 1, anteriorDelts: 0.4, core: 0.2 },
+        variants: [
+          {
+            id: "cable-fly-variant-high-to-low",
+            name: "Aperturas en polea de arriba abajo",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description:
+              "Variante con trayectoria descendente que modifica la línea de fuerza y el énfasis del pectoral.",
+            coachingNotes: "Mantener codos ligeramente flexionados y no convertirlo en un press."
+          },
+          {
+            id: "cable-fly-variant-low-to-high",
+            name: "Aperturas en polea de abajo arriba",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description:
+              "Variante con trayectoria ascendente, orientada a modificar el ángulo de trabajo del pectoral.",
+            coachingNotes: "Evitar elevar hombros o compensar con extensión lumbar."
+          },
+          {
+            id: "cable-fly-variant-mid",
+            name: "Aperturas en polea a media altura",
+            type: "direction",
+            difficulty: "basic",
+            equipment: ["Polea"],
+            description: "Variante a media altura con trayectoria horizontal controlada.",
+            coachingNotes: "Mantener tensión continua y controlar la apertura sin perder escápulas."
+          },
+          {
+            id: "cable-fly-variant-unilateral",
+            name: "Apertura unilateral en polea",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante unilateral que permite ajustar trayectoria y trabajar control asimétrico.",
+            coachingNotes: "Evitar rotar el tronco para mover más carga."
+          }
+        ]
       })
     ]
   },
@@ -4042,7 +4113,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Balancear el tronco", "Subir con trapecio", "Flexionar demasiado los codos"],
         primaryMuscles: ["Deltoides lateral"],
         secondaryMuscles: ["Trapecio superior", "Manguito rotador"],
-        fatigueMap: { lateralDelts: 1, upperTraps: 0.3, rotatorCuff: 0.2 }
+        fatigueMap: { lateralDelts: 1, upperTraps: 0.3, rotatorCuff: 0.2 },
+        variants: [
+          {
+            id: "lateral-raise-variant-dumbbells",
+            name: "Elevación lateral con mancuernas",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuernas"],
+            description: "Variante clásica para trabajar deltoides medio con carga libre.",
+            coachingNotes: "Evitar balanceo y mantener control del recorrido."
+          },
+          {
+            id: "lateral-raise-variant-cable",
+            name: "Elevación lateral en polea",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante en polea que permite tensión más continua durante el recorrido.",
+            coachingNotes: "Ajustar la altura de la polea y evitar compensar con inclinación excesiva."
+          },
+          {
+            id: "lateral-raise-variant-lean-away",
+            name: "Elevación lateral inclinado",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna", "Polea", "Soporte"],
+            description:
+              "Variante con inclinación del cuerpo para modificar la curva de resistencia y aumentar el control.",
+            coachingNotes: "Usar cargas bajas y mantener movimiento limpio."
+          },
+          {
+            id: "lateral-raise-variant-partial-top",
+            name: "Elevación lateral parcial arriba",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Mancuernas", "Polea"],
+            description: "Variante parcial en la zona alta del recorrido para aumentar tensión específica.",
+            coachingNotes: "No usar si genera molestias de hombro o pérdida de control escapular."
+          }
+        ]
       }),
       squatExercise({
         name: "Reverse fly machine",
@@ -4052,7 +4162,39 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Encoger hombros", "Flexionar demasiado codos", "Perder control en la vuelta"],
         primaryMuscles: ["Deltoides posterior"],
         secondaryMuscles: ["Espalda media", "Trapecio inferior", "Manguito rotador"],
-        fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 }
+        fatigueMap: { rearDelts: 1, midBack: 0.5, lowerTraps: 0.3, rotatorCuff: 0.3 },
+        variants: [
+          {
+            id: "reverse-fly-machine-variant-neutral-grip",
+            name: "Reverse fly agarre neutro",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description:
+              "Variante con agarre neutro para trabajar deltoides posterior y espalda alta con trayectoria guiada.",
+            coachingNotes: "Mantener pecho apoyado y evitar encoger hombros."
+          },
+          {
+            id: "reverse-fly-machine-variant-pronated-grip",
+            name: "Reverse fly agarre prono",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description:
+              "Variante con agarre prono que modifica la posición del hombro y la sensación de trabajo posterior.",
+            coachingNotes: "Controlar el final del recorrido sin perder posición escapular."
+          },
+          {
+            id: "reverse-fly-machine-variant-paused",
+            name: "Reverse fly con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description:
+              "Variante con pausa al final de la apertura para enfatizar control escapular y deltoides posterior.",
+            coachingNotes: "Pausar sin elevar hombros ni arquear la espalda."
+          }
+        ]
       }),
       squatExercise({
         id: "upper-body-accessories-shoulder-band-pull-apart",
@@ -4069,7 +4211,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Deltoides posterior", "Manguito rotador"],
         secondaryMuscles: ["Trapecio medio", "Romboides", "Core"],
-        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.3, upperBack: 0.3, traps: 0.2, core: 0.1 }
+        fatigueMap: { shoulders: 0.25, rotatorCuff: 0.3, upperBack: 0.3, traps: 0.2, core: 0.1 },
+        variants: [
+          {
+            id: "band-pull-apart-variant-pronated",
+            name: "Band pull apart agarre prono",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Banda elástica"],
+            description: "Variante con agarre prono para trabajar apertura horizontal y control escapular.",
+            coachingNotes: "Mantener brazos activos y no arquear la zona lumbar."
+          },
+          {
+            id: "band-pull-apart-variant-supinated",
+            name: "Band pull apart agarre supino",
+            type: "grip",
+            difficulty: "basic",
+            equipment: ["Banda elástica"],
+            description:
+              "Variante con agarre supino que modifica la rotación del hombro y la sensación de trabajo escapular.",
+            coachingNotes: "Usar una banda que permita recorrido completo sin compensaciones."
+          },
+          {
+            id: "band-pull-apart-variant-diagonal",
+            name: "Band pull apart diagonal",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Banda elástica"],
+            description: "Variante diagonal para integrar control escapular en una trayectoria menos lineal.",
+            coachingNotes: "Mantener tensión constante y alternar lados con control."
+          }
+        ]
       }),
       squatExercise({
         name: "Face pull",
@@ -4079,7 +4251,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Convertirlo en remo bajo", "Arquear lumbar", "Encoger hombros"],
         primaryMuscles: ["Deltoides posterior", "Espalda media"],
         secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Bíceps"],
-        fatigueMap: { rearDelts: 0.8, midBack: 0.6, lowerTraps: 0.5, rotatorCuff: 0.5, biceps: 0.2 }
+        fatigueMap: { rearDelts: 0.8, midBack: 0.6, lowerTraps: 0.5, rotatorCuff: 0.5, biceps: 0.2 },
+        variants: [
+          {
+            id: "face-pull-variant-rope",
+            name: "Face pull con cuerda",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Polea", "Cuerda"],
+            description:
+              "Variante en polea con cuerda para trabajar tracción hacia la cara, rotación externa y control escapular.",
+            coachingNotes: "Tirar hacia la zona de la cara sin extender la zona lumbar."
+          },
+          {
+            id: "face-pull-variant-band",
+            name: "Face pull con banda",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Banda elástica"],
+            description:
+              "Variante con banda elástica, útil para calentamiento, activación o trabajo accesorio ligero.",
+            coachingNotes: "Controlar la vuelta y no perder tensión de la banda."
+          },
+          {
+            id: "face-pull-variant-high-to-low",
+            name: "Face pull de arriba abajo",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Cuerda"],
+            description: "Variante con trayectoria ligeramente descendente para modificar la línea de tracción.",
+            coachingNotes: "Mantener hombros bajos y controlar la rotación externa."
+          },
+          {
+            id: "face-pull-variant-paused",
+            name: "Face pull con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Cuerda", "Banda elástica"],
+            description: "Variante con pausa al final del tirón para reforzar control escapular.",
+            coachingNotes: "No compensar la pausa con extensión cervical o lumbar."
+          }
+        ]
       })
     ]
   },
@@ -4096,7 +4308,57 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Mover los codos", "Usar impulso", "Perder control en la fase excéntrica"],
         primaryMuscles: ["Tríceps"],
         secondaryMuscles: ["Antebrazos", "Hombros"],
-        fatigueMap: { triceps: 1, forearms: 0.2, shoulders: 0.1 }
+        fatigueMap: { triceps: 1, forearms: 0.2, shoulders: 0.1 },
+        variants: [
+          {
+            id: "triceps-extension-variant-cable-rope",
+            name: "Extensión de tríceps en polea con cuerda",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Polea", "Cuerda"],
+            description:
+              "Variante en polea con cuerda para trabajar extensión de codo con tensión continua.",
+            coachingNotes: "Mantener codos estables y evitar balanceo del tronco."
+          },
+          {
+            id: "triceps-extension-variant-cable-bar",
+            name: "Extensión de tríceps en polea con barra",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Polea", "Barra corta"],
+            description: "Variante en polea con barra para permitir mayor estabilidad de agarre.",
+            coachingNotes: "No separar los codos ni usar impulso."
+          },
+          {
+            id: "triceps-extension-variant-overhead-cable",
+            name: "Extensión de tríceps overhead en polea",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Polea", "Cuerda"],
+            description:
+              "Variante overhead que aumenta la demanda del tríceps en posición de hombro flexionado.",
+            coachingNotes: "Mantener costillas controladas y evitar hiperextensión lumbar."
+          },
+          {
+            id: "triceps-extension-variant-dumbbell-overhead",
+            name: "Extensión de tríceps overhead con mancuerna",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna"],
+            description:
+              "Variante con mancuerna por encima de la cabeza para trabajar extensión de codo con carga libre.",
+            coachingNotes: "Controlar el rango y evitar molestias de hombro."
+          },
+          {
+            id: "triceps-extension-variant-unilateral-cable",
+            name: "Extensión de tríceps unilateral en polea",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description: "Variante unilateral que permite ajustar trayectoria y corregir asimetrías.",
+            coachingNotes: "Mantener hombro estable y no rotar el tronco."
+          }
+        ]
       }),
       squatExercise({
         name: "Biceps curl",
@@ -4106,7 +4368,65 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Balancear el tronco", "Mover codos hacia delante", "Perder control excéntrico"],
         primaryMuscles: ["Bíceps"],
         secondaryMuscles: ["Antebrazos", "Deltoides anterior"],
-        fatigueMap: { biceps: 1, forearms: 0.4, anteriorDelts: 0.1 }
+        fatigueMap: { biceps: 1, forearms: 0.4, anteriorDelts: 0.1 },
+        variants: [
+          {
+            id: "biceps-curl-variant-dumbbells",
+            name: "Curl de bíceps con mancuernas",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Mancuernas"],
+            description: "Variante clásica con mancuernas para flexión de codo con libertad de movimiento.",
+            coachingNotes: "Evitar balanceo y mantener control de la fase excéntrica."
+          },
+          {
+            id: "biceps-curl-variant-barbell",
+            name: "Curl de bíceps con barra",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Barra"],
+            description: "Variante con barra que permite mayor estabilidad y carga bilateral.",
+            coachingNotes: "Mantener codos cerca del cuerpo y no compensar con la espalda."
+          },
+          {
+            id: "biceps-curl-variant-cable",
+            name: "Curl de bíceps en polea",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Polea"],
+            description: "Variante en polea para mantener tensión continua durante el recorrido.",
+            coachingNotes: "Controlar la extensión completa sin perder posición del hombro."
+          },
+          {
+            id: "biceps-curl-variant-hammer",
+            name: "Curl martillo",
+            type: "grip",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Cuerda", "Polea"],
+            description: "Variante con agarre neutro que modifica la demanda de flexores del codo.",
+            coachingNotes: "Evitar balanceo y mantener muñeca neutra."
+          },
+          {
+            id: "biceps-curl-variant-incline",
+            name: "Curl inclinado con mancuernas",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Banco inclinado"],
+            description:
+              "Variante con hombro extendido y apoyo en banco inclinado, aumentando el rango y la demanda de control.",
+            coachingNotes: "Usar cargas moderadas y no adelantar los hombros al subir."
+          },
+          {
+            id: "biceps-curl-variant-bayesian",
+            name: "Bayesian curl en polea",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Polea"],
+            description:
+              "Variante en polea con el brazo ligeramente por detrás del cuerpo, modificando el ángulo de trabajo.",
+            coachingNotes: "Mantener hombro estable y evitar rotar el tronco."
+          }
+        ]
       }),
       squatExercise({
         name: "Spider curl",
@@ -4116,7 +4436,36 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Despegar el pecho", "Acortar rango", "Usar impulso"],
         primaryMuscles: ["Bíceps"],
         secondaryMuscles: ["Antebrazos"],
-        fatigueMap: { biceps: 1, forearms: 0.3 }
+        fatigueMap: { biceps: 1, forearms: 0.3 },
+        variants: [
+          {
+            id: "spider-curl-variant-dumbbells",
+            name: "Spider curl con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas", "Banco inclinado"],
+            description: "Variante con mancuernas y apoyo en banco inclinado para limitar compensaciones.",
+            coachingNotes: "Mantener brazos colgando y no despegar el pecho del banco."
+          },
+          {
+            id: "spider-curl-variant-bar",
+            name: "Spider curl con barra",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra", "Banco inclinado"],
+            description: "Variante con barra que facilita carga bilateral estable.",
+            coachingNotes: "Evitar balanceo y controlar la bajada."
+          },
+          {
+            id: "spider-curl-variant-ez-bar",
+            name: "Spider curl con barra EZ",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Barra EZ", "Banco inclinado"],
+            description: "Variante con barra EZ que puede ser más cómoda para muñecas y codos.",
+            coachingNotes: "Mantener recorrido controlado y sin impulso."
+          }
+        ]
       }),
       squatExercise({
         name: "Preacher curl",
@@ -4126,7 +4475,37 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: ["Hiperextender el codo", "Levantar brazos del apoyo", "Rebotar abajo"],
         primaryMuscles: ["Bíceps"],
         secondaryMuscles: ["Antebrazos"],
-        fatigueMap: { biceps: 1, forearms: 0.3 }
+        fatigueMap: { biceps: 1, forearms: 0.3 },
+        variants: [
+          {
+            id: "preacher-curl-variant-ez-bar",
+            name: "Curl predicador con barra EZ",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Banco predicador", "Barra EZ"],
+            description: "Variante clásica en banco predicador con barra EZ para limitar compensaciones.",
+            coachingNotes: "No bloquear el codo agresivamente al final del recorrido."
+          },
+          {
+            id: "preacher-curl-variant-dumbbell",
+            name: "Curl predicador con mancuerna",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Banco predicador", "Mancuerna"],
+            description:
+              "Variante unilateral con mancuerna que permite ajustar trayectoria y detectar asimetrías.",
+            coachingNotes: "Mantener brazo apoyado y controlar la fase excéntrica."
+          },
+          {
+            id: "preacher-curl-variant-machine",
+            name: "Curl predicador en máquina",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Máquina predicador"],
+            description: "Variante guiada que facilita estabilidad y control del recorrido.",
+            coachingNotes: "Ajustar asiento y apoyo para que el eje del codo sea cómodo."
+          }
+        ]
       })
     ]
   },
