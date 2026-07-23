@@ -344,7 +344,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
               />
             </label>
           </div>
-          {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
+          {error ? <p className="mt-4 text-sm font-semibold text-coral">{error}</p> : null}
           <div className="mt-5 flex flex-wrap gap-2">
             <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveResource} type="button">
               {editingResourceId ? "Guardar cambios" : "Guardar recurso"}
@@ -413,7 +413,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
               const resourceType = normalizeResourceType(resource.resourceType);
               const category = normalizeResourceCategory(resource.category);
               return (
-                <article className="flex min-h-full flex-col rounded-md border border-line bg-panel/35 p-4" key={resource.id}>
+                <article className="flex min-h-full flex-col rounded-md border border-line bg-white p-4 shadow-soft" key={resource.id}>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">{resourceType}</span>
                     <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">{category}</span>
@@ -446,7 +446,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
                       Editar
                     </button>
                     <button
-                      className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
+                      className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-coral"
                       onClick={() => handleDeleteResource(resource.id)}
                       type="button"
                     >

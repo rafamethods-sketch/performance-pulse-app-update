@@ -532,8 +532,8 @@ function LoginCover({
       <div className="fixed right-4 top-4 z-10">
         <ThemeSelector onThemeChange={onThemeChange} themePreference={themePreference} />
       </div>
-      <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
-        <div className="flex min-h-[42vh] flex-col items-center justify-center rounded-md border border-white/70 bg-white/45 p-6 shadow-soft backdrop-blur sm:p-10 lg:min-h-[58vh]">
+      <section className="mx-auto grid min-h-screen max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_0.72fr] lg:items-center">
+        <div className="flex min-h-[36vh] flex-col items-center justify-center px-2 py-8 sm:px-6 lg:min-h-[58vh]">
           <Image
             alt="Rafa Methods"
             className="h-auto w-full max-w-lg"
@@ -547,7 +547,7 @@ function LoginCover({
           </p>
         </div>
 
-        <section className="rounded-md border border-white/70 bg-white p-5 shadow-soft sm:p-6">
+        <section className="p-2 sm:p-4">
           <h2 className="text-xl font-semibold text-ink">Acceder</h2>
 
           <button
@@ -1881,7 +1881,7 @@ function ClientDetailsView({
                   <p className="mt-1 text-sm font-semibold text-ink">{getCardioConnectionLabel(intervalsConnection?.status)}</p>
                 </div>
                 <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Última sincronización</p>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Ãšltima sincronización</p>
                   <p className="mt-1 text-sm font-semibold text-ink">{formatCardioSyncDate(intervalsConnection?.lastSyncAt)}</p>
                 </div>
               </div>
@@ -1921,7 +1921,7 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
           {completedSessions.length > 0 ? (
             <div className="mt-3 grid gap-2">
               <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
-              <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
+              <ClientInfoCard label="Ãšltima actividad" value={client.lastActivity || "Sin datos todavía"} />
             </div>
           ) : (
             <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
@@ -2877,34 +2877,30 @@ function PlanningSummary({
   const totalWeeks = selectedPlan.blocks.reduce((total, block) => total + block.durationWeeks, 0);
 
   return (
-    <section className="mt-5 rounded-md border border-line bg-ink p-4 text-white">
-      <h3 className="font-semibold">Resumen de planificación</h3>
-      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <p className="rounded-md bg-white/10 px-3 py-2">Cliente: {selectedPlan.clientName}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Metodo: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Evento objetivo: {selectedPlan.planningEventType}</p>
-        {selectedPlan.planningEventType !== "Sin evento definido" && (
-          <p className="rounded-md bg-white/10 px-3 py-2">Fecha objetivo: {selectedPlan.planningPeakDate || "Sin fecha"}</p>
-        )}
-        <p className="rounded-md bg-white/10 px-3 py-2">Numero de mesociclos: {selectedPlan.blocks.length}</p>
-        <p className="rounded-md bg-white/10 px-3 py-2">Duracion total: {totalWeeks} semanas</p>
-        {selectedPlan.planningEventName && (
-          <p className="rounded-md bg-white/10 px-3 py-2 sm:col-span-2">Nombre: {selectedPlan.planningEventName}</p>
-        )}
+    <div className="mt-5 border-t border-line pt-4">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65">
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Cliente: {selectedPlan.clientName}</span>
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Método: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</span>
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Evento: {selectedPlan.planningEventType}</span>
+        {selectedPlan.planningEventType !== "Sin evento definido" ? (
+          <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Fecha: {selectedPlan.planningPeakDate || "Sin fecha"}</span>
+        ) : null}
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">{selectedPlan.blocks.length} mesociclos</span>
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">{totalWeeks} semanas</span>
+        {selectedPlan.planningEventName ? (
+          <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">{selectedPlan.planningEventName}</span>
+        ) : null}
       </div>
-
-      <div className="mt-4 grid gap-3">
-        {selectedPlan.blocks.map((block, index) => (
-          <div className="rounded-md bg-white/10 px-3 py-3 text-sm" key={block.id}>
-            <p className="font-semibold">
-              {index + 1}. {block.name} - {block.durationWeeks} semanas
-            </p>
-            <p className="mt-2 text-white/80">Objetivo principal: {block.primaryObjective || "Sin definir"}</p>
-            <p className="text-white/80">Objetivo secundario: {block.secondaryObjective || "Sin definir"}</p>
-          </div>
-        ))}
-      </div>
-    </section>
+      {selectedPlan.blocks.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/55">
+          {selectedPlan.blocks.map((block, index) => (
+            <span className="rounded-md bg-panel/35 px-2.5 py-1.5" key={block.id}>
+              {index + 1}. {block.name} · {block.durationWeeks} sem.
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -3636,7 +3632,7 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
     visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0];
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+    <div className="mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
       <section className="rounded-md border border-line bg-white p-4 shadow-soft">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Conversaciones</h2>
@@ -3667,7 +3663,7 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
             <button
               className={`w-full rounded-md border p-3 text-left transition ${
                 selectedThreadId === thread.id
-                  ? "border-ink bg-panel"
+                  ? "border-moss bg-panel"
                   : "border-line bg-panel/35 hover:bg-panel"
               }`}
               key={thread.id}
@@ -3708,10 +3704,10 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
               key={`${message.time}-${message.text}`}
             >
               <div
-                className={`max-w-[80%] rounded-md px-4 py-3 text-sm ${
+                className={`max-w-[80%] rounded-md border px-4 py-3 text-sm ${
                   message.author === "coach"
-                    ? "bg-ink text-white"
-                    : "bg-panel text-ink"
+                    ? "border-ink bg-ink text-white"
+                    : "border-line bg-panel/50 text-ink"
                 }`}
               >
                 <p>{message.text}</p>
@@ -3723,13 +3719,13 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
           ))}
         </div>
 
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
           <input
-            className="h-11 flex-1 rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            className="h-11 flex-1 rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
             placeholder="Escribe un mensaje"
             type="text"
           />
-          <button className="rounded-md bg-ink px-4 text-sm font-medium text-white" type="button">
+          <button className="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90" type="button">
             Enviar
           </button>
         </div>
@@ -5077,19 +5073,19 @@ function CoachTrainingPlanner({
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-900">Lesiones / limitaciones</p>
-            <p className="mt-2 text-sm text-amber-800">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
+          <div className="rounded-md border border-line border-l-clay border-l-4 bg-panel/35 p-4">
+            <p className="text-sm font-semibold text-ink">Lesiones / limitaciones</p>
+            <p className="mt-2 text-sm text-ink/65">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
           </div>
-          <div className="rounded-md border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-semibold text-red-900">Fatiga muscular a vigilar</p>
+          <div className="rounded-md border border-line border-l-coral border-l-4 bg-panel/35 p-4">
+            <p className="text-sm font-semibold text-ink">Fatiga muscular a vigilar</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {fatigueAlerts.length > 0 ? fatigueAlerts.map((item) => (
-                <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-red-700" key={item.muscle}>
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-coral" key={item.muscle}>
                   {item.muscle} {item.fatigueScore}%
                 </span>
               )) : (
-                <span className="text-sm text-red-800">Sin grupos en alerta alta.</span>
+                <span className="text-sm text-ink/65">Sin grupos en alerta alta.</span>
               )}
             </div>
           </div>
