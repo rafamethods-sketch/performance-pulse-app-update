@@ -13,6 +13,7 @@ import {
   Target,
   Trash2,
   Unlock,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
@@ -3844,6 +3845,8 @@ type AssessmentEntry = ClientAssessment & {
 const assessmentCategoriesSimple = [
   "Fuerza",
   "Resistencia",
+  "Salto",
+  "FMS",
   "Movilidad",
   "Antropometría",
   "Cuestionarios",
@@ -3860,6 +3863,14 @@ const emptyAssessmentDraft = {
   unit: ""
 };
 
+const assessmentQuickActions = [
+  { category: "Fuerza", label: "Nuevo test de fuerza" },
+  { category: "Resistencia", label: "Nuevo test de resistencia" },
+  { category: "Salto", label: "Nuevo test de salto" },
+  { category: "FMS", label: "Nuevo test FMS" },
+  { category: assessmentCategoriesSimple[5], label: "Nueva antropometr\u00eda" }
+];
+
 function AssessmentsView({
   client,
   onUpdateClient
@@ -3872,12 +3883,43 @@ function AssessmentsView({
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
   const isEditingAssessment = editingAssessmentIndex !== null;
+  const assessmentModalTitle = isEditingAssessment
+    ? "Editar test"
+    : assessmentDraft.category === "Fuerza"
+      ? "Nuevo test de fuerza"
+      : assessmentDraft.category === "Resistencia"
+        ? "Nuevo test de resistencia"
+        : assessmentDraft.category === "Salto"
+          ? "Nuevo test de salto"
+          : assessmentDraft.category === "FMS"
+            ? "Nuevo test FMS"
+            : assessmentDraft.category === assessmentCategoriesSimple[5]
+              ? "Nueva antropometr\u00eda"
+              : "Nuevo test";
 
   useEffect(() => {
     setShowNewAssessmentForm(false);
     setAssessmentDraft(emptyAssessmentDraft);
     setEditingAssessmentIndex(null);
   }, [client?.id]);
+
+  useEffect(() => {
+    if (!showNewAssessmentForm) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") resetAssessmentForm();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showNewAssessmentForm]);
 
   const updateAssessmentDraft = (field: keyof typeof assessmentDraft, value: string) => {
     setAssessmentDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
@@ -3887,6 +3929,12 @@ function AssessmentsView({
     setAssessmentDraft(emptyAssessmentDraft);
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(false);
+  };
+
+  const openNewAssessmentForm = (category = "Fuerza") => {
+    setAssessmentDraft({ ...emptyAssessmentDraft, category });
+    setEditingAssessmentIndex(null);
+    setShowNewAssessmentForm(true);
   };
 
   const handleSaveAssessment = () => {
@@ -3959,87 +4007,118 @@ function AssessmentsView({
             </h2>
             <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
           </div>
-          <button
-            className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white"
-            disabled={!client}
-            onClick={() => setShowNewAssessmentForm(true)}
-            type="button"
-          >
-            Nuevo test
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {assessmentQuickActions.map((action) => (
+              <button
+                className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-3 text-sm font-semibold text-white"
+                disabled={!client}
+                key={action.label}
+                onClick={() => openNewAssessmentForm(action.category)}
+                type="button"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {showNewAssessmentForm ? (
-          <form className="mt-5 rounded-md border border-line bg-panel/35 p-4" onSubmit={(event) => event.preventDefault()}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="font-semibold text-ink">{isEditingAssessment ? "Editar test" : "Nuevo test"}</h3>
-              <div className="flex flex-wrap gap-2">
-                <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
+          <div
+            aria-labelledby="assessment-modal-title"
+            aria-modal="true"
+            className="assessment-modal-overlay"
+            onClick={resetAssessmentForm}
+            role="dialog"
+          >
+            <form
+              className="assessment-modal-panel"
+              onClick={(event) => event.stopPropagation()}
+              onSubmit={(event) => event.preventDefault()}
+            >
+              <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-ink" id="assessment-modal-title">{assessmentModalTitle}</h3>
+                  <p className="mt-1 text-sm text-ink/55">Registra el test en el historial del cliente activo.</p>
+                </div>
+                <button
+                  aria-label="Cerrar"
+                  className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink"
+                  onClick={resetAssessmentForm}
+                  type="button"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+
+              <div className="assessment-modal-body px-5 py-5">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="text-sm font-semibold text-ink/70">
+                    {"Categor\u00eda"}
+                    <select
+                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("category", event.target.value)}
+                      value={assessmentDraft.category}
+                    >
+                      {assessmentCategoriesSimple.map((category) => (
+                        <option key={category}>{category}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-semibold text-ink/70">
+                    Test / {"medici\u00f3n"}
+                    <input
+                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("name", event.target.value)}
+                      value={assessmentDraft.name}
+                    />
+                  </label>
+                  <label className="text-sm font-semibold text-ink/70">
+                    Fecha
+                    <input
+                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("date", event.target.value)}
+                      type="date"
+                      value={assessmentDraft.date}
+                    />
+                  </label>
+                  <label className="text-sm font-semibold text-ink/70">
+                    Resultado
+                    <input
+                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("result", event.target.value)}
+                      value={assessmentDraft.result}
+                    />
+                  </label>
+                  <label className="text-sm font-semibold text-ink/70">
+                    Unidad
+                    <input
+                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("unit", event.target.value)}
+                      placeholder="kg, cm, segundos, repeticiones, puntos, %, m, W, bpm"
+                      value={assessmentDraft.unit}
+                    />
+                  </label>
+                  <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                    Notas
+                    <textarea
+                      className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
+                      onChange={(event) => updateAssessmentDraft("notes", event.target.value)}
+                      value={assessmentDraft.notes}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
+                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
                   Cancelar
                 </button>
-                <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
+                <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
                   {isEditingAssessment ? "Guardar cambios" : "Guardar test"}
                 </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label className="text-sm font-semibold text-ink/70">
-                Categoría
-                <select
-                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("category", event.target.value)}
-                  value={assessmentDraft.category}
-                >
-                  {assessmentCategoriesSimple.map((category) => (
-                    <option key={category}>{category}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-semibold text-ink/70">
-                Test / medición
-                <input
-                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("name", event.target.value)}
-                  value={assessmentDraft.name}
-                />
-              </label>
-              <label className="text-sm font-semibold text-ink/70">
-                Fecha
-                <input
-                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("date", event.target.value)}
-                  type="date"
-                  value={assessmentDraft.date}
-                />
-              </label>
-              <label className="text-sm font-semibold text-ink/70">
-                Resultado
-                <input
-                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("result", event.target.value)}
-                  value={assessmentDraft.result}
-                />
-              </label>
-              <label className="text-sm font-semibold text-ink/70">
-                Unidad
-                <input
-                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("unit", event.target.value)}
-                  placeholder="kg, cm, segundos, repeticiones, puntos, %, m, W, bpm"
-                  value={assessmentDraft.unit}
-                />
-              </label>
-              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
-                Notas
-                <textarea
-                  className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateAssessmentDraft("notes", event.target.value)}
-                  value={assessmentDraft.notes}
-                />
-              </label>
-            </div>
-          </form>
+              </footer>
+            </form>
+          </div>
         ) : null}
 
         {assessments.length > 0 ? (

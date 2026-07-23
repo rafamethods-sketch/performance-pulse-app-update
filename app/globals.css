@@ -223,6 +223,58 @@ textarea::placeholder {
   background-color: rgb(var(--color-danger-soft) / 0.82) !important;
 }
 
+.assessment-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(2 6 23 / 0.48);
+  backdrop-filter: blur(14px);
+}
+
+.assessment-modal-panel {
+  display: flex;
+  max-height: min(90vh, 46rem);
+  width: min(100%, 46rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 0.875rem;
+  background: rgb(var(--color-surface));
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.28);
+}
+
+.assessment-modal-header,
+.assessment-modal-footer {
+  position: sticky;
+  z-index: 1;
+  flex-shrink: 0;
+  background: rgb(var(--color-surface) / 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.assessment-modal-header {
+  top: 0;
+  border-bottom: 1px solid rgb(var(--color-border));
+}
+
+.assessment-modal-footer {
+  bottom: 0;
+  border-top: 1px solid rgb(var(--color-border));
+}
+
+.assessment-modal-body {
+  overflow-y: auto;
+  background: rgb(var(--color-surface-subtle) / 0.38);
+}
+
+[data-theme="dark"] .assessment-modal-overlay {
+  background: rgb(2 6 23 / 0.72);
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }
