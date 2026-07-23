@@ -2232,7 +2232,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.7, glutes: 0.25, core: 0.15 }
+        fatigueMap: { gluteMed: 0.7, glutes: 0.25, core: 0.15 },
+        variants: [
+          {
+            id: "side-lying-hip-abduction-variant-bodyweight",
+            name: "Abducción lateral con peso corporal",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Peso corporal"],
+            description: "Variante básica en decúbito lateral para trabajar abductores con baja carga externa.",
+            coachingNotes: "Mantener pelvis estable y evitar rotar la cadera hacia atrás."
+          },
+          {
+            id: "side-lying-hip-abduction-variant-miniband",
+            name: "Abducción lateral con miniband",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Miniband"],
+            description: "Variante con miniband para aumentar resistencia durante la abducción.",
+            coachingNotes: "Colocar la banda donde permita control sin alterar la técnica."
+          },
+          {
+            id: "side-lying-hip-abduction-variant-ankle-weight",
+            name: "Abducción lateral con tobillera",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Tobillera"],
+            description:
+              "Variante con carga externa ligera para aumentar la demanda sobre glúteo medio y abductores.",
+            coachingNotes: "Usar cargas bajas y controlar la bajada."
+          },
+          {
+            id: "side-lying-hip-abduction-variant-paused",
+            name: "Abducción lateral con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Miniband", "Tobillera"],
+            description: "Variante con pausa arriba para reforzar control y tensión local.",
+            coachingNotes: "Pausar sin perder alineación de pelvis."
+          }
+        ]
       }),
       squatExercise({
         id: "lower-body-accessories-abductors-monster-walk-miniband",
@@ -2250,7 +2289,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Cuádriceps", "Core"],
-        fatigueMap: { gluteMed: 0.8, glutes: 0.35, quadriceps: 0.2, core: 0.25 }
+        fatigueMap: { gluteMed: 0.8, glutes: 0.35, quadriceps: 0.2, core: 0.25 },
+        variants: [
+          {
+            id: "monster-walk-miniband-variant-forward",
+            name: "Monster walk hacia delante",
+            type: "direction",
+            difficulty: "basic",
+            equipment: ["Miniband"],
+            description:
+              "Variante con desplazamiento hacia delante para trabajar control de cadera y abductores en patrón dinámico.",
+            coachingNotes: "Mantener tensión de la banda y evitar juntar las rodillas."
+          },
+          {
+            id: "monster-walk-miniband-variant-backward",
+            name: "Monster walk hacia atrás",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Miniband"],
+            description: "Variante con desplazamiento hacia atrás que modifica la coordinación y la demanda de control.",
+            coachingNotes: "Mantener pasos cortos y pelvis estable."
+          },
+          {
+            id: "monster-walk-miniband-variant-lateral",
+            name: "Lateral band walk",
+            type: "direction",
+            difficulty: "basic",
+            equipment: ["Miniband"],
+            description: "Variante lateral para trabajar abductores y control frontal de cadera.",
+            coachingNotes: "Evitar balancear el tronco y mantener tensión continua de la banda."
+          },
+          {
+            id: "monster-walk-miniband-variant-diagonal",
+            name: "Monster walk diagonal",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Miniband"],
+            description: "Variante diagonal que combina desplazamiento frontal y lateral.",
+            coachingNotes: "Mantener control de rodilla y pelvis durante cada paso."
+          }
+        ]
       }),
       squatExercise({
         name: "Abducción de cadera unilateral de pie en polea baja",
@@ -2266,7 +2344,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.8, glutes: 0.25, core: 0.25, quadriceps: 0.1, calves: 0.1 }
+        fatigueMap: { gluteMed: 0.8, glutes: 0.25, core: 0.25, quadriceps: 0.1, calves: 0.1 },
+        variants: [
+          {
+            id: "standing-cable-hip-abduction-variant-supported",
+            name: "Abducción en polea de pie con apoyo",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Polea baja", "Tobillera", "Soporte"],
+            description: "Variante con apoyo externo para facilitar estabilidad y focalizar la abducción de cadera.",
+            coachingNotes: "Usar el apoyo solo para estabilidad y evitar inclinar el tronco."
+          },
+          {
+            id: "standing-cable-hip-abduction-variant-free-standing",
+            name: "Abducción en polea de pie sin apoyo",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description: "Variante sin apoyo que aumenta la demanda de equilibrio y control lumbo-pélvico.",
+            coachingNotes: "Mantener pelvis estable y no rotar el tronco."
+          },
+          {
+            id: "standing-cable-hip-abduction-variant-slight-extension",
+            name: "Abducción en polea con ligera extensión",
+            type: "direction",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description:
+              "Variante con ligera extensión de cadera para modificar la línea de trabajo del glúteo medio y posterior.",
+            coachingNotes: "No convertirlo en una patada de glúteo; mantener el énfasis en abducción."
+          },
+          {
+            id: "standing-cable-hip-abduction-variant-paused",
+            name: "Abducción en polea con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description: "Variante con pausa al final de la abducción para aumentar control y tensión local.",
+            coachingNotes: "Pausar sin inclinar el tronco ni perder equilibrio."
+          }
+        ]
       }),
       squatExercise({
         id: "lower-body-accessories-glutes-1",
@@ -2283,7 +2400,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Tensor de la fascia lata", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { gluteMed: 0.85, glutes: 0.3, core: 0.1 }
+        fatigueMap: { gluteMed: 0.85, glutes: 0.3, core: 0.1 },
+        variants: [
+          {
+            id: "seated-abduction-machine-variant-bilateral",
+            name: "Abducción en máquina bilateral",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante bilateral guiada para trabajar abductores con estabilidad externa.",
+            coachingNotes: "Ajustar rango inicial y controlar la vuelta."
+          },
+          {
+            id: "seated-abduction-machine-variant-unilateral",
+            name: "Abducción en máquina unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante unilateral para ajustar carga por lado y controlar asimetrías.",
+            coachingNotes: "Evitar rotar pelvis o tronco para completar el recorrido."
+          },
+          {
+            id: "seated-abduction-machine-variant-paused",
+            name: "Abducción en máquina con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en la apertura para aumentar control y tensión local.",
+            coachingNotes: "Pausar sin perder contacto con el asiento."
+          },
+          {
+            id: "seated-abduction-machine-variant-forward-lean",
+            name: "Abducción en máquina con inclinación anterior",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description:
+              "Variante con ligera inclinación anterior del tronco para modificar la sensación de trabajo en glúteo medio y posterior.",
+            coachingNotes: "Mantener inclinación controlada, sin convertirlo en balanceo."
+          }
+        ]
       })
     ]
   },
@@ -2308,7 +2464,47 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Aductores"],
         secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor"],
-        fatigueMap: { adductors: 0.65, core: 0.15, glutes: 0.1 }
+        fatigueMap: { adductors: 0.65, core: 0.15, glutes: 0.1 },
+        variants: [
+          {
+            id: "seated-hip-adduction-iso-variant-yoga-block",
+            name: "Aducción isométrica sentado con bloque",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Bloque de yoga"],
+            description:
+              "Variante isométrica con bloque entre las rodillas para trabajar aductores con baja complejidad.",
+            coachingNotes: "Mantener pelvis estable y presionar de forma progresiva, sin compensar con tronco."
+          },
+          {
+            id: "seated-hip-adduction-iso-variant-ball",
+            name: "Aducción isométrica sentado con pelota",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Pelota", "Fitball pequeña"],
+            description: "Variante con pelota que permite ajustar la presión y la comodidad del contacto.",
+            coachingNotes: "Evitar presiones máximas si hay molestia inguinal o pérdida de control."
+          },
+          {
+            id: "seated-hip-adduction-iso-variant-long-lever",
+            name: "Aducción isométrica sentado con palanca larga",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Bloque de yoga", "Pelota"],
+            description: "Variante con mayor separación o palanca para aumentar la demanda de aductores.",
+            coachingNotes: "Progresar solo si la variante básica es tolerada sin molestias."
+          },
+          {
+            id: "seated-hip-adduction-iso-variant-pulses",
+            name: "Aducción isométrica sentado con pulsos",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Bloque de yoga", "Pelota"],
+            description:
+              "Variante que combina presión mantenida con pequeños pulsos para aumentar control y tolerancia local.",
+            coachingNotes: "Mantener pulsos controlados, sin buscar dolor ni fatiga excesiva."
+          }
+        ]
       }),
       squatExercise({
         id: "lower-body-accessories-adductors-3",
@@ -2326,7 +2522,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Aductores"],
         secondaryMuscles: ["Glúteo mayor", "Core / estabilizadores lumbopélvicos"],
-        fatigueMap: { adductors: 0.7, glutes: 0.15, core: 0.15 }
+        fatigueMap: { adductors: 0.7, glutes: 0.15, core: 0.15 },
+        variants: [
+          {
+            id: "side-lying-hip-adduction-variant-bodyweight",
+            name: "Aducción lateral con peso corporal",
+            type: "material",
+            difficulty: "basic",
+            equipment: ["Peso corporal"],
+            description: "Variante básica en decúbito lateral para trabajar aductores con baja carga externa.",
+            coachingNotes: "Mantener pelvis estable y evitar rotar el tronco durante la elevación."
+          },
+          {
+            id: "side-lying-hip-adduction-variant-ankle-weight",
+            name: "Aducción lateral con tobillera",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Tobillera"],
+            description: "Variante con carga externa ligera para aumentar la demanda del gesto.",
+            coachingNotes: "Usar cargas bajas y controlar la bajada."
+          },
+          {
+            id: "side-lying-hip-adduction-variant-paused",
+            name: "Aducción lateral con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Peso corporal", "Tobillera"],
+            description: "Variante con pausa arriba para aumentar control y tensión en aductores.",
+            coachingNotes: "Pausar sin perder posición de pelvis."
+          },
+          {
+            id: "side-lying-hip-adduction-variant-long-lever",
+            name: "Aducción lateral con palanca larga",
+            type: "range",
+            difficulty: "advanced",
+            equipment: ["Peso corporal", "Tobillera"],
+            description: "Variante con mayor exigencia de palanca para aumentar la demanda sobre los aductores.",
+            coachingNotes: "No usar si aparece molestia inguinal o compensación lumbar."
+          }
+        ]
       }),
       squatExercise({
         id: "lower-body-accessories-adductors-4",
@@ -2343,7 +2577,46 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Aductores"],
         secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor", "Cuádriceps", "Gemelos"],
-        fatigueMap: { adductors: 0.8, core: 0.25, glutes: 0.15, quadriceps: 0.1, calves: 0.1 }
+        fatigueMap: { adductors: 0.8, core: 0.25, glutes: 0.15, quadriceps: 0.1, calves: 0.1 },
+        variants: [
+          {
+            id: "standing-cable-hip-adduction-variant-supported",
+            name: "Aducción en polea de pie con apoyo",
+            type: "support",
+            difficulty: "basic",
+            equipment: ["Polea baja", "Tobillera", "Soporte"],
+            description: "Variante con apoyo externo para facilitar estabilidad y focalizar la aducción de cadera.",
+            coachingNotes: "Usar el apoyo solo para estabilidad, no para tirar del cuerpo."
+          },
+          {
+            id: "standing-cable-hip-adduction-variant-free-standing",
+            name: "Aducción en polea de pie sin apoyo",
+            type: "support",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description: "Variante sin apoyo externo que aumenta la demanda de equilibrio y control lumbo-pélvico.",
+            coachingNotes: "Mantener tronco estable y evitar inclinaciones laterales."
+          },
+          {
+            id: "standing-cable-hip-adduction-variant-cross-body",
+            name: "Aducción en polea cruzando línea media",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description:
+              "Variante que cruza ligeramente la línea media para ampliar el recorrido de aducción.",
+            coachingNotes: "No buscar rango excesivo si se pierde pelvis neutra."
+          },
+          {
+            id: "standing-cable-hip-adduction-variant-paused",
+            name: "Aducción en polea con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Polea baja", "Tobillera"],
+            description: "Variante con pausa al final de la aducción para mejorar control y tensión local.",
+            coachingNotes: "Pausar sin rotar la pelvis ni balancear la pierna."
+          }
+        ]
       }),
       squatExercise({
         id: "lower-body-accessories-adductors-1",
@@ -2360,7 +2633,45 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         ],
         primaryMuscles: ["Aductores"],
         secondaryMuscles: ["Core / estabilizadores lumbopélvicos", "Glúteo mayor"],
-        fatigueMap: { adductors: 0.85, core: 0.1, glutes: 0.1 }
+        fatigueMap: { adductors: 0.85, core: 0.1, glutes: 0.1 },
+        variants: [
+          {
+            id: "seated-adduction-machine-variant-bilateral",
+            name: "Aducción en máquina bilateral",
+            type: "stance",
+            difficulty: "basic",
+            equipment: ["Máquina"],
+            description: "Variante bilateral guiada para trabajar aductores con estabilidad externa.",
+            coachingNotes: "Ajustar rango inicial y controlar la fase excéntrica."
+          },
+          {
+            id: "seated-adduction-machine-variant-unilateral",
+            name: "Aducción en máquina unilateral",
+            type: "stance",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante unilateral para ajustar carga por lado y detectar asimetrías.",
+            coachingNotes: "Mantener pelvis estable y evitar rotar el tronco."
+          },
+          {
+            id: "seated-adduction-machine-variant-paused",
+            name: "Aducción en máquina con pausa",
+            type: "tempo",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con pausa en el cierre para aumentar control y tensión de aductores.",
+            coachingNotes: "Pausar sin perder contacto con el asiento."
+          },
+          {
+            id: "seated-adduction-machine-variant-partial",
+            name: "Aducción en máquina parcial",
+            type: "range",
+            difficulty: "intermediate",
+            equipment: ["Máquina"],
+            description: "Variante con rango parcial para ajustar tolerancia o enfatizar una zona concreta del recorrido.",
+            coachingNotes: "Usar el rango parcial con intención clara, no por falta de control."
+          }
+        ]
       })
     ]
   },
