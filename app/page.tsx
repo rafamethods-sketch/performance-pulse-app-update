@@ -105,6 +105,9 @@ type TrainingAvailability = {
   daysPerWeek: number;
 };
 type TrainerClientPanel = "list" | "dashboard" | "details";
+type ThemePreference = "light" | "dark";
+
+const themeStorageKey = "coach_theme_preference";
 
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -119,6 +122,8 @@ export default function ClientsPage() {
   const [resources, setResources] = useState<ResourceLink[]>([]);
   const [resourcesHydrated, setResourcesHydrated] = useState(false);
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
+  const [themeHydrated, setThemeHydrated] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("light");
   const [trainingAvailability] = useState<TrainingAvailability>({
     consecutiveDays: true,
     daysPerWeek: 2
@@ -158,6 +163,21 @@ export default function ClientsPage() {
   useEffect(() => {
     window.localStorage.setItem("rafa-methods-sidebar-collapsed", String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedTheme = window.localStorage.getItem(themeStorageKey);
+    const nextTheme = storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
+    document.documentElement.dataset.theme = nextTheme;
+    setThemePreference(nextTheme);
+    setThemeHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!themeHydrated || typeof window === "undefined") return;
+    document.documentElement.dataset.theme = themePreference;
+    window.localStorage.setItem(themeStorageKey, themePreference);
+  }, [themeHydrated, themePreference]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -226,7 +246,15 @@ export default function ClientsPage() {
   }
 
   if (!role) {
-    return <LoginCover onLogin={handleLogin} />;
+    return (
+      <div className="theme-shell min-h-screen" data-theme={themePreference}>
+        <LoginCover
+          onLogin={handleLogin}
+          onThemeChange={setThemePreference}
+          themePreference={themePreference}
+        />
+      </div>
+    );
   }
 
   const selectedClient =
@@ -260,7 +288,7 @@ export default function ClientsPage() {
   }
 
   return (
-    <main className="min-h-screen lg:flex">
+    <main className="theme-shell min-h-screen lg:flex" data-theme={themePreference}>
       <Sidebar
         activeSheet={activeSheet}
         collapsed={isSidebarCollapsed}
@@ -311,7 +339,10 @@ export default function ClientsPage() {
                     : "Dashboard"}
               </h1>
             </div>
-
+            <ThemeSelector
+              onThemeChange={setThemePreference}
+              themePreference={themePreference}
+            />
           </div>
 
           {role === "coach" && ((activeSheet === "clients" && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
@@ -440,7 +471,38 @@ export default function ClientsPage() {
   );
 }
 
-function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
+function ThemeSelector({
+  onThemeChange,
+  themePreference
+}: {
+  onThemeChange: (theme: ThemePreference) => void;
+  themePreference: ThemePreference;
+}) {
+  return (
+    <label className="flex w-fit items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65 shadow-soft">
+      Apariencia
+      <select
+        aria-label="Apariencia"
+        className="h-8 rounded-md border border-line bg-panel/60 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+        onChange={(event) => onThemeChange(event.target.value as ThemePreference)}
+        value={themePreference}
+      >
+        <option value="light">Claro</option>
+        <option value="dark">Oscuro</option>
+      </select>
+    </label>
+  );
+}
+
+function LoginCover({
+  onLogin,
+  onThemeChange,
+  themePreference
+}: {
+  onLogin: (role: UserRole) => void;
+  onThemeChange: (theme: ThemePreference) => void;
+  themePreference: ThemePreference;
+}) {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   async function handleGoogleLogin() {
@@ -462,7 +524,10 @@ function LoginCover({ onLogin }: { onLogin: (role: UserRole) => void }) {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(64,86,214,0.18),transparent_28rem),linear-gradient(135deg,#f6faff_0%,#d9f0ff_52%,#d8fff0_100%)]">
+    <main className="theme-login-bg min-h-screen">
+      <div className="fixed right-4 top-4 z-10">
+        <ThemeSelector onThemeChange={onThemeChange} themePreference={themePreference} />
+      </div>
       <section className="mx-auto grid min-h-screen max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
         <div className="flex min-h-[42vh] flex-col items-center justify-center rounded-md border border-white/70 bg-white/45 p-6 shadow-soft backdrop-blur sm:p-10 lg:min-h-[58vh]">
           <Image

@@ -9,20 +9,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#102033",
-        panel: "#f6faff",
-        line: "#d7e4f0",
-        moss: "#00876f",
-        clay: "#ff6b35",
-        steel: "#4056d6",
-        mint: "#d8fff0",
-        wheat: "#fff3bf",
-        coral: "#ff5c7a",
-        sky: "#d9f0ff",
-        violet: "#eee7ff"
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        panel: "rgb(var(--color-panel) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
+        moss: "rgb(var(--color-moss) / <alpha-value>)",
+        clay: "rgb(var(--color-clay) / <alpha-value>)",
+        steel: "rgb(var(--color-steel) / <alpha-value>)",
+        mint: "rgb(var(--color-mint) / <alpha-value>)",
+        wheat: "rgb(var(--color-wheat) / <alpha-value>)",
+        coral: "rgb(var(--color-coral) / <alpha-value>)",
+        sky: "rgb(var(--color-sky) / <alpha-value>)",
+        violet: "rgb(var(--color-violet) / <alpha-value>)"
       },
       boxShadow: {
-        soft: "0 20px 60px rgba(16, 32, 51, 0.1)"
+        soft: "var(--shadow-soft)"
       }
     }
   },
