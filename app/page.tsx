@@ -5421,10 +5421,10 @@ function CoachTrainingPlanner({
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-sets`}
-                    min={0}
+                    inputMode="numeric"
                     onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "sets")}
-                    type="number"
+                    type="text"
                     value={exercise.sets}
                   />
                 </label>
@@ -5433,10 +5433,10 @@ function CoachTrainingPlanner({
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-reps`}
-                    min={0}
+                    inputMode="numeric"
                     onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "reps")}
-                    type="number"
+                    type="text"
                     value={exercise.reps}
                   />
                 </label>
@@ -5446,10 +5446,10 @@ function CoachTrainingPlanner({
                     <input
                       className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
                       data-planner-field={`${exercise.id}-load`}
-                      min={0}
+                      inputMode="decimal"
                       onChange={(event) => updateStrengthExercise(exercise.id, { load: event.target.value })}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "load")}
-                      type="number"
+                      type="text"
                       value={exercise.load}
                     />
                     <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">kg</span>
@@ -5462,7 +5462,8 @@ function CoachTrainingPlanner({
                     data-planner-field={`${exercise.id}-rest`}
                     onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "rest")}
-                    placeholder="Descanso"
+                    inputMode="numeric"
+                    placeholder="02:30"
                     value={exercise.rest}
                   />
                 </label>
@@ -5472,12 +5473,11 @@ function CoachTrainingPlanner({
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
-                      max={10}
-                      min={0}
+                      inputMode="decimal"
                       onChange={(event) => updateStrengthExercise(exercise.id, { targetRpe: event.target.value })}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
                       placeholder="0-10"
-                      type="number"
+                      type="text"
                       value={exercise.targetRpe}
                     />
                   </label>
@@ -5487,11 +5487,11 @@ function CoachTrainingPlanner({
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
-                      min={0}
+                      inputMode="decimal"
                       onChange={(event) => updateStrengthExercise(exercise.id, { percent1RM: event.target.value })}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
                       placeholder="%"
-                      type="number"
+                      type="text"
                       value={exercise.percent1RM ?? ""}
                     />
                   </label>
@@ -5502,10 +5502,11 @@ function CoachTrainingPlanner({
                       <input
                         className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-ink outline-none"
                         data-planner-field={`${exercise.id}-intensity`}
+                        inputMode="decimal"
                         onChange={(event) => updateStrengthExercise(exercise.id, { targetVelocity: event.target.value })}
                         onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
                         placeholder="m/s"
-                        type="number"
+                        type="text"
                         value={exercise.targetVelocity ?? ""}
                       />
                       <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">m/s</span>
@@ -5517,11 +5518,11 @@ function CoachTrainingPlanner({
                     <input
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
-                      min={0}
+                      inputMode="decimal"
                       onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
                       placeholder="RIR"
-                      type="number"
+                      type="text"
                       value={exercise.targetRir}
                     />
                   </label>
