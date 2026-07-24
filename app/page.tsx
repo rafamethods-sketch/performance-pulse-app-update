@@ -2280,7 +2280,7 @@ function ClientDetailsView({
                   <p className="mt-1 text-sm font-semibold text-ink">{getCardioConnectionLabel(intervalsConnection?.status)}</p>
                 </div>
                 <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Ãšltima sincronización</p>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Última sincronización</p>
                   <p className="mt-1 text-sm font-semibold text-ink">{formatCardioSyncDate(intervalsConnection?.lastSyncAt)}</p>
                 </div>
               </div>
@@ -2320,7 +2320,7 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
           {completedSessions.length > 0 ? (
             <div className="mt-3 grid gap-2">
               <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
-              <ClientInfoCard label="Ãšltima actividad" value={client.lastActivity || "Sin datos todavía"} />
+              <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
             </div>
           ) : (
             <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
@@ -6033,6 +6033,7 @@ type ReviewSessionExercise = SessionExerciseInput & {
   name?: string | null;
   notes?: string | null;
   observation?: string | null;
+  percent1RM?: number | string | null;
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
   plannedRpe?: number | string | null;
@@ -6044,7 +6045,10 @@ type ReviewSessionExercise = SessionExerciseInput & {
   selectedEquipment?: string | null;
   selectedVariantName?: string | null;
   setDetails?: Array<{ reps?: number | string | null; setNumber?: number }>;
+  intensityMethod?: StrengthIntensityMethod | null;
   targetRir?: number | string | null;
+  targetRpe?: number | string | null;
+  targetVelocity?: number | string | null;
 };
 
 type SessionReviewStatus = "pending" | "reviewed";
@@ -6176,19 +6180,6 @@ function getPerformedValue(entry: ReviewSessionExercise | undefined, field: "set
   }
 }
 
-function reviewValueChanged(planned: unknown, performed: unknown) {
-  if (!hasDisplayValue(planned) || !hasDisplayValue(performed)) return false;
-  return `${planned}`.trim() !== `${performed}`.trim();
-}
-
-function hasExerciseChanges(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise) {
-  if (!performed) return false;
-
-  return (["sets", "reps", "load", "rest", "rir"] as const).some((field) =>
-    reviewValueChanged(getPlannedValue(planned, field), getPerformedValue(performed, field))
-  );
-}
-
 function parseReviewNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -6200,11 +6191,6 @@ function getSetDetailsReps(entry?: ReviewSessionExercise) {
     .filter((reps): reps is number => reps !== null && reps > 0);
 }
 
-function getSetDetailsLabel(entry?: ReviewSessionExercise) {
-  const reps = getSetDetailsReps(entry);
-  return reps.length > 0 ? `${reps.join(" / ")} reps` : "";
-}
-
 function getExerciseMetaLabel(entry?: ReviewSessionExercise) {
   const meta = [
     entry?.selectedEquipment ? `Material: ${entry.selectedEquipment}` : "",
@@ -6212,41 +6198,6 @@ function getExerciseMetaLabel(entry?: ReviewSessionExercise) {
   ].filter(Boolean);
 
   return meta.join(" · ");
-}
-
-function getExercisePlanLabel(entry?: ReviewSessionExercise) {
-  if (!entry) return "Sin plan";
-  const pieces = [
-    hasDisplayValue(getPlannedValue(entry, "sets")) || hasDisplayValue(getPlannedValue(entry, "reps"))
-      ? `${displayValue(getPlannedValue(entry, "sets"), "-")}x${displayValue(getPlannedValue(entry, "reps"), "-")}`
-      : "",
-    hasDisplayValue(getPlannedValue(entry, "load")) ? `Carga ${getPlannedValue(entry, "load")}` : "",
-    hasDisplayValue(getPlannedValue(entry, "rir")) ? `RIR ${getPlannedValue(entry, "rir")}` : "",
-    hasDisplayValue(entry.plannedRpe) ? `RPE ${entry.plannedRpe}` : "",
-    hasDisplayValue(getPlannedValue(entry, "rest")) ? `Descanso ${getPlannedValue(entry, "rest")}` : ""
-  ].filter(Boolean);
-
-  return pieces.length > 0 ? pieces.join(" · ") : "Sin plan";
-}
-
-function getExercisePerformedLabel(entry?: ReviewSessionExercise) {
-  if (!entry) return "Sin registro";
-  const setDetailsLabel = getSetDetailsLabel(entry);
-  const performedReps = getPerformedValue(entry, "reps");
-  const repsValue = setDetailsLabel || displayValue(performedReps, "-");
-  const pieces = [
-    hasDisplayValue(getPerformedValue(entry, "sets")) || Boolean(setDetailsLabel) || hasDisplayValue(performedReps)
-      ? `${displayValue(getPerformedValue(entry, "sets"), "-")}x${repsValue}`
-      : "",
-    hasDisplayValue(getPerformedValue(entry, "load")) ? `Carga ${getPerformedValue(entry, "load")}` : "",
-    hasDisplayValue(getPerformedValue(entry, "rir")) ? `RIR ${getPerformedValue(entry, "rir")}` : "",
-    hasDisplayValue(entry.exerciseRpe ?? entry.rpe ?? entry.actualRpe ?? entry.perceivedExertion)
-      ? `RPE ${entry.exerciseRpe ?? entry.rpe ?? entry.actualRpe ?? entry.perceivedExertion}`
-      : "",
-    hasDisplayValue(getPerformedValue(entry, "rest")) ? `Descanso ${getPerformedValue(entry, "rest")}` : ""
-  ].filter(Boolean);
-
-  return pieces.length > 0 ? pieces.join(" · ") : "Sin registro";
 }
 
 function getExerciseDifferenceLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise) {
@@ -6351,19 +6302,6 @@ function getStatusBadgeClass(status: string) {
   return "border border-line bg-wheat text-ink";
 }
 
-function buildSessionLoadInput(session: ReviewSessionRecord): TrainingSessionInput | null {
-  const { plannedExercises, performedExercises } = getReviewExercises(session);
-  const hasExercises = plannedExercises.length > 0 || performedExercises.length > 0;
-
-  if (!hasExercises) return null;
-
-  return {
-    completed: performedExercises.length > 0,
-    performedExercises,
-    plannedExercises
-  };
-}
-
 function getSessionSrpe(session: ReviewSessionRecord) {
   if (hasDisplayValue(session.sRPE)) {
     const parsedSrpe = Number(session.sRPE);
@@ -6385,6 +6323,133 @@ function getSessionHistoryKey(session: ReviewSessionRecord, sessionIndex: number
   return `${session.date}-${session.summary}-${sessionIndex}`;
 }
 
+type ReviewExerciseDetail = {
+  blockLabel: string;
+  differenceLabel: string;
+  exerciseName: string;
+  metaLabel: string;
+  performedLabel: string;
+  plannedLabel: string;
+};
+
+type ReviewFeedbackModal = {
+  sessionIndex: number;
+  sessionKey: string;
+  suggestedReviewNotes: string;
+};
+
+function getReviewBlockKey(entry?: ReviewSessionExercise): StrengthSessionBlock {
+  const rawBlock = `${entry?.block ?? entry?.section ?? ""}`.toLowerCase();
+  if (rawBlock.includes("activ")) return "activation";
+  if (rawBlock.includes("aux") || rawBlock.includes("opcional")) return "auxiliary";
+  return "main";
+}
+
+function getReviewBlockLabel(block: StrengthSessionBlock) {
+  if (block === "activation") return "ACTIVACI\u00d3N";
+  if (block === "auxiliary") return "BLOQUE AUXILIAR / OPCIONAL";
+  return "BLOQUE PRINCIPAL";
+}
+
+function getGroupedReviewRows(rows: Array<{ performed?: ReviewSessionExercise; planned?: ReviewSessionExercise }>) {
+  const groups: Array<{
+    block: StrengthSessionBlock;
+    rows: Array<{ performed?: ReviewSessionExercise; planned?: ReviewSessionExercise; originalIndex: number }>;
+  }> = [
+    { block: "activation", rows: [] },
+    { block: "main", rows: [] },
+    { block: "auxiliary", rows: [] }
+  ];
+
+  rows.forEach((row, originalIndex) => {
+    const block = getReviewBlockKey(row.performed ?? row.planned);
+    groups.find((group) => group.block === block)?.rows.push({ ...row, originalIndex });
+  });
+
+  return groups.filter((group) => group.rows.length > 0);
+}
+
+function getCompactSetLabel(entry?: ReviewSessionExercise, source: "planned" | "performed" = "planned") {
+  if (!entry) return "Sin datos";
+
+  if (source === "performed") {
+    const setDetails = getSetDetailsReps(entry);
+    if (setDetails.length > 0) {
+      const allSame = setDetails.every((reps) => reps === setDetails[0]);
+      return allSame ? `${setDetails.length}x${setDetails[0]}` : `${setDetails.length}x(${setDetails.join("/")})`;
+    }
+  }
+
+  const sets = source === "planned" ? getPlannedValue(entry, "sets") : getPerformedValue(entry, "sets");
+  const reps = source === "planned" ? getPlannedValue(entry, "reps") : getPerformedValue(entry, "reps");
+
+  if (hasDisplayValue(sets) && hasDisplayValue(reps)) return `${sets}x${reps}`;
+  if (hasDisplayValue(reps)) return `${reps} reps`;
+  return "Sin datos";
+}
+
+function getReviewExerciseRpe(entry?: ReviewSessionExercise) {
+  return entry?.exerciseRpe ?? entry?.rpe ?? entry?.actualRpe ?? entry?.perceivedExertion;
+}
+
+function getReviewIntensityMethod(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise): StrengthIntensityMethod | null {
+  const explicitMethod = performed?.intensityMethod ?? planned?.intensityMethod;
+  if (explicitMethod) return explicitMethod;
+  if (hasDisplayValue(performed?.targetVelocity ?? planned?.targetVelocity)) return "velocity";
+  if (hasDisplayValue(planned?.percent1RM ?? performed?.percent1RM)) return "percent_1rm";
+  if (hasDisplayValue(planned?.plannedRpe ?? planned?.targetRpe ?? getReviewExerciseRpe(performed))) return "rpe";
+  if (hasDisplayValue(getPlannedValue(planned, "rir") ?? getPerformedValue(performed, "rir"))) return "rir";
+  if (hasDisplayValue(getPlannedValue(planned, "load") ?? getPerformedValue(performed, "load"))) return "kg";
+  return null;
+}
+
+function getReviewIntensityLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise, source: "planned" | "performed" = "performed") {
+  const method = getReviewIntensityMethod(planned, performed);
+
+  if (method === "velocity") {
+    const value = planned?.targetVelocity ?? performed?.targetVelocity;
+    return hasDisplayValue(value) ? `Velocidad: ${value} m/s` : "";
+  }
+
+  if (method === "percent_1rm") {
+    const value = planned?.percent1RM ?? performed?.percent1RM;
+    return hasDisplayValue(value) ? `%1RM: ${value}%` : "";
+  }
+
+  if (method === "rpe") {
+    const value = source === "planned"
+      ? planned?.plannedRpe ?? planned?.targetRpe
+      : getReviewExerciseRpe(performed) ?? planned?.plannedRpe ?? planned?.targetRpe;
+    return hasDisplayValue(value) ? `RPE: ${value}` : "";
+  }
+
+  if (method === "rir") {
+    const value = source === "planned" ? getPlannedValue(planned, "rir") : getPerformedValue(performed, "rir");
+    return hasDisplayValue(value) ? `RIR: ${value}` : "";
+  }
+
+  if (method === "kg" || method === "external_load") {
+    const value = source === "planned" ? getPlannedValue(planned, "load") : getPerformedValue(performed, "load");
+    return hasDisplayValue(value) ? `Carga: ${value} kg` : "";
+  }
+
+  return "";
+}
+
+function getCompactExerciseLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise, source: "planned" | "performed" = "planned") {
+  const entry = source === "planned" ? planned : performed;
+  if (!entry) return source === "planned" ? "Sin datos planificados" : "Sin registro real";
+  const pieces = [
+    getCompactSetLabel(entry, source),
+    source === "planned" && hasDisplayValue(getPlannedValue(entry, "rest")) ? `${getPlannedValue(entry, "rest")}` : "",
+    source === "planned" && hasDisplayValue(getPlannedValue(entry, "load")) ? `${getPlannedValue(entry, "load")} kg` : "",
+    source === "performed" && hasDisplayValue(getPerformedValue(entry, "load")) ? `${getPerformedValue(entry, "load")} kg` : "",
+    getReviewIntensityLabel(planned, performed, source)
+  ].filter(Boolean);
+
+  return pieces.length > 0 ? pieces.join(" \u00b7 ") : source === "planned" ? "Sin datos planificados" : "Sin registro real";
+}
+
 function SessionHistoryPanel({
   client,
   onConsumeTargetTrainingSession,
@@ -6399,12 +6464,14 @@ function SessionHistoryPanel({
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
-  const [editingReviewKey, setEditingReviewKey] = useState("");
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
+  const [selectedExerciseDetail, setSelectedExerciseDetail] = useState<ReviewExerciseDetail | null>(null);
+  const [reviewFeedbackModal, setReviewFeedbackModal] = useState<ReviewFeedbackModal | null>(null);
   const sessions = useMemo(
     () => (client.sessionRecords ?? []) as ReviewSessionRecord[],
     [client.sessionRecords]
   );
+  const feedbackSession = reviewFeedbackModal ? sessions[reviewFeedbackModal.sessionIndex] : null;
 
   function getReviewDraft(sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
     return reviewDrafts[sessionKey] ?? session.reviewNotes ?? suggestedReviewNotes;
@@ -6414,9 +6481,15 @@ function SessionHistoryPanel({
     setReviewDrafts((current) => ({ ...current, [sessionKey]: value }));
   }
 
+  function openFeedbackModal(sessionIndex: number, sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
+    const defaultFeedback = suggestedReviewNotes || "Enhorabuena, buen entreno.";
+    updateReviewDraft(sessionKey, getReviewDraft(sessionKey, session, defaultFeedback));
+    setReviewFeedbackModal({ sessionIndex, sessionKey, suggestedReviewNotes: defaultFeedback });
+  }
+
   function saveReview(sessionIndex: number, sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
     onMarkSessionReviewed(sessionIndex, getReviewDraft(sessionKey, session, suggestedReviewNotes));
-    setEditingReviewKey("");
+    setReviewFeedbackModal(null);
   }
 
   useEffect(() => {
@@ -6438,7 +6511,7 @@ function SessionHistoryPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">Sesiones anteriores</h2>
-          <p className="mt-1 text-sm text-ink/55">Revisión de sesiones planificadas y completadas de {client.name}.</p>
+          <p className="mt-1 text-sm text-ink/55">{`Revisi\u00f3n de sesiones planificadas y completadas de ${client.name}.`}</p>
         </div>
         <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
           {sessions.length} sesiones
@@ -6454,8 +6527,6 @@ function SessionHistoryPanel({
             const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
-            const sessionLoadInput = buildSessionLoadInput(session);
-            const externalLoad = sessionLoadInput ? calculateSessionExternalLoad(sessionLoadInput, exerciseLibrary) : null;
             const plannedExternalLoad = plannedExercises.length > 0
               ? calculateSessionExternalLoad({ completed: false, plannedExercises }, exerciseLibrary)
               : null;
@@ -6465,9 +6536,9 @@ function SessionHistoryPanel({
             const srpe = getSessionSrpe(session);
             const duration = session.actualDurationMinutes ?? session.duration;
             const rpe = session.finalRpe ?? session.rpe;
+            const notes = session.finalNotes ?? session.notes;
             const sessionDeviation = calculateSessionDeviation(session);
-            const hasCardioDeviation = Boolean(session.cardioPlan || session.cardioResult);
-            const cardioDeviation = hasCardioDeviation
+            const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
             const suggestedReviewNotes = [
@@ -6478,6 +6549,7 @@ function SessionHistoryPanel({
               performed: performedExercises[index],
               planned: plannedExercises[index]
             }));
+            const groupedRows = getGroupedReviewRows(detailRows);
             const hasRealRegister = performedExercises.length > 0 || status === "Completada";
             const canReviewSession = reviewStatus === "reviewed" || reviewStatus === "pending";
 
@@ -6491,7 +6563,7 @@ function SessionHistoryPanel({
                         {status}
                       </span>
                       {reviewStatus === "reviewed" ? (
-                        <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-moss">
+                        <span className="rounded-md border border-line bg-mint px-2 py-1 text-xs font-semibold text-moss">
                           Revisada
                         </span>
                       ) : null}
@@ -6505,20 +6577,32 @@ function SessionHistoryPanel({
                       Ejercicios: {exerciseCount > 0 ? exerciseCount : "Sin datos"}
                     </span>
                     <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
-                      Carga externa: {externalLoad !== null ? `${Math.round(externalLoad).toLocaleString("es-ES")} kg` : "Sin datos suficientes"}
-                    </span>
-                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
                       sRPE: {srpe !== null ? `${srpe} UA` : "Pendiente"}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <ClientInfoCard label="Bloque / mesociclo" value={formatTrainingBlock(session, client)} />
-                  <ClientInfoCard label="Semana y sesión" value={formatWeekAndSession(session, client)} />
-                  <ClientInfoCard label="Duración real" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                  <ClientInfoCard label="RPE total" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  <ClientInfoCard label={"Deportista"} value={client.name} />
+                  <ClientInfoCard label={"Duraci\u00f3n real"} value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
+                  <ClientInfoCard label={"RPE final"} value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
+                  <ClientInfoCard label={"sRPE"} value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                  <ClientInfoCard
+                    label={"Carga planificada \u2192 real"}
+                    value={`${plannedExternalLoad !== null ? `${Math.round(plannedExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"} \u2192 ${performedExternalLoad !== null ? `${Math.round(performedExternalLoad).toLocaleString("es-ES")} kg` : "Sin registro"}`}
+                  />
                 </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <ClientInfoCard label={"Bloque / mesociclo"} value={formatTrainingBlock(session, client)} />
+                  <ClientInfoCard label={"Semana y sesi\u00f3n"} value={formatWeekAndSession(session, client)} />
+                  <ClientInfoCard label={"Estado"} value={status} />
+                  <ClientInfoCard label={"Cumplimiento"} value={sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "Sin datos suficientes"} />
+                </div>
+                {hasDisplayValue(notes) ? (
+                  <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
+                    <span className="font-semibold text-ink">{"Notas del deportista:"}</span> {notes}
+                  </p>
+                ) : null}
 
                 <button
                   className="mt-4 rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
@@ -6530,321 +6614,172 @@ function SessionHistoryPanel({
 
                 {isOpen ? (
                   <div className="mt-4 rounded-md border border-line bg-panel/25 p-4">
-                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                      <ClientInfoCard label="Deportista" value={client.name} />
-                      <ClientInfoCard label="DuraciÃ³n real" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                      <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
-                      <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
-                      <ClientInfoCard
-                        label="Carga planificada â†’ real"
-                        value={`${plannedExternalLoad !== null ? `${Math.round(plannedExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"} â†’ ${performedExternalLoad !== null ? `${Math.round(performedExternalLoad).toLocaleString("es-ES")} kg` : "Sin registro"}`}
-                      />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h4 className="font-semibold text-ink">Planificado vs realizado</h4>
+                        <p className="mt-1 text-sm text-ink/55">{"Ejercicios agrupados por bloque, con cumplimiento, ca\u00edda e intensidad real."}</p>
+                      </div>
+                      {!hasRealRegister ? (
+                        <span className="rounded-md border border-line bg-wheat px-2 py-1 text-xs font-semibold text-ink">
+                          {"Sin registro real todav\u00eda"}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <div className="mt-4 grid gap-4 xl:grid-cols-[0.82fr_1.18fr]">
-                      <section className="rounded-md border border-line bg-white p-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <h4 className="font-semibold text-ink">Resumen de sesión</h4>
-                          {reviewStatus === "reviewed" ? (
-                            <span className="w-fit rounded-md border border-line bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                              Revisada
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <ClientInfoCard label="Fecha" value={displayValue(session.date)} />
-                          <ClientInfoCard label="Tipo" value={displayValue(session.type)} />
-                          <ClientInfoCard label="Estado" value={status} />
-                          <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                          <ClientInfoCard label="RPE total" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
-                          <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
-                          <ClientInfoCard label="Bloque / mesociclo" value={formatTrainingBlock(session, client)} />
-                          <ClientInfoCard label="Semana y sesión" value={formatWeekAndSession(session, client)} />
-                        </div>
-                        <div className="mt-3 rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
-                          <p className="font-semibold text-ink">Objetivo / resumen</p>
-                          <p className="mt-1">{displayValue(session.summary, "Sin resumen especificado")}</p>
-                        </div>
-                        <div className="mt-3 rounded-md bg-panel/60 px-3 py-3 text-sm text-ink/70">
-                          <p className="font-semibold text-ink">Notas</p>
-                          <p className="mt-1">{displayValue(session.finalNotes ?? session.notes, "Sin notas registradas")}</p>
-                        </div>
-                        {canReviewSession ? (
-                          <section className="mt-3 rounded-md border border-line bg-panel/35 p-3">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <h5 className="font-semibold text-ink">Revisión del entrenador</h5>
-                              {session.reviewedAt ? (
-                                <p className="mt-1 text-xs font-medium text-ink/50">
-                                  Revisada: {new Date(session.reviewedAt).toLocaleString("es-ES")}
-                                </p>
-                              ) : null}
-                            </div>
-                            {reviewStatus === "reviewed" && editingReviewKey !== sessionKey ? (
-                              <button
-                                className="w-fit rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-panel"
-                                onClick={() => {
-                                  updateReviewDraft(sessionKey, session.reviewNotes ?? "");
-                                  setEditingReviewKey(sessionKey);
-                                }}
-                                type="button"
-                              >
-                                Editar feedback
-                              </button>
-                            ) : null}
-                          </div>
-
-                          {reviewStatus === "reviewed" && editingReviewKey !== sessionKey ? (
-                            <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">
-                              {session.reviewNotes || "Sesión revisada sin comentario."}
-                            </p>
-                          ) : (
-                            <div className="mt-3 grid gap-3">
-                              <textarea
-                                className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-sm text-ink outline-none focus:border-moss"
-                                onChange={(event) => updateReviewDraft(sessionKey, event.target.value)}
-                                placeholder="Escribe feedback para el deportista: sensaciones, técnica, ajustes para la próxima sesión..."
-                                value={getReviewDraft(sessionKey, session, suggestedReviewNotes)}
-                              />
-                              <button
-                                className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-                                onClick={() => saveReview(sessionIndex, sessionKey, session, suggestedReviewNotes)}
-                                type="button"
-                              >
-                                {reviewStatus === "reviewed" ? "Guardar feedback" : "Marcar como revisada"}
-                              </button>
-                            </div>
-                          )}
-                          </section>
-                        ) : null}
-                      </section>
-
-                      <section className="rounded-md border border-line bg-white p-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <h4 className="font-semibold text-ink">Planificado vs realizado</h4>
-                            <p className="mt-1 text-sm text-ink/55">Comparativa por ejercicio cuando el registro está disponible.</p>
-                          </div>
-                          {!hasRealRegister ? (
-                            <span className="rounded-md border border-line bg-wheat px-2 py-1 text-xs font-semibold text-ink">
-                              Sin registro real todavía
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <h5 className="font-semibold text-ink">Session Deviation</h5>
-                              <p className="mt-1 text-sm text-ink/55">Cumplimiento y respuesta del ejercicio respecto a lo planificado.</p>
-                            </div>
-                            <span className="w-fit rounded-md border border-line bg-white px-3 py-1 text-xs font-semibold text-ink/65">
-                              Cumplimiento global: {sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "Sin datos suficientes"}
-                            </span>
-                          </div>
-
-                          {sessionDeviation.exerciseSummaries.length > 0 ? (
-                            <div className="mt-3 grid gap-2">
-                              {sessionDeviation.exerciseSummaries.map((exerciseDeviation, deviationIndex) => {
-                                const isRelevantDeviation =
-                                  exerciseDeviation.completionStatus !== "completed" ||
-                                  exerciseDeviation.dropStatus === "moderate" ||
-                                  exerciseDeviation.dropStatus === "high" ||
-                                  exerciseDeviation.effortStatus === "harder" ||
-                                  exerciseDeviation.effortStatus === "easier";
+                    {exerciseCount > 0 ? (
+                      <div className="mt-4 grid gap-4">
+                        {groupedRows.map((group) => (
+                          <section className="grid gap-2" key={`${sessionKey}-${group.block}`}>
+                            <h5 className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+                              {getReviewBlockLabel(group.block)} {"\u00b7"} {group.rows.length} {group.rows.length === 1 ? "ejercicio" : "ejercicios"}
+                            </h5>
+                            <div className="grid gap-2">
+                              {group.rows.map(({ planned, performed, originalIndex }) => {
+                                const exerciseName = getExerciseLabel(performed ?? planned);
+                                const exerciseMeta = getExerciseMetaLabel(performed ?? planned);
+                                const exerciseDeviation = sessionDeviation.exerciseSummaries.find((summary) => summary.exerciseName === exerciseName) ?? sessionDeviation.exerciseSummaries[originalIndex];
+                                const completionLabel = exerciseDeviation?.completionPct !== null && exerciseDeviation?.completionPct !== undefined
+                                  ? `${Math.round(exerciseDeviation.completionPct)}%`
+                                  : "\u2014";
+                                const dropLabel = exerciseDeviation?.dropPct !== null && exerciseDeviation?.dropPct !== undefined
+                                  ? `${Math.round(exerciseDeviation.dropPct)}%`
+                                  : "\u2014";
+                                const intensityLabel = getReviewIntensityLabel(planned, performed) || "Intensidad: \u2014";
+                                const plannedLabel = getCompactExerciseLabel(planned, performed, "planned");
+                                const performedLabel = getCompactExerciseLabel(planned, performed, "performed");
+                                const differenceLabel = getExerciseDifferenceLabel(planned, performed);
 
                                 return (
-                                  <article className="rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70" key={`${exerciseDeviation.exerciseName}-${deviationIndex}`}>
-                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                                      <p className="font-semibold text-ink">{exerciseDeviation.exerciseName}</p>
-                                      {isRelevantDeviation ? (
-                                        <span className="w-fit rounded-md border border-line bg-wheat px-2 py-1 text-xs font-semibold text-ink">
-                                          Desviación
-                                        </span>
-                                      ) : null}
+                                  <button
+                                    className="rounded-md border border-line bg-white p-3 text-left transition hover:border-moss hover:bg-panel/60"
+                                    key={`${sessionKey}-${group.block}-${originalIndex}`}
+                                    onClick={() => setSelectedExerciseDetail({
+                                      blockLabel: getReviewBlockLabel(group.block),
+                                      differenceLabel,
+                                      exerciseName,
+                                      metaLabel: exerciseMeta,
+                                      performedLabel,
+                                      plannedLabel
+                                    })}
+                                    type="button"
+                                  >
+                                    <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-ink">{exerciseName}</p>
+                                        {exerciseMeta ? <p className="mt-1 text-xs font-medium text-ink/55">{exerciseMeta}</p> : null}
+                                      </div>
+                                      <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65">
+                                        <span className="rounded-md border border-line bg-panel/70 px-2 py-1">Cumplimiento: {completionLabel}</span>
+                                        <span className="rounded-md border border-line bg-panel/70 px-2 py-1">{`Ca\u00edda: ${dropLabel}`}</span>
+                                        <span className="rounded-md border border-line bg-panel/70 px-2 py-1">{intensityLabel}</span>
+                                      </div>
                                     </div>
-                                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                      <p>
-                                        Cumplimiento: <span className="font-semibold text-ink">{exerciseDeviation.completionPct !== null ? `${Math.round(exerciseDeviation.completionPct)}%` : "Sin datos suficientes"}</span>{" "}
-                                        <span className="text-ink/55">({exerciseDeviation.completionLabel})</span>
-                                      </p>
-                                      <p>
-                                        Caída: <span className="font-semibold text-ink">{exerciseDeviation.dropPct !== null ? `${Math.round(exerciseDeviation.dropPct)}%` : exerciseDeviation.dropLabel}</span>
-                                        {exerciseDeviation.dropPct !== null ? <span className="text-ink/55"> ({exerciseDeviation.dropLabel})</span> : null}
-                                      </p>
-                                      <p className="sm:col-span-2">
-                                        Esfuerzo: <span className="font-semibold text-ink">{exerciseDeviation.effortLabel}</span>
-                                      </p>
-                                    </div>
-                                  </article>
+                                  </button>
                                 );
                               })}
                             </div>
-                          ) : (
-                            <p className="mt-3 rounded-md border border-dashed border-line bg-white p-3 text-sm text-ink/55">
-                              Sin datos suficientes para calcular desviación.
-                            </p>
-                          )}
-
-                          {session.discomfort?.hasDiscomfort ? (
-                            <div className="mt-3 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
-                              <p className="font-semibold">Molestia reportada</p>
-                              <p className="mt-1">
-                                Zona: {session.discomfort.bodyArea || "Sin especificar"} · Fase: {session.discomfort.phase || "Sin especificar"} · Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10
-                              </p>
-                              {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
-                              {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
-                            </div>
-                          ) : null}
-                        </section>
-
-                        {cardioDeviation ? (
-                          <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                              <div>
-                                <h5 className="font-semibold text-ink">Cardio Deviation</h5>
-                                <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
-                              </div>
-                              <span className="w-fit rounded-md border border-line bg-white px-3 py-1 text-xs font-semibold text-ink/65">
-                                {cardioDeviation.reading}
-                              </span>
-                            </div>
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                              <ClientInfoCard
-                                label="Duración"
-                                value={`${session.cardioPlan?.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Plan sin especificar"} / ${session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Real sin registrar"}`}
-                              />
-                              <ClientInfoCard
-                                label="Cumplimiento duración"
-                                value={cardioDeviation.durationCompletionPct !== null ? `${Math.round(cardioDeviation.durationCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.durationStatus)}` : "Sin datos suficientes"}
-                              />
-                              <ClientInfoCard
-                                label="Zona objetivo"
-                                value={session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}
-                              />
-                              <ClientInfoCard
-                                label="Tiempo en zona"
-                                value={cardioDeviation.targetZonePct !== null ? `${Math.round(cardioDeviation.targetZonePct)}% · ${cardioDeviation.zoneStatusLabel}` : "Sin datos de zonas suficientes"}
-                              />
-                              <ClientInfoCard
-                                label="Por debajo de zona"
-                                value={formatDurationSeconds(cardioDeviation.timeBelowTargetZoneSeconds)}
-                              />
-                              <ClientInfoCard
-                                label="Por encima de zona"
-                                value={formatDurationSeconds(cardioDeviation.timeAboveTargetZoneSeconds)}
-                              />
-                              <ClientInfoCard
-                                label="RPE cardio"
-                                value={session.cardioResult?.perceivedRpe ? `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"} / real ${session.cardioResult.perceivedRpe} · ${cardioDeviation.rpeLabel}` : "Sin RPE de cardio"}
-                              />
-                              <ClientInfoCard
-                                label="Distancia"
-                                value={cardioDeviation.distanceCompletionPct !== null ? `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}` : "Sin datos suficientes"}
-                              />
-                            </div>
-                            {formatCardioZones(session.cardioResult?.timeInZones).length > 0 ? (
-                              <div className="mt-3 rounded-md border border-line bg-white p-3">
-                                <p className="text-xs font-semibold uppercase text-ink/45">Distribución Z1-Z5</p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {formatCardioZones(session.cardioResult?.timeInZones).map((zone) => (
-                                    <span className="rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65" key={zone.label}>
-                                      {zone.label}: {formatDurationSeconds(zone.seconds)}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null}
                           </section>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-sm font-semibold text-ink/50">Sin ejercicios registrados.</p>
+                    )}
+
+                    {sessionDeviation.exerciseSummaries.length === 0 ? (
+                      <p className="mt-4 text-sm font-semibold text-ink/50">Sin datos suficientes.</p>
+                    ) : null}
+
+                    {session.discomfort?.hasDiscomfort ? (
+                      <div className="mt-4 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
+                        <p className="font-semibold text-ink">Molestia reportada</p>
+                        <p className="mt-1">
+                          Zona: {session.discomfort.bodyArea || "Sin especificar"} {"\u00b7"} Fase: {session.discomfort.phase || "Sin especificar"} {"\u00b7"} Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10
+                        </p>
+                        {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
+                        {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
+                      </div>
+                    ) : null}
+
+                    {cardioDeviation ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h5 className="font-semibold text-ink">Cardio Deviation</h5>
+                            <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
+                          </div>
+                          <span className="w-fit rounded-md border border-line bg-white px-3 py-1 text-xs font-semibold text-ink/65">
+                            {cardioDeviation.reading}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <ClientInfoCard
+                            label={"Duraci\u00f3n"}
+                            value={`${session.cardioPlan?.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Plan sin especificar"} / ${session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Real sin registrar"}`}
+                          />
+                          <ClientInfoCard
+                            label={"Cumplimiento duraci\u00f3n"}
+                            value={cardioDeviation.durationCompletionPct !== null ? `${Math.round(cardioDeviation.durationCompletionPct)}% \u00b7 ${getCardioCompletionLabel(cardioDeviation.durationStatus)}` : "Sin datos suficientes"}
+                          />
+                          <ClientInfoCard
+                            label="Zona objetivo"
+                            value={session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}
+                          />
+                          <ClientInfoCard
+                            label="Tiempo en zona"
+                            value={cardioDeviation.targetZonePct !== null ? `${Math.round(cardioDeviation.targetZonePct)}% \u00b7 ${cardioDeviation.zoneStatusLabel}` : "Sin datos de zonas suficientes"}
+                          />
+                          <ClientInfoCard label="Por debajo de zona" value={formatDurationSeconds(cardioDeviation.timeBelowTargetZoneSeconds)} />
+                          <ClientInfoCard label="Por encima de zona" value={formatDurationSeconds(cardioDeviation.timeAboveTargetZoneSeconds)} />
+                          <ClientInfoCard
+                            label="RPE cardio"
+                            value={session.cardioResult?.perceivedRpe ? `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"} / real ${session.cardioResult.perceivedRpe} \u00b7 ${cardioDeviation.rpeLabel}` : "Sin RPE de cardio"}
+                          />
+                          <ClientInfoCard
+                            label="Distancia"
+                            value={cardioDeviation.distanceCompletionPct !== null ? `${Math.round(cardioDeviation.distanceCompletionPct)}% \u00b7 ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}` : "Sin datos suficientes"}
+                          />
+                        </div>
+                        {formatCardioZones(session.cardioResult?.timeInZones).length > 0 ? (
+                          <div className="mt-3 rounded-md border border-line bg-white p-3">
+                            <p className="text-xs font-semibold uppercase text-ink/45">{"Distribuci\u00f3n Z1-Z5"}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {formatCardioZones(session.cardioResult?.timeInZones).map((zone) => (
+                                <span className="rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65" key={zone.label}>
+                                  {zone.label}: {formatDurationSeconds(zone.seconds)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         ) : null}
-
-                        {exerciseCount > 0 ? (
-                          <div className="mt-4 grid gap-3">
-                            {detailRows.map(({ planned, performed }, exerciseIndex) => {
-                              const changed = hasExerciseChanges(planned, performed);
-                              const exerciseName = getExerciseLabel(performed ?? planned);
-                              const exerciseMeta = getExerciseMetaLabel(performed ?? planned);
-                              const setDetailsLabel = getSetDetailsLabel(performed);
-                              const notes = performed?.athleteNotes ?? performed?.notes ?? performed?.observation;
-
-                              return (
-                                <article className="rounded-md border border-line bg-panel/35 p-3" key={`${sessionKey}-${exerciseIndex}`}>
-                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                      <p className="font-semibold text-ink">{exerciseName}</p>
-                                      <p className="mt-1 text-xs font-semibold uppercase text-ink/45">
-                                        {displayValue((performed ?? planned)?.block ?? (performed ?? planned)?.section, "Bloque sin especificar")}
-                                      </p>
-                                      {exerciseMeta ? (
-                                        <p className="mt-1 text-xs font-medium text-ink/55">{exerciseMeta}</p>
-                                      ) : null}
-                                    </div>
-                                    {changed || hasDisplayValue(notes) ? (
-                                      <span className="w-fit rounded-md border border-line bg-wheat px-2 py-1 text-xs font-semibold text-ink">
-                                        {changed ? "Modificado" : "Con notas"}
-                                      </span>
-                                    ) : null}
-                                  </div>
-
-                                  <div className="mt-3 grid gap-2 lg:grid-cols-3">
-                                    <div className="rounded-md border border-line bg-white px-3 py-2 text-sm">
-                                      <p className="text-xs font-semibold uppercase text-ink/45">Planificado</p>
-                                      <p className="mt-1 font-semibold text-ink">{getExercisePlanLabel(planned)}</p>
-                                    </div>
-                                    <div className="rounded-md border border-line bg-white px-3 py-2 text-sm">
-                                      <p className="text-xs font-semibold uppercase text-ink/45">Realizado</p>
-                                      <p className="mt-1 font-semibold text-ink">{getExercisePerformedLabel(performed)}</p>
-                                    </div>
-                                    <div className="rounded-md border border-line bg-white px-3 py-2 text-sm">
-                                      <p className="text-xs font-semibold uppercase text-ink/45">Diferencia</p>
-                                      <p className="mt-1 font-semibold text-ink">{getExerciseDifferenceLabel(planned, performed)}</p>
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                    {([
-                                      ["Series", getPlannedValue(planned, "sets"), getPerformedValue(performed, "sets")],
-                                      ["Reps", getPlannedValue(planned, "reps"), getPerformedValue(performed, "reps")],
-                                      ["Carga", getPlannedValue(planned, "load"), getPerformedValue(performed, "load")],
-                                      ["Descanso", getPlannedValue(planned, "rest"), getPerformedValue(performed, "rest")],
-                                      ["RIR", getPlannedValue(planned, "rir"), getPerformedValue(performed, "rir")],
-                                      ["RPE ejercicio", undefined, performed?.exerciseRpe ?? performed?.rpe ?? performed?.actualRpe ?? performed?.perceivedExertion]
-                                    ] as const).map(([label, plannedValue, performedValue]) => (
-                                      <div className="rounded-md bg-white px-3 py-2 text-sm" key={label}>
-                                        <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
-                                        <p className="mt-1 text-ink/70">
-                                          Plan: <span className="font-semibold text-ink">{displayValue(plannedValue, "-")}</span>
-                                        </p>
-                                        <p className="text-ink/70">
-                                          Real: <span className="font-semibold text-ink">{displayValue(performedValue, "-")}</span>
-                                        </p>
-                                      </div>
-                                    ))}
-                                  </div>
-
-                                  {setDetailsLabel ? (
-                                    <details className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70">
-                                      <summary className="cursor-pointer font-semibold text-ink">Detalle por serie</summary>
-                                      <p className="mt-2">{setDetailsLabel}</p>
-                                    </details>
-                                  ) : null}
-
-                                  {hasDisplayValue(notes) ? (
-                                    <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">
-                                      {notes}
-                                    </p>
-                                  ) : null}
-                                </article>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-medium text-ink/55">
-                            Sin datos de ejercicios para esta sesión.
-                          </div>
-                        )}
                       </section>
-                    </div>
+                    ) : null}
+
+                    {canReviewSession ? (
+                      <section className="mt-4 rounded-md border border-line bg-white p-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h5 className="font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
+                            {session.reviewedAt ? (
+                              <p className="mt-1 text-xs font-medium text-ink/50">
+                                Revisada: {new Date(session.reviewedAt).toLocaleString("es-ES")}
+                              </p>
+                            ) : null}
+                            {reviewStatus === "reviewed" ? (
+                              <p className="mt-2 text-sm text-ink/65">{session.reviewNotes || "Sesi\u00f3n revisada sin comentario."}</p>
+                            ) : (
+                              <p className="mt-2 text-sm text-ink/55">Pendiente de feedback para el deportista.</p>
+                            )}
+                          </div>
+                          <button
+                            className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                            onClick={() => openFeedbackModal(sessionIndex, sessionKey, session, suggestedReviewNotes)}
+                            type="button"
+                          >
+                            {reviewStatus === "reviewed" ? "Editar feedback" : "Marcar como revisada"}
+                          </button>
+                        </div>
+                      </section>
+                    ) : null}
                   </div>
                 ) : null}
               </article>
@@ -6853,21 +6788,85 @@ function SessionHistoryPanel({
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
-          <p className="text-sm font-semibold text-ink">No hay sesiones registradas todavía.</p>
-          <p className="mt-2 text-sm text-ink/55">Puedes crear la primera sesión desde el planificador.</p>
+          <p className="text-sm font-semibold text-ink">{"No hay sesiones registradas todav\u00eda."}</p>
+          <p className="mt-2 text-sm text-ink/55">{"Puedes crear la primera sesi\u00f3n desde el planificador."}</p>
           <button
             className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
             onClick={onPlanNewSession}
             type="button"
           >
-            Planificar nueva sesión
+            {"Planificar nueva sesi\u00f3n"}
           </button>
         </div>
       )}
+
+      {selectedExerciseDetail ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md border border-line bg-white p-5 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{selectedExerciseDetail.blockLabel}</p>
+                <h3 className="mt-1 text-xl font-semibold text-ink">{selectedExerciseDetail.exerciseName}</h3>
+                {selectedExerciseDetail.metaLabel ? <p className="mt-1 text-sm text-ink/55">{selectedExerciseDetail.metaLabel}</p> : null}
+              </div>
+              <button
+                className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink"
+                onClick={() => setSelectedExerciseDetail(null)}
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <section className="rounded-md border border-line bg-panel/35 p-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Planificado</p>
+                <p className="mt-2 text-sm font-semibold text-ink">{selectedExerciseDetail.plannedLabel}</p>
+              </section>
+              <section className="rounded-md border border-line bg-panel/35 p-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Realizado</p>
+                <p className="mt-2 text-sm font-semibold text-ink">{selectedExerciseDetail.performedLabel}</p>
+              </section>
+              <section className="rounded-md border border-line bg-panel/35 p-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Diferencia</p>
+                <p className="mt-2 text-sm font-semibold text-ink">{selectedExerciseDetail.differenceLabel}</p>
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {reviewFeedbackModal && feedbackSession ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-md border border-line bg-white p-5 shadow-soft">
+            <h3 className="text-xl font-semibold text-ink">Enviar feedback al deportista</h3>
+            <p className="mt-2 text-sm text-ink/55">{"El comentario se guardar\u00e1 en la sesi\u00f3n revisada."}</p>
+            <textarea
+              className="mt-4 min-h-32 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-sm text-ink outline-none focus:border-moss"
+              onChange={(event) => updateReviewDraft(reviewFeedbackModal.sessionKey, event.target.value)}
+              value={getReviewDraft(reviewFeedbackModal.sessionKey, feedbackSession, reviewFeedbackModal.suggestedReviewNotes)}
+            />
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70"
+                onClick={() => setReviewFeedbackModal(null)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+                onClick={() => saveReview(reviewFeedbackModal.sessionIndex, reviewFeedbackModal.sessionKey, feedbackSession, reviewFeedbackModal.suggestedReviewNotes)}
+                type="button"
+              >
+                Marcar como revisada
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
-
 type LegacyAthleteTrainingViewProps = {
   hooperDone: boolean;
   onCompleteHooper: () => void;
