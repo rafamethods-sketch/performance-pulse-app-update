@@ -4627,6 +4627,11 @@ function CoachTrainingPlanner({
   const [sessionSendMessage, setSessionSendMessage] = useState("");
   const [showSessionSummaryModal, setShowSessionSummaryModal] = useState(false);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
+  const [collapsedStrengthBlocks, setCollapsedStrengthBlocks] = useState<Record<StrengthSessionBlock, boolean>>({
+    activation: false,
+    auxiliary: false,
+    main: false
+  });
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateName, setTemplateName] = useState("");
@@ -4910,11 +4915,23 @@ function CoachTrainingPlanner({
   };
   const renderStrengthBlock = (block: StrengthSessionBlock, title: string) => {
     const blockExercises = strengthExercises.filter((exercise) => exercise.block === block);
+    const isCollapsed = collapsedStrengthBlocks[block];
+    const blockLabel = title.toUpperCase();
+    const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
 
     return (
       <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-semibold text-ink">{title}</h3>
+        <button
+          className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+          onClick={() => setCollapsedStrengthBlocks((current) => ({ ...current, [block]: !current[block] }))}
+          type="button"
+        >
+          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
+          <span>{blockLabel} · {exerciseCountLabel}</span>
+        </button>
+        {!isCollapsed ? (
+        <>
+        <div className="mt-3 flex justify-end">
           <button
             className="inline-flex w-fit items-center justify-center gap-2 rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white"
             onClick={() => addStrengthExercise(block)}
@@ -5184,6 +5201,8 @@ function CoachTrainingPlanner({
             );
           })}
         </div>
+        </>
+        ) : null}
       </section>
     );
   };
@@ -5447,7 +5466,7 @@ function CoachTrainingPlanner({
                 </span>
               </div>
             </div>
-            {renderStrengthBlock("activation", "Activacion")}
+            {renderStrengthBlock("activation", "Activación")}
             {renderStrengthBlock("main", "Bloque principal")}
             {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional")}
           </>

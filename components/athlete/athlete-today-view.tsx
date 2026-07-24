@@ -90,6 +90,8 @@ type AthleteClient = {
   sessionRecords: AthleteSessionRecord[];
 };
 
+type AthleteExerciseBlockKey = "activation" | "main" | "auxiliary";
+
 type AthleteTodayViewProps<TClient extends AthleteClient> = {
   client: TClient | null;
   onShowCalendar: () => void;
@@ -125,6 +127,12 @@ const discomfortPhases = [
   "Final de la serie",
   "Después del ejercicio",
   "Después de la sesión"
+];
+
+const athleteExerciseBlocks: Array<{ key: AthleteExerciseBlockKey; label: string }> = [
+  { key: "activation", label: "ACTIVACIÓN" },
+  { key: "main", label: "BLOQUE PRINCIPAL" },
+  { key: "auxiliary", label: "BLOQUE AUXILIAR / OPCIONAL" }
 ];
 
 const cardioZoneFields: Array<{ key: CardioZone; label: string }> = [
@@ -258,6 +266,13 @@ function getAthleteExerciseMaterialVariant(exercise: AthleteExercise) {
   ].filter(Boolean).join(" · ");
 }
 
+function getAthleteExerciseBlockKey(exercise: AthleteExercise): AthleteExerciseBlockKey {
+  const block = `${exercise.block ?? exercise.section ?? ""}`.toLowerCase();
+  if (block === "activation") return "activation";
+  if (block === "auxiliary" || block === "accessory") return "auxiliary";
+  return "main";
+}
+
 export function AthleteTodayView<TClient extends AthleteClient>({
   client,
   onShowCalendar,
@@ -274,6 +289,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [wellness, setWellness] = useState<AthleteWellness>(emptyAthleteWellness);
   const [wellnessConfirmed, setWellnessConfirmed] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
+  const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
+    activation: false,
+    auxiliary: false,
+    main: false
+  });
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
@@ -317,6 +337,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setWellness(session?.wellness ?? emptyAthleteWellness);
     setWellnessConfirmed(false);
     setPerformedExercises(createAthleteExerciseEntries(session));
+    setCollapsedExerciseBlocks({
+      activation: false,
+      auxiliary: false,
+      main: false
+    });
     setActualDurationMinutes(0);
     setFinalRpe(0);
     setAthleteSessionNotes("");
@@ -510,14 +535,39 @@ export function AthleteTodayView<TClient extends AthleteClient>({
               <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                 <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
                 <div className="mt-4 space-y-4">
-                  {performedExercises.length > 0 ? performedExercises.map((exercise, index) => (
-                    <AthleteExerciseCard
-                      exercise={exercise}
-                      index={index}
-                      key={exercise.id || `${exercise.exerciseName}-${index}`}
-                      onUpdate={updateExercise}
-                    />
-                  )) : (
+                  {performedExercises.length > 0 ? athleteExerciseBlocks.map((block) => {
+                    const blockExercises = performedExercises
+                      .map((exercise, index) => ({ exercise, index }))
+                      .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
+                    const isCollapsed = collapsedExerciseBlocks[block.key];
+                    const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
+                    if (blockExercises.length === 0) return null;
+
+                    return (
+                      <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
+                        <button
+                          className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+                          onClick={() => setCollapsedExerciseBlocks((current) => ({ ...current, [block.key]: !current[block.key] }))}
+                          type="button"
+                        >
+                          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
+                          <span>{block.label} · {exerciseCountLabel}</span>
+                        </button>
+                        {!isCollapsed ? (
+                          <div className="mt-3 grid gap-3">
+                            {blockExercises.map(({ exercise, index }) => (
+                              <AthleteExerciseCard
+                                exercise={exercise}
+                                index={index}
+                                key={exercise.id || `${exercise.exerciseName}-${index}`}
+                                onUpdate={updateExercise}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </section>
+                    );
+                  }) : (
                     <p className="rounded-md border border-dashed border-line p-5 text-center text-sm text-ink/55">
                       Esta sesión no tiene ejercicios planificados.
                     </p>
