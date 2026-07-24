@@ -25,21 +25,29 @@ type AthleteExercise = {
   exerciseName?: string | null;
   exerciseRpe?: number | string | null;
   id?: string | null;
+  intensityMethod?: string | null;
   load?: number | string | null;
   name?: string | null;
   observation?: string | null;
+  percent1RM?: number | string | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
+  plannedRpe?: number | string | null;
   plannedSets?: number | string | null;
   reps?: number | string | null;
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
+  selectedEquipment?: string | null;
+  selectedVariantId?: string | null;
+  selectedVariantName?: string | null;
   sets?: number | string | null;
   setDetails?: AthleteSetDetail[];
+  targetVelocity?: number | string | null;
   targetRir?: number | string | null;
+  targetRpe?: number | string | null;
 };
 
 type AthleteSessionDiscomfort = {
@@ -212,6 +220,42 @@ function createAthleteExerciseEntries(session: AthleteSessionRecord | null) {
       setDetails: normalizeSetDetails(nextExercise)
     };
   });
+}
+
+function hasAthleteDisplayValue(value?: number | string | null) {
+  return value !== undefined && value !== null && `${value}`.trim() !== "";
+}
+
+function getAthleteExercisePrescription(exercise: AthleteExercise) {
+  const targetRpe = exercise.plannedRpe ?? exercise.targetRpe;
+  const volume = hasAthleteDisplayValue(exercise.plannedSets) && hasAthleteDisplayValue(exercise.plannedReps)
+    ? `${exercise.plannedSets}x${exercise.plannedReps}`
+    : [
+        hasAthleteDisplayValue(exercise.plannedSets) ? `${exercise.plannedSets} series` : "",
+        hasAthleteDisplayValue(exercise.plannedReps) ? `${exercise.plannedReps} reps` : ""
+      ].filter(Boolean).join(" · ");
+  const method = exercise.intensityMethod;
+  const intensity =
+    method === "velocity" && hasAthleteDisplayValue(exercise.targetVelocity) ? `${exercise.targetVelocity} m/s`
+      : method === "rpe" && hasAthleteDisplayValue(targetRpe) ? `RPE ${targetRpe}`
+      : method === "percent_1rm" && hasAthleteDisplayValue(exercise.percent1RM) ? `${exercise.percent1RM}% 1RM`
+      : method === "rir" && hasAthleteDisplayValue(exercise.plannedRir ?? exercise.targetRir) ? `RIR ${exercise.plannedRir ?? exercise.targetRir}`
+      : hasAthleteDisplayValue(exercise.targetVelocity) ? `${exercise.targetVelocity} m/s`
+      : hasAthleteDisplayValue(targetRpe) ? `RPE ${targetRpe}`
+      : hasAthleteDisplayValue(exercise.plannedRir ?? exercise.targetRir) ? `RIR ${exercise.plannedRir ?? exercise.targetRir}`
+      : hasAthleteDisplayValue(exercise.percent1RM) ? `${exercise.percent1RM}% 1RM`
+      : "";
+  const load = hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad} kg` : "";
+  const rest = hasAthleteDisplayValue(exercise.plannedRest) ? `Descanso ${exercise.plannedRest}` : "";
+
+  return [volume, load, rest, intensity].filter(Boolean);
+}
+
+function getAthleteExerciseMaterialVariant(exercise: AthleteExercise) {
+  return [
+    hasAthleteDisplayValue(exercise.selectedEquipment) ? `Material: ${exercise.selectedEquipment}` : "",
+    hasAthleteDisplayValue(exercise.selectedVariantName) ? `Variante: ${exercise.selectedVariantName}` : ""
+  ].filter(Boolean).join(" · ");
 }
 
 export function AthleteTodayView<TClient extends AthleteClient>({
@@ -789,6 +833,8 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
 }) {
   const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
   const setDetails = normalizeSetDetails(exercise);
+  const materialVariant = getAthleteExerciseMaterialVariant(exercise);
+  const prescription = getAthleteExercisePrescription(exercise);
 
   function updateSets(value: string) {
     const nextExercise = { ...exercise, sets: value };
@@ -816,13 +862,16 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
     <article className="rounded-md border border-line bg-panel/35 p-4">
       <p className="font-semibold text-ink">{exerciseName}</p>
       <p className="mt-1 text-xs text-ink/55">Bloque: {exercise.block || exercise.section || "Principal"}</p>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/65">
-        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedSets || "-"} series</span>
-        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedReps || "-"} reps</span>
-        <span className="rounded-md border border-line bg-white px-2 py-1">{exercise.plannedLoad || "-"} kg</span>
-        <span className="rounded-md border border-line bg-white px-2 py-1">Descanso {exercise.plannedRest || "-"}</span>
-        <span className="rounded-md border border-line bg-white px-2 py-1">RIR {exercise.plannedRir || "-"}</span>
-      </div>
+      {materialVariant ? (
+        <p className="mt-2 text-sm font-medium text-ink/65">{materialVariant}</p>
+      ) : null}
+      {prescription.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/65">
+          {prescription.map((item) => (
+            <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-ink/75" key={item}>{item}</span>
+          ))}
+        </div>
+      ) : null}
       {exercise.observation ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <AthleteExerciseInput label="Series realizadas" onChange={updateSets} value={exercise.sets} />
