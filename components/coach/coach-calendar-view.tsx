@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Zap
 } from "lucide-react";
-import { calendarSessions } from "@/lib/data";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "mt-6 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
@@ -25,21 +24,6 @@ const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold te
 const secondaryButtonClass = "rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60";
 const emptyStateClass = "rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55";
 const compactChipClass = "flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-soft";
-
-const calendarShortMonths: Record<string, string> = {
-  Abr: "04",
-  Ago: "08",
-  Dic: "12",
-  Ene: "01",
-  Feb: "02",
-  Jul: "07",
-  Jun: "06",
-  Mar: "03",
-  May: "05",
-  Nov: "11",
-  Oct: "10",
-  Sep: "09"
-};
 
 function parseDateValue(value?: string | null) {
   if (!value || value === "sin fecha") return null;
@@ -65,14 +49,6 @@ function formatDateShort(value?: string | null) {
     month: "2-digit",
     year: "numeric"
   }).format(date);
-}
-
-function parseCalendarSessionDate(label: string, year: number) {
-  const [day, monthLabel] = label.split(" ");
-  const month = calendarShortMonths[monthLabel];
-  if (!day || !month) return null;
-
-  return `${year}-${month}-${day.padStart(2, "0")}`;
 }
 
 type WeeklyCalendarSession = {
@@ -207,7 +183,6 @@ function getCalendarSessionDetail(session: WeeklyCalendarSession) {
 
 function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: Date[]) {
   const weekDateKeys = new Set(weekDates.map(getDateKey));
-  const currentYear = weekDates[0]?.getFullYear() ?? new Date().getFullYear();
   const sessionsFromRecords: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
     (listedClient.sessionRecords ?? []).flatMap((session, sessionIndex) => {
       const date = parseDateValue(session.date);
@@ -241,26 +216,8 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
       week: listedClient.planning.currentWeek
     }))
   );
-  const sessionsFromCalendar: WeeklyCalendarSession[] = calendarSessions.flatMap((session) => {
-    const matchedClient = clients.find((listedClient) => listedClient.name === session.athlete);
-    const dateLabel = parseCalendarSessionDate(session.date, currentYear);
-    const date = dateLabel ? parseDateValue(dateLabel) : null;
-    if (!matchedClient || !date || !weekDateKeys.has(getDateKey(date))) return [];
 
-    return [{
-      block: matchedClient.planning.currentBlock,
-      clientId: matchedClient.id,
-      clientName: matchedClient.name,
-      date,
-      eventKind: session.type,
-      status: session.status === "Planificada" ? "Planificada" : "Pendiente" as WeeklyCalendarSession["status"],
-      summary: session.title,
-      type: session.type,
-      week: matchedClient.planning.currentWeek
-    } satisfies WeeklyCalendarSession];
-  });
-
-  return [...sessionsFromRecords, ...sessionsFromPlanning, ...sessionsFromCalendar].sort((a, b) => a.date.getTime() - b.date.getTime());
+  return [...sessionsFromRecords, ...sessionsFromPlanning].sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {

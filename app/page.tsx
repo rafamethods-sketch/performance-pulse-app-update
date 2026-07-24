@@ -89,17 +89,14 @@ import {
   athleteAdherence,
   coachClients,
   coachCompletionMessage,
-  calendarSessions,
   decisionDashboard,
   decisionMetrics,
   fatigueLegend,
   hooperQuestions,
   plannedSession,
   pastSessions,
-  messageThreads,
   sessionQuantifiers,
   sports,
-  weeklyLoadSeries,
   type GoalType,
   type SheetId,
   type UserRole
@@ -118,7 +115,7 @@ export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [activeSheet, setActiveSheet] = useState<SheetId>("today");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
-  const [clients, setClients] = useState<CoachClient[]>(coachClients);
+  const [clients, setClients] = useState<CoachClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
@@ -195,7 +192,7 @@ export default function ClientsPage() {
           setClients(parsedClients);
         }
       } catch {
-        setClients(coachClients);
+        setClients([]);
       }
     }
 
@@ -386,9 +383,18 @@ export default function ClientsPage() {
                 client={selectedClient}
                 clients={clients}
                 onBack={() => setTrainerClientPanel("list")}
+                onLoadDemoData={() => {
+                  setClients((currentClients) => [
+                    buildDemoClient(),
+                    ...currentClients.filter((listedClient) => !isDemoClient(listedClient))
+                  ]);
+                }}
                 onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+                onRemoveDemoData={() => {
+                  setClients((currentClients) => currentClients.filter((listedClient) => !isDemoClient(listedClient)));
+                }}
                 panel={trainerClientPanel}
                 setClients={setClients}
               />
@@ -615,6 +621,7 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   selectedEquipment?: string | null;
   selectedVariantId?: string | null;
   selectedVariantName?: string | null;
+  setDetails?: Array<{ reps?: number | string | null; setNumber: number }>;
   targetVelocity?: string | null;
   targetRir?: number | string | null;
 };
@@ -629,6 +636,8 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   enduranceMethod?: EnduranceIntensityMethod;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
+  id?: string;
+  isDemo?: boolean;
   linkedCardioActivityId?: string;
   performedExercises?: ConnectedSessionExercise[];
   plannedExercises?: ConnectedSessionExercise[];
@@ -646,10 +655,12 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   weekLabel?: string | null;
   wellness?: ClientWellness;
 };
-type CoachClient = Omit<BaseCoachClient, "sessionRecords"> & {
+type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
+  assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
   availableEquipment?: string;
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
+  isDemo?: boolean;
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -660,6 +671,361 @@ type CoachClient = Omit<BaseCoachClient, "sessionRecords"> & {
   sessionRecords: ClientSessionRecord[];
 };
 type ClientAssessment = CoachClient["assessments"][number];
+
+function isDemoClient(client: Pick<CoachClient, "id"> & { isDemo?: boolean }) {
+  return client.id === "demo-client" || client.id.startsWith("demo-") || client.isDemo === true;
+}
+
+function getRelativeDateKey(daysOffset: number) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + daysOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+function getDemoExercise(name: string) {
+  return exerciseLibrary.find((exercise) => exercise.name.toLowerCase() === name.toLowerCase());
+}
+
+function createDemoPlannedExercise({
+  block,
+  equipment,
+  load,
+  name,
+  observation,
+  percent1RM,
+  reps,
+  rest = "90 s",
+  rir,
+  rpe,
+  sets,
+  variantName,
+  velocity
+}: {
+  block: StrengthSessionBlock;
+  equipment?: string;
+  load?: number;
+  name: string;
+  observation?: string;
+  percent1RM?: number;
+  reps: number;
+  rest?: string;
+  rir?: number;
+  rpe?: number;
+  sets: number;
+  variantName?: string;
+  velocity?: string;
+}): ConnectedSessionExercise {
+  const exercise = getDemoExercise(name);
+  const intensityMethod: StrengthIntensityMethod | undefined = velocity
+    ? "velocity"
+    : rpe
+      ? "rpe"
+      : percent1RM
+        ? "percent_1rm"
+        : rir
+          ? "rir"
+          : undefined;
+
+  return {
+    block,
+    exerciseId: exercise?.id ?? null,
+    exerciseName: exercise?.name ?? name,
+    id: `demo-exercise-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${block}`,
+    intensityMethod,
+    observation,
+    percent1RM,
+    plannedLoad: load ?? "",
+    plannedReps: reps,
+    plannedRest: rest,
+    plannedRir: rir,
+    plannedRpe: rpe,
+    plannedSets: sets,
+    selectedEquipment: equipment,
+    selectedVariantName: variantName,
+    section: block,
+    targetVelocity: velocity ?? null
+  };
+}
+
+function createDemoPerformedExercise(exercise: ConnectedSessionExercise, rpe = 7, loadOffset = 0): ConnectedSessionExercise {
+  const sets = Number(exercise.plannedSets ?? 1);
+  const reps = Number(exercise.plannedReps ?? 1);
+  const load = Number(exercise.plannedLoad ?? 0) + loadOffset;
+
+  return {
+    ...exercise,
+    athleteNotes: rpe >= 8 ? "Algo mas duro de lo previsto, tecnica estable." : "Buenas sensaciones.",
+    exerciseRpe: rpe,
+    load,
+    reps: reps * sets,
+    rir: exercise.plannedRir ?? 2,
+    setDetails: Array.from({ length: sets }, (_, index) => ({
+      reps: Math.max(reps - (index === sets - 1 && rpe >= 8 ? 1 : 0), 1),
+      setNumber: index + 1
+    })),
+    sets
+  };
+}
+
+function createDemoSession({
+  dayOffset,
+  discomfort,
+  duration,
+  exercises,
+  finalRpe,
+  id,
+  reviewStatus = "reviewed",
+  summary,
+  type,
+  wellness
+}: {
+  dayOffset: number;
+  discomfort?: SessionDiscomfort;
+  duration: number;
+  exercises: ConnectedSessionExercise[];
+  finalRpe: number;
+  id: string;
+  reviewStatus?: "pending" | "reviewed";
+  summary: string;
+  type: string;
+  wellness: ClientWellness;
+}): ClientSessionRecord {
+  const date = getRelativeDateKey(dayOffset);
+
+  return {
+    actualDurationMinutes: duration,
+    block: "Demo rendimiento mixto",
+    completed: true,
+    date,
+    discomfort,
+    finalNotes: "Sesion demo para probar historial, carga y revision.",
+    finalRpe,
+    id,
+    isDemo: true,
+    performedExercises: exercises.map((exercise, index) => createDemoPerformedExercise(exercise, finalRpe, index === 1 ? -2 : 0)),
+    plannedExercises: exercises,
+    reviewedAt: getRelativeDateKey(dayOffset + 1),
+    reviewNotes: reviewStatus === "reviewed" ? "Buen trabajo. Mantener progresion y vigilar sensaciones locales." : "",
+    reviewStatus,
+    sessionNumber: 1,
+    sRPE: duration * finalRpe,
+    status: "Completada",
+    summary,
+    type,
+    weekLabel: "Semana demo",
+    wellness
+  };
+}
+
+function createDemoCardioSession(dayOffset: number, interval = false): ClientSessionRecord {
+  const duration = interval ? 38 : 45;
+  const finalRpe = interval ? 8 : 5;
+  const date = getRelativeDateKey(dayOffset);
+
+  return {
+    actualDurationMinutes: duration,
+    block: "Demo resistencia",
+    cardioPlan: {
+      sport: "run",
+      targetDurationMinutes: duration,
+      targetRpeMax: interval ? 8 : 6,
+      targetRpeMin: interval ? 7 : 4,
+      targetZone: interval ? "z4" : "z2"
+    },
+    cardioResult: {
+      distanceMeters: interval ? 7200 : 7800,
+      durationMinutes: duration,
+      perceivedRpe: finalRpe,
+      source: "manual",
+      timeInZones: interval
+        ? { z1: 300, z2: 600, z3: 480, z4: 780, z5: 120 }
+        : { z1: 420, z2: 1980, z3: 300 }
+    },
+    completed: true,
+    date,
+    finalNotes: interval ? "Intervalos exigentes, recuperacion completa." : "Rodaje comodo y estable.",
+    finalRpe,
+    id: interval ? "demo-session-intervals" : "demo-session-cardio-z2",
+    isDemo: true,
+    performedExercises: [],
+    plannedExercises: [],
+    reviewStatus: interval ? "pending" : "reviewed",
+    sessionNumber: interval ? 2 : 1,
+    sRPE: duration * finalRpe,
+    status: "Completada",
+    summary: interval ? "Intervalos controlados Z4" : "Cardio Z2 continuo",
+    type: "Cardio",
+    weekLabel: "Semana demo",
+    wellness: interval
+      ? { fatigue: 4, motivation: 4, sleep: 3, soreness: 3, stress: 3 }
+      : { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
+  };
+}
+
+function buildDemoClient(): CoachClient {
+  const lowerExercises = [
+    createDemoPlannedExercise({ block: "activation", name: "World greatest stretch", reps: 6, rpe: 5, sets: 2 }),
+    createDemoPlannedExercise({ block: "activation", name: "Pogo jump bilateral", reps: 8, rpe: 6, sets: 3 }),
+    createDemoPlannedExercise({ block: "main", name: "Bulgarian split squat", reps: 10, rir: 3, sets: 3, load: 24 }),
+    createDemoPlannedExercise({
+      block: "main",
+      equipment: "Barra",
+      name: "Hip thrust",
+      reps: 8,
+      rir: 2,
+      sets: 4,
+      load: 90,
+      variantName: "Hip thrust unilateral"
+    }),
+    createDemoPlannedExercise({ block: "main", name: "Leg extension", reps: 14, sets: 4, velocity: "0.25" })
+  ];
+  const upperExercises = [
+    createDemoPlannedExercise({ block: "main", name: "Bench press", reps: 6, rpe: 7, sets: 4, load: 72.5 }),
+    createDemoPlannedExercise({ block: "main", name: "Pull-up / Chin-up", reps: 6, rir: 2, sets: 4 }),
+    createDemoPlannedExercise({ block: "auxiliary", name: "Seated cable row", reps: 10, rpe: 7, sets: 3, load: 55 })
+  ];
+  const powerExercises = [
+    createDemoPlannedExercise({ block: "activation", name: "Pogo jump bilateral", reps: 8, rpe: 6, sets: 3 }),
+    createDemoPlannedExercise({ block: "main", name: "Drop jump", reps: 4, rpe: 7, sets: 4 }),
+    createDemoPlannedExercise({ block: "auxiliary", name: "Medicine ball chest pass", reps: 6, rpe: 6, sets: 3 })
+  ];
+  const sessionRecords: ClientSessionRecord[] = [
+    createDemoSession({
+      dayOffset: -25,
+      duration: 68,
+      exercises: lowerExercises,
+      finalRpe: 7,
+      id: "demo-session-week-1-lower",
+      summary: "Fuerza tren inferior con control de RIR",
+      type: "Fuerza",
+      wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 3, stress: 2 }
+    }),
+    createDemoCardioSession(-23),
+    createDemoSession({
+      dayOffset: -20,
+      duration: 60,
+      exercises: upperExercises,
+      finalRpe: 7,
+      id: "demo-session-week-1-upper",
+      summary: "Fuerza tren superior",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 5, sleep: 4, soreness: 2, stress: 2 }
+    }),
+    createDemoSession({
+      dayOffset: -16,
+      duration: 52,
+      exercises: powerExercises,
+      finalRpe: 6,
+      id: "demo-session-week-2-power",
+      summary: "Potencia y pliometria",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 4, sleep: 5, soreness: 2, stress: 1 }
+    }),
+    createDemoCardioSession(-14, true),
+    createDemoSession({
+      dayOffset: -11,
+      discomfort: {
+        bodyArea: "Rodilla izquierda",
+        exerciseName: "Bulgarian split squat",
+        hasDiscomfort: true,
+        intensity: 3,
+        notes: "Molestia leve durante las ultimas repeticiones.",
+        phase: "Final de la serie"
+      },
+      duration: 70,
+      exercises: lowerExercises,
+      finalRpe: 8,
+      id: "demo-session-week-3-lower",
+      reviewStatus: "pending",
+      summary: "Fuerza tren inferior con pequena desviacion",
+      type: "Fuerza",
+      wellness: { fatigue: 4, motivation: 4, sleep: 3, soreness: 4, stress: 3 }
+    }),
+    createDemoSession({
+      dayOffset: -7,
+      duration: 58,
+      exercises: upperExercises,
+      finalRpe: 6,
+      id: "demo-session-week-4-upper",
+      summary: "Fuerza tren superior tecnica",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
+    }),
+    {
+      block: "Demo semana actual",
+      completed: false,
+      date: getRelativeDateKey(2),
+      id: "demo-session-planned-future",
+      isDemo: true,
+      performedExercises: [],
+      plannedExercises: lowerExercises,
+      sessionNumber: 3,
+      status: "Planificada",
+      summary: "Sesion planificada demo para calendario",
+      type: "Fuerza",
+      weekLabel: "Semana demo"
+    }
+  ];
+
+  return {
+    activeBlocks: ["Demo acumulacion", "Demo fuerza + resistencia"],
+    age: 34,
+    assessments: [
+      { action: "Ver historial", date: getRelativeDateKey(-28), id: "demo-assessment-strength-1", isDemo: true, name: "3RM sentadilla", result: "105 kg", type: "Fuerza" },
+      { action: "Ver historial", date: getRelativeDateKey(-21), id: "demo-assessment-jump-1", isDemo: true, name: "CMJ", result: "38 cm", type: "Salto" },
+      { action: "Ver historial", date: getRelativeDateKey(-18), id: "demo-assessment-cardio-1", isDemo: true, name: "Test 6 min", result: "1420 m", type: "Resistencia" },
+      { action: "Ver historial", date: getRelativeDateKey(-12), id: "demo-assessment-body-1", isDemo: true, name: "Peso corporal", result: "76.4 kg", type: "Antropometría" }
+    ],
+    availability: "4 dias / semana",
+    availableEquipment: "Barra, mancuernas, polea, cajon, balon medicinal",
+    chronicLoad: 1780,
+    coachNotes: "Cliente demo para probar dashboard, calendario, historial, fatiga y wellness.",
+    dailyLoads: [420, 0, 360, 540, 0, 320, 280],
+    goalType: "Rendimiento",
+    history: "Perfil ficticio para pruebas visuales. No contiene datos personales reales.",
+    hooper: { fatigue: 3, mood: 2, sleep: 2, soreness: 3, stress: 2 },
+    id: "demo-client",
+    injuries: "Molestias leves registradas de prueba, sin diagnosticos.",
+    isDemo: true,
+    lastActivity: "Fuerza tren superior tecnica - hace 7 dias",
+    level: "Intermedio",
+    loadMetric: "ACWR demo 1.08 - monotonia demo 1.3",
+    metrics: ["sRPE demo 2180 UA", "Hooper demo 12/25", "Fatiga muscular visible"],
+    modality: "Fuerza + resistencia",
+    name: "Cliente Demo",
+    nextEvent: `Control demo - ${getRelativeDateKey(14)}`,
+    planning: {
+      blocks: [
+        {
+          durationWeeks: 4,
+          id: "demo-planning-block-1",
+          mainMetrics: ["sRPE", "RPE final", "series efectivas"],
+          name: "Demo acumulacion",
+          notes: "Bloque ficticio para probar planificacion visual.",
+          primaryObjective: "Construir tolerancia a fuerza y cardio",
+          secondaryObjective: "Mantener movilidad y potencia",
+          weeklyDistribution: "Ondulante"
+        }
+      ],
+      currentBlock: "Demo acumulacion",
+      currentWeek: "Semana 4 de 4",
+      distribution: "Ondulante",
+      eventDate: getRelativeDateKey(14),
+      eventName: "Control demo",
+      eventNotes: "Evento ficticio para probar proximos eventos.",
+      method: "blocks",
+      nextSessions: ["Fuerza tren inferior", "Cardio Z2", "Potencia / pliometria"],
+      primaryGoal: "rendimiento mixto",
+      secondaryGoal: "control de carga y wellness"
+    },
+    readiness: 86,
+    recentSessions: ["Hip thrust 4x8 RIR 2", "Cardio Z2 45 min", "Bench press 4x6 RPE 7"],
+    sessionRecords,
+    sport: "Fuerza + resistencia",
+    status: "Demo activo"
+  } as CoachClient;
+}
 
 function getMonotonyStatus(value: number) {
   return getMetricStatus(value, monotonyRanges);
@@ -849,18 +1215,22 @@ function CoachClientsView({
   client,
   clients,
   onBack,
+  onLoadDemoData,
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
+  onRemoveDemoData,
   panel,
   setClients
 }: {
   client: CoachClient | null;
   clients: CoachClient[];
   onBack: () => void;
+  onLoadDemoData: () => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
+  onRemoveDemoData: () => void;
   panel: TrainerClientPanel;
   setClients: React.Dispatch<React.SetStateAction<CoachClient[]>>;
 }) {
@@ -1424,6 +1794,33 @@ function CoachClientsView({
             </div>
           </div>
         )}
+      </section>
+
+      <section className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Datos demo</h2>
+            <p className="mt-1 text-xs font-medium text-ink/50">
+              Carga o elimina solo el Cliente Demo para probar graficos sin tocar clientes reales.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="h-9 rounded-md bg-ink px-3 text-xs font-semibold text-white"
+              onClick={onLoadDemoData}
+              type="button"
+            >
+              Cargar datos demo
+            </button>
+            <button
+              className="h-9 rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink/70"
+              onClick={onRemoveDemoData}
+              type="button"
+            >
+              Eliminar datos demo
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2046,19 +2443,33 @@ function DecisionDashboardView() {
   );
 }
 
+function getClientTrainingSessionInputs(client?: CoachClient | null): TrainingSessionInput[] {
+  return (client?.sessionRecords ?? [])
+    .filter((session) =>
+      (session.plannedExercises?.length ?? 0) > 0 ||
+      (session.performedExercises?.length ?? 0) > 0
+    )
+    .map((session) => ({
+      completed: Boolean(session.completed || session.status === "Completada"),
+      performedExercises: session.performedExercises,
+      plannedExercises: session.plannedExercises
+    }));
+}
+
 function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const loadData = client ? getClientLoadData(client) : null;
-  const weeklyTrainingSessions = getMockWeeklyTrainingSessions();
-  const previewSession = weeklyTrainingSessions[0];
-  const sessionExternalLoad = calculateSessionExternalLoad(previewSession, exerciseLibrary);
-  const sessionExternalLoadByPattern = calculateExternalLoadByPattern(previewSession, exerciseLibrary);
-  const sessionMuscleSets = calculateSessionMuscleSets(previewSession, exerciseLibrary);
+  const weeklyTrainingSessions = getClientTrainingSessionInputs(client);
+  const previewSession = weeklyTrainingSessions[0] ?? null;
+  const sessionExternalLoad = previewSession ? calculateSessionExternalLoad(previewSession, exerciseLibrary) : 0;
+  const sessionExternalLoadByPattern = previewSession ? calculateExternalLoadByPattern(previewSession, exerciseLibrary) : {};
+  const sessionMuscleSets = previewSession ? calculateSessionMuscleSets(previewSession, exerciseLibrary) : {};
   const weeklyExternalLoad = calculateWeeklyExternalLoad(weeklyTrainingSessions, exerciseLibrary);
   const weeklyExternalLoadByPattern = calculateWeeklyExternalLoadByPattern(weeklyTrainingSessions, exerciseLibrary);
   const weeklyMuscleSets = calculateWeeklyMuscleSets(weeklyTrainingSessions, exerciseLibrary);
   const maxPatternLoad = Math.max(1, ...Object.values(weeklyExternalLoadByPattern));
   const muscleSetEntries = Object.entries(weeklyMuscleSets).sort(([, a], [, b]) => b - a).slice(0, 8);
   const weeklySessionCount = weeklyTrainingSessions.length;
+  const hasWeeklyTrainingData = weeklySessionCount > 0;
 
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
@@ -2084,26 +2495,18 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         <MetricPill
           label="Carga externa semanal"
           status="kg"
-          value={`${Math.round(weeklyExternalLoad).toLocaleString("es-ES")} kg`}
+          value={hasWeeklyTrainingData ? `${Math.round(weeklyExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"}
         />
         <MetricPill
           label="Carga externa sesion"
           status="prevision"
-          value={`${Math.round(sessionExternalLoad).toLocaleString("es-ES")} kg`}
+          value={previewSession ? `${Math.round(sessionExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"}
         />
         <MetricPill
           label="Sesiones incluidas"
           status="semana"
           value={`${weeklySessionCount}`}
         />
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <MetricChart chartType="bar" title="sRPE semanal" field="srpe" suffix=" UA" />
-        <MetricChart chartType="points" title="Monotonia" field="monotony" />
-        <MetricChart chartType="bar" title="Strain" field="strain" />
-        <MetricChart chartType="line" title="ACWR EWMA" field="acwr" />
-        <MetricChart chartType="points" title="Hooper" field="hooper" suffix="/20" />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -2115,34 +2518,46 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
             </span>
           </div>
           <div className="mt-4 grid gap-3">
-            {Object.entries(weeklyExternalLoadByPattern).map(([pattern, load]) => (
-              <div className="grid gap-2" key={pattern}>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-semibold text-ink">{pattern}</span>
-                  <span className="text-ink/65">
-                    {Math.round(load).toLocaleString("es-ES")} kg
-                  </span>
+            {Object.entries(weeklyExternalLoadByPattern).length > 0 ? (
+              Object.entries(weeklyExternalLoadByPattern).map(([pattern, load]) => (
+                <div className="grid gap-2" key={pattern}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold text-ink">{pattern}</span>
+                    <span className="text-ink/65">
+                      {Math.round(load).toLocaleString("es-ES")} kg
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
+                      style={{ width: `${(load / maxPatternLoad) * 100}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
-                    style={{ width: `${(load / maxPatternLoad) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-line bg-white/60 p-4 text-sm font-semibold text-ink/50">
+                Sin sesiones registradas para calcular carga externa.
+              </p>
+            )}
           </div>
         </section>
 
         <section className="rounded-md border border-line bg-panel/35 p-4">
           <h3 className="font-semibold text-ink">Series efectivas semanales por musculo</h3>
           <div className="mt-4 grid gap-2">
-            {muscleSetEntries.map(([muscle, score]) => (
-              <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm" key={muscle}>
-                <span className="font-medium text-ink/70">{formatFatigueKey(muscle)}</span>
-                <span className="font-semibold text-ink">{score.toFixed(1)}</span>
-              </div>
-            ))}
+            {muscleSetEntries.length > 0 ? (
+              muscleSetEntries.map(([muscle, score]) => (
+                <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm" key={muscle}>
+                  <span className="font-medium text-ink/70">{formatFatigueKey(muscle)}</span>
+                  <span className="font-semibold text-ink">{score.toFixed(1)}</span>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-line bg-white/60 p-4 text-sm font-semibold text-ink/50">
+                Sin sesiones registradas para calcular series efectivas.
+              </p>
+            )}
           </div>
         </section>
       </div>
@@ -2151,75 +2566,41 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         <section className="rounded-md border border-line bg-white p-4">
           <h3 className="font-semibold text-ink">Carga externa de la sesion por patron</h3>
           <div className="mt-3 grid gap-2">
-            {Object.entries(sessionExternalLoadByPattern).map(([pattern, load]) => (
-              <p className="flex justify-between rounded-md bg-panel/45 px-3 py-2 text-sm" key={pattern}>
-                <span className="text-ink/70">{pattern}</span>
-                <span className="font-semibold text-ink">{Math.round(load).toLocaleString("es-ES")} kg</span>
+            {Object.entries(sessionExternalLoadByPattern).length > 0 ? (
+              Object.entries(sessionExternalLoadByPattern).map(([pattern, load]) => (
+                <p className="flex justify-between rounded-md bg-panel/45 px-3 py-2 text-sm" key={pattern}>
+                  <span className="text-ink/70">{pattern}</span>
+                  <span className="font-semibold text-ink">{Math.round(load).toLocaleString("es-ES")} kg</span>
+                </p>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-line bg-panel/45 p-4 text-sm font-semibold text-ink/50">
+                Sin datos de ejercicios para esta sesion.
               </p>
-            ))}
+            )}
           </div>
         </section>
 
         <section className="rounded-md border border-line bg-white p-4">
           <h3 className="font-semibold text-ink">Series efectivas de la sesion</h3>
           <div className="mt-3 grid gap-2">
-            {Object.entries(sessionMuscleSets).map(([muscle, sets]) => (
-              <p className="flex justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={muscle}>
-                <span className="text-ink/70">{formatFatigueKey(muscle)}</span>
-                <span className="font-semibold text-ink">{sets.toFixed(1)}</span>
+            {Object.entries(sessionMuscleSets).length > 0 ? (
+              Object.entries(sessionMuscleSets).map(([muscle, sets]) => (
+                <p className="flex justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={muscle}>
+                  <span className="text-ink/70">{formatFatigueKey(muscle)}</span>
+                  <span className="font-semibold text-ink">{sets.toFixed(1)}</span>
+                </p>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-line bg-panel/45 p-4 text-sm font-semibold text-ink/50">
+                Sin datos de ejercicios para esta sesion.
               </p>
-            ))}
+            )}
           </div>
         </section>
       </div>
     </section>
   );
-}
-
-function getMockWeeklyTrainingSessions(): TrainingSessionInput[] {
-  return [
-    {
-      completed: true,
-      performedExercises: [
-        createSessionExercise("Back squat", 4, 5, 82.5),
-        createSessionExercise("Romanian deadlift", 3, 8, 70),
-        createSessionExercise("Walking lunge", 3, 10, 24),
-        createSessionExercise("Plank", 3, 1, 0)
-      ]
-    },
-    {
-      completed: true,
-      performedExercises: [
-        createSessionExercise("Bench press", 4, 6, 75),
-        createSessionExercise("T-bar row", 4, 8, 60),
-        createSessionExercise("Overhead press / Press militar", 3, 6, 40)
-      ]
-    },
-    {
-      completed: false,
-      plannedExercises: [
-        createSessionExercise("Goblet squat", 3, 10, 24),
-        createSessionExercise("Hip thrust", 4, 8, 90),
-        createSessionExercise("Pull-up / Chin-up", 4, 5, 0)
-      ]
-    }
-  ];
-}
-
-function createSessionExercise(
-  exerciseName: string,
-  sets: number,
-  reps: number,
-  load: number
-) {
-  const exercise = exerciseLibrary.find((item) => item.name === exerciseName);
-  return {
-    exerciseId: exercise?.id,
-    exerciseName,
-    load,
-    reps,
-    sets
-  };
 }
 
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
@@ -3607,31 +3988,40 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
   );
 }
 
+type CoachMessageThread = {
+  athlete: string;
+  id: string;
+  lastMessage: string;
+  messages: Array<{ author: "athlete" | "coach"; text: string; time: string }>;
+  status: string;
+  unread: number;
+};
+
 function MessagesView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
-  const [selectedThreadId, setSelectedThreadId] = useState(messageThreads[0].id);
+  const [selectedThreadId, setSelectedThreadId] = useState("");
   const [selectedMessageClient, setSelectedMessageClient] = useState(client?.name ?? "Todos");
-  const clientThreads = client
-    ? messageThreads.filter((thread) => thread.athlete === client.name)
+
+  const sourceClients = client
+    ? [client]
     : selectedMessageClient === "Todos"
-      ? messageThreads
-      : messageThreads.filter((thread) => thread.athlete === selectedMessageClient);
-  const fallbackClient =
-    client ?? clients.find((listedClient) => listedClient.name === selectedMessageClient) ?? null;
-  const visibleThreads = clientThreads.length > 0 ? clientThreads : fallbackClient ? [
-    {
-      athlete: fallbackClient.name,
-      id: `client-${fallbackClient.id}`,
-      lastMessage: fallbackClient.coachNotes,
+      ? clients
+      : clients.filter((listedClient) => listedClient.name === selectedMessageClient);
+  const visibleThreads: CoachMessageThread[] = sourceClients.map((listedClient) => {
+    const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavia.";
+
+    return {
+      athlete: listedClient.name,
+      id: `client-${listedClient.id}`,
+      lastMessage: note,
       messages: [
-        { author: "coach", text: fallbackClient.coachNotes, time: "Nota inicial" },
-        { author: "athlete", text: "Pendiente de nueva conversacion.", time: "Sistema" }
+        { author: "coach", text: note, time: listedClient.coachNotes?.trim() ? "Nota inicial" : "Sistema" }
       ],
-      status: fallbackClient.status,
+      status: listedClient.status,
       unread: 0
-    }
-  ] : messageThreads;
+    };
+  });
   const selectedThread =
-    visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0];
+    visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0] ?? null;
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
@@ -3649,7 +4039,7 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
                 setSelectedMessageClient(event.target.value);
-                setSelectedThreadId(messageThreads[0].id);
+                setSelectedThreadId("");
               }}
               value={selectedMessageClient}
             >
@@ -3661,167 +4051,95 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
           </label>
         ) : null}
         <div className="mt-4 space-y-2">
-          {visibleThreads.map((thread) => (
-            <button
-              className={`w-full rounded-md border p-3 text-left transition ${
-                selectedThreadId === thread.id
-                  ? "border-moss bg-panel"
-                  : "border-line bg-panel/35 hover:bg-panel"
-              }`}
-              key={thread.id}
-              onClick={() => setSelectedThreadId(thread.id)}
-              type="button"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-ink">{thread.athlete}</p>
-                  <p className="mt-1 line-clamp-2 text-sm text-ink/60">{thread.lastMessage}</p>
+          {visibleThreads.length > 0 ? (
+            visibleThreads.map((thread) => (
+              <button
+                className={`w-full rounded-md border p-3 text-left transition ${
+                  selectedThread?.id === thread.id
+                    ? "border-moss bg-panel"
+                    : "border-line bg-panel/35 hover:bg-panel"
+                }`}
+                key={thread.id}
+                onClick={() => setSelectedThreadId(thread.id)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-ink">{thread.athlete}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-ink/60">{thread.lastMessage}</p>
+                  </div>
+                  {thread.unread > 0 && (
+                    <span className="grid size-6 place-items-center rounded-full bg-clay text-xs font-semibold text-white">
+                      {thread.unread}
+                    </span>
+                  )}
                 </div>
-                {thread.unread > 0 && (
-                  <span className="grid size-6 place-items-center rounded-full bg-clay text-xs font-semibold text-white">
-                    {thread.unread}
-                  </span>
-                )}
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          ) : (
+            <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+              No hay conversaciones todavia.
+            </p>
+          )}
         </div>
       </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-soft">
-        <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">{selectedThread.athlete}</h2>
-            <p className="text-sm text-ink/50">{selectedThread.status}</p>
-          </div>
-          <button className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white" type="button">
-            Nueva nota
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {selectedThread.messages.map((message) => (
-            <div
-              className={`flex ${message.author === "coach" ? "justify-end" : "justify-start"}`}
-              key={`${message.time}-${message.text}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-md border px-4 py-3 text-sm ${
-                  message.author === "coach"
-                    ? "border-ink bg-ink text-white"
-                    : "border-line bg-panel/50 text-ink"
-                }`}
-              >
-                <p>{message.text}</p>
-                <p className={`mt-2 text-xs ${message.author === "coach" ? "text-white/50" : "text-ink/45"}`}>
-                  {message.time}
-                </p>
+        {selectedThread ? (
+          <>
+            <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">{selectedThread.athlete}</h2>
+                <p className="text-sm text-ink/50">{selectedThread.status}</p>
               </div>
+              <button className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white" type="button">
+                Nueva nota
+              </button>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
-          <input
-            className="h-11 flex-1 rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-            placeholder="Escribe un mensaje"
-            type="text"
-          />
-          <button className="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90" type="button">
-            Enviar
-          </button>
-        </div>
+            <div className="mt-4 space-y-3">
+              {selectedThread.messages.map((message) => (
+                <div
+                  className={`flex ${message.author === "coach" ? "justify-end" : "justify-start"}`}
+                  key={`${message.time}-${message.text}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-md border px-4 py-3 text-sm ${
+                      message.author === "coach"
+                        ? "border-ink bg-ink text-white"
+                        : "border-line bg-panel/50 text-ink"
+                    }`}
+                  >
+                    <p>{message.text}</p>
+                    <p className={`mt-2 text-xs ${message.author === "coach" ? "text-white/50" : "text-ink/45"}`}>
+                      {message.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
+              <input
+                className="h-11 flex-1 rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                placeholder="Escribe un mensaje"
+                type="text"
+              />
+              <button className="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90" type="button">
+                Enviar
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-md border border-dashed border-line bg-panel/35 p-6 text-center">
+            <h2 className="text-lg font-semibold text-ink">No hay conversaciones todavia.</h2>
+            <p className="mt-2 text-sm text-ink/55">
+              Las conversaciones apareceran cuando exista un cliente o una nota asociada.
+            </p>
+          </div>
+        )}
       </section>
     </div>
-  );
-}
-
-type ChartField = "srpe" | "monotony" | "strain" | "acwr" | "hooper";
-
-function MetricChart({
-  chartType,
-  field,
-  suffix = "",
-  title
-}: {
-  chartType: "bar" | "line" | "points";
-  field: ChartField;
-  suffix?: string;
-  title: string;
-}) {
-  const values = weeklyLoadSeries.map((point) => Number(point[field]));
-  const maxValue = Math.max(...values);
-  const minValue = Math.min(...values);
-  const range = maxValue - minValue || 1;
-  const points = weeklyLoadSeries
-    .map((point, index) => {
-      const x = 28 + index * 54;
-      const y = 120 - ((Number(point[field]) - minValue) / range) * 82;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const lastValue = values[values.length - 1];
-
-  return (
-    <article className="rounded-md border border-line bg-panel/35 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-ink">{title}</h3>
-          <p className="mt-1 text-sm text-ink/55">
-            Actual: {lastValue}
-            {suffix}
-          </p>
-        </div>
-      </div>
-      <svg className="mt-4 h-40 w-full" preserveAspectRatio="none" viewBox="0 0 330 145">
-        {chartType === "bar" ? (
-          weeklyLoadSeries.map((point, index) => {
-            const value = Number(point[field]);
-            const height = 18 + ((value - minValue) / range) * 86;
-            const x = 16 + index * 54;
-            const y = 126 - height;
-            return (
-              <rect
-                fill="#51665a"
-                height={height}
-                key={`${field}-${point.week}-bar`}
-                rx="4"
-                width="24"
-                x={x}
-                y={y}
-              />
-            );
-          })
-        ) : chartType === "line" ? (
-          <polyline
-            fill="none"
-            points={points}
-            stroke="#51665a"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="4"
-          />
-        ) : null}
-        {weeklyLoadSeries.map((point, index) => {
-          const x = 28 + index * 54;
-          const y = 120 - ((Number(point[field]) - minValue) / range) * 82;
-          return (
-            <circle
-              cx={x}
-              cy={y}
-              fill={chartType === "points" ? "#b66a4f" : "#151515"}
-              key={`${field}-${point.week}`}
-              r={chartType === "points" ? "7" : "4"}
-            />
-          );
-        })}
-      </svg>
-      <div className="mt-2 grid grid-cols-6 gap-1 text-center text-xs text-ink/50">
-        {weeklyLoadSeries.map((point) => (
-          <span key={`${field}-${point.week}-label`}>{point.week}</span>
-        ))}
-      </div>
-    </article>
   );
 }
 
@@ -4371,9 +4689,9 @@ function fatigueColorClass(status: string) {
   }
 }
 
-function calculateMuscleFatigue() {
+function calculateMuscleFatigue(sessions: TrainingSessionInput[] = []) {
   const weeklyMuscleSets = calculateWeeklyMuscleSets(
-    getMockWeeklyTrainingSessions(),
+    sessions,
     exerciseLibrary
   );
   const grouped = Object.entries(weeklyMuscleSets).reduce<
@@ -4606,8 +4924,8 @@ function CoachTrainingPlanner({
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
   const activeSessionClient =
-    client ?? clients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? clients[0]!;
-  const activePlanningWeek = getPlanningWeekNumber(activeSessionClient.planning.currentWeek);
+    client ?? clients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? null;
+  const activePlanningWeek = activeSessionClient ? getPlanningWeekNumber(activeSessionClient.planning.currentWeek) : 0;
   const [selectedBlockWeek, setSelectedBlockWeek] = useState(activePlanningWeek);
   const [sessionDate, setSessionDate] = useState("");
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
@@ -4640,28 +4958,28 @@ function CoachTrainingPlanner({
     0
   );
   const plannedSessionsInSelectedWeek =
-    selectedBlockWeek > 0
-      ? calendarSessions.filter((session) => session.athlete === activeSessionClient.name).length
+    activeSessionClient && selectedBlockWeek > 0
+      ? (activeSessionClient.sessionRecords ?? []).filter((session) => Number(session.week) === selectedBlockWeek).length
       : 0;
   const calculatedSessionNumber =
     selectedBlockWeek > 0
       ? (selectedBlockWeek === activePlanningWeek ? plannedSessionsInSelectedWeek : 0) + 1
       : null;
-  const currentBlockLabel = activeSessionClient.planning.currentBlock || "Sin asignar";
-  const fatigueAlerts = calculateMuscleFatigue()
+  const currentBlockLabel = activeSessionClient?.planning.currentBlock || "Sin asignar";
+  const fatigueAlerts = calculateMuscleFatigue(getClientTrainingSessionInputs(activeSessionClient))
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
   const weeklyZoneAlerts = calculateFatigueZones(
-    (activeSessionClient.sessionRecords ?? []).filter((session) => hasRealSessionData(session) && isSessionThisWeek(session.date))
+    (activeSessionClient?.sessionRecords ?? []).filter((session) => hasRealSessionData(session) && isSessionThisWeek(session.date))
   ).filter((zone) => zone.level === "moderate" || zone.level === "high");
   useEffect(() => {
     setSelectedBlockWeek(activePlanningWeek);
-  }, [activePlanningWeek, activeSessionClient.id]);
+  }, [activePlanningWeek, activeSessionClient?.id]);
   useEffect(() => {
-    if (targetTrainingSession?.clientId === activeSessionClient.id) {
+    if (activeSessionClient && targetTrainingSession?.clientId === activeSessionClient.id) {
       setActiveSessionPanel("history");
     }
-  }, [activeSessionClient.id, targetTrainingSession]);
+  }, [activeSessionClient, targetTrainingSession]);
   useEffect(() => {
     if (!showSessionSummaryModal) return;
 
@@ -4679,6 +4997,18 @@ function CoachTrainingPlanner({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showSessionSummaryModal]);
+
+  if (!activeSessionClient) {
+    return (
+      <section className="mt-6 rounded-md border border-dashed border-line bg-white p-6 text-center shadow-soft">
+        <h2 className="text-lg font-semibold text-ink">No hay clientes disponibles.</h2>
+        <p className="mt-2 text-sm text-ink/55">
+          Crea un cliente o carga datos demo para planificar sesiones.
+        </p>
+      </section>
+    );
+  }
+
   const moveExerciseFieldFocus = (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
     exerciseId: string,
