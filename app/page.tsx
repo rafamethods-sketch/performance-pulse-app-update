@@ -599,7 +599,7 @@ function LoginCover({
               type="button"
             >
               <span className="block text-sm font-semibold">Entrar como deportista</span>
-              <span className="mt-2 block text-xs text-ink/55">Mi entrenamiento, Hooper y registro.</span>
+              <span className="mt-2 block text-xs text-ink/55">Mi entrenamiento, readiness y registro.</span>
             </button>
           </div>
         </section>
@@ -610,8 +610,11 @@ function LoginCover({
 
 type BaseCoachClient = (typeof coachClients)[number];
 type ClientWellness = {
+  calm?: number;
+  energy?: number;
   fatigue: number;
   motivation: number;
+  recovery?: number;
   sleep: number;
   soreness: number;
   stress: number;
@@ -667,6 +670,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   week?: number | string | null;
   weekLabel?: string | null;
   wellness?: ClientWellness;
+  wellnessConfirmedAt?: string;
 };
 type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessEndDate?: string;

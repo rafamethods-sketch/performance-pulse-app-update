@@ -6,8 +6,11 @@ import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/li
 import { getExerciseById } from "@/lib/exercises";
 
 type AthleteWellness = {
+  calm?: number;
+  energy?: number;
   fatigue?: number;
   motivation?: number;
+  recovery?: number;
   sleep?: number;
   soreness?: number;
   stress?: number;
@@ -92,6 +95,23 @@ function displayValue(value: unknown, fallback = "Sin especificar") {
 function parsePositiveNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function invertReadinessScore(value?: number) {
+  return value && value >= 1 && value <= 5 ? 6 - value : 0;
+}
+
+function getPositiveWellnessValue(wellness: AthleteWellness | undefined, key: "sleep" | "energy" | "recovery" | "calm" | "motivation") {
+  if (!wellness) return 0;
+  if (key === "energy") return wellness.energy ?? invertReadinessScore(wellness.fatigue);
+  if (key === "recovery") return wellness.recovery ?? invertReadinessScore(wellness.soreness);
+  if (key === "calm") return wellness.calm ?? invertReadinessScore(wellness.stress);
+  return wellness[key] ?? 0;
+}
+
+function formatPositiveWellnessValue(wellness: AthleteWellness | undefined, key: "sleep" | "energy" | "recovery" | "calm" | "motivation") {
+  const value = getPositiveWellnessValue(wellness, key);
+  return value ? `${value}/5` : "Sin registrar";
 }
 
 function getSetDetailsReps(entry?: ReviewSessionExercise) {
@@ -328,10 +348,11 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                 {isOpen ? (
                   <div className="mt-4 grid gap-3 rounded-md border border-line bg-white p-4">
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      <ClientInfoCard label="Sueño" value={session.wellness?.sleep ? `${session.wellness.sleep}/5` : "Sin registrar"} />
-                      <ClientInfoCard label="Fatiga" value={session.wellness?.fatigue ? `${session.wellness.fatigue}/5` : "Sin registrar"} />
-                      <ClientInfoCard label="Estrés" value={session.wellness?.stress ? `${session.wellness.stress}/5` : "Sin registrar"} />
-                      <ClientInfoCard label="DOMS" value={session.wellness?.soreness ? `${session.wellness.soreness}/5` : "Sin registrar"} />
+                      <ClientInfoCard label="Sueño" value={formatPositiveWellnessValue(session.wellness, "sleep")} />
+                      <ClientInfoCard label="Energía" value={formatPositiveWellnessValue(session.wellness, "energy")} />
+                      <ClientInfoCard label="Recuperación muscular" value={formatPositiveWellnessValue(session.wellness, "recovery")} />
+                      <ClientInfoCard label="Calma" value={formatPositiveWellnessValue(session.wellness, "calm")} />
+                      <ClientInfoCard label="Motivación" value={formatPositiveWellnessValue(session.wellness, "motivation")} />
                     </div>
                     <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
                       <p className="font-semibold text-ink">Notas del deportista</p>

@@ -1,13 +1,16 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 
 type AthleteWellness = {
+  calm?: number;
+  energy?: number;
   fatigue: number;
   motivation: number;
+  recovery?: number;
   sleep: number;
   soreness: number;
   stress: number;
@@ -88,6 +91,7 @@ type AthleteSessionRecord = {
   week?: number | string | null;
   weekLabel?: string | null;
   wellness?: AthleteWellness;
+  wellnessConfirmedAt?: string;
 };
 
 type AthleteClient = {
@@ -108,18 +112,23 @@ type AthleteTodayViewProps<TClient extends AthleteClient> = {
 };
 
 const emptyAthleteWellness: AthleteWellness = {
+  calm: 0,
+  energy: 0,
   fatigue: 0,
   motivation: 0,
+  recovery: 0,
   sleep: 0,
   soreness: 0,
   stress: 0
 };
 
-const athleteWellnessFields: Array<{ key: keyof AthleteWellness; label: string }> = [
+type AthleteReadinessField = "sleep" | "energy" | "recovery" | "calm" | "motivation";
+
+const athleteWellnessFields: Array<{ key: AthleteReadinessField; label: string }> = [
   { key: "sleep", label: "Sueño" },
-  { key: "fatigue", label: "Fatiga" },
-  { key: "stress", label: "Estrés" },
-  { key: "soreness", label: "DOMS" },
+  { key: "energy", label: "Energía" },
+  { key: "recovery", label: "Recuperación muscular" },
+  { key: "calm", label: "Calma" },
   { key: "motivation", label: "Motivación" }
 ];
 
@@ -168,6 +177,45 @@ function getLocalDateKey(date = new Date()) {
 function parsePositiveNumber(value: unknown) {
   const parsed = Number(`${value ?? ""}`.replace(",", "."));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function invertReadinessScore(value?: number) {
+  return value && value >= 1 && value <= 5 ? 6 - value : 0;
+}
+
+function getPositiveWellnessValue(wellness: AthleteWellness, key: AthleteReadinessField) {
+  if (key === "energy") return wellness.energy ?? invertReadinessScore(wellness.fatigue);
+  if (key === "recovery") return wellness.recovery ?? invertReadinessScore(wellness.soreness);
+  if (key === "calm") return wellness.calm ?? invertReadinessScore(wellness.stress);
+  return wellness[key] ?? 0;
+}
+
+function normalizeAthleteWellness(source?: AthleteWellness) {
+  const base = source ?? emptyAthleteWellness;
+  return {
+    ...base,
+    calm: getPositiveWellnessValue(base, "calm"),
+    energy: getPositiveWellnessValue(base, "energy"),
+    recovery: getPositiveWellnessValue(base, "recovery")
+  };
+}
+
+function buildStoredAthleteWellness(wellness: AthleteWellness): AthleteWellness {
+  const normalized = normalizeAthleteWellness(wellness);
+  return {
+    ...normalized,
+    fatigue: invertReadinessScore(normalized.energy),
+    soreness: invertReadinessScore(normalized.recovery),
+    stress: invertReadinessScore(normalized.calm)
+  };
+}
+
+function getReadinessScore(wellness: AthleteWellness) {
+  const values = athleteWellnessFields.map((field) => getPositiveWellnessValue(wellness, field.key));
+  const validValues = values.filter((value) => value >= 1 && value <= 5);
+  if (validValues.length !== athleteWellnessFields.length) return null;
+  const average = validValues.reduce((total, value) => total + value, 0) / validValues.length;
+  return average.toFixed(1);
 }
 
 function getSetDetailsRepSum(setDetails?: AthleteSetDetail[]) {
@@ -334,6 +382,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const session = client && sessionIndex >= 0 ? client.sessionRecords[sessionIndex] : null;
   const [wellness, setWellness] = useState<AthleteWellness>(emptyAthleteWellness);
   const [wellnessConfirmed, setWellnessConfirmed] = useState(false);
+  const [showSessionPreview, setShowSessionPreview] = useState(false);
+  const [showWellnessModal, setShowWellnessModal] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
   const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
     activation: false,
@@ -367,7 +417,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
     ? actualDurationMinutes * finalRpe
     : null;
-  const wellnessComplete = Object.values(wellness).every((value) => value >= 1 && value <= 5);
+  const wellnessComplete = athleteWellnessFields.every((field) => {
+    const value = getPositiveWellnessValue(wellness, field.key);
+    return value >= 1 && value <= 5;
+  });
+  const readinessScore = getReadinessScore(wellness);
   const finalRpeValid = finalRpe >= 1 && finalRpe <= 10;
   const durationValid = actualDurationMinutes > 0;
   const discomfortValid =
@@ -380,8 +434,10 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const canSubmitSession = finalRpeValid && durationValid && discomfortValid;
 
   useEffect(() => {
-    setWellness(session?.wellness ?? emptyAthleteWellness);
-    setWellnessConfirmed(false);
+    setWellness(normalizeAthleteWellness(session?.wellness));
+    setWellnessConfirmed(Boolean(session?.wellnessConfirmedAt || session?.completed || session?.wellness));
+    setShowSessionPreview(false);
+    setShowWellnessModal(false);
     setPerformedExercises(createAthleteExerciseEntries(session));
     setCollapsedExerciseBlocks({
       activation: false,
@@ -414,12 +470,58 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setValidationMessage("");
   }, [session]);
 
+  useEffect(() => {
+    if (!showSessionPreview && !showWellnessModal) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowSessionPreview(false);
+        setShowWellnessModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showSessionPreview, showWellnessModal]);
+
   function updateExercise(index: number, updates: Partial<AthleteExercise>) {
     setPerformedExercises((current) =>
       current.map((exercise, exerciseIndex) =>
         exerciseIndex === index ? { ...exercise, ...updates } : exercise
       )
     );
+  }
+
+  function startSession() {
+    if (wellnessConfirmed) return;
+    setShowWellnessModal(true);
+  }
+
+  function confirmWellness() {
+    if (!client || !session || sessionIndex < 0 || !wellnessComplete) return;
+    const storedWellness = buildStoredAthleteWellness(wellness);
+    const updatedSession: AthleteSessionRecord = {
+      ...session,
+      wellness: storedWellness,
+      wellnessConfirmedAt: new Date().toISOString()
+    };
+
+    onUpdateClient({
+      ...client,
+      sessionRecords: client.sessionRecords.map((record, index) =>
+        index === sessionIndex ? updatedSession : record
+      )
+    } as TClient);
+    setWellness(storedWellness);
+    setWellnessConfirmed(true);
+    setShowWellnessModal(false);
   }
 
   function submitSession() {
@@ -471,7 +573,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       reviewStatus: "pending",
       sRPE: actualDurationMinutes * finalRpe,
       status: "Completada",
-      wellness
+      wellness: buildStoredAthleteWellness(wellness),
+      wellnessConfirmedAt: session.wellnessConfirmedAt ?? new Date().toISOString()
     };
 
     onUpdateClient({
@@ -534,6 +637,25 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           <p className="text-xs font-semibold uppercase text-ink/50">Resumen / objetivo</p>
           <p className="mt-2 text-sm font-medium text-ink">{session.summary}</p>
         </div>
+        {!sessionAlreadySent ? (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button
+              className="h-11 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-panel"
+              onClick={() => setShowSessionPreview(true)}
+              type="button"
+            >
+              Visualizar
+            </button>
+            <button
+              className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
+              disabled={wellnessConfirmed}
+              onClick={startSession}
+              type="button"
+            >
+              {wellnessConfirmed ? "Sesión iniciada" : "Comenzar"}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {sessionAlreadySent ? (
@@ -544,36 +666,31 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       ) : (
         <>
           <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-            <h3 className="text-lg font-semibold text-ink">Wellness previo</h3>
-            <p className="mt-1 text-sm text-ink/60">Valora cómo te encuentras antes de empezar.</p>
-            <div className="mt-4 grid gap-3">
-              {athleteWellnessFields.map((field) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={field.key}>
-                  <p className="text-sm font-medium text-ink">{field.label}</p>
-                  <div className="mt-2 grid grid-cols-5 gap-2">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <button
-                        aria-pressed={wellness[field.key] === value}
-                        className={`h-10 rounded-md border text-sm font-semibold ${wellness[field.key] === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
-                        key={`${field.key}-${value}`}
-                        onClick={() => setWellness((current) => ({ ...current, [field.key]: value }))}
-                        type="button"
-                      >
-                        {value}
-                      </button>
-                    ))}
-                  </div>
+            {wellnessConfirmed ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-ink">Wellness confirmado</h3>
+                  <p className="mt-1 text-sm text-ink/60">Readiness del día: {readinessScore ?? "Pendiente"} / 5</p>
                 </div>
-              ))}
-            </div>
-            <button
-              className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!wellnessComplete}
-              onClick={() => setWellnessConfirmed(true)}
-              type="button"
-            >
-              Confirmar wellness
-            </button>
+                <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/70">
+                  Preparación del día
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-ink">Preparación del día</h3>
+                  <p className="mt-1 text-sm text-ink/60">Pulsa Comenzar para confirmar tu wellness previo antes de registrar la sesión.</p>
+                </div>
+                <button
+                  className="h-10 w-fit rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90"
+                  onClick={startSession}
+                  type="button"
+                >
+                  Comenzar
+                </button>
+              </div>
+            )}
           </section>
 
           {wellnessConfirmed ? (
@@ -836,6 +953,175 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           )}
         </>
       )}
+      {showSessionPreview ? (
+        <AthleteSessionPreviewModal
+          onClose={() => setShowSessionPreview(false)}
+          session={session}
+        />
+      ) : null}
+      {showWellnessModal ? (
+        <AthleteWellnessModal
+          onClose={() => setShowWellnessModal(false)}
+          onConfirm={confirmWellness}
+          readinessScore={readinessScore}
+          setWellness={setWellness}
+          wellness={wellness}
+          wellnessComplete={wellnessComplete}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AthleteSessionPreviewModal({
+  onClose,
+  session
+}: {
+  onClose: () => void;
+  session: AthleteSessionRecord;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <section
+        className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase text-ink/45">Visualizar sesión</p>
+            <h3 className="mt-1 text-xl font-semibold text-ink">{session.type}</h3>
+            <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+          </div>
+          <button
+            aria-label="Cerrar resumen"
+            className="rounded-md border border-line bg-panel/45 px-3 py-1 text-sm font-semibold text-ink/60"
+            onClick={onClose}
+            type="button"
+          >
+            X
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
+          <ClientInfoCard label="Semana y sesión" value={`${session.weekLabel || session.week || "Sin asignar"}${session.sessionNumber ? ` · Sesión ${session.sessionNumber}` : ""}`} />
+          <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
+          <ClientInfoCard label="Duración estimada" value="Sin especificar" />
+        </div>
+
+        <div className="mt-5 grid gap-4">
+          {athleteExerciseBlocks.map((block) => {
+            const blockExercises = (session.plannedExercises ?? []).filter((exercise) => getAthleteExerciseBlockKey(exercise) === block.key);
+            if (blockExercises.length === 0) return null;
+
+            return (
+              <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-ink">{block.label}</h4>
+                <div className="mt-3 grid gap-2">
+                  {blockExercises.map((exercise, index) => {
+                    const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
+                    const materialVariant = getAthleteExerciseMaterialVariant(exercise);
+                    const prescription = getAthleteExercisePrescription(exercise);
+                    return (
+                      <article className="rounded-md border border-line bg-white p-3" key={exercise.id || `${exerciseName}-${index}`}>
+                        <p className="text-sm font-semibold text-ink">{exerciseName}</p>
+                        {materialVariant ? <p className="mt-1 text-xs font-medium text-ink/55">{materialVariant}</p> : null}
+                        {prescription.length > 0 ? (
+                          <p className="mt-2 text-sm font-medium text-ink/65">{prescription.join(" · ")}</p>
+                        ) : null}
+                        {exercise.observation ? <p className="mt-2 text-xs text-ink/50">{exercise.observation}</p> : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AthleteWellnessModal({
+  onClose,
+  onConfirm,
+  readinessScore,
+  setWellness,
+  wellness,
+  wellnessComplete
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  readinessScore: string | null;
+  setWellness: Dispatch<SetStateAction<AthleteWellness>>;
+  wellness: AthleteWellness;
+  wellnessComplete: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="presentation"
+    >
+      <section
+        className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-ink">Wellness previo</h3>
+            <p className="mt-1 text-sm text-ink/60">Valora cómo te encuentras antes de empezar.</p>
+          </div>
+          <button
+            aria-label="Cerrar wellness"
+            className="rounded-md border border-line bg-panel/45 px-3 py-1 text-sm font-semibold text-ink/60"
+            onClick={onClose}
+            type="button"
+          >
+            X
+          </button>
+        </div>
+        <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+          <p className="font-semibold text-ink">Escala: 1 = muy mal · 5 = muy bien</p>
+          <p className="mt-1">Cuanto mayor sea la puntuación, mejor es tu preparación para entrenar.</p>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {athleteWellnessFields.map((field) => (
+            <div className="rounded-md border border-line bg-panel/35 p-3" key={field.key}>
+              <p className="text-sm font-medium text-ink">{field.label}</p>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    aria-pressed={getPositiveWellnessValue(wellness, field.key) === value}
+                    className={`h-10 rounded-md border text-sm font-semibold ${getPositiveWellnessValue(wellness, field.key) === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
+                    key={`${field.key}-${value}`}
+                    onClick={() => setWellness((current) => ({ ...current, [field.key]: value }))}
+                    type="button"
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-ink/65">Readiness del día: {readinessScore ?? "Pendiente"} / 5</p>
+          <button
+            className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!wellnessComplete}
+            onClick={onConfirm}
+            type="button"
+          >
+            Confirmar wellness
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
