@@ -362,6 +362,12 @@ export default function ClientsPage() {
           {activeSheet === "today" ? (
             role === "coach" ? (
               <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
+            ) : getClientAccessInfo(athleteClient).status === "expired" ? (
+              <AthleteAccessEndedNotice
+                client={athleteClient}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
+              />
             ) : (
               <AthleteTodayView
                 client={athleteClient}
@@ -398,6 +404,12 @@ export default function ClientsPage() {
                 }}
                 panel={trainerClientPanel}
                 setClients={setClients}
+              />
+            ) : getClientAccessInfo(athleteClient).status === "expired" ? (
+              <AthleteAccessEndedNotice
+                client={athleteClient}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
               />
             ) : (
               <AthleteTodayView
@@ -657,6 +669,8 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   wellness?: ClientWellness;
 };
 type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
+  accessEndDate?: string;
+  accessStartDate?: string;
   assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
   availableEquipment?: string;
   cardioActivities?: CardioActivitySummary[];
@@ -682,6 +696,84 @@ function getRelativeDateKey(daysOffset: number) {
   date.setHours(12, 0, 0, 0);
   date.setDate(date.getDate() + daysOffset);
   return date.toISOString().slice(0, 10);
+}
+
+type ClientAccessStatus = "active" | "expiringSoon" | "expired" | "none";
+
+function parseAccessDate(dateKey?: string | null) {
+  if (!dateKey) return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getTodayDateOnly() {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+function formatAccessDate(dateKey?: string | null) {
+  const date = parseAccessDate(dateKey);
+  if (!date) return "";
+  return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function getClientAccessInfo(client?: Pick<CoachClient, "accessEndDate"> | null): {
+  badgeClass: string;
+  label: string;
+  status: ClientAccessStatus;
+  text: string;
+} {
+  const endDate = parseAccessDate(client?.accessEndDate);
+  if (!endDate) {
+    return {
+      badgeClass: "border-line bg-panel/60 text-ink/60",
+      label: "Sin fecha de acceso",
+      status: "none",
+      text: "Sin fecha de acceso"
+    };
+  }
+
+  const today = getTodayDateOnly();
+  const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / 86400000);
+  const formattedDate = formatAccessDate(client?.accessEndDate);
+
+  if (daysRemaining < 0) {
+    return {
+      badgeClass: "border-red-200 bg-red-50 text-red-700",
+      label: "Acceso finalizado",
+      status: "expired",
+      text: `Acceso finalizado desde ${formattedDate}`
+    };
+  }
+
+  if (daysRemaining <= 7) {
+    return {
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
+      label: "Caduca pronto",
+      status: "expiringSoon",
+      text: `Caduca pronto: ${formattedDate}`
+    };
+  }
+
+  return {
+    badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    label: "Acceso activo",
+    status: "active",
+    text: `Acceso activo hasta ${formattedDate}`
+  };
+}
+
+function getAccessProgress(startDateKey?: string | null, endDateKey?: string | null) {
+  const startDate = parseAccessDate(startDateKey);
+  const endDate = parseAccessDate(endDateKey);
+  if (!startDate || !endDate || endDate <= startDate) return null;
+
+  const today = getTodayDateOnly();
+  const totalDays = endDate.getTime() - startDate.getTime();
+  const elapsedDays = today.getTime() - startDate.getTime();
+  return Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
 }
 
 function getDemoExercise(name: string) {
@@ -970,6 +1062,8 @@ function buildDemoClient(): CoachClient {
   ];
 
   return {
+    accessEndDate: getRelativeDateKey(30),
+    accessStartDate: getRelativeDateKey(-45),
     activeBlocks: ["Demo acumulacion", "Demo fuerza + resistencia"],
     age: 34,
     assessments: [
@@ -1208,6 +1302,37 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
         Ir a Clientes
       </button>
+    </section>
+  );
+}
+
+function AthleteAccessEndedNotice({
+  client,
+  onShowHistory,
+  onShowPlanning
+}: {
+  client: CoachClient | null;
+  onShowHistory: () => void;
+  onShowPlanning: () => void;
+}) {
+  return (
+    <section className="mt-6 rounded-md border border-line border-l-4 border-l-coral bg-white p-5 shadow-soft">
+      <p className="text-xs font-semibold uppercase text-coral">Acceso finalizado</p>
+      <h2 className="mt-2 text-xl font-semibold text-ink">Tu acceso activo ha finalizado</h2>
+      <p className="mt-2 max-w-2xl text-sm text-ink/65">
+        Puedes seguir entrando a la app, pero no tienes una planificación activa. Contacta con tu entrenador para revisar tu acceso.
+      </p>
+      {client ? (
+        <p className="mt-3 text-sm font-semibold text-ink/55">{getClientAccessInfo(client).text}</p>
+      ) : null}
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onShowHistory} type="button">
+          Ver historial
+        </button>
+        <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={onShowPlanning} type="button">
+          Ver planificación
+        </button>
+      </div>
     </section>
   );
 }
@@ -1893,6 +2018,7 @@ function CoachClientsView({
 
         <div className="mt-5 space-y-3">
           {filteredClients.map((listedClient) => {
+            const accessInfo = getClientAccessInfo(listedClient);
             const visibleBadges = [listedClient.goalType, listedClient.status].filter(
               (badge) => badge && badge !== "Datos completos"
             );
@@ -1917,6 +2043,9 @@ function CoachClientsView({
                     ))}
                     <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
                       {listedClient.readiness}%
+                    </span>
+                    <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
+                      {accessInfo.label}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
@@ -1964,6 +2093,7 @@ function CoachClientsView({
                   <span>{listedClient.age} anos · {listedClient.modality ?? listedClient.sport}</span>
                   <span>Ultima actividad: {listedClient.lastActivity}</span>
                   <span>Evento: {listedClient.nextEvent}</span>
+                  <span>{accessInfo.text}</span>
                 </div>
               </article>
             );
@@ -2041,9 +2171,17 @@ function ClientDetailsView({
   });
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(() => createDetailsDraft(client));
+  const [accessDraft, setAccessDraft] = useState({
+    accessEndDate: client.accessEndDate ?? "",
+    accessStartDate: client.accessStartDate ?? ""
+  });
 
   useEffect(() => {
     setDraft(createDetailsDraft(client));
+    setAccessDraft({
+      accessEndDate: client.accessEndDate ?? "",
+      accessStartDate: client.accessStartDate ?? ""
+    });
     setIsEditing(false);
   }, [client]);
 
@@ -2092,6 +2230,23 @@ function ClientDetailsView({
     });
     setIsEditing(false);
   };
+  const handleSaveAccess = () => {
+    onUpdateClient({
+      ...client,
+      accessEndDate: accessDraft.accessEndDate || undefined,
+      accessStartDate: accessDraft.accessStartDate || undefined
+    });
+  };
+  const handleClearAccess = () => {
+    setAccessDraft({ accessEndDate: "", accessStartDate: "" });
+    onUpdateClient({
+      ...client,
+      accessEndDate: undefined,
+      accessStartDate: undefined
+    });
+  };
+  const accessInfo = getClientAccessInfo(client);
+  const accessProgress = getAccessProgress(client.accessStartDate, client.accessEndDate);
 
   const detailSections = [
     {
@@ -2160,6 +2315,54 @@ function ClientDetailsView({
           </button>
         )}
       </div>
+
+      <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Acceso</h3>
+            <p className="mt-1 text-sm font-semibold text-ink/65">{accessInfo.text}</p>
+          </div>
+          <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
+            {accessInfo.label}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-semibold text-ink/70">
+            Fecha de inicio del acceso
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => setAccessDraft((currentDraft) => ({ ...currentDraft, accessStartDate: event.target.value }))}
+              type="date"
+              value={accessDraft.accessStartDate}
+            />
+          </label>
+          <label className="text-sm font-semibold text-ink/70">
+            Acceso activo hasta
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => setAccessDraft((currentDraft) => ({ ...currentDraft, accessEndDate: event.target.value }))}
+              type="date"
+              value={accessDraft.accessEndDate}
+            />
+          </label>
+        </div>
+        {accessProgress !== null ? (
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-panel">
+              <div className="h-full rounded-full bg-moss" style={{ width: `${accessProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs font-medium text-ink/50">{accessProgress}% del periodo registrado.</p>
+          </div>
+        ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAccess} type="button">
+            Guardar
+          </button>
+          <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleClearAccess} type="button">
+            Quitar fecha
+          </button>
+        </div>
+      </section>
 
       {isEditing ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
@@ -5225,6 +5428,8 @@ function CoachTrainingPlanner({
     );
   }
 
+  const activeSessionAccessInfo = getClientAccessInfo(activeSessionClient);
+
   const moveExerciseFieldFocus = (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
     exerciseId: string,
@@ -5790,6 +5995,20 @@ function CoachTrainingPlanner({
             {sessionType}
           </span>
         </div>
+
+        {activeSessionAccessInfo.status === "expired" ? (
+          <div className="mt-4 rounded-md border border-line border-l-4 border-l-coral bg-panel/35 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-ink">Acceso finalizado</p>
+                <p className="mt-1 text-sm text-ink/65">{activeSessionAccessInfo.text}</p>
+              </div>
+              <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${activeSessionAccessInfo.badgeClass}`}>
+                {activeSessionAccessInfo.label}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           <div className="rounded-md border border-line border-l-clay border-l-4 bg-panel/35 p-4">
