@@ -136,11 +136,35 @@ function dashboardStatusClass(status: string) {
   switch (status) {
     case "Alto":
     case "Riesgo":
-      return "border-red-200 bg-red-50 text-red-800";
+      return "border-line border-l-4 border-l-coral bg-panel/35 text-ink";
     case "Vigilar":
-      return "border-amber-200 bg-amber-50 text-amber-800";
+      return "border-line border-l-4 border-l-clay bg-panel/35 text-ink";
     default:
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "border-line border-l-4 border-l-moss bg-panel/35 text-ink";
+  }
+}
+
+function dashboardStatusAccentClass(status: string) {
+  switch (status) {
+    case "Alto":
+    case "Riesgo":
+      return "text-coral";
+    case "Vigilar":
+      return "text-clay";
+    default:
+      return "text-moss";
+  }
+}
+
+function dashboardStatusBadgeClass(status: string) {
+  switch (status) {
+    case "Alto":
+    case "Riesgo":
+      return "border-coral/25 bg-coral/10 text-coral";
+    case "Vigilar":
+      return "border-clay/25 bg-clay/10 text-clay";
+    default:
+      return "border-moss/25 bg-mint text-moss";
   }
 }
 
@@ -380,9 +404,14 @@ function DashboardStatusSummary({
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       {summaryCards.map((card) => (
         <article className={`rounded-md border p-4 shadow-soft ${dashboardStatusClass(card.status)}`} key={card.label}>
-          <p className="text-sm font-semibold">{card.label}</p>
-          <p className="mt-2 text-2xl font-semibold">{card.value}</p>
-          <p className="mt-2 text-xs font-medium opacity-75">{card.detail}</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-ink">{card.label}</p>
+            <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${dashboardStatusBadgeClass(card.status)}`}>
+              {card.status}
+            </span>
+          </div>
+          <p className={`mt-2 text-2xl font-semibold ${dashboardStatusAccentClass(card.status)}`}>{card.value}</p>
+          <p className="mt-2 text-xs font-medium text-ink/55">{card.detail}</p>
           {card.label === "sRPE semanal" ? (
             <button className="mt-3 text-xs font-semibold underline" onClick={() => onOpenDetail("load")} type="button">
               Ver detalle
@@ -724,9 +753,11 @@ function DashboardDetailPanel({
 function MetricPill({ label, status, value }: { label: string; status: string; value: string }) {
   return (
     <article className={`rounded-md border p-3 ${dashboardStatusClass(status)}`}>
-      <p className="text-xs font-semibold opacity-75">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
-      <p className="mt-1 text-xs font-semibold">{status}</p>
+      <p className="text-xs font-semibold text-ink/55">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${dashboardStatusAccentClass(status)}`}>{value}</p>
+      <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${dashboardStatusBadgeClass(status)}`}>
+        {status}
+      </span>
     </article>
   );
 }

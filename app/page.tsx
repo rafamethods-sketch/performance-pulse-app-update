@@ -4016,39 +4016,131 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
 }
 
 type CoachMessageThread = {
-  athlete: string;
+  clientId: string;
+  clientName: string;
   id: string;
-  lastMessage: string;
-  messages: Array<{ author: "athlete" | "coach"; text: string; time: string }>;
-  status: string;
-  unread: number;
+  messages: CoachThreadMessage[];
+};
+
+type CoachThreadMessage = {
+  id: string;
+  read?: boolean;
+  sender: "athlete" | "coach";
+  text: string;
+  timestamp: string;
 };
 
 function MessagesView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
   const [selectedThreadId, setSelectedThreadId] = useState("");
+  const [messageDraft, setMessageDraft] = useState("");
+  const [messageThreads, setMessageThreads] = useState<CoachMessageThread[]>([]);
+  const [messagesHydrated, setMessagesHydrated] = useState(false);
+  const [showNewNoteModal, setShowNewNoteModal] = useState(false);
+  const [newNoteDraft, setNewNoteDraft] = useState("");
   const [selectedMessageClient, setSelectedMessageClient] = useState(client?.name ?? "Todos");
+  const visibleClientIds = new Set(clients.map((listedClient) => listedClient.id));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const storedThreads = window.localStorage.getItem("coach_message_threads_v1");
+      if (storedThreads) {
+        const parsedThreads = JSON.parse(storedThreads);
+        if (Array.isArray(parsedThreads)) setMessageThreads(parsedThreads);
+      }
+    } catch {
+      setMessageThreads([]);
+    } finally {
+      setMessagesHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!messagesHydrated || typeof window === "undefined") return;
+    window.localStorage.setItem("coach_message_threads_v1", JSON.stringify(messageThreads));
+  }, [messageThreads, messagesHydrated]);
 
   const sourceClients = client
     ? [client]
     : selectedMessageClient === "Todos"
       ? clients
       : clients.filter((listedClient) => listedClient.name === selectedMessageClient);
-  const visibleThreads: CoachMessageThread[] = sourceClients.map((listedClient) => {
+  const visibleThreads: Array<CoachMessageThread & { status: string; unread: number; lastMessage: string }> = sourceClients.map((listedClient) => {
     const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavia.";
+    const storedThread = messageThreads.find((thread) => thread.clientId === listedClient.id);
+    const fallbackMessages: CoachThreadMessage[] = [
+      {
+        id: `note-${listedClient.id}`,
+        read: true,
+        sender: "coach",
+        text: note,
+        timestamp: listedClient.coachNotes?.trim() ? "Nota inicial" : "Sistema"
+      }
+    ];
+    const messages = storedThread?.messages?.length ? storedThread.messages : fallbackMessages;
+    const lastMessage = messages[messages.length - 1]?.text ?? note;
 
     return {
-      athlete: listedClient.name,
-      id: `client-${listedClient.id}`,
-      lastMessage: note,
-      messages: [
-        { author: "coach", text: note, time: listedClient.coachNotes?.trim() ? "Nota inicial" : "Sistema" }
-      ],
+      clientId: listedClient.id,
+      clientName: listedClient.name,
+      id: storedThread?.id ?? `thread-${listedClient.id}`,
+      lastMessage,
+      messages,
       status: listedClient.status,
-      unread: 0
+      unread: messages.filter((message) => message.sender === "athlete" && !message.read).length
     };
-  });
+  }).filter((thread) => visibleClientIds.has(thread.clientId));
   const selectedThread =
     visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0] ?? null;
+
+  function saveCoachMessage(thread: CoachMessageThread & { status: string; unread: number; lastMessage: string }, text: string) {
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
+
+    const nextMessage: CoachThreadMessage = {
+      id: `message-${Date.now()}`,
+      read: true,
+      sender: "coach",
+      text: trimmedText,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessageThreads((currentThreads) => {
+      const existingThread = currentThreads.find((listedThread) => listedThread.clientId === thread.clientId);
+      const nextThread: CoachMessageThread = {
+        clientId: thread.clientId,
+        clientName: thread.clientName,
+        id: existingThread?.id ?? thread.id,
+        messages: [...(existingThread?.messages ?? []), nextMessage]
+      };
+
+      return existingThread
+        ? currentThreads.map((listedThread) => listedThread.clientId === thread.clientId ? nextThread : listedThread)
+        : [nextThread, ...currentThreads];
+    });
+    setSelectedThreadId(thread.id);
+  }
+
+  function sendCurrentMessage() {
+    if (!selectedThread) return;
+    saveCoachMessage(selectedThread, messageDraft);
+    setMessageDraft("");
+  }
+
+  function saveNewNote() {
+    if (!selectedThread) return;
+    saveCoachMessage(selectedThread, newNoteDraft);
+    setNewNoteDraft("");
+    setShowNewNoteModal(false);
+  }
+
+  function formatMessageTime(timestamp: string) {
+    if (timestamp === "Sistema" || timestamp === "Nota inicial") return timestamp;
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return timestamp;
+    return date.toLocaleString("es-ES", { day: "2-digit", hour: "2-digit", minute: "2-digit", month: "short" });
+  }
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
@@ -4092,7 +4184,7 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-ink">{thread.athlete}</p>
+                    <p className="font-semibold text-ink">{thread.clientName}</p>
                     <p className="mt-1 line-clamp-2 text-sm text-ink/60">{thread.lastMessage}</p>
                   </div>
                   {thread.unread > 0 && (
@@ -4116,10 +4208,14 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
           <>
             <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
               <div>
-                <h2 className="text-lg font-semibold text-ink">{selectedThread.athlete}</h2>
+                <h2 className="text-lg font-semibold text-ink">{selectedThread.clientName}</h2>
                 <p className="text-sm text-ink/50">{selectedThread.status}</p>
               </div>
-              <button className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white" type="button">
+              <button
+                className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white"
+                onClick={() => setShowNewNoteModal(true)}
+                type="button"
+              >
                 Nueva nota
               </button>
             </div>
@@ -4127,19 +4223,19 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
             <div className="mt-4 space-y-3">
               {selectedThread.messages.map((message) => (
                 <div
-                  className={`flex ${message.author === "coach" ? "justify-end" : "justify-start"}`}
-                  key={`${message.time}-${message.text}`}
+                  className={`flex ${message.sender === "coach" ? "justify-end" : "justify-start"}`}
+                  key={message.id}
                 >
                   <div
                     className={`max-w-[80%] rounded-md border px-4 py-3 text-sm ${
-                      message.author === "coach"
-                        ? "border-ink bg-ink text-white"
-                        : "border-line bg-panel/50 text-ink"
+                      message.sender === "coach"
+                        ? "border-moss/20 bg-ink text-white"
+                        : "border-line bg-panel/60 text-ink"
                     }`}
                   >
                     <p>{message.text}</p>
-                    <p className={`mt-2 text-xs ${message.author === "coach" ? "text-white/50" : "text-ink/45"}`}>
-                      {message.time}
+                    <p className={`mt-2 text-xs ${message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
+                      {formatMessageTime(message.timestamp)}
                     </p>
                   </div>
                 </div>
@@ -4148,11 +4244,21 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
 
             <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
               <input
-                className="h-11 flex-1 rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                className="h-11 flex-1 rounded-md border border-line bg-panel/45 px-3 text-ink outline-none placeholder:text-ink/35 focus:border-moss"
+                onChange={(event) => setMessageDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") sendCurrentMessage();
+                }}
                 placeholder="Escribe un mensaje"
                 type="text"
+                value={messageDraft}
               />
-              <button className="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90" type="button">
+              <button
+                className="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:bg-panel disabled:text-ink/35"
+                disabled={!messageDraft.trim()}
+                onClick={sendCurrentMessage}
+                type="button"
+              >
                 Enviar
               </button>
             </div>
@@ -4166,6 +4272,56 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
           </div>
         )}
       </section>
+      {showNewNoteModal && selectedThread ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm"
+          onClick={() => setShowNewNoteModal(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg rounded-md border border-line bg-white p-5 shadow-soft"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Nueva nota</p>
+                <h3 className="mt-1 text-xl font-semibold text-ink">{selectedThread.clientName}</h3>
+              </div>
+              <button
+                className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink"
+                onClick={() => setShowNewNoteModal(false)}
+                type="button"
+              >
+                {"\u00d7"}
+              </button>
+            </div>
+            <textarea
+              className="mt-4 min-h-32 w-full rounded-md border border-line bg-panel/45 px-3 py-3 text-sm text-ink outline-none placeholder:text-ink/35 focus:border-moss"
+              onChange={(event) => setNewNoteDraft(event.target.value)}
+              placeholder={"Escribe una nota para esta conversaci\u00f3n"}
+              value={newNoteDraft}
+            />
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70"
+                onClick={() => setShowNewNoteModal(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-panel disabled:text-ink/35"
+                disabled={!newNoteDraft.trim()}
+                onClick={saveNewNote}
+                type="button"
+              >
+                Guardar nota
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
