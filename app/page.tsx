@@ -66,6 +66,12 @@ import {
   type ExerciseVariantType
 } from "@/lib/exercises";
 import {
+  activationRoleLabels,
+  evidenceStrengthLabels,
+  getActivationMusclesByRole,
+  getExerciseActivationEvidence
+} from "@/lib/exercise-activation-evidence";
+import {
   calculateExternalLoadByPattern,
   calculateSessionExternalLoad,
   calculateSessionMuscleSets,
@@ -3624,6 +3630,8 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const fatigueEntries = selectedExercise
     ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
     : [];
+  const activationEvidence = getExerciseActivationEvidence(selectedExercise);
+  const activationMusclesByRole = getActivationMusclesByRole(activationEvidence);
 
   if (libraryMode === "resistance") {
     return <ResistanceMethodsView libraryMode={libraryMode} setLibraryMode={setLibraryMode} />;
@@ -3816,6 +3824,71 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                   </p>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4 rounded-md border border-line p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
+                  <p className="mt-1 text-xs text-ink/50">
+                    Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.
+                  </p>
+                </div>
+                {activationEvidence ? (
+                  <span className="w-fit rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                    {evidenceStrengthLabels[activationEvidence.evidenceStrength]}
+                  </span>
+                ) : null}
+              </div>
+              {activationEvidence ? (
+                <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+                  <div className="grid gap-3">
+                    {(["primary", "secondary", "stabilizer"] as const).map((role) => {
+                      const entries = activationMusclesByRole[role];
+
+                      return (
+                        <div className="rounded-md bg-panel/45 p-3" key={role}>
+                          <p className="text-xs font-semibold uppercase text-ink/45">
+                            {activationRoleLabels[role]}
+                          </p>
+                          {entries.length ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {entries.map((entry) => (
+                                <span
+                                  className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/70"
+                                  key={`${role}-${entry.muscle}`}
+                                  title={entry.note}
+                                >
+                                  {formatFatigueKey(entry.muscle)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-ink/45">Sin músculos en este rol.</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="rounded-md bg-panel/45 p-3">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Fuente PubMed</p>
+                    <div className="mt-3 grid gap-2">
+                      {activationEvidence.sources.map((source) => (
+                        <p className="rounded-md border border-line bg-panel/60 px-3 py-2 text-xs leading-5 text-ink/65" key={source.pmid}>
+                          <span className="font-semibold text-ink">PMID {source.pmid}</span> · {source.title}
+                        </p>
+                      ))}
+                    </div>
+                    {activationEvidence.notes ? (
+                      <p className="mt-3 text-sm leading-6 text-ink/60">{activationEvidence.notes}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
+                  Sin evidencia PubMed añadida todavía para este ejercicio.
+                </p>
+              )}
             </div>
 
             <div className="mt-4 rounded-md border border-line p-4">
