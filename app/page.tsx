@@ -865,6 +865,19 @@ function createDemoPerformedExercise(exercise: ConnectedSessionExercise, rpe = 7
   };
 }
 
+function getDemoWeekDayOffset(dayIndex: number) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  const monday = new Date(today);
+  const currentDayIndex = (today.getDay() + 6) % 7;
+  monday.setDate(today.getDate() - currentDayIndex);
+
+  const targetDate = new Date(monday);
+  targetDate.setDate(monday.getDate() + dayIndex);
+
+  return Math.round((targetDate.getTime() - today.getTime()) / 86400000);
+}
 function createDemoSession({
   dayOffset,
   discomfort,
@@ -964,6 +977,8 @@ function buildDemoClient(): CoachClient {
   const lowerExercises = [
     createDemoPlannedExercise({ block: "activation", name: "World greatest stretch", reps: 6, rpe: 5, sets: 2 }),
     createDemoPlannedExercise({ block: "activation", name: "Pogo jump bilateral", reps: 8, rpe: 6, sets: 3 }),
+    createDemoPlannedExercise({ block: "main", name: "Goblet squat", reps: 8, rpe: 7, sets: 4, load: 32 }),
+    createDemoPlannedExercise({ block: "main", name: "Romanian deadlift", reps: 8, rir: 2, sets: 4, load: 82.5 }),
     createDemoPlannedExercise({ block: "main", name: "Bulgarian split squat", reps: 10, rir: 3, sets: 3, load: 24 }),
     createDemoPlannedExercise({
       block: "main",
@@ -975,21 +990,28 @@ function buildDemoClient(): CoachClient {
       load: 90,
       variantName: "Hip thrust unilateral"
     }),
-    createDemoPlannedExercise({ block: "main", name: "Leg extension", reps: 14, sets: 4, velocity: "0.25" })
+    createDemoPlannedExercise({ block: "auxiliary", name: "Leg extension", reps: 14, sets: 4, velocity: "0.25" })
   ];
   const upperExercises = [
     createDemoPlannedExercise({ block: "main", name: "Bench press", reps: 6, rpe: 7, sets: 4, load: 72.5 }),
     createDemoPlannedExercise({ block: "main", name: "Pull-up / Chin-up", reps: 6, rir: 2, sets: 4 }),
-    createDemoPlannedExercise({ block: "auxiliary", name: "Seated cable row", reps: 10, rpe: 7, sets: 3, load: 55 })
+    createDemoPlannedExercise({ block: "auxiliary", name: "Seated cable row", reps: 10, rpe: 7, sets: 3, load: 55 }),
+    createDemoPlannedExercise({ block: "auxiliary", name: "Face pull", reps: 14, rpe: 6, sets: 3, load: 18 }),
+    createDemoPlannedExercise({ block: "auxiliary", name: "Lateral raise", reps: 12, rpe: 7, sets: 3, load: 8 })
   ];
   const powerExercises = [
     createDemoPlannedExercise({ block: "activation", name: "Pogo jump bilateral", reps: 8, rpe: 6, sets: 3 }),
     createDemoPlannedExercise({ block: "main", name: "Drop jump", reps: 4, rpe: 7, sets: 4 }),
     createDemoPlannedExercise({ block: "auxiliary", name: "Medicine ball chest pass", reps: 6, rpe: 6, sets: 3 })
   ];
+  const coreExercises = [
+    createDemoPlannedExercise({ block: "main", name: "Pallof press", reps: 10, rpe: 7, sets: 3, load: 16 }),
+    createDemoPlannedExercise({ block: "main", name: "Dead bug", reps: 8, rpe: 6, sets: 3 }),
+    createDemoPlannedExercise({ block: "auxiliary", name: "Plank", reps: 3, rpe: 7, sets: 3 })
+  ];
   const sessionRecords: ClientSessionRecord[] = [
     createDemoSession({
-      dayOffset: -25,
+      dayOffset: getDemoWeekDayOffset(0),
       duration: 68,
       exercises: lowerExercises,
       finalRpe: 7,
@@ -998,9 +1020,9 @@ function buildDemoClient(): CoachClient {
       type: "Fuerza",
       wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 3, stress: 2 }
     }),
-    createDemoCardioSession(-23),
+    createDemoCardioSession(getDemoWeekDayOffset(1)),
     createDemoSession({
-      dayOffset: -20,
+      dayOffset: getDemoWeekDayOffset(2),
       duration: 60,
       exercises: upperExercises,
       finalRpe: 7,
@@ -1010,7 +1032,7 @@ function buildDemoClient(): CoachClient {
       wellness: { fatigue: 2, motivation: 5, sleep: 4, soreness: 2, stress: 2 }
     }),
     createDemoSession({
-      dayOffset: -16,
+      dayOffset: getDemoWeekDayOffset(3),
       duration: 52,
       exercises: powerExercises,
       finalRpe: 6,
@@ -1019,9 +1041,9 @@ function buildDemoClient(): CoachClient {
       type: "Fuerza",
       wellness: { fatigue: 2, motivation: 4, sleep: 5, soreness: 2, stress: 1 }
     }),
-    createDemoCardioSession(-14, true),
+    createDemoCardioSession(getDemoWeekDayOffset(4), true),
     createDemoSession({
-      dayOffset: -11,
+      dayOffset: getDemoWeekDayOffset(5),
       discomfort: {
         bodyArea: "Rodilla izquierda",
         exerciseName: "Bulgarian split squat",
@@ -1040,7 +1062,7 @@ function buildDemoClient(): CoachClient {
       wellness: { fatigue: 4, motivation: 4, sleep: 3, soreness: 4, stress: 3 }
     }),
     createDemoSession({
-      dayOffset: -7,
+      dayOffset: getDemoWeekDayOffset(6),
       duration: 58,
       exercises: upperExercises,
       finalRpe: 6,
@@ -1048,6 +1070,16 @@ function buildDemoClient(): CoachClient {
       summary: "Fuerza tren superior tecnica",
       type: "Fuerza",
       wellness: { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
+    }),
+    createDemoSession({
+      dayOffset: getDemoWeekDayOffset(6),
+      duration: 42,
+      exercises: coreExercises,
+      finalRpe: 6,
+      id: "demo-session-week-4-core",
+      summary: "Core y accesorios para control postural",
+      type: "Fuerza",
+      wellness: { fatigue: 3, motivation: 4, sleep: 3, soreness: 2, stress: 2 }
     }),
     {
       block: "Demo semana actual",
@@ -1080,14 +1112,14 @@ function buildDemoClient(): CoachClient {
     availableEquipment: "Barra, mancuernas, polea, cajon, balon medicinal",
     chronicLoad: 1780,
     coachNotes: "Cliente demo para probar dashboard, calendario, historial, fatiga y wellness.",
-    dailyLoads: [420, 0, 360, 540, 0, 320, 280],
+    dailyLoads: [476, 225, 420, 312, 304, 560, 600],
     goalType: "Rendimiento",
     history: "Perfil ficticio para pruebas visuales. No contiene datos personales reales.",
     hooper: { fatigue: 3, mood: 2, sleep: 2, soreness: 3, stress: 2 },
     id: "demo-client",
     injuries: "Molestias leves registradas de prueba, sin diagnosticos.",
     isDemo: true,
-    lastActivity: "Fuerza tren superior tecnica - hace 7 dias",
+    lastActivity: "Core y accesorios - esta semana",
     level: "Intermedio",
     loadMetric: "ACWR demo 1.08 - monotonia demo 1.3",
     metrics: ["sRPE demo 2180 UA", "Hooper demo 12/25", "Fatiga muscular visible"],
