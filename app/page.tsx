@@ -29,6 +29,7 @@ import { CalendarView } from "@/components/coach/coach-calendar-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
 import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
+import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import {
   acwrRanges,
@@ -3365,7 +3366,10 @@ const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string>
   intermediate: "Intermedia"
 };
 
+type ExerciseLibraryMode = "strength" | "resistance";
+
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
+  const [libraryMode, setLibraryMode] = useState<ExerciseLibraryMode>("strength");
   const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower_body");
   const availablePatterns = getExercisePatternsByBodyRegion(activeBodyRegion);
   const [activePattern, setActivePattern] = useState<ExercisePattern>(availablePatterns[0]);
@@ -3382,11 +3386,34 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
     ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
     : [];
 
+  if (libraryMode === "resistance") {
+    return <ResistanceMethodsView libraryMode={libraryMode} setLibraryMode={setLibraryMode} />;
+  }
+
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <h2 className="text-lg font-semibold text-ink">Biblioteca por familias</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Biblioteca por familias</h2>
+            <div className="mt-3 flex w-fit rounded-md border border-line bg-panel/35 p-1">
+              {([
+                ["strength", "Fuerza"],
+                ["resistance", "Resistencia"]
+              ] as const).map(([mode, label]) => (
+                <button
+                  className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                    libraryMode === mode ? "bg-ink text-white" : "text-ink/65 hover:bg-white"
+                  }`}
+                  key={mode}
+                  onClick={() => setLibraryMode(mode)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           {client ? (
             <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
               {client.name}
