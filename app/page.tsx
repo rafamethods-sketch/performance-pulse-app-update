@@ -50,7 +50,7 @@ import {
   type PlanningMethod,
   type WeeklyDistribution
 } from "@/lib/planning-config";
-import { calculateFatigueZones, type FatigueZoneLevel } from "@/lib/fatigue-zones";
+import { calculateFatigueZones } from "@/lib/fatigue-zones";
 import {
   bodyRegionLabels,
   bodyRegions,
@@ -4996,9 +4996,42 @@ function CoachTrainingPlanner({
   const fatigueAlerts = calculateMuscleFatigue(getClientTrainingSessionInputs(activeSessionClient))
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
-  const weeklyZoneAlerts = calculateFatigueZones(
+  const weeklyZoneScores = calculateFatigueZones(
     (activeSessionClient?.sessionRecords ?? []).filter((session) => hasRealSessionData(session) && isSessionThisWeek(session.date))
-  ).filter((zone) => zone.level === "moderate" || zone.level === "high");
+  );
+  const weeklyZoneAlerts = weeklyZoneScores.filter((zone) => zone.level === "moderate" || zone.level === "high");
+  const maxWeeklyZoneScore = Math.max(0, ...weeklyZoneScores.map((zone) => zone.score));
+  const planningLoadData = activeSessionClient ? getClientLoadData(activeSessionClient) : null;
+  const planningActionAlerts = [
+    ...fatigueAlerts.map((item) => ({
+      label: item.muscle,
+      tone: item.status === "Rojo" ? "high" : "moderate",
+      value: `${item.fatigueScore}%`
+    })),
+    ...weeklyZoneAlerts.map((zone) => ({
+      label: zone.label,
+      tone: zone.level === "high" ? "high" : "moderate",
+      value: `${maxWeeklyZoneScore > 0 ? Math.round(zone.score / maxWeeklyZoneScore * 100) : 0}%`
+    })),
+    ...(planningLoadData && planningLoadData.weeklyLoad >= 2200
+      ? [{ label: "sRPE semanal", tone: "high", value: `${Math.round(planningLoadData.weeklyLoad).toLocaleString("es-ES")} UA` }]
+      : []),
+    ...(planningLoadData && planningLoadData.acwrStatus !== "Controlado"
+      ? [{ label: "ACWR", tone: planningLoadData.acwrStatus === "Alto" ? "high" : "moderate", value: planningLoadData.acwr.toFixed(2) }]
+      : []),
+    ...(planningLoadData && planningLoadData.hooperStatus !== "Controlado"
+      ? [{ label: "Wellness", tone: planningLoadData.hooperStatus === "Alto" ? "high" : "moderate", value: `${planningLoadData.hooper}/25` }]
+      : []),
+    ...(activeSessionClient && activeSessionClient.hooper.sleep > 0 && activeSessionClient.hooper.sleep <= 2
+      ? [{ label: "Sueño", tone: "moderate", value: `${activeSessionClient.hooper.sleep}/5` }]
+      : []),
+    ...(activeSessionClient && activeSessionClient.hooper.fatigue >= 4
+      ? [{ label: "Fatiga", tone: "moderate", value: `${activeSessionClient.hooper.fatigue}/5` }]
+      : []),
+    ...(activeSessionClient?.injuries
+      ? [{ label: "Molestias / limitaciones", tone: "moderate", value: "Registradas" }]
+      : [])
+  ];
   useEffect(() => {
     setSelectedBlockWeek(activePlanningWeek);
   }, [activePlanningWeek, activeSessionClient?.id]);
@@ -5611,7 +5644,7 @@ function CoachTrainingPlanner({
             <p className="text-sm font-semibold text-ink">Fatiga muscular a vigilar</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {fatigueAlerts.length > 0 ? fatigueAlerts.map((item) => (
-                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-coral" key={item.muscle}>
+                <span className="rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold text-coral" key={item.muscle}>
                   {item.muscle} {item.fatigueScore}%
                 </span>
               )) : (
@@ -5620,22 +5653,19 @@ function CoachTrainingPlanner({
             </div>
           </div>
           <div className="rounded-md border border-line bg-panel/35 p-4">
-            <p className="text-sm font-semibold text-ink">Zonas a vigilar</p>
-            <div className="mt-2 grid gap-2">
-              {weeklyZoneAlerts.length > 0 ? weeklyZoneAlerts.map((zone) => (
+            <p className="text-sm font-semibold text-ink">Alertas accionables</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {planningActionAlerts.length > 0 ? planningActionAlerts.map((alert) => (
                 <div
-                  className={`rounded-md px-3 py-2 text-xs font-semibold ${getPlanningZoneAlertClass(zone.level)}`}
-                  key={zone.key}
+                  className={`rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold ${
+                    alert.tone === "high" ? "text-coral" : "text-clay"
+                  }`}
+                  key={`${alert.label}-${alert.value}`}
                 >
-                  <p>{zone.label}</p>
-                  <p className="mt-1 font-medium">
-                    {zone.level === "high"
-                      ? "Carga alta esta semana. Valora recuperación y objetivo de la sesión."
-                      : "Carga moderada esta semana."}
-                  </p>
+                  {alert.label} {"\u00b7"} {alert.value}
                 </div>
               )) : (
-                <span className="text-sm font-medium text-ink/55">Sin zonas especialmente cargadas esta semana.</span>
+                <span className="text-sm font-medium text-ink/55">Sin alertas relevantes.</span>
               )}
             </div>
           </div>
@@ -6303,12 +6333,6 @@ function isSessionThisWeek(value?: string | null) {
   return date >= start && date < end;
 }
 
-function getPlanningZoneAlertClass(level: FatigueZoneLevel) {
-  if (level === "high") return "border border-line border-l-4 border-l-coral bg-panel/35 text-ink";
-  if (level === "moderate") return "border border-line border-l-4 border-l-clay bg-panel/35 text-ink";
-  return "border border-line bg-panel text-ink/50";
-}
-
 function getSessionReviewStatus(session: ReviewSessionRecord): SessionReviewStatus | null {
   if (session.reviewStatus === "reviewed") return "reviewed";
   if (hasRealSessionData(session)) return "pending";
@@ -6534,6 +6558,33 @@ function SessionHistoryPanel({
     onConsumeTargetTrainingSession();
   }, [client.id, onConsumeTargetTrainingSession, sessions, targetTrainingSession]);
 
+  useEffect(() => {
+    if (!openSessionKey && !selectedExerciseDetail && !reviewFeedbackModal) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (selectedExerciseDetail) {
+        setSelectedExerciseDetail(null);
+        return;
+      }
+      if (reviewFeedbackModal) {
+        setReviewFeedbackModal(null);
+        return;
+      }
+      setOpenSessionKey("");
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openSessionKey, reviewFeedbackModal, selectedExerciseDetail]);
+
   return (
     <div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -6634,14 +6685,39 @@ function SessionHistoryPanel({
 
                 <button
                   className="mt-4 rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
-                  onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
+                  onClick={() => setOpenSessionKey(sessionKey)}
                   type="button"
                 >
-                  {isOpen ? "Ocultar detalle" : "Ver detalle"}
+                  Ver detalle
                 </button>
 
                 {isOpen ? (
-                  <div className="mt-4 rounded-md border border-line bg-panel/25 p-4">
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm"
+                    onClick={() => setOpenSessionKey("")}
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    <div
+                      className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Detalle de sesi{"\u00f3"}n</p>
+                          <h4 className="mt-1 text-xl font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h4>
+                          <p className="mt-1 text-sm text-ink/55">{displayValue(session.date)} {"\u00b7"} {client.name}</p>
+                        </div>
+                        <button
+                          aria-label="Cerrar detalle"
+                          className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-lg font-semibold text-ink transition hover:bg-mint"
+                          onClick={() => setOpenSessionKey("")}
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </div>
+                  <div className="rounded-md border border-line bg-panel/25 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h4 className="font-semibold text-ink">Planificado vs realizado</h4>
@@ -6808,6 +6884,8 @@ function SessionHistoryPanel({
                         </div>
                       </section>
                     ) : null}
+                  </div>
+                    </div>
                   </div>
                 ) : null}
               </article>
