@@ -4037,7 +4037,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
 
   return {
     name: "Torso-pierna / enfasis por patrones",
-    reason: "Con mas frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
+    reason: "Con más frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
     templateType: "Torso-pierna"
   };
 }

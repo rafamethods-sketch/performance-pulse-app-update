@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { BodyFatigueMap } from "@/components/shared/body-fatigue-map";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getExerciseById } from "@/lib/exercises";
-import { calculateWeeklyMuscleFatigue, type MuscleFatigueExercise, type MuscleFatigueLevel } from "@/lib/muscle-fatigue";
+import { calculateWeeklyMuscleFatigue, type MuscleFatigueExercise } from "@/lib/muscle-fatigue";
 
 type AthleteWeeklyExercise = MuscleFatigueExercise & {
   actualRpe?: number | string | null;
@@ -60,24 +60,23 @@ type AthleteWeeklyClient = {
   sessionRecords?: AthleteWeeklySession[];
 };
 
-type MuscleGroupConfig = {
-  keys: string[];
-  label: string;
-};
-
 const cardioZones: CardioZone[] = ["Z1", "Z2", "Z3", "Z4", "Z5"];
 
-const muscleGroups: MuscleGroupConfig[] = [
-  { label: "Cuádriceps", keys: ["quadriceps"] },
-  { label: "Isquiosurales", keys: ["hamstrings"] },
-  { label: "Glúteos", keys: ["glutes", "gluteMed"] },
-  { label: "Gemelos / sóleo", keys: ["calves", "soleus"] },
-  { label: "Pectoral", keys: ["chest"] },
-  { label: "Espalda / dorsales", keys: ["lats", "midBack", "upperBack", "lowerTraps"] },
-  { label: "Deltoides", keys: ["anteriorDelts", "lateralDelts", "rearDelts", "shoulders"] },
-  { label: "Bíceps", keys: ["biceps"] },
-  { label: "Tríceps", keys: ["triceps"] },
-  { label: "Core", keys: ["core", "obliques", "transverseAbdominis", "rectusAbdominis", "lumbarStabilizers"] }
+const movementPatternOrder = [
+  "Squat / Vertical Force",
+  "Hinge / Horizontal Force",
+  "Lunge / Unilateral Force",
+  "Push / Upper Body Press",
+  "Pull / Upper Body Pull",
+  "Olympic derivatives",
+  "Plyometrics / Jumps",
+  "Core / Trunk Control",
+  "Gait & Carry",
+  "Mobility / Movement Prep",
+  "Lower Body Accessories",
+  "Upper Body Accessories",
+  "Speed & Agility Skills",
+  "Otros"
 ];
 
 function hasDisplayValue(value: unknown) {
@@ -133,6 +132,12 @@ function getExerciseSets(exercise: AthleteWeeklyExercise) {
   return parsePositiveNumber(exercise.sets ?? exercise.plannedSets);
 }
 
+function getExerciseSeriesCount(exercise: AthleteWeeklyExercise) {
+  const setDetailsCount = exercise.setDetails?.length ?? 0;
+  if (setDetailsCount > 0) return setDetailsCount;
+  return getExerciseSets(exercise);
+}
+
 function getExerciseReps(exercise: AthleteWeeklyExercise) {
   const setDetailsRepSum = getSetDetailsRepSum(exercise);
   if (setDetailsRepSum > 0) return setDetailsRepSum;
@@ -174,39 +179,38 @@ function isStrengthSession(session: AthleteWeeklySession) {
   ) || getSessionExercises(session).length > 0;
 }
 
-function calculateMuscleEffectiveSets(sessions: AthleteWeeklySession[]) {
-  const scores = Object.fromEntries(muscleGroups.map((group) => [group.label, 0])) as Record<string, number>;
+function calculateWeeklyPatternSets(sessions: AthleteWeeklySession[]) {
+  const scores: Record<string, number> = {};
 
   sessions.forEach((session) => {
     getSessionExercises(session).forEach((exercise) => {
-      if (!exercise.exerciseId) return;
-      const libraryExercise = getExerciseById(exercise.exerciseId);
-      if (!libraryExercise?.fatigueMap) return;
-
-      const sets = getExerciseSets(exercise);
+      const sets = getExerciseSeriesCount(exercise);
       if (sets <= 0) return;
 
-      muscleGroups.forEach((group) => {
-        const contribution = group.keys.reduce((total, key) => {
-          const value = libraryExercise.fatigueMap[key as keyof typeof libraryExercise.fatigueMap];
-          return total + (typeof value === "number" ? value : 0);
-        }, 0);
-        scores[group.label] += sets * contribution;
-      });
+      const pattern = exercise.exerciseId ? getExerciseById(exercise.exerciseId)?.pattern : null;
+      const patternLabel = pattern || "Otros";
+      scores[patternLabel] = (scores[patternLabel] ?? 0) + sets;
     });
   });
 
-  return muscleGroups.map((group) => ({
-    label: group.label,
-    value: scores[group.label] ?? 0
-  }));
+  return Object.entries(scores)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => {
+      const aIndex = movementPatternOrder.indexOf(a.label);
+      const bIndex = movementPatternOrder.indexOf(b.label);
+      const normalizedA = aIndex === -1 ? movementPatternOrder.length : aIndex;
+      const normalizedB = bIndex === -1 ? movementPatternOrder.length : bIndex;
+      if (normalizedA !== normalizedB) return normalizedA - normalizedB;
+      return b.value - a.value;
+    });
 }
 
-function getEffectiveSetsRange(value: number) {
-  if (value >= 20) return { className: "bg-red-50 text-red-700", label: "Muy alto", barClassName: "bg-red-500" };
-  if (value >= 10) return { className: "bg-mint text-moss", label: "Óptimo", barClassName: "bg-moss" };
-  if (value >= 5) return { className: "bg-amber-100 text-amber-800", label: "Moderado", barClassName: "bg-amber-500" };
-  return { className: "bg-panel text-ink/50", label: "Bajo", barClassName: "bg-ink/20" };
+function getPatternSetsRange(value: number) {
+  if (value > 16) return { className: "bg-red-50 text-red-700", label: "Muy alto", barClassName: "bg-red-500" };
+  if (value >= 11) return { className: "bg-amber-100 text-amber-800", label: "Alto", barClassName: "bg-amber-500" };
+  if (value >= 6) return { className: "bg-blue-50 text-blue-700", label: "Moderado", barClassName: "bg-steel" };
+  if (value >= 1) return { className: "bg-panel text-ink/60", label: "Bajo", barClassName: "bg-ink/25" };
+  return { className: "bg-panel text-ink/45", label: "Sin carga", barClassName: "bg-ink/10" };
 }
 
 function emptyCardioZones() {
@@ -317,14 +321,6 @@ function getLoadIndex(totalSrpe: number) {
   };
 }
 
-function getMuscleLevelLabel(level: MuscleFatigueLevel) {
-  if (level === "very_high") return "muy alta";
-  if (level === "high") return "alta";
-  if (level === "moderate") return "moderada";
-  if (level === "low") return "baja";
-  return "sin carga";
-}
-
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
     <div className={`rounded-md border border-line bg-panel/35 px-3 py-2 ${className}`}>
@@ -349,9 +345,9 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   const totalTonnage = calculateWeeklyTonnage(weeklySessions);
   const strengthSessions = weeklySessions.filter(isStrengthSession);
   const cardioSessions = weeklySessions.filter(isCardioSession);
-  const muscleSets = calculateMuscleEffectiveSets(weeklySessions);
-  const maxMuscleSets = Math.max(1, ...muscleSets.map((item) => item.value));
-  const hasMuscleSetData = muscleSets.some((item) => item.value > 0);
+  const patternSets = calculateWeeklyPatternSets(weeklySessions);
+  const maxPatternSets = Math.max(1, ...patternSets.map((item) => item.value));
+  const hasPatternSetData = patternSets.some((item) => item.value > 0);
   const cardioZoneTotals = calculateWeeklyCardioZones(cardioSessions);
   const totalCardioZoneMinutes = Object.values(cardioZoneTotals).reduce((total, value) => total + value, 0);
   const maxCardioZoneMinutes = Math.max(1, ...Object.values(cardioZoneTotals));
@@ -424,26 +420,28 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
 
       <section className="grid gap-4">
         <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-          <h3 className="font-semibold text-ink">Series efectivas por grupo muscular</h3>
-          <p className="mt-1 text-sm text-ink/60">Estimación orientativa según los ejercicios registrados esta semana.</p>
-          {hasMuscleSetData ? (
-            <div className="mt-4 grid gap-3">
-              {muscleSets.map((item) => {
-                const range = getEffectiveSetsRange(item.value);
+          <h3 className="font-semibold text-ink">Series semanales por patrón de movimiento</h3>
+          <p className="mt-1 text-sm text-ink/60">Estimación según ejercicios registrados esta semana.</p>
+          {hasPatternSetData ? (
+            <div className="mt-4 grid gap-2">
+              {patternSets.map((item) => {
+                const range = getPatternSetsRange(item.value);
 
                 return (
-                  <div className="rounded-md border border-line bg-panel/35 p-3" key={item.label}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-ink">{item.label}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-ink/70">{item.value.toFixed(1)} series</span>
+                  <div className="rounded-md border border-line bg-panel/35 px-3 py-2.5" key={item.label}>
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{item.label}</p>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+                          <div className={`h-full rounded-full ${range.barClassName}`} style={{ width: `${Math.min(100, (item.value / Math.max(16, maxPatternSets)) * 100)}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:justify-end">
+                        <span className="text-sm font-semibold text-ink/70">{item.value} series</span>
                         <span className={`rounded-md px-2 py-1 text-xs font-semibold ${range.className}`}>
                           {range.label}
                         </span>
                       </div>
-                    </div>
-                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
-                      <div className={`h-full rounded-full ${range.barClassName}`} style={{ width: `${Math.min(100, (item.value / Math.max(20, maxMuscleSets)) * 100)}%` }} />
                     </div>
                   </div>
                 );
@@ -451,12 +449,9 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             </div>
           ) : (
             <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm font-semibold text-ink/55">
-              Sin datos suficientes para estimar series efectivas.
+              Sin datos suficientes para estimar series por patrón.
             </p>
           )}
-          <p className="mt-4 rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-ink/60">
-            Rangos orientativos de volumen semanal. Ajustar según objetivo, nivel, fase de la temporada, proximidad al fallo y tolerancia individual.
-          </p>
         </article>
 
         <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
@@ -465,27 +460,11 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
           {muscleFatigue.hasData ? (
             <div className="mt-4 grid gap-4">
               <BodyFatigueMap muscles={muscleFatigue.results} />
-              <div className="rounded-md border border-line bg-panel/35 p-3">
-                <p className="text-xs font-semibold uppercase text-ink/45">Top 3 músculos más cargados</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  {muscleFatigue.topMuscles.map((muscle) => (
-                    <div className="rounded-md border border-line bg-white px-3 py-2" key={muscle.key}>
-                      <p className="text-sm font-semibold text-ink">{muscle.label}</p>
-                      <p className="mt-1 text-xs font-medium text-ink/55">
-                        {muscle.relative}% relativo · {getMuscleLevelLabel(muscle.level)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-3 text-xs font-medium text-ink/55">
-                  Intensidad relativa respecto al músculo más cargado de la semana.
+              {muscleFatigue.incomplete ? (
+                <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-amber-800">
+                  Estimación parcial: algunas sesiones no tienen RPE registrado.
                 </p>
-                {muscleFatigue.incomplete ? (
-                  <p className="mt-2 text-xs font-medium text-amber-800">
-                    Estimación parcial: algunas sesiones no tienen RPE registrado.
-                  </p>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           ) : (
             <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm font-semibold text-ink/55">
