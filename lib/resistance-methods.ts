@@ -291,3 +291,16 @@ export const resistanceMethods: ResistanceMethod[] = [
 export const completeResistanceMethodIds = ["CE", "CI", "CV1", "CV2", "IEL", "IEM", "IIC", "IIMC", "RL", "RM", "RC", "SR", "SS"] as const;
 export const pendingResistanceMethodIds = ["CyC"] as const;
 
+export function getCompleteResistanceMethods() {
+  return resistanceMethods.filter((method) => method.status === "complete");
+}
+
+export function getResistanceMethodById(id?: string | null) {
+  if (!id) return null;
+  return resistanceMethods.find((method) => method.id === id) ?? null;
+}
+
+export function isResistanceMethodComplete(id?: string | null) {
+  return getResistanceMethodById(id)?.status === "complete";
+}
+

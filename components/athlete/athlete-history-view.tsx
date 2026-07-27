@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/lib/cardio-deviation";
 import { getExerciseById } from "@/lib/exercises";
+import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 
 type AthleteWellness = {
   calm?: number;
@@ -67,6 +68,7 @@ type ReviewSessionRecord = {
   notes?: string | null;
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
+  resistanceMethodId?: string;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
@@ -230,6 +232,10 @@ function getAthleteSessionReviewLabel(session: ReviewSessionRecord) {
   return "Enviada";
 }
 
+function getAthleteResistanceMethodLabel(method?: ResistanceMethod | null) {
+  return method ? `${method.method} · ${method.name}` : "";
+}
+
 function formatCardioZoneMinutes(timeInZones?: CardioResult["timeInZones"]) {
   if (!timeInZones) return [];
   return (["z1", "z2", "z3", "z4", "z5"] as const)
@@ -311,6 +317,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             const notes = getAthleteSessionNotes(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
+            const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
             const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
@@ -358,6 +365,12 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       <p className="font-semibold text-ink">Notas del deportista</p>
                       <p className="mt-1">{notes || "Sin notas registradas"}</p>
                     </div>
+                    {resistanceMethod ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <p className="font-semibold text-ink">Método de resistencia</p>
+                        <p className="mt-1">{getAthleteResistanceMethodLabel(resistanceMethod)}</p>
+                      </div>
+                    ) : null}
                     {session.discomfort?.hasDiscomfort ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                         <p className="font-semibold">Molestia reportada</p>

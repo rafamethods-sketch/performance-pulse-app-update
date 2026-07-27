@@ -91,6 +91,11 @@ import {
   type CardioZone
 } from "@/lib/cardio-deviation";
 import { calculateSessionDeviation, type SessionDiscomfort } from "@/lib/session-deviation";
+import {
+  getCompleteResistanceMethods,
+  getResistanceMethodById,
+  type ResistanceMethod
+} from "@/lib/resistance-methods";
 import { supabase } from "@/lib/supabase";
 import {
   athleteAdherence,
@@ -663,6 +668,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   linkedCardioActivityId?: string;
   performedExercises?: ConnectedSessionExercise[];
   plannedExercises?: ConnectedSessionExercise[];
+  resistanceMethodId?: string;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
@@ -5394,6 +5400,24 @@ function buildCardioPlanFromDraft(draft: CardioPlanDraft): CardioPlan | undefine
     : undefined;
 }
 
+function getResistanceMethodLabel(method?: ResistanceMethod | null) {
+  return method ? `${method.method} · ${method.name}` : "";
+}
+
+function buildResistanceMethodTemplateNotes(method: ResistanceMethod) {
+  return [
+    `Método de resistencia: ${getResistanceMethodLabel(method)}`,
+    method.intensity ? `Intensidad: ${method.intensity}` : "",
+    method.sessionDuration ? `Duración / tiempo total: ${method.sessionDuration}` : "",
+    method.repetitions ? `Repeticiones: ${method.repetitions}` : "",
+    method.repetitionDuration ? `Duración repeticiones: ${method.repetitionDuration}` : "",
+    method.recoveryBetweenRepetitions ? `Recuperación entre repeticiones: ${method.recoveryBetweenRepetitions}` : "",
+    method.series ? `Series: ${method.series}` : "",
+    method.recoveryBetweenSeries ? `Recuperación entre series: ${method.recoveryBetweenSeries}` : "",
+    method.examples[0] ? `Ejemplo: ${method.examples[0]}` : ""
+  ].filter(Boolean).join("\n");
+}
+
 function getPlanningWeekNumber(currentWeek: string) {
   const match = currentWeek.match(/\d+/);
   return match ? Number(match[0]) : 1;
@@ -5426,6 +5450,7 @@ function CoachTrainingPlanner({
   const [sessionType, setSessionType] = useState<CoachSessionType>("Fuerza");
   const [sessionStrengthMethod, setSessionStrengthMethod] = useState<StrengthIntensityMethod>("rir");
   const [sessionEnduranceMethod, setSessionEnduranceMethod] = useState<EnduranceIntensityMethod>("zones");
+  const [selectedResistanceMethodId, setSelectedResistanceMethodId] = useState("");
   const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
   const [sessionTargetRpe, setSessionTargetRpe] = useState("");
   const [cardioPlanDraft, setCardioPlanDraft] = useState<CardioPlanDraft>({
@@ -5448,6 +5473,8 @@ function CoachTrainingPlanner({
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const completeResistanceMethods = getCompleteResistanceMethods();
+  const selectedResistanceMethod = getResistanceMethodById(selectedResistanceMethodId);
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
@@ -5600,6 +5627,18 @@ function CoachTrainingPlanner({
   const updateCardioPlanDraft = (field: keyof CardioPlanDraft, value: string) => {
     setCardioPlanDraft((current) => ({ ...current, [field]: value }));
   };
+  const applyResistanceMethodTemplate = () => {
+    if (!selectedResistanceMethod) return;
+    const methodNotes = buildResistanceMethodTemplateNotes(selectedResistanceMethod);
+
+    setCardioPlanDraft((current) => ({
+      ...current,
+      notes: current.notes.trim() ? current.notes : methodNotes
+    }));
+    if (!sessionSummary.trim()) {
+      setSessionSummary(getResistanceMethodLabel(selectedResistanceMethod));
+    }
+  };
   const markSessionAsReviewed = (sessionIndex: number, reviewNotes = "") => {
     onUpdateClient({
       ...activeSessionClient,
@@ -5681,6 +5720,7 @@ function CoachTrainingPlanner({
       enduranceMethod: sessionEnduranceMethod,
       performedExercises: [],
       plannedExercises,
+      resistanceMethodId: sessionType === "Cardio" ? selectedResistanceMethodId || undefined : undefined,
       sessionNumber,
       status: "Planificada",
       strengthMethod: sessionStrengthMethod,
@@ -6346,6 +6386,76 @@ function CoachTrainingPlanner({
           <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
             <h3 className="font-semibold text-ink">Cardio / resistencia</h3>
             <p className="mt-1 text-sm text-ink/55">Bloque opcional para comparar el trabajo planificado con el registro real.</p>
+            <div className="mt-4 rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Método de resistencia
+                  <select
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setSelectedResistanceMethodId(event.target.value)}
+                    value={selectedResistanceMethodId}
+                  >
+                    <option value="">Sin método seleccionado</option>
+                    {completeResistanceMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {method.method} · {method.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {selectedResistanceMethod ? (
+                  <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
+                        <p className="mt-1 text-xs font-medium text-ink/55">
+                          {selectedResistanceMethod.family} · {selectedResistanceMethod.group}
+                          {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        className="w-fit rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+                        onClick={applyResistanceMethodTemplate}
+                        type="button"
+                      >
+                        Usar como plantilla
+                      </button>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <ClientInfoCard label="Intensidad" value={selectedResistanceMethod.intensity || "Sin especificar"} />
+                      <ClientInfoCard label="Duración / tiempo total" value={selectedResistanceMethod.sessionDuration || "Sin especificar"} />
+                      <ClientInfoCard label="Nº repeticiones" value={selectedResistanceMethod.repetitions || "Sin especificar"} />
+                      <ClientInfoCard label="Rec. repeticiones" value={selectedResistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
+                      <ClientInfoCard label="Nº series" value={selectedResistanceMethod.series || "Sin especificar"} />
+                      <ClientInfoCard label="Rec. series" value={selectedResistanceMethod.recoveryBetweenSeries || "Sin especificar"} />
+                    </div>
+                    {selectedResistanceMethod.trainingEffects.length > 0 ? (
+                      <p className="mt-3 text-xs text-ink/55">
+                        <span className="font-semibold text-ink/70">Efectos principales: </span>
+                        {selectedResistanceMethod.trainingEffects.slice(0, 2).join(" · ")}
+                      </p>
+                    ) : null}
+                    {selectedResistanceMethod.examples.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedResistanceMethod.examples.slice(0, 2).map((example) => (
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={example}>
+                            {example}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink/55">
+                      Guía metodológica. Ajusta el contenido según deporte, nivel y momento de la temporada.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex min-h-24 items-center rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-medium text-ink/50">
+                    Selecciona un método completo para ver la guía metodológica. CyC sigue pendiente y no aparece como seleccionable.
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Deporte / modalidad
@@ -6492,6 +6602,16 @@ function CoachTrainingPlanner({
               </header>
 
               <div className="assessment-modal-body grid gap-4 px-5 py-5">
+                {sessionType === "Cardio" && selectedResistanceMethod ? (
+                  <section className="rounded-md border border-line bg-white p-4">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Método de resistencia</p>
+                    <p className="mt-2 font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
+                    <p className="mt-1 text-sm text-ink/60">
+                      {selectedResistanceMethod.group}
+                      {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
+                    </p>
+                  </section>
+                ) : null}
                 {strengthExercises.length === 0 ? (
                   <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-medium text-ink/55">
                     No hay ejercicios añadidos.
@@ -6608,6 +6728,7 @@ type ReviewSessionRecord = ClientSessionRecord & {
   mesocycle?: string | null;
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
+  resistanceMethodId?: string;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: SessionReviewStatus;
@@ -7101,6 +7222,7 @@ function SessionHistoryPanel({
             const rpe = session.finalRpe ?? session.rpe;
             const notes = session.finalNotes ?? session.notes;
             const sessionDeviation = calculateSessionDeviation(session);
+            const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
             const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
@@ -7164,6 +7286,11 @@ function SessionHistoryPanel({
                 {hasDisplayValue(notes) ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
                     <span className="font-semibold text-ink">{"Notas del deportista:"}</span> {notes}
+                  </p>
+                ) : null}
+                {resistanceMethod ? (
+                  <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
+                    <span className="font-semibold text-ink">Método de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
                   </p>
                 ) : null}
 
@@ -7299,6 +7426,11 @@ function SessionHistoryPanel({
                             {cardioDeviation.reading}
                           </span>
                         </div>
+                        {resistanceMethod ? (
+                          <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
+                            Método de resistencia: {getResistanceMethodLabel(resistanceMethod)}
+                          </p>
+                        ) : null}
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <ClientInfoCard
                             label={"Duraci\u00f3n"}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
+import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 
 type AthleteWellness = {
   calm?: number;
@@ -81,6 +82,7 @@ type AthleteSessionRecord = {
   discomfort?: AthleteSessionDiscomfort;
   performedExercises?: AthleteExercise[];
   plannedExercises?: AthleteExercise[];
+  resistanceMethodId?: string;
   reviewStatus?: "pending" | "reviewed";
   sessionNumber?: number | string | null;
   sRPE?: number | string | null;
@@ -166,6 +168,10 @@ const cardioSportLabels: Record<NonNullable<CardioPlan["sport"]>, string> = {
   swim: "Natación",
   walk: "Caminar"
 };
+
+function getAthleteResistanceMethodLabel(method?: ResistanceMethod | null) {
+  return method ? `${method.method} · ${method.name}` : "";
+}
 
 function getLocalDateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -432,6 +438,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       discomfortDraft.intensity >= 1 &&
       discomfortDraft.intensity <= 10);
   const canSubmitSession = finalRpeValid && durationValid && discomfortValid;
+  const resistanceMethod = getResistanceMethodById(session?.resistanceMethodId);
 
   useEffect(() => {
     setWellness(normalizeAthleteWellness(session?.wellness));
@@ -758,6 +765,17 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       value={session.cardioPlan.targetRpeMin && session.cardioPlan.targetRpeMax ? `${session.cardioPlan.targetRpeMin}-${session.cardioPlan.targetRpeMax}/10` : "Sin especificar"}
                     />
                   </div>
+                  {resistanceMethod ? (
+                    <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                      <p className="font-semibold text-ink">Método: {getAthleteResistanceMethodLabel(resistanceMethod)}</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <ClientInfoCard label="Intensidad" value={resistanceMethod.intensity || "Sin especificar"} />
+                        <ClientInfoCard label="Repeticiones / duración" value={[resistanceMethod.repetitions, resistanceMethod.repetitionDuration].filter(Boolean).join(" · ") || "Sin especificar"} />
+                        <ClientInfoCard label="Recuperación" value={resistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
+                        <ClientInfoCard label="Series" value={resistanceMethod.series || "Sin especificar"} />
+                      </div>
+                    </div>
+                  ) : null}
                   {session.cardioPlan.notes ? (
                     <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{session.cardioPlan.notes}</p>
                   ) : null}
@@ -980,6 +998,8 @@ function AthleteSessionPreviewModal({
   onClose: () => void;
   session: AthleteSessionRecord;
 }) {
+  const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
@@ -1012,6 +1032,17 @@ function AthleteSessionPreviewModal({
           <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
           <ClientInfoCard label="Duración estimada" value="Sin especificar" />
         </div>
+        {resistanceMethod ? (
+          <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+            <p className="font-semibold text-ink">Método: {getAthleteResistanceMethodLabel(resistanceMethod)}</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <ClientInfoCard label="Intensidad" value={resistanceMethod.intensity || "Sin especificar"} />
+              <ClientInfoCard label="Repeticiones / duración" value={[resistanceMethod.repetitions, resistanceMethod.repetitionDuration].filter(Boolean).join(" · ") || "Sin especificar"} />
+              <ClientInfoCard label="Recuperación" value={resistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
+              <ClientInfoCard label="Series" value={resistanceMethod.series || "Sin especificar"} />
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-4">
           {athleteExerciseBlocks.map((block) => {
