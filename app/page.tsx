@@ -114,6 +114,13 @@ import {
   type UserRole
 } from "@/lib/data";
 
+type ResistanceCardioResult = CardioResult & {
+  intensityCompleted?: string;
+  intervalsCompleted?: string;
+  notes?: string;
+  recoveryCompleted?: string;
+};
+
 type TrainingAvailability = {
   consecutiveDays: boolean;
   daysPerWeek: number;
@@ -656,7 +663,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   actualDurationMinutes?: number | string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
-  cardioResult?: CardioResult;
+  cardioResult?: ResistanceCardioResult;
   completed?: boolean;
   date: string;
   discomfort?: SessionDiscomfort;
@@ -6719,7 +6726,7 @@ type ReviewSessionRecord = ClientSessionRecord & {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
-  cardioResult?: CardioResult;
+  cardioResult?: ResistanceCardioResult;
   completed?: boolean;
   discomfort?: SessionDiscomfort;
   exercises?: ReviewSessionExercise[];
@@ -6774,6 +6781,29 @@ function formatCardioZones(timeInZones?: CardioResult["timeInZones"]) {
       seconds: timeInZones[zone.value] ?? 0
     }))
     .filter((zone) => zone.seconds > 0);
+}
+
+function parseResistanceNumber(value: unknown) {
+  const parsed = Number(`${value ?? ""}`.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function formatResistanceDistance(distanceMeters?: number | string | null) {
+  const meters = parseResistanceNumber(distanceMeters);
+  if (meters <= 0) return "Sin registrar";
+  const kilometers = meters / 1000;
+  const formattedKilometers = kilometers >= 10
+    ? Math.round(kilometers).toString()
+    : kilometers.toFixed(1).replace(".", ",");
+  return `${formattedKilometers} km`;
+}
+
+function hasResistancePerformedData(session: ReviewSessionRecord) {
+  return Boolean(
+    session.cardioResult ||
+    session.cardioPlan ||
+    hasDisplayValue(session.resistanceMethodId)
+  );
 }
 
 function formatTrainingBlock(session: ReviewSessionRecord, client: CoachClient) {
@@ -7226,6 +7256,8 @@ function SessionHistoryPanel({
             const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
+            const hasResistanceData = hasResistancePerformedData(session);
+            const resistanceDuration = session.cardioResult?.durationMinutes ?? session.actualDurationMinutes;
             const suggestedReviewNotes = [
               sessionDeviation.suggestedReviewNotes,
               cardioDeviation ? generateCardioFeedbackSuggestion(cardioDeviation) : ""
@@ -7413,6 +7445,35 @@ function SessionHistoryPanel({
                         {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
                         {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
                       </div>
+                    ) : null}
+
+                    {hasResistanceData ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <h5 className="font-semibold text-ink">Realizado resistencia</h5>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <ClientInfoCard
+                            label="Duración real"
+                            value={hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}
+                          />
+                          <ClientInfoCard label="Distancia real" value={formatResistanceDistance(session.cardioResult?.distanceMeters)} />
+                          <ClientInfoCard label="RPE final" value={hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"} />
+                          <ClientInfoCard label="Método" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin método asignado"} />
+                          {session.cardioResult?.intervalsCompleted ? (
+                            <ClientInfoCard label="Repeticiones / intervalos" value={session.cardioResult.intervalsCompleted} />
+                          ) : null}
+                          {session.cardioResult?.intensityCompleted ? (
+                            <ClientInfoCard label="Intensidad realizada" value={session.cardioResult.intensityCompleted} />
+                          ) : null}
+                          {session.cardioResult?.recoveryCompleted ? (
+                            <ClientInfoCard label="Recuperación realizada" value={session.cardioResult.recoveryCompleted} />
+                          ) : null}
+                        </div>
+                        {session.cardioResult?.notes ? (
+                          <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70">
+                            {session.cardioResult.notes}
+                          </p>
+                        ) : null}
+                      </section>
                     ) : null}
 
                     {cardioDeviation ? (

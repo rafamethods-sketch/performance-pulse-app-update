@@ -6,6 +6,13 @@ import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/li
 import { getExerciseById } from "@/lib/exercises";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 
+type ResistanceCardioResult = CardioResult & {
+  intensityCompleted?: string;
+  intervalsCompleted?: string;
+  notes?: string;
+  recoveryCompleted?: string;
+};
+
 type AthleteWellness = {
   calm?: number;
   energy?: number;
@@ -49,7 +56,7 @@ type ReviewSessionExercise = {
 type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
   cardioPlan?: CardioPlan;
-  cardioResult?: CardioResult;
+  cardioResult?: ResistanceCardioResult;
   completed?: boolean;
   date: string;
   discomfort?: {
@@ -95,7 +102,7 @@ function displayValue(value: unknown, fallback = "Sin especificar") {
 }
 
 function parsePositiveNumber(value: unknown) {
-  const parsed = Number(value);
+  const parsed = Number(`${value ?? ""}`.replace(",", "."));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
@@ -246,6 +253,24 @@ function formatCardioZoneMinutes(timeInZones?: CardioResult["timeInZones"]) {
     .filter((zone) => zone.minutes > 0);
 }
 
+function formatResistanceDistance(distanceMeters?: number | string | null) {
+  const meters = parsePositiveNumber(distanceMeters);
+  if (meters <= 0) return "Sin registrar";
+  const kilometers = meters / 1000;
+  const formattedKilometers = kilometers >= 10
+    ? Math.round(kilometers).toString()
+    : kilometers.toFixed(1).replace(".", ",");
+  return `${formattedKilometers} km`;
+}
+
+function hasResistancePerformedData(session: ReviewSessionRecord) {
+  return Boolean(
+    session.cardioResult ||
+    session.cardioPlan ||
+    hasDisplayValue(session.resistanceMethodId)
+  );
+}
+
 function getAthleteDate(value?: string | null) {
   if (!value) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -322,6 +347,8 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
             const cardioZones = formatCardioZoneMinutes(session.cardioResult?.timeInZones);
+            const hasResistanceData = hasResistancePerformedData(session);
+            const resistanceDuration = session.cardioResult?.durationMinutes ?? session.actualDurationMinutes;
             const detailRows = Array.from({ length: exerciseCount }, (_, exerciseIndex) => ({
               performed: performedExercises[exerciseIndex],
               planned: plannedExercises[exerciseIndex]
@@ -381,15 +408,27 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
                       </div>
                     ) : null}
-                    {cardioDeviation ? (
+                    {hasResistanceData ? (
                       <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <p className="font-semibold text-ink">Cardio / resistencia</p>
+                        <p className="font-semibold text-ink">Resistencia realizada</p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          <p>Duración realizada: <span className="font-semibold text-ink">{session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Sin registrar"}</span></p>
-                          <p>Distancia: <span className="font-semibold text-ink">{session.cardioResult?.distanceMeters ? `${session.cardioResult.distanceMeters} m` : "Sin registrar"}</span></p>
+                          <p>Duración realizada: <span className="font-semibold text-ink">{hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}</span></p>
+                          <p>Distancia: <span className="font-semibold text-ink">{formatResistanceDistance(session.cardioResult?.distanceMeters)}</span></p>
+                          <p>RPE final: <span className="font-semibold text-ink">{hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"}</span></p>
                           <p>Zona objetivo: <span className="font-semibold text-ink">{session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}</span></p>
-                          <p>RPE percibido: <span className="font-semibold text-ink">{session.cardioResult?.perceivedRpe ? `${session.cardioResult.perceivedRpe}/10` : "Sin registrar"}</span></p>
+                          {session.cardioResult?.intervalsCompleted ? (
+                            <p>Repeticiones / intervalos: <span className="font-semibold text-ink">{session.cardioResult.intervalsCompleted}</span></p>
+                          ) : null}
+                          {session.cardioResult?.intensityCompleted ? (
+                            <p>Intensidad realizada: <span className="font-semibold text-ink">{session.cardioResult.intensityCompleted}</span></p>
+                          ) : null}
+                          {session.cardioResult?.recoveryCompleted ? (
+                            <p>Recuperación realizada: <span className="font-semibold text-ink">{session.cardioResult.recoveryCompleted}</span></p>
+                          ) : null}
                         </div>
+                        {session.cardioResult?.notes ? (
+                          <p className="mt-3 rounded-md border border-line bg-white px-3 py-2">{session.cardioResult.notes}</p>
+                        ) : null}
                         {cardioZones.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {cardioZones.map((zone) => (
@@ -399,7 +438,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                             ))}
                           </div>
                         ) : null}
-                        <p className="mt-3 rounded-md bg-white px-3 py-2">{cardioDeviation.reading}</p>
+                        {cardioDeviation ? <p className="mt-3 rounded-md bg-white px-3 py-2">{cardioDeviation.reading}</p> : null}
                       </div>
                     ) : null}
                     {session.reviewStatus === "reviewed" ? (

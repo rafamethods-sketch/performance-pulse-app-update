@@ -6,6 +6,13 @@ import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 
+type ResistanceCardioResult = CardioResult & {
+  intensityCompleted?: string;
+  intervalsCompleted?: string;
+  notes?: string;
+  recoveryCompleted?: string;
+};
+
 type AthleteWellness = {
   calm?: number;
   energy?: number;
@@ -74,7 +81,7 @@ type AthleteSessionRecord = {
   actualDurationMinutes?: number | string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
-  cardioResult?: CardioResult;
+  cardioResult?: ResistanceCardioResult;
   completed?: boolean;
   date: string;
   finalNotes?: string | null;
@@ -241,13 +248,17 @@ function normalizeSetDetails(exercise: AthleteExercise) {
 }
 
 function buildCardioResultFromDraft(draft: {
-  distanceMeters: string;
+  distanceKm: string;
   durationMinutes: string;
+  intensityCompleted: string;
+  intervalsCompleted: string;
+  notes: string;
   perceivedRpe: string;
+  recoveryCompleted: string;
   timeInZonesMinutes: Record<CardioZone, string>;
-}): CardioResult | undefined {
+}): ResistanceCardioResult | undefined {
   const durationMinutes = parsePositiveNumber(draft.durationMinutes);
-  const distanceMeters = parsePositiveNumber(draft.distanceMeters);
+  const distanceKm = parsePositiveNumber(draft.distanceKm);
   const perceivedRpe = parsePositiveNumber(draft.perceivedRpe);
   const timeInZones: CardioResult["timeInZones"] = {};
 
@@ -256,13 +267,17 @@ function buildCardioResultFromDraft(draft: {
     if (minutes > 0) timeInZones![zone.key] = minutes * 60;
   });
 
-  const result: CardioResult = {
+  const result: ResistanceCardioResult = {
     source: "manual"
   };
   if (durationMinutes > 0) result.durationMinutes = durationMinutes;
-  if (distanceMeters > 0) result.distanceMeters = distanceMeters;
+  if (distanceKm > 0) result.distanceMeters = distanceKm * 1000;
   if (perceivedRpe > 0) result.perceivedRpe = perceivedRpe;
   if (Object.keys(timeInZones).length > 0) result.timeInZones = timeInZones;
+  if (draft.intervalsCompleted.trim()) result.intervalsCompleted = draft.intervalsCompleted.trim();
+  if (draft.intensityCompleted.trim()) result.intensityCompleted = draft.intensityCompleted.trim();
+  if (draft.recoveryCompleted.trim()) result.recoveryCompleted = draft.recoveryCompleted.trim();
+  if (draft.notes.trim()) result.notes = draft.notes.trim();
 
   return Object.keys(result).length > 1 ? result : undefined;
 }
@@ -408,9 +423,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     phase: ""
   });
   const [cardioResultDraft, setCardioResultDraft] = useState({
-    distanceMeters: "",
+    distanceKm: "",
     durationMinutes: "",
+    intensityCompleted: "",
+    intervalsCompleted: "",
+    notes: "",
     perceivedRpe: "",
+    recoveryCompleted: "",
     timeInZonesMinutes: {
       z1: "",
       z2: "",
@@ -439,6 +458,15 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       discomfortDraft.intensity <= 10);
   const canSubmitSession = finalRpeValid && durationValid && discomfortValid;
   const resistanceMethod = getResistanceMethodById(session?.resistanceMethodId);
+  const sessionTypeText = `${session?.type ?? ""}`.toLowerCase();
+  const isMixedSession = sessionTypeText.includes("mixta") || sessionTypeText.includes("mixed");
+  const isResistanceSession = Boolean(
+    session?.cardioPlan ||
+    session?.resistanceMethodId ||
+    sessionTypeText.includes("cardio") ||
+    sessionTypeText.includes("resistencia")
+  );
+  const shouldShowStrengthRegister = performedExercises.length > 0 && (!isResistanceSession || isMixedSession);
 
   useEffect(() => {
     setWellness(normalizeAthleteWellness(session?.wellness));
@@ -463,9 +491,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       phase: ""
     });
     setCardioResultDraft({
-      distanceMeters: "",
+      distanceKm: "",
       durationMinutes: "",
+      intensityCompleted: "",
+      intervalsCompleted: "",
+      notes: "",
       perceivedRpe: "",
+      recoveryCompleted: "",
       timeInZonesMinutes: {
         z1: "",
         z2: "",
@@ -571,7 +603,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     const updatedSession: AthleteSessionRecord = {
       ...session,
       actualDurationMinutes,
-      cardioResult: session.cardioPlan ? buildCardioResultFromDraft(cardioResultDraft) : session.cardioResult,
+      cardioResult: isResistanceSession
+        ? buildCardioResultFromDraft({
+            ...cardioResultDraft,
+            durationMinutes: `${actualDurationMinutes}`,
+            perceivedRpe: `${finalRpe}`
+          })
+        : session.cardioResult,
       completed: true,
       discomfort,
       finalNotes: athleteSessionNotes.trim(),
@@ -702,61 +740,60 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
           {wellnessConfirmed ? (
             <>
-              <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-                <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
-                <div className="mt-4 space-y-4">
-                  {performedExercises.length > 0 ? athleteExerciseBlocks.map((block) => {
-                    const blockExercises = performedExercises
-                      .map((exercise, index) => ({ exercise, index }))
-                      .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
-                    const isCollapsed = collapsedExerciseBlocks[block.key];
-                    const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
-                    if (blockExercises.length === 0) return null;
+              {shouldShowStrengthRegister ? (
+                <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+                  <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
+                  <div className="mt-4 space-y-4">
+                    {athleteExerciseBlocks.map((block) => {
+                      const blockExercises = performedExercises
+                        .map((exercise, index) => ({ exercise, index }))
+                        .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
+                      const isCollapsed = collapsedExerciseBlocks[block.key];
+                      const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
+                      if (blockExercises.length === 0) return null;
 
-                    return (
-                      <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
-                        <button
-                          className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
-                          onClick={() => setCollapsedExerciseBlocks((current) => ({ ...current, [block.key]: !current[block.key] }))}
-                          type="button"
-                        >
-                          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-                          <span>{block.label} · {exerciseCountLabel}</span>
-                        </button>
-                        {!isCollapsed ? (
-                          <div className="mt-3 grid gap-3">
-                            {blockExercises.map(({ exercise, index }) => (
-                              <AthleteExerciseCard
-                                exercise={exercise}
-                                index={index}
-                                key={exercise.id || `${exercise.exerciseName}-${index}`}
-                                onUpdate={updateExercise}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                      </section>
-                    );
-                  }) : (
-                    <p className="rounded-md border border-dashed border-line p-5 text-center text-sm text-ink/55">
-                      Esta sesión no tiene ejercicios planificados.
-                    </p>
-                  )}
-                </div>
-              </section>
+                      return (
+                        <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
+                          <button
+                            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+                            onClick={() => setCollapsedExerciseBlocks((current) => ({ ...current, [block.key]: !current[block.key] }))}
+                            type="button"
+                          >
+                            <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
+                            <span>{block.label} · {exerciseCountLabel}</span>
+                          </button>
+                          {!isCollapsed ? (
+                            <div className="mt-3 grid gap-3">
+                              {blockExercises.map(({ exercise, index }) => (
+                                <AthleteExerciseCard
+                                  exercise={exercise}
+                                  index={index}
+                                  key={exercise.id || `${exercise.exerciseName}-${index}`}
+                                  onUpdate={updateExercise}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                        </section>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
 
-              {session.cardioPlan ? (
+              {isResistanceSession ? (
                 <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-ink">Cardio / resistencia</h3>
-                      <p className="mt-1 text-sm text-ink/60">Registra solo datos agregados de la parte de cardio.</p>
+                      <h3 className="text-lg font-semibold text-ink">Registro de resistencia</h3>
+                      <p className="mt-1 text-sm text-ink/60">Registra solo datos agregados de la sesión de resistencia.</p>
                     </div>
                     <span className="w-fit rounded-md bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/65">
-                      {session.cardioPlan.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin zona objetivo"}
+                      {session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin zona objetivo"}
                     </span>
                   </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {session.cardioPlan ? (
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <ClientInfoCard label="Modalidad" value={session.cardioPlan.sport ? cardioSportLabels[session.cardioPlan.sport] : "Sin especificar"} />
                     <ClientInfoCard label="Duración objetivo" value={session.cardioPlan.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Sin especificar"} />
                     <ClientInfoCard label="Distancia objetivo" value={session.cardioPlan.targetDistanceMeters ? `${session.cardioPlan.targetDistanceMeters} m` : "Sin especificar"} />
@@ -764,10 +801,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       label="RPE objetivo"
                       value={session.cardioPlan.targetRpeMin && session.cardioPlan.targetRpeMax ? `${session.cardioPlan.targetRpeMin}-${session.cardioPlan.targetRpeMax}/10` : "Sin especificar"}
                     />
-                  </div>
+                    </div>
+                  ) : null}
                   {resistanceMethod ? (
                     <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                      <p className="font-semibold text-ink">Método: {getAthleteResistanceMethodLabel(resistanceMethod)}</p>
+                      <p className="font-semibold text-ink">Método planificado: {getAthleteResistanceMethodLabel(resistanceMethod)}</p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         <ClientInfoCard label="Intensidad" value={resistanceMethod.intensity || "Sin especificar"} />
                         <ClientInfoCard label="Repeticiones / duración" value={[resistanceMethod.repetitions, resistanceMethod.repetitionDuration].filter(Boolean).join(" · ") || "Sin especificar"} />
@@ -776,44 +814,84 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       </div>
                     </div>
                   ) : null}
-                  {session.cardioPlan.notes ? (
+                  {session.cardioPlan?.notes ? (
                     <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{session.cardioPlan.notes}</p>
                   ) : null}
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <AthleteNumberField
+                      label="Duración real en minutos"
+                      onChange={(value) => {
+                        setActualDurationMinutes(value);
+                        setCardioResultDraft((current) => ({ ...current, durationMinutes: value ? `${value}` : "" }));
+                      }}
+                      value={actualDurationMinutes}
+                    />
                     <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Duración real en minutos
+                      Distancia real opcional
                       <input
                         className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                         inputMode="decimal"
-                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, durationMinutes: event.target.value }))}
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, distanceKm: event.target.value }))}
+                        placeholder="Km"
                         type="text"
-                        value={cardioResultDraft.durationMinutes}
+                        value={cardioResultDraft.distanceKm}
                       />
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Distancia real
+                      Repeticiones o intervalos realizados
                       <input
                         className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                        inputMode="decimal"
-                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, distanceMeters: event.target.value }))}
-                        placeholder="Metros"
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, intervalsCompleted: event.target.value }))}
+                        placeholder="Ej: 6 repeticiones de 4 min"
                         type="text"
-                        value={cardioResultDraft.distanceMeters}
+                        value={cardioResultDraft.intervalsCompleted}
                       />
                     </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Intensidad realizada
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, intensityCompleted: event.target.value }))}
+                        placeholder="Ej: Z3 estable, 4:30/km, 240 W"
+                        type="text"
+                        value={cardioResultDraft.intensityCompleted}
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Recuperación realizada
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, recoveryCompleted: event.target.value }))}
+                        placeholder="Ej: 2 min suave entre repeticiones"
+                        type="text"
+                        value={cardioResultDraft.recoveryCompleted}
+                      />
+                    </label>
+                    <AthleteNumberField
+                      label="RPE final de sesión"
+                      max={10}
+                      onChange={(value) => {
+                        setFinalRpe(value);
+                        setCardioResultDraft((current) => ({ ...current, perceivedRpe: value ? `${value}` : "" }));
+                      }}
+                      value={finalRpe}
+                    />
                     <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-                      RPE percibido de cardio
-                      <input
-                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                        inputMode="decimal"
-                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, perceivedRpe: event.target.value }))}
-                        placeholder="Opcional"
-                        type="text"
-                        value={cardioResultDraft.perceivedRpe}
+                      Observaciones sobre método
+                      <textarea
+                        className="min-h-20 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => setCardioResultDraft((current) => ({ ...current, notes: event.target.value }))}
+                        placeholder="Sensación, ajustes de ritmo, cumplimiento del método..."
+                        value={cardioResultDraft.notes}
                       />
                     </label>
                   </div>
-                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                  {!finalRpeValid ? (
+                    <p className="mt-3 text-sm font-medium text-amber-800">
+                      Introduce el RPE final de la sesión para poder enviarla.
+                    </p>
+                  ) : null}
+                <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                     <p className="text-sm font-semibold text-ink">Tiempo en zonas</p>
                     <p className="mt-1 text-xs text-ink/50">Introduce minutos por zona solo si los tienes. Se guardan internamente en segundos.</p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-5">
@@ -852,11 +930,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     sRPE: {calculatedSrpe ? `${calculatedSrpe} UA` : "Pendiente"}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <AthleteNumberField label="Duración real en minutos" onChange={setActualDurationMinutes} value={actualDurationMinutes} />
-                  <AthleteNumberField label="RPE final de sesión" max={10} onChange={setFinalRpe} value={finalRpe} />
-                </div>
-                {!finalRpeValid ? (
+                {!isResistanceSession ? (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <AthleteNumberField label="Duración real en minutos" onChange={setActualDurationMinutes} value={actualDurationMinutes} />
+                    <AthleteNumberField label="RPE final de sesión" max={10} onChange={setFinalRpe} value={finalRpe} />
+                  </div>
+                ) : null}
+                {!isResistanceSession && !finalRpeValid ? (
                   <p className="mt-3 text-sm font-medium text-amber-800">
                     Introduce el RPE final de la sesión para poder enviarla.
                   </p>
