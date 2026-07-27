@@ -961,6 +961,8 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
   const duration = interval ? 38 : 45;
   const finalRpe = interval ? 8 : 5;
   const date = getRelativeDateKey(dayOffset);
+  const resistanceMethodId = interval ? "IEM" : "CE";
+  const targetResistanceZoneId = interval ? "R3" : "R1";
 
   return {
     actualDurationMinutes: duration,
@@ -975,7 +977,11 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
     cardioResult: {
       distanceMeters: interval ? 7200 : 7800,
       durationMinutes: duration,
+      intensityCompleted: interval ? "R3 controlado en bloques principales" : "R1 estable",
+      intervalsCompleted: interval ? "5 x 3 min" : "Continuo 45 min",
+      notes: interval ? "Bloques exigentes con buena tolerancia." : "Rodaje comodo para acumular base aerobica.",
       perceivedRpe: finalRpe,
+      recoveryCompleted: interval ? "2 min suaves entre repeticiones" : "Sin pausas",
       source: "manual",
       timeInZones: interval
         ? { z1: 300, z2: 600, z3: 480, z4: 780, z5: 120 }
@@ -989,16 +995,66 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
     isDemo: true,
     performedExercises: [],
     plannedExercises: [],
+    resistanceMethodId,
+    resistanceSport: "running",
     reviewStatus: interval ? "pending" : "reviewed",
     sessionNumber: interval ? 2 : 1,
     sRPE: duration * finalRpe,
     status: "Completada",
     summary: interval ? "Intervalos controlados Z4" : "Cardio Z2 continuo",
+    targetResistanceZoneId,
     type: "Cardio",
     weekLabel: "Semana demo",
     wellness: interval
       ? { fatigue: 4, motivation: 4, sleep: 3, soreness: 3, stress: 3 }
       : { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
+  };
+}
+
+function createDemoCyclingResistanceSession(dayOffset: number): ClientSessionRecord {
+  const duration = 32;
+  const finalRpe = 6;
+
+  return {
+    actualDurationMinutes: duration,
+    block: "Demo resistencia",
+    cardioPlan: {
+      sport: "ride",
+      targetDurationMinutes: duration,
+      targetRpeMax: 7,
+      targetRpeMin: 5,
+      targetZone: "z3"
+    },
+    cardioResult: {
+      distanceMeters: 18500,
+      durationMinutes: duration,
+      intensityCompleted: "R2 sostenido",
+      intervalsCompleted: "2 x 12 min",
+      notes: "Trabajo sostenido en bicicleta para probar zona R2.",
+      perceivedRpe: finalRpe,
+      recoveryCompleted: "4 min suaves",
+      source: "manual",
+      timeInZones: { z1: 240, z2: 420, z3: 1020, z4: 240 }
+    },
+    completed: true,
+    date: getRelativeDateKey(dayOffset),
+    finalNotes: "Sesion demo de ciclismo con zona objetivo.",
+    finalRpe,
+    id: "demo-session-cycling-r2",
+    isDemo: true,
+    performedExercises: [],
+    plannedExercises: [],
+    resistanceMethodId: "CV1",
+    resistanceSport: "cycling",
+    reviewStatus: "reviewed",
+    sessionNumber: 3,
+    sRPE: duration * finalRpe,
+    status: "Completada",
+    summary: "Ciclismo R2 sostenido",
+    targetResistanceZoneId: "R2",
+    type: "Cardio",
+    weekLabel: "Semana demo",
+    wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
   };
 }
 
@@ -1071,6 +1127,7 @@ function buildDemoClient(): CoachClient {
       wellness: { fatigue: 2, motivation: 4, sleep: 5, soreness: 2, stress: 1 }
     }),
     createDemoCardioSession(getDemoWeekDayOffset(4), true),
+    createDemoCyclingResistanceSession(getDemoWeekDayOffset(4)),
     createDemoSession({
       dayOffset: getDemoWeekDayOffset(5),
       discomfort: {
