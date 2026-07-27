@@ -5,6 +5,11 @@ import { BodyFatigueMap } from "@/components/shared/body-fatigue-map";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getExerciseById } from "@/lib/exercises";
 import { calculateWeeklyMuscleFatigue, type MuscleFatigueExercise } from "@/lib/muscle-fatigue";
+import {
+  getWeeklyResistanceZoneDistribution,
+  type ResistanceZoneIntensityBucket
+} from "@/lib/resistance-zone-distribution";
+import type { ResistanceSport, ResistanceZoneId } from "@/lib/resistance-zones";
 
 type AthleteWeeklyExercise = MuscleFatigueExercise & {
   actualRpe?: number | string | null;
@@ -37,19 +42,28 @@ type CardioZoneInput =
 
 type AthleteWeeklySession = {
   actualDurationMinutes?: number | string | null;
+  cardioPlan?: unknown;
+  cardioResult?: {
+    durationMinutes?: number | string | null;
+  } | null;
   cardioZones?: CardioZoneInput | null;
   completed?: boolean;
   date: string;
   duration?: number | string | null;
+  durationMinutes?: number | string | null;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
   notes?: string | null;
   performedExercises?: AthleteWeeklyExercise[];
+  plannedDurationMinutes?: number | string | null;
   plannedExercises?: AthleteWeeklyExercise[];
+  resistanceSport?: ResistanceSport;
   rpe?: number | string | null;
   srpe?: number | string | null;
   sRPE?: number | string | null;
+  status?: string | null;
   summary?: string | null;
+  targetResistanceZoneId?: ResistanceZoneId | string | null;
   timeInZones?: CardioZoneInput | null;
   type: string;
   zones?: CardioZoneInput | null;
@@ -213,6 +227,13 @@ function getPatternSetsRange(value: number) {
   return { className: "bg-panel text-ink/45", label: "Sin carga", barClassName: "bg-ink/10" };
 }
 
+function getResistanceZoneBucketStyles(bucket: ResistanceZoneIntensityBucket) {
+  if (bucket === "veryHigh") return { barClassName: "bg-red-500", badgeClassName: "bg-red-50 text-red-700", label: "Muy alto" };
+  if (bucket === "high") return { barClassName: "bg-amber-500", badgeClassName: "bg-amber-100 text-amber-800", label: "Alto" };
+  if (bucket === "moderate") return { barClassName: "bg-steel", badgeClassName: "bg-blue-50 text-blue-700", label: "Moderado" };
+  return { barClassName: "bg-ink/25", badgeClassName: "bg-panel text-ink/60", label: "Bajo" };
+}
+
 function emptyCardioZones() {
   return Object.fromEntries(cardioZones.map((zone) => [zone, 0])) as Record<CardioZone, number>;
 }
@@ -351,6 +372,8 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   const cardioZoneTotals = calculateWeeklyCardioZones(cardioSessions);
   const totalCardioZoneMinutes = Object.values(cardioZoneTotals).reduce((total, value) => total + value, 0);
   const maxCardioZoneMinutes = Math.max(1, ...Object.values(cardioZoneTotals));
+  const resistanceZoneDistribution = getWeeklyResistanceZoneDistribution(client?.sessionRecords ?? []);
+  const maxResistanceZoneMinutes = Math.max(1, ...resistanceZoneDistribution.zones.map((zone) => zone.minutes));
 
   if (!client || weeklySessions.length === 0) {
     return (
@@ -507,6 +530,56 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             Sin datos suficientes de cardio esta semana.
           </p>
         )}
+      </article>
+
+      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Distribución semanal por zonas de resistencia</h3>
+            <p className="mt-1 text-sm text-ink/60">Minutos registrados esta semana según la zona objetivo planificada.</p>
+          </div>
+          <span className="w-fit rounded-md bg-panel px-2 py-1 text-xs font-semibold text-ink/55">
+            {Math.round(resistanceZoneDistribution.totalMinutes)} min
+          </span>
+        </div>
+
+        {resistanceZoneDistribution.zones.length > 0 ? (
+          <div className="mt-4 grid gap-3">
+            {resistanceZoneDistribution.zones.map((zone) => {
+              const bucket = getResistanceZoneBucketStyles(zone.intensityBucket);
+              const roundedMinutes = Math.round(zone.minutes);
+
+              return (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${zone.sport}-${zone.zoneId}`}>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">{zone.zoneLabel}</p>
+                      <p className="mt-1 text-xs font-medium text-ink/50">
+                        {zone.sportLabel} · {roundedMinutes} min · {zone.sessionCount} {zone.sessionCount === 1 ? "sesión" : "sesiones"}
+                      </p>
+                    </div>
+                    <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${bucket.badgeClassName}`}>
+                      {bucket.label}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
+                    <div className={`h-full rounded-full ${bucket.barClassName}`} style={{ width: `${(zone.minutes / maxResistanceZoneMinutes) * 100}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm font-semibold text-ink/55">
+            Sin zonas de resistencia registradas esta semana.
+          </p>
+        )}
+
+        {resistanceZoneDistribution.missingDurationCount > 0 ? (
+          <p className="mt-4 rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-ink/55">
+            Hay sesiones con zona objetivo sin duración registrada.
+          </p>
+        ) : null}
       </article>
     </section>
   );
