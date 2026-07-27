@@ -5,6 +5,7 @@ import { calculateSessionLoad } from "@/lib/client-metrics";
 import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/lib/cardio-deviation";
 import { getExerciseById } from "@/lib/exercises";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
+import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
 
 type ResistanceCardioResult = CardioResult & {
   intensityCompleted?: string;
@@ -76,6 +77,7 @@ type ReviewSessionRecord = {
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
   resistanceMethodId?: string;
+  resistanceSport?: ResistanceSport;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
@@ -84,6 +86,7 @@ type ReviewSessionRecord = {
   sRPE?: number | string | null;
   status?: string | null;
   summary: string;
+  targetResistanceZoneId?: ResistanceZone["id"];
   type: string;
   wellness?: AthleteWellness;
 };
@@ -243,6 +246,31 @@ function getAthleteResistanceMethodLabel(method?: ResistanceMethod | null) {
   return method ? `${method.method} · ${method.name}` : "";
 }
 
+const athleteHistoryResistanceZoneMetricLabels: Array<{ key: keyof NonNullable<ResistanceZone["metrics"]>; label: string }> = [
+  { key: "masPercent", label: "MAS" },
+  { key: "mapPercent", label: "MAP" },
+  { key: "vo2maxPercent", label: "VO2max" },
+  { key: "hrMaxPercent", label: "HRmax" },
+  { key: "hrrPercent", label: "HRR" },
+  { key: "mlssPowerPercent", label: "W-MLSS" },
+  { key: "rpe", label: "RPE" }
+];
+
+function getAthleteHistoryResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null) {
+  const profile = getSportZoneProfile(sport ?? "generic");
+  const zone = profile.zones.find((item) => item.id === zoneId) ?? null;
+  const metrics = zone
+    ? athleteHistoryResistanceZoneMetricLabels
+        .map((metric) => {
+          const value = zone.metrics?.[metric.key];
+          return value ? `${metric.label} ${value}` : "";
+        })
+        .filter(Boolean)
+    : [];
+
+  return { metrics, profile, zone };
+}
+
 function formatCardioZoneMinutes(timeInZones?: CardioResult["timeInZones"]) {
   if (!timeInZones) return [];
   return (["z1", "z2", "z3", "z4", "z5"] as const)
@@ -267,7 +295,9 @@ function hasResistancePerformedData(session: ReviewSessionRecord) {
   return Boolean(
     session.cardioResult ||
     session.cardioPlan ||
-    hasDisplayValue(session.resistanceMethodId)
+    hasDisplayValue(session.resistanceMethodId) ||
+    hasDisplayValue(session.resistanceSport) ||
+    hasDisplayValue(session.targetResistanceZoneId)
   );
 }
 
@@ -353,6 +383,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               performed: performedExercises[exerciseIndex],
               planned: plannedExercises[exerciseIndex]
             }));
+            const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
 
             return (
               <article className="rounded-md border border-line bg-panel/35 p-4" key={sessionKey}>
@@ -398,6 +429,26 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         <p className="mt-1">{getAthleteResistanceMethodLabel(resistanceMethod)}</p>
                       </div>
                     ) : null}
+                    {resistanceZoneGuide.zone ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <p className="font-semibold text-ink">Zona objetivo planificada</p>
+                        <p className="mt-1">{resistanceZoneGuide.profile.name} · {resistanceZoneGuide.zone.label}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {resistanceZoneGuide.metrics.length > 0 ? resistanceZoneGuide.metrics.map((metric) => (
+                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={metric}>
+                              {metric}
+                            </span>
+                          )) : (
+                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                              Sin porcentajes añadidos todavía.
+                            </span>
+                          )}
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                            {resistanceZoneGuide.profile.mainReferenceMetric}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                     {session.discomfort?.hasDiscomfort ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                         <p className="font-semibold">Molestia reportada</p>
@@ -415,7 +466,8 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                           <p>Duración realizada: <span className="font-semibold text-ink">{hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}</span></p>
                           <p>Distancia: <span className="font-semibold text-ink">{formatResistanceDistance(session.cardioResult?.distanceMeters)}</span></p>
                           <p>RPE final: <span className="font-semibold text-ink">{hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"}</span></p>
-                          <p>Zona objetivo: <span className="font-semibold text-ink">{session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}</span></p>
+                          <p>Deporte: <span className="font-semibold text-ink">{resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"}</span></p>
+                          <p>Zona objetivo: <span className="font-semibold text-ink">{resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"}</span></p>
                           {session.cardioResult?.intervalsCompleted ? (
                             <p>Repeticiones / intervalos: <span className="font-semibold text-ink">{session.cardioResult.intervalsCompleted}</span></p>
                           ) : null}

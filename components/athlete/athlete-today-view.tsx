@@ -5,6 +5,7 @@ import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
+import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
 
 type ResistanceCardioResult = CardioResult & {
   intensityCompleted?: string;
@@ -90,11 +91,13 @@ type AthleteSessionRecord = {
   performedExercises?: AthleteExercise[];
   plannedExercises?: AthleteExercise[];
   resistanceMethodId?: string;
+  resistanceSport?: ResistanceSport;
   reviewStatus?: "pending" | "reviewed";
   sessionNumber?: number | string | null;
   sRPE?: number | string | null;
   status?: string | null;
   summary: string;
+  targetResistanceZoneId?: ResistanceZone["id"];
   targetRpe?: number | string | null;
   type: string;
   week?: number | string | null;
@@ -178,6 +181,31 @@ const cardioSportLabels: Record<NonNullable<CardioPlan["sport"]>, string> = {
 
 function getAthleteResistanceMethodLabel(method?: ResistanceMethod | null) {
   return method ? `${method.method} · ${method.name}` : "";
+}
+
+const athleteResistanceZoneMetricLabels: Array<{ key: keyof NonNullable<ResistanceZone["metrics"]>; label: string }> = [
+  { key: "masPercent", label: "MAS" },
+  { key: "mapPercent", label: "MAP" },
+  { key: "vo2maxPercent", label: "VO2max" },
+  { key: "hrMaxPercent", label: "HRmax" },
+  { key: "hrrPercent", label: "HRR" },
+  { key: "mlssPowerPercent", label: "W-MLSS" },
+  { key: "rpe", label: "RPE" }
+];
+
+function getAthleteResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null) {
+  const profile = getSportZoneProfile(sport ?? "generic");
+  const zone = profile.zones.find((item) => item.id === zoneId) ?? null;
+  const metrics = zone
+    ? athleteResistanceZoneMetricLabels
+        .map((metric) => {
+          const value = zone.metrics?.[metric.key];
+          return value ? `${metric.label} ${value}` : "";
+        })
+        .filter(Boolean)
+    : [];
+
+  return { metrics, profile, zone };
 }
 
 function getLocalDateKey(date = new Date()) {
@@ -458,6 +486,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       discomfortDraft.intensity <= 10);
   const canSubmitSession = finalRpeValid && durationValid && discomfortValid;
   const resistanceMethod = getResistanceMethodById(session?.resistanceMethodId);
+  const resistanceZoneGuide = getAthleteResistanceZoneGuide(session?.resistanceSport, session?.targetResistanceZoneId);
   const sessionTypeText = `${session?.type ?? ""}`.toLowerCase();
   const isMixedSession = sessionTypeText.includes("mixta") || sessionTypeText.includes("mixed");
   const isResistanceSession = Boolean(
@@ -789,9 +818,33 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       <p className="mt-1 text-sm text-ink/60">Registra solo datos agregados de la sesión de resistencia.</p>
                     </div>
                     <span className="w-fit rounded-md bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/65">
-                      {session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin zona objetivo"}
+                      {resistanceZoneGuide.zone?.shortLabel ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin zona objetivo"}
                     </span>
                   </div>
+                  {resistanceZoneGuide.zone ? (
+                    <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                      <p className="font-semibold text-ink">Zona objetivo planificada</p>
+                      <p className="mt-1">{resistanceZoneGuide.profile.name} · {resistanceZoneGuide.zone.label}</p>
+                      <p className="mt-1">{resistanceZoneGuide.zone.description}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {resistanceZoneGuide.metrics.length > 0 ? resistanceZoneGuide.metrics.map((metric) => (
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={metric}>
+                            {metric}
+                          </span>
+                        )) : (
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                            Sin porcentajes añadidos todavía.
+                          </span>
+                        )}
+                        <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                          {resistanceZoneGuide.profile.mainReferenceMetric}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-medium text-ink/50">
+                        Guía metodológica. Individualiza con test, deporte, nivel y contexto.
+                      </p>
+                    </div>
+                  ) : null}
                   {session.cardioPlan ? (
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <ClientInfoCard label="Modalidad" value={session.cardioPlan.sport ? cardioSportLabels[session.cardioPlan.sport] : "Sin especificar"} />
@@ -1079,6 +1132,7 @@ function AthleteSessionPreviewModal({
   session: AthleteSessionRecord;
 }) {
   const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
+  const resistanceZoneGuide = getAthleteResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
 
   return (
     <div
@@ -1120,6 +1174,26 @@ function AthleteSessionPreviewModal({
               <ClientInfoCard label="Repeticiones / duración" value={[resistanceMethod.repetitions, resistanceMethod.repetitionDuration].filter(Boolean).join(" · ") || "Sin especificar"} />
               <ClientInfoCard label="Recuperación" value={resistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
               <ClientInfoCard label="Series" value={resistanceMethod.series || "Sin especificar"} />
+            </div>
+          </div>
+        ) : null}
+        {resistanceZoneGuide.zone ? (
+          <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+            <p className="font-semibold text-ink">Zona objetivo: {resistanceZoneGuide.zone.label}</p>
+            <p className="mt-1">{resistanceZoneGuide.profile.name} · {resistanceZoneGuide.zone.description}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {resistanceZoneGuide.metrics.length > 0 ? resistanceZoneGuide.metrics.map((metric) => (
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={metric}>
+                  {metric}
+                </span>
+              )) : (
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                  Sin porcentajes añadidos todavía.
+                </span>
+              )}
+              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                {resistanceZoneGuide.profile.mainReferenceMetric}
+              </span>
             </div>
           </div>
         ) : null}

@@ -96,6 +96,12 @@ import {
   getResistanceMethodById,
   type ResistanceMethod
 } from "@/lib/resistance-methods";
+import {
+  getSportZoneProfile,
+  getSportZoneProfiles,
+  type ResistanceSport,
+  type ResistanceZone
+} from "@/lib/resistance-zones";
 import { supabase } from "@/lib/supabase";
 import {
   athleteAdherence,
@@ -120,6 +126,8 @@ type ResistanceCardioResult = CardioResult & {
   notes?: string;
   recoveryCompleted?: string;
 };
+
+type PlannedResistanceZoneId = ResistanceZone["id"] | "";
 
 type TrainingAvailability = {
   consecutiveDays: boolean;
@@ -676,6 +684,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   performedExercises?: ConnectedSessionExercise[];
   plannedExercises?: ConnectedSessionExercise[];
   resistanceMethodId?: string;
+  resistanceSport?: ResistanceSport;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
@@ -684,6 +693,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   status?: string | null;
   strengthMethod?: StrengthIntensityMethod;
   summary: string;
+  targetResistanceZoneId?: ResistanceZone["id"];
   targetRpe?: number | string | null;
   type: string;
   week?: number | string | null;
@@ -5377,6 +5387,15 @@ const strengthIntensityMethodOptions: Array<{ label: string; value: StrengthInte
   { label: "%1RM", value: "percent_1rm" },
   { label: "Velocidad de barra", value: "velocity" }
 ];
+const resistanceZoneMetricLabels: Array<{ key: keyof NonNullable<ResistanceZone["metrics"]>; label: string }> = [
+  { key: "masPercent", label: "MAS" },
+  { key: "mapPercent", label: "MAP" },
+  { key: "vo2maxPercent", label: "VO2max" },
+  { key: "hrMaxPercent", label: "HRmax" },
+  { key: "hrrPercent", label: "HRR" },
+  { key: "mlssPowerPercent", label: "W-MLSS" },
+  { key: "rpe", label: "RPE" }
+];
 type CardioPlanDraft = {
   notes: string;
   sport: NonNullable<CardioPlan["sport"]>;
@@ -5411,9 +5430,30 @@ function getResistanceMethodLabel(method?: ResistanceMethod | null) {
   return method ? `${method.method} · ${method.name}` : "";
 }
 
-function buildResistanceMethodTemplateNotes(method: ResistanceMethod) {
+function getResistanceZoneMetrics(zone?: ResistanceZone | null) {
+  if (!zone) return [];
+  return resistanceZoneMetricLabels
+    .map((metric) => {
+      const value = zone.metrics?.[metric.key];
+      return value ? `${metric.label} ${value}` : "";
+    })
+    .filter(Boolean);
+}
+
+function getResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null) {
+  const profile = getSportZoneProfile(sport ?? "generic");
+  const zone = profile.zones.find((item) => item.id === zoneId) ?? null;
+  return { metrics: getResistanceZoneMetrics(zone), profile, zone };
+}
+
+function buildResistanceMethodTemplateNotes(method: ResistanceMethod, sport?: ResistanceSport, zoneId?: string) {
+  const zoneGuide = getResistanceZoneGuide(sport, zoneId);
+  const zoneMetrics = zoneGuide.metrics.slice(0, 3).join(" · ");
   return [
     `Método de resistencia: ${getResistanceMethodLabel(method)}`,
+    sport ? `Deporte: ${zoneGuide.profile.name}` : "",
+    zoneGuide.zone ? `Zona objetivo: ${zoneGuide.zone.label}` : "",
+    zoneMetrics ? `Guía: ${zoneMetrics}` : "",
     method.intensity ? `Intensidad: ${method.intensity}` : "",
     method.sessionDuration ? `Duración / tiempo total: ${method.sessionDuration}` : "",
     method.repetitions ? `Repeticiones: ${method.repetitions}` : "",
@@ -5458,6 +5498,8 @@ function CoachTrainingPlanner({
   const [sessionStrengthMethod, setSessionStrengthMethod] = useState<StrengthIntensityMethod>("rir");
   const [sessionEnduranceMethod, setSessionEnduranceMethod] = useState<EnduranceIntensityMethod>("zones");
   const [selectedResistanceMethodId, setSelectedResistanceMethodId] = useState("");
+  const [selectedResistanceSport, setSelectedResistanceSport] = useState<ResistanceSport>("generic");
+  const [targetResistanceZoneId, setTargetResistanceZoneId] = useState<PlannedResistanceZoneId>("");
   const [sessionSummary, setSessionSummary] = useState(plannedSession.title);
   const [sessionTargetRpe, setSessionTargetRpe] = useState("");
   const [cardioPlanDraft, setCardioPlanDraft] = useState<CardioPlanDraft>({
@@ -5482,6 +5524,8 @@ function CoachTrainingPlanner({
   const [templateName, setTemplateName] = useState("");
   const completeResistanceMethods = getCompleteResistanceMethods();
   const selectedResistanceMethod = getResistanceMethodById(selectedResistanceMethodId);
+  const resistanceSportProfiles = getSportZoneProfiles();
+  const selectedResistanceZoneGuide = getResistanceZoneGuide(selectedResistanceSport, targetResistanceZoneId);
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
@@ -5636,7 +5680,7 @@ function CoachTrainingPlanner({
   };
   const applyResistanceMethodTemplate = () => {
     if (!selectedResistanceMethod) return;
-    const methodNotes = buildResistanceMethodTemplateNotes(selectedResistanceMethod);
+    const methodNotes = buildResistanceMethodTemplateNotes(selectedResistanceMethod, selectedResistanceSport, targetResistanceZoneId);
 
     setCardioPlanDraft((current) => ({
       ...current,
@@ -5728,10 +5772,12 @@ function CoachTrainingPlanner({
       performedExercises: [],
       plannedExercises,
       resistanceMethodId: sessionType === "Cardio" ? selectedResistanceMethodId || undefined : undefined,
+      resistanceSport: sessionType === "Cardio" ? selectedResistanceSport : undefined,
       sessionNumber,
       status: "Planificada",
       strengthMethod: sessionStrengthMethod,
       summary: sessionSummary.trim() || "Sesión planificada",
+      targetResistanceZoneId: sessionType === "Cardio" ? targetResistanceZoneId || undefined : undefined,
       targetRpe: sessionTargetRpe,
       type: sessionType,
       week: selectedBlockWeek,
@@ -6465,6 +6511,73 @@ function CoachTrainingPlanner({
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-ink/75">
+                Deporte
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => {
+                    const nextSport = event.target.value as ResistanceSport;
+                    setSelectedResistanceSport(nextSport);
+                    setTargetResistanceZoneId("");
+                  }}
+                  value={selectedResistanceSport}
+                >
+                  {resistanceSportProfiles.map((profile) => (
+                    <option key={profile.sport} value={profile.sport}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Zona objetivo
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setTargetResistanceZoneId(event.target.value as PlannedResistanceZoneId)}
+                  value={targetResistanceZoneId}
+                >
+                  <option value="">Sin zona objetivo</option>
+                  {selectedResistanceZoneGuide.profile.zones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedResistanceZoneGuide.zone ? (
+                <div className="rounded-md border border-line bg-white p-3 text-sm text-ink/65 sm:col-span-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-ink/45">Zona objetivo</p>
+                      <p className="mt-1 font-semibold text-ink">{selectedResistanceZoneGuide.zone.label}</p>
+                      <p className="mt-1">{selectedResistanceZoneGuide.zone.description}</p>
+                    </div>
+                    <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/65">
+                      {selectedResistanceZoneGuide.profile.mainReferenceMetric}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedResistanceZoneGuide.metrics.length > 0 ? selectedResistanceZoneGuide.metrics.map((metric) => (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65" key={metric}>
+                        {metric}
+                      </span>
+                    )) : (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/55">
+                        Sin porcentajes añadidos todavía.
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <ClientInfoCard label="Métricas secundarias" value={selectedResistanceZoneGuide.profile.secondaryMetrics.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Foco fisiológico" value={selectedResistanceZoneGuide.zone.physiologicalFocus?.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Métodos relacionados" value={selectedResistanceZoneGuide.zone.methodLinks?.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Guía" value="Individualiza con test, deporte, nivel y contexto." />
+                  </div>
+                  {selectedResistanceZoneGuide.zone.sourceNote ? (
+                    <p className="mt-3 text-xs font-medium text-ink/45">{selectedResistanceZoneGuide.zone.sourceNote}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              <label className="space-y-2 text-sm font-medium text-ink/75">
                 Deporte / modalidad
                 <select
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
@@ -6617,6 +6730,15 @@ function CoachTrainingPlanner({
                       {selectedResistanceMethod.group}
                       {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
                     </p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <ClientInfoCard label="Deporte" value={selectedResistanceZoneGuide.profile.name} />
+                      <ClientInfoCard label="Zona objetivo" value={selectedResistanceZoneGuide.zone?.label || "Sin zona objetivo"} />
+                    </div>
+                    {selectedResistanceZoneGuide.metrics.length > 0 ? (
+                      <p className="mt-3 text-sm font-medium text-ink/60">{selectedResistanceZoneGuide.metrics.join(" · ")}</p>
+                    ) : selectedResistanceZoneGuide.zone ? (
+                      <p className="mt-3 text-sm font-medium text-ink/60">Sin porcentajes añadidos todavía.</p>
+                    ) : null}
                   </section>
                 ) : null}
                 {strengthExercises.length === 0 ? (
@@ -6802,7 +6924,9 @@ function hasResistancePerformedData(session: ReviewSessionRecord) {
   return Boolean(
     session.cardioResult ||
     session.cardioPlan ||
-    hasDisplayValue(session.resistanceMethodId)
+    hasDisplayValue(session.resistanceMethodId) ||
+    hasDisplayValue(session.resistanceSport) ||
+    hasDisplayValue(session.targetResistanceZoneId)
   );
 }
 
@@ -7253,6 +7377,7 @@ function SessionHistoryPanel({
             const notes = session.finalNotes ?? session.notes;
             const sessionDeviation = calculateSessionDeviation(session);
             const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
+            const resistanceZoneGuide = getResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
             const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
@@ -7457,6 +7582,8 @@ function SessionHistoryPanel({
                           />
                           <ClientInfoCard label="Distancia real" value={formatResistanceDistance(session.cardioResult?.distanceMeters)} />
                           <ClientInfoCard label="RPE final" value={hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"} />
+                          <ClientInfoCard label="Deporte" value={resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"} />
+                          <ClientInfoCard label="Zona objetivo" value={resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"} />
                           <ClientInfoCard label="Método" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin método asignado"} />
                           {session.cardioResult?.intervalsCompleted ? (
                             <ClientInfoCard label="Repeticiones / intervalos" value={session.cardioResult.intervalsCompleted} />
@@ -7472,6 +7599,22 @@ function SessionHistoryPanel({
                           <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70">
                             {session.cardioResult.notes}
                           </p>
+                        ) : null}
+                        {resistanceZoneGuide.zone ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {resistanceZoneGuide.metrics.length > 0 ? resistanceZoneGuide.metrics.map((metric) => (
+                              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={metric}>
+                                {metric}
+                              </span>
+                            )) : (
+                              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                                Sin porcentajes añadidos todavía.
+                              </span>
+                            )}
+                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                              {resistanceZoneGuide.profile.mainReferenceMetric}
+                            </span>
+                          </div>
                         ) : null}
                       </section>
                     ) : null}
