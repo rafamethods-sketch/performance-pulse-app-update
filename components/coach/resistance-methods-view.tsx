@@ -7,6 +7,12 @@ import {
   type ResistanceMethod,
   type ResistanceMethodStatus
 } from "@/lib/resistance-methods";
+import {
+  getSportZoneProfile,
+  getSportZoneProfiles,
+  type ResistanceSport,
+  type ResistanceZone
+} from "@/lib/resistance-zones";
 
 type ExerciseLibraryMode = "strength" | "resistance";
 type ResistanceMethodFilter = "all" | "continuous" | "fractional" | "taper" | "complete" | "pending";
@@ -23,6 +29,18 @@ const resistanceMethodFilters: Array<{ label: string; value: ResistanceMethodFil
   { label: "Puesta a punto", value: "taper" },
   { label: "Completos", value: "complete" },
   { label: "Pendientes", value: "pending" }
+];
+
+const sportZoneProfiles = getSportZoneProfiles();
+
+const zoneMetricLabels: Array<{ key: keyof NonNullable<ResistanceZone["metrics"]>; label: string }> = [
+  { key: "masPercent", label: "MAS" },
+  { key: "mapPercent", label: "MAP" },
+  { key: "vo2maxPercent", label: "VO2max" },
+  { key: "hrMaxPercent", label: "HRmax" },
+  { key: "hrrPercent", label: "HRR" },
+  { key: "mlssPowerPercent", label: "W-MLSS" },
+  { key: "rpe", label: "RPE" }
 ];
 
 function getResistanceStatusClass(status: ResistanceMethodStatus) {
@@ -87,10 +105,21 @@ function ResistanceDetailSection({ items, title }: { items: string[]; title: str
   );
 }
 
+function getZoneMetrics(zoneItem: ResistanceZone) {
+  return zoneMetricLabels
+    .map((metric) => {
+      const value = zoneItem.metrics?.[metric.key];
+      return value ? `${metric.label}: ${value}` : "";
+    })
+    .filter(Boolean);
+}
+
 export function ResistanceMethodsView({ libraryMode, setLibraryMode }: ResistanceMethodsViewProps) {
   const [resistanceFilter, setResistanceFilter] = useState<ResistanceMethodFilter>("all");
   const [resistanceSearch, setResistanceSearch] = useState("");
   const [selectedResistanceMethod, setSelectedResistanceMethod] = useState<ResistanceMethod | null>(null);
+  const [selectedZoneSport, setSelectedZoneSport] = useState<ResistanceSport>("generic");
+  const selectedZoneProfile = getSportZoneProfile(selectedZoneSport);
   const filteredResistanceMethods = resistanceMethods.filter((method) =>
     methodMatchesResistanceFilter(method, resistanceFilter) &&
     methodMatchesResistanceSearch(method, resistanceSearch)
@@ -151,6 +180,98 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-ink/45">Zonas de entrenamiento</p>
+            <h3 className="mt-1 text-lg font-semibold text-ink">{selectedZoneProfile.name}</h3>
+            <p className="mt-1 text-sm text-ink/55">
+              Guía metodológica. Las zonas deben individualizarse con test, deporte, nivel y contexto.
+            </p>
+          </div>
+          <label className="w-full max-w-xs space-y-2 text-sm font-semibold text-ink/70">
+            Deporte
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+              onChange={(event) => setSelectedZoneSport(event.target.value as ResistanceSport)}
+              value={selectedZoneSport}
+            >
+              {sportZoneProfiles.map((profile) => (
+                <option key={profile.sport} value={profile.sport}>
+                  {profile.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-3">
+          <ResistanceInfoCard label="Métrica principal" value={selectedZoneProfile.mainReferenceMetric} />
+          <ResistanceInfoCard label="Métricas secundarias" value={selectedZoneProfile.secondaryMetrics.join(" · ") || "Sin especificar"} />
+          <ResistanceInfoCard label="Fuente" value={selectedZoneProfile.source || "Capturas docentes aportadas por Rafa"} />
+        </div>
+
+        {selectedZoneProfile.notes ? (
+          <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/65">
+            {selectedZoneProfile.notes}
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid gap-3">
+          {selectedZoneProfile.zones.map((zoneItem) => {
+            const metrics = getZoneMetrics(zoneItem);
+
+            return (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${selectedZoneProfile.sport}-${zoneItem.id}`}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-ink/45">{zoneItem.shortLabel}</p>
+                    <h4 className="mt-1 font-semibold text-ink">{zoneItem.label}</h4>
+                    <p className="mt-2 text-sm text-ink/65">{zoneItem.description}</p>
+                  </div>
+                  {zoneItem.intensity ? (
+                    <span className="w-fit rounded-md border border-line bg-white px-3 py-1 text-xs font-semibold text-ink/65">
+                      {zoneItem.intensity}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                  <div className="rounded-md border border-line bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Porcentajes / RPE</p>
+                    {metrics.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {metrics.map((metric) => (
+                          <span className="rounded-md bg-panel/70 px-2 py-1 text-xs font-semibold text-ink/65" key={metric}>
+                            {metric}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm font-medium text-ink/55">Sin porcentajes añadidos para este perfil.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-md border border-line bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Foco fisiológico</p>
+                    <p className="mt-2 text-sm font-medium text-ink/65">{zoneItem.physiologicalFocus?.join(" · ") || "Sin especificar"}</p>
+                  </div>
+
+                  <div className="rounded-md border border-line bg-white p-3">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Métodos relacionados</p>
+                    <p className="mt-2 text-sm font-medium text-ink/65">{zoneItem.methodLinks?.join(" · ") || "Sin especificar"}</p>
+                  </div>
+                </div>
+
+                {zoneItem.sourceNote ? (
+                  <p className="mt-3 text-xs font-medium text-ink/45">{zoneItem.sourceNote}</p>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
 
