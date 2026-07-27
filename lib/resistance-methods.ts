@@ -1,5 +1,7 @@
-// Source: Métodos de entrenamiento..xlsx
-// Built only from Rafa's resistance training methodology document.
+// Source:
+// - Métodos de entrenamiento..xlsx
+// - Capturas docentes aportadas por Rafa sobre métodos fraccionados y puesta a punto.
+// Built only from Rafa's resistance training methodology document and provided teaching slides.
 // Do not add external methods, examples, effects, zones, or bibliography here.
 
 export type ResistanceMethodStatus = "complete" | "pending";
@@ -216,14 +218,76 @@ export const resistanceMethods: ResistanceMethod[] = [
     trainingEffects:
       "Mejora la potencia anaeróbica láctica.\nAumento de los depósitos de ATO y PC.\nMejora de la coordinación inter e intramuscular.\nAumentos de la frecuencia de ciclo.\nImplicación fibras rápidas."
   }),
-  pendingMethod("RL", "Repeticiones largo", "Métodos fraccionados", "Repeticiones", "Largo"),
-  pendingMethod("RM", "Repeticiones medio", "Métodos fraccionados", "Repeticiones", "Medio"),
-  pendingMethod("RC", "Repeticiones corto", "Métodos fraccionados", "Repeticiones", "Corto"),
+  completeMethod("RL", "Repeticiones Largo", "Métodos fraccionados", "Repeticiones", "Largo", {
+    bibliography: "",
+    examples: "5 x 1 min R4 / 15 min R0 y RP\n4 x 75 s R4 / 12 min R0 y RP\n6 x 3 min R3+ / 10 min R0 y RP\n8 x 90 s R3+ / 8 min R0 y RP",
+    intensity: "R3+: tiempo total por sesión 9-18 min\nR4: tiempo total por sesión 4-8 min",
+    recoveryBetweenRepetitions: "8-15 min completa",
+    recoveryBetweenSeries: "-",
+    repetitionDuration: "60 s - 3 min",
+    repetitions: "3-5",
+    series: 1,
+    sessionDuration: "40-75 min",
+    trainingEffects:
+      "Mejora del VO2max\nMejora de la tolerancia al ácido láctico / sistema buffer\nAumento de los depósitos de glucógeno\nAumento de los depósitos de PC"
+  }),
+  completeMethod("RM", "Repeticiones Medio", "Métodos fraccionados", "Repeticiones", "Medio", {
+    bibliography: "",
+    examples: "5 x 1 min R5 / 15 min R0 y RP\n6 x 45 s R5 / 15 min R0 y RP\n4 x 30 s R5 / 12 min R0 y RP",
+    intensity: "R5\nTiempo total por sesión: 4-6 min",
+    recoveryBetweenRepetitions: "10-15 min completa",
+    recoveryBetweenSeries: "-",
+    repetitionDuration: "30-60 s",
+    repetitions: "4-6",
+    series: 1,
+    sessionDuration: "40-70 min",
+    trainingEffects:
+      "Máxima producción de ácido láctico / potencia láctica\nMejora de la tolerancia al ácido láctico / sistema buffer\nAumento de las reservas de fosfágenos de alta energía"
+  }),
+  completeMethod("RC", "Repeticiones Corto", "Métodos fraccionados", "Repeticiones", "Corto", {
+    bibliography: "",
+    examples: "10 x 30 s Vmax / 8 min R0 y RP\n6 x 20 s Vmax / 10 min R0 y RP\n7 x 30 s Vmax / 10 min R0 y RP",
+    intensity: "R6\nVelocidad máxima / All out",
+    recoveryBetweenRepetitions: "8-10 min completa",
+    recoveryBetweenSeries: "-",
+    repetitionDuration: "20-30 s",
+    repetitions: "6-10",
+    series: 1,
+    sessionDuration: "40-70 min",
+    trainingEffects:
+      "Potencia láctica\nAumento de las reservas de fosfágenos de alta energía\nVelocidad máxima / frecuencia de ciclo"
+  }),
   pendingMethod("CyC", "Competición o control", "Métodos puesta a punto", "Competición o control", ""),
-  pendingMethod("SS", "Series simuladoras", "Métodos puesta a punto", "Series simuladoras", ""),
-  pendingMethod("SR", "Series rotas", "Métodos puesta a punto", "Series rotas", "")
+  completeMethod("SR", "Series Rotas", "Métodos puesta a punto", "Series rotas", "", {
+    bibliography: "",
+    examples:
+      "Atleta 400 m: 3 x (4 x 100 m ritmo de competición / 5 s R0) / 10 min R0 + RP\nPiragüista 500 m: 2 x (2 x 250 m ritmo de competición / 15 s R0) / 10 min R0 + RP\nRemero 2000 m: 1 x (10 x 200 m ritmo de competición / 10 s R0) / 10 min R0 + RP",
+    intensity: "Misma que en competición",
+    recoveryBetweenRepetitions: "10-20 min completa",
+    recoveryBetweenSeries: "",
+    repetitionDuration: "",
+    repetitions: "1-3",
+    series: "",
+    sessionDuration: "",
+    trainingEffects:
+      "Dividen o rompen la distribución de la prueba en tramos parciales de igual distancia."
+  }),
+  completeMethod("SS", "Series Simuladoras", "Métodos puesta a punto", "Series simuladoras", "", {
+    bibliography: "",
+    examples:
+      "Atleta 400 m: 3 x (100 m / 5 s R0 + 200 m / 5 s R0 + 100 m ritmo competición) / 30 min R0 + RP\nNadador 200 m: 3 x (150 m / 5 s R0 + 50 m ritmo competición) / 25 min R0 + RP\nPiragüista 1000 m: 3 x (150 m / 5 s R0 + 650 m / 10 s R0 + 200 m ritmo competición) / 20 min R0 + RP",
+    intensity: "Misma que en competición",
+    recoveryBetweenRepetitions: "10-20 min completa",
+    recoveryBetweenSeries: "",
+    repetitionDuration: "",
+    repetitions: "1-3",
+    series: "",
+    sessionDuration: "",
+    trainingEffects:
+      "Dividen la prueba en tramos de diferente distancia tratando de integrar la distribución del esfuerzo que se quiera realizar en la competición."
+  })
 ];
 
-export const completeResistanceMethodIds = ["CE", "CI", "CV1", "CV2", "IEL", "IEM", "IIC", "IIMC"] as const;
-export const pendingResistanceMethodIds = ["RL", "RM", "RC", "CyC", "SS", "SR"] as const;
+export const completeResistanceMethodIds = ["CE", "CI", "CV1", "CV2", "IEL", "IEM", "IIC", "IIMC", "RL", "RM", "RC", "SR", "SS"] as const;
+export const pendingResistanceMethodIds = ["CyC"] as const;
 
