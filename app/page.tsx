@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ArrowLeft,
@@ -333,12 +333,12 @@ export default function ClientsPage() {
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "today"
-                  ? role === "coach" ? "Resumen del dÃ­a" : "Hoy"
+                  ? role === "coach" ? "Resumen del día" : "Hoy"
                   : activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
                     ? `Resumen - ${selectedClient?.name ?? "cliente"}`
                     : role === "coach" && trainerClientPanel === "details"
-                      ? `InformaciÃ³n - ${selectedClient?.name ?? "cliente"}`
+                      ? `Información - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "training"
                     ? role === "coach" ? "Sesiones" : "Historial"
@@ -353,9 +353,9 @@ export default function ClientsPage() {
                   : activeSheet === "fatigue"
                     ? "Fatiga"
                   : activeSheet === "weeklyLoad"
-                    ? role === "coach" ? "MÃ©tricas" : "Carga semanal"
+                    ? role === "coach" ? "Métricas" : "Carga semanal"
                   : activeSheet === "planning"
-                    ? "PlanificaciÃ³n"
+                    ? "Planificación"
                   : activeSheet === "progressions"
                     ? "Ejercicios"
                   : activeSheet === "resources"
@@ -647,6 +647,8 @@ type ClientWellness = {
 type ConnectedSessionExercise = SessionExerciseInput & {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
+  bandColor?: string | null;
+  bandResistance?: string | null;
   block?: string | null;
   exerciseRpe?: number | string | null;
   id?: string | null;
@@ -937,7 +939,7 @@ function createDemoSession({
     completed: true,
     date,
     discomfort,
-    finalNotes: "Sesion demo para probar historial, carga y revision.",
+    finalNotes: "Sesión demo para probar historial, carga y revisión.",
     finalRpe,
     id,
     isDemo: true,
@@ -1037,7 +1039,7 @@ function createDemoCyclingResistanceSession(dayOffset: number): ClientSessionRec
     },
     completed: true,
     date: getRelativeDateKey(dayOffset),
-    finalNotes: "Sesion demo de ciclismo con zona objetivo.",
+    finalNotes: "Sesión demo de ciclismo con zona objetivo.",
     finalRpe,
     id: "demo-session-cycling-r2",
     isDemo: true,
@@ -1134,7 +1136,7 @@ function buildDemoClient(): CoachClient {
         exerciseName: "Bulgarian split squat",
         hasDiscomfort: true,
         intensity: 3,
-        notes: "Molestia leve durante las ultimas repeticiones.",
+        notes: "Molestia leve durante las últimas repeticiones.",
         phase: "Final de la serie"
       },
       duration: 70,
@@ -1176,7 +1178,7 @@ function buildDemoClient(): CoachClient {
       plannedExercises: lowerExercises,
       sessionNumber: 3,
       status: "Planificada",
-      summary: "Sesion planificada demo para calendario",
+      summary: "Sesión planificada demo para calendario",
       type: "Fuerza",
       weekLabel: "Semana demo"
     }
@@ -1191,10 +1193,10 @@ function buildDemoClient(): CoachClient {
       { action: "Ver historial", date: getRelativeDateKey(-28), id: "demo-assessment-strength-1", isDemo: true, name: "3RM sentadilla", result: "105 kg", type: "Fuerza" },
       { action: "Ver historial", date: getRelativeDateKey(-21), id: "demo-assessment-jump-1", isDemo: true, name: "CMJ", result: "38 cm", type: "Salto" },
       { action: "Ver historial", date: getRelativeDateKey(-18), id: "demo-assessment-cardio-1", isDemo: true, name: "Test 6 min", result: "1420 m", type: "Resistencia" },
-      { action: "Ver historial", date: getRelativeDateKey(-12), id: "demo-assessment-body-1", isDemo: true, name: "Peso corporal", result: "76.4 kg", type: "AntropometrÃ­a" }
+      { action: "Ver historial", date: getRelativeDateKey(-12), id: "demo-assessment-body-1", isDemo: true, name: "Peso corporal", result: "76.4 kg", type: "Antropometría" }
     ],
-    availability: "4 dias / semana",
-    availableEquipment: "Barra, mancuernas, polea, cajon, balon medicinal",
+    availability: "4 días / semana",
+    availableEquipment: "Barra, mancuernas, polea, cajón, balón medicinal",
     chronicLoad: 1780,
     coachNotes: "Cliente demo para probar dashboard, calendario, historial, fatiga y wellness.",
     dailyLoads: [476, 225, 420, 312, 304, 560, 600],
@@ -1202,7 +1204,7 @@ function buildDemoClient(): CoachClient {
     history: "Perfil ficticio para pruebas visuales. No contiene datos personales reales.",
     hooper: { fatigue: 3, mood: 2, sleep: 2, soreness: 3, stress: 2 },
     id: "demo-client",
-    injuries: "Molestias leves registradas de prueba, sin diagnosticos.",
+    injuries: "Molestias leves registradas de prueba, sin diagnósticos.",
     isDemo: true,
     lastActivity: "Core y accesorios - esta semana",
     level: "Intermedio",
@@ -1328,12 +1330,12 @@ function ClientQuickNav({
     },
     {
       active: activeSheet === "clients" && trainerClientPanel === "details",
-      label: "InformaciÃ³n",
+      label: "Información",
       onClick: () => onOpenDetails(client.id)
     },
     {
       active: activeSheet === "planning",
-      label: "PlanificaciÃ³n",
+      label: "Planificación",
       onClick: () => onOpenClientSheet(client.id, "planning")
     },
     {
@@ -1418,7 +1420,7 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
     <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificaciÃ³n, mensajes y tests pertenezcan al cliente activo.
+        Las páginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y tests pertenezcan al cliente activo.
       </p>
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
         Ir a Clientes
@@ -1441,7 +1443,7 @@ function AthleteAccessEndedNotice({
       <p className="text-xs font-semibold uppercase text-coral">Acceso finalizado</p>
       <h2 className="mt-2 text-xl font-semibold text-ink">Tu acceso activo ha finalizado</h2>
       <p className="mt-2 max-w-2xl text-sm text-ink/65">
-        Puedes seguir entrando a la app, pero no tienes una planificaciÃ³n activa. Contacta con tu entrenador para revisar tu acceso.
+        Puedes seguir entrando a la app, pero no tienes una planificación activa. Contacta con tu entrenador para revisar tu acceso.
       </p>
       {client ? (
         <p className="mt-3 text-sm font-semibold text-ink/55">{getClientAccessInfo(client).text}</p>
@@ -1451,7 +1453,7 @@ function AthleteAccessEndedNotice({
           Ver historial
         </button>
         <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={onShowPlanning} type="button">
-          Ver planificaciÃ³n
+          Ver planificación
         </button>
       </div>
     </section>
@@ -1615,7 +1617,7 @@ function CoachClientsView({
       lastActivity: "Sin sesiones registradas",
       level: "Pendiente",
       loadMetric: "Sin datos de carga",
-      metrics: ["Sin metricas registradas"],
+      metrics: ["Sin métricas registradas"],
       modality: newClientDraft.modality,
       name,
       nextEvent,
@@ -1763,7 +1765,7 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, availability: event.target.value }))}
-                    placeholder="Ej: 3 dÃ­as/semana, 60 min por sesiÃ³n"
+                    placeholder="Ej: 3 días/semana, 60 min por sesión"
                     value={newClientDraft.availability}
                   />
                 </label>
@@ -1781,7 +1783,7 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, injuries: event.target.value }))}
-                    placeholder="Ej. tendinopatÃ­a, dolor lumbar, sin limitaciones..."
+                    placeholder="Ej. tendinopatía, dolor lumbar, sin limitaciones..."
                     value={newClientDraft.injuries}
                   />
                 </label>
@@ -1804,16 +1806,16 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, objective: event.target.value }))}
-                    placeholder="Ej. fuerza mÃ¡xima, salud metabÃ³lica, 10K..."
+                    placeholder="Ej. fuerza máxima, salud metabólica, 10K..."
                     value={newClientDraft.objective}
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  PrÃ³xima competiciÃ³n / test / pico de forma
+                  Próxima competición / test / pico de forma
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, eventName: event.target.value }))}
-                    placeholder="Ej. Test fuerza mÃ¡xima"
+                    placeholder="Ej. Test fuerza máxima"
                     value={newClientDraft.eventName}
                   />
                 </label>
@@ -1842,7 +1844,7 @@ function CoachClientsView({
               <div className="mt-4 grid gap-4">
                 <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  Modelo de periodizaciÃ³n
+                  Modelo de periodización
                   <select
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, planningMethod: event.target.value as PlanningMethod }))}
@@ -1856,7 +1858,7 @@ function CoachClientsView({
                   </select>
                 </label>
                 <div className="space-y-2 text-sm font-medium text-ink/75">
-                  NÃºmero de mesociclos
+                  Número de mesociclos
                   <div className="flex h-11 items-center rounded-md border border-line bg-white px-3 text-lg font-semibold text-ink">
                     {newClientDraft.planningBlocks.length}
                   </div>
@@ -1869,12 +1871,12 @@ function CoachClientsView({
                   type="button"
                 >
                   <Plus size={16} />
-                  AÃ±adir mesociclo
+                  Añadir mesociclo
                 </button>
 
                 {newClientDraft.planningBlocks.length === 0 ? (
                   <div className="rounded-md bg-white px-3 py-3 text-sm text-ink/60">
-                    Puedes crear el cliente sin mesociclos y completar la planificaciÃ³n despuÃ©s.
+                    Puedes crear el cliente sin mesociclos y completar la planificación después.
                   </div>
                 ) : (
                   <div className="grid gap-3">
@@ -1901,7 +1903,7 @@ function CoachClientsView({
                             />
                           </label>
                           <label className="space-y-2 text-sm font-medium text-ink/75">
-                            DuraciÃ³n
+                            Duración
                             <input
                               className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                               min={1}
@@ -1927,7 +1929,7 @@ function CoachClientsView({
                             />
                           </label>
                           <label className="space-y-2 text-sm font-medium text-ink/75">
-                            DistribuciÃ³n semanal
+                            Distribución semanal
                             <select
                               className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                               onChange={(event) => updateClientMesocycle(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
@@ -1961,7 +1963,7 @@ function CoachClientsView({
                   <h4 className="font-semibold text-ink">Datos del cliente</h4>
                   <div className="mt-3 grid gap-2 text-sm text-ink/65">
                     <p><span className="font-semibold text-ink">Nombre:</span> {newClientDraft.name || "Sin nombre"}</p>
-                    <p><span className="font-semibold text-ink">Edad:</span> {newClientDraft.age} aÃ±os</p>
+                    <p><span className="font-semibold text-ink">Edad:</span> {newClientDraft.age} años</p>
                     <p><span className="font-semibold text-ink">Disciplina:</span> {newClientDraft.modality}</p>
                     <p><span className="font-semibold text-ink">Contexto:</span> {newClientDraft.goalType}</p>
                     <p><span className="font-semibold text-ink">Disponibilidad:</span> {newClientDraft.availability || "Pendiente"}</p>
@@ -1980,7 +1982,7 @@ function CoachClientsView({
                   </div>
                 </div>
                 <div className="rounded-md border border-line bg-white p-4 shadow-soft">
-                  <h4 className="font-semibold text-ink">PlanificaciÃ³n inicial</h4>
+                  <h4 className="font-semibold text-ink">Planificación inicial</h4>
                   <div className="mt-3 grid gap-2 text-sm text-ink/65">
                     <p><span className="font-semibold text-ink">Modelo:</span> {newClientDraft.planningMethod ? getPlanningMethodLabel(newClientDraft.planningMethod) : "Sin modelo"}</p>
                     <p><span className="font-semibold text-ink">Mesociclos:</span> {newClientDraft.planningBlocks.length}</p>
@@ -1989,7 +1991,7 @@ function CoachClientsView({
                       <div className="mt-1 grid gap-1">
                         {newClientDraft.planningBlocks.map((block, index) => (
                           <p className="rounded-md bg-panel/45 px-2 py-1" key={block.id}>
-                            Mesociclo {index + 1} Â· {block.durationWeeks} semanas
+                            Mesociclo {index + 1} · {block.durationWeeks} semanas
                           </p>
                         ))}
                       </div>
@@ -2178,13 +2180,13 @@ function CoachClientsView({
                     Resumen
                   </button>
                   <button
-                    aria-label={`InformaciÃ³n de ${listedClient.name}`}
+                    aria-label={`Información de ${listedClient.name}`}
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenDetails(listedClient.id)}
-                    title={`InformaciÃ³n de ${listedClient.name}`}
+                    title={`Información de ${listedClient.name}`}
                     type="button"
                   >
-                    InformaciÃ³n
+                    Información
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -2198,7 +2200,7 @@ function CoachClientsView({
                     onClick={() => onOpenClientSheet(listedClient.id, "planning")}
                     type="button"
                   >
-                    PlanificaciÃ³n
+                    Planificación
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -2211,8 +2213,8 @@ function CoachClientsView({
                 </div>
 
                 <div className="mt-3 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
-                  <span>{listedClient.age} anos Â· {listedClient.modality ?? listedClient.sport}</span>
-                  <span>Ultima actividad: {listedClient.lastActivity}</span>
+                  <span>{listedClient.age} años · {listedClient.modality ?? listedClient.sport}</span>
+                  <span>Última actividad: {listedClient.lastActivity}</span>
                   <span>Evento: {listedClient.nextEvent}</span>
                   <span>{accessInfo.text}</span>
                 </div>
@@ -2373,17 +2375,17 @@ function ClientDetailsView({
     {
       fields: [
         ["Nombre", displayValue(client.name)],
-        ["Edad", `${displayValue(client.age)} aÃ±os`],
+        ["Edad", `${displayValue(client.age)} años`],
         ["Disciplina / deporte", displayValue(client.modality || client.sport)],
         ["Contexto", displayValue(client.goalType)],
         ["Estado", displayValue(client.status)]
       ],
-      title: "Datos bÃ¡sicos"
+      title: "Datos básicos"
     },
     {
       fields: [
         ["Objetivo principal", displayValue(client.planning.primaryGoal)],
-        ["Evento / test / competiciÃ³n", displayValue(client.planning.eventName || client.nextEvent)],
+        ["Evento / test / competición", displayValue(client.planning.eventName || client.nextEvent)],
         ["Fecha objetivo", displayValue(client.planning.eventDate)],
         ["Notas del objetivo", displayValue(client.planning.eventNotes)]
       ],
@@ -2488,7 +2490,7 @@ function ClientDetailsView({
       {isEditing ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
           <section className="rounded-md border border-line bg-panel/35 p-4">
-            <h3 className="font-semibold text-ink">Datos bÃ¡sicos</h3>
+            <h3 className="font-semibold text-ink">Datos básicos</h3>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-semibold text-ink/70">
                 Nombre
@@ -2524,7 +2526,7 @@ function ClientDetailsView({
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("primaryGoal", event.target.value)} value={draft.primaryGoal} />
               </label>
               <label className="text-sm font-semibold text-ink/70">
-                Evento / test / competiciÃ³n
+                Evento / test / competición
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("eventName", event.target.value)} value={draft.eventName} />
               </label>
               <label className="text-sm font-semibold text-ink/70">
@@ -2592,7 +2594,7 @@ function ClientDetailsView({
                 <div>
                   <p className="font-semibold text-ink">Intervals.icu</p>
                   <p className="mt-1 text-sm text-ink/55">
-                    La app solo guardarÃ¡ un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
+                    La app solo guardará un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
                   </p>
                 </div>
                 <span className="w-fit rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65">
@@ -2605,12 +2607,12 @@ function ClientDetailsView({
                   <p className="mt-1 text-sm font-semibold text-ink">{getCardioConnectionLabel(intervalsConnection?.status)}</p>
                 </div>
                 <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Ãšltima sincronizaciÃ³n</p>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Última sincronización</p>
                   <p className="mt-1 text-sm font-semibold text-ink">{formatCardioSyncDate(intervalsConnection?.lastSyncAt)}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs font-medium text-ink/45">
-                La integraciÃ³n real debe hacerse desde backend/API route/Supabase Edge Function.
+                La integración real debe hacerse desde backend/API route/Supabase Edge Function.
               </p>
             </div>
           </article>
@@ -2623,9 +2625,9 @@ function ClientDetailsView({
 function ClientProgressView({ client }: { client?: CoachClient | null }) {
   const assessments = client?.assessments ?? [];
   const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
-  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "AntropometrÃ­a");
+  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "Antropometría");
   const enduranceTests = assessments.filter((assessment) => assessment.type === "Resistencia");
-  const otherTests = assessments.filter((assessment) => !["Fuerza", "Resistencia", "AntropometrÃ­a"].includes(assessment.type));
+  const otherTests = assessments.filter((assessment) => !["Fuerza", "Resistencia", "Antropometría"].includes(assessment.type));
   const completedSessions = (client?.sessionRecords ?? []).filter((session) => session.completed || session.status === "Completada");
   const plannedSessions = client?.sessionRecords?.length ?? 0;
   const adherence = plannedSessions > 0 ? Math.round((completedSessions.length / plannedSessions) * 100) : null;
@@ -2675,7 +2677,7 @@ function ClientProgressCard({ description, items, title }: { description?: strin
           ))}
         </div>
       ) : (
-        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
+        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
       )}
     </section>
   );
@@ -2721,20 +2723,20 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ClientInfoCard label="PreparaciÃ³n reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="Readiness actual" value={latestReadiness > 0 ? `${latestReadiness.toFixed(1)}/5` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="SueÃ±o" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="EnergÃ­a" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="RecuperaciÃ³n muscular" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="Calma / Ã¡nimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavÃ­a"} />
-        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="Preparación reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavía"} />
+        <ClientInfoCard label="Readiness actual" value={latestReadiness > 0 ? `${latestReadiness.toFixed(1)}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Energía" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Recuperación muscular" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Calma / ánimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavía"} />
+        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavía"} />
       </div>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">EvoluciÃ³n diaria del bienestar</h3>
-            <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueÃ±o, energÃ­a, recuperaciÃ³n y calma.</p>
+            <h3 className="font-semibold text-ink">Evolución díaria del bienestar</h3>
+            <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueño, energía, recuperación y calma.</p>
           </div>
           <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
             {[7, 14, 28].map((range) => (
@@ -2769,9 +2771,9 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               {[
-                ["SueÃ±o", positiveWellnessValue(latestWellness, "sleep")],
-                ["EnergÃ­a", positiveWellnessValue(latestWellness, "energy")],
-                ["RecuperaciÃ³n", positiveWellnessValue(latestWellness, "recovery")],
+                ["Sueño", positiveWellnessValue(latestWellness, "sleep")],
+                ["Energía", positiveWellnessValue(latestWellness, "energy")],
+                ["Recuperación", positiveWellnessValue(latestWellness, "recovery")],
                 ["Calma", positiveWellnessValue(latestWellness, "calm")]
               ].map(([label, value]) => (
                 <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
@@ -2787,7 +2789,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             </div>
           </div>
         ) : (
-          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
         )}
       </section>
 
@@ -2803,7 +2805,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             ))}
           </div>
         ) : (
-          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
+          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
         )}
       </section>
     </div>
@@ -2893,7 +2895,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
           <h2 className="text-lg font-semibold text-ink">Carga semanal</h2>
         </div>
         <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
-          Ultimas 6 semanas
+          Últimas 6 semanas
         </span>
       </div>
 
@@ -2913,7 +2915,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
           value={hasWeeklyTrainingData ? `${Math.round(weeklyExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"}
         />
         <MetricPill
-          label="Carga externa sesion"
+          label="Carga externa sesión"
           status="prevision"
           value={previewSession ? `${Math.round(sessionExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"}
         />
@@ -2979,7 +2981,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-md border border-line bg-white p-4">
-          <h3 className="font-semibold text-ink">Carga externa de la sesion por patron</h3>
+          <h3 className="font-semibold text-ink">Carga externa de la sesión por patron</h3>
           <div className="mt-3 grid gap-2">
             {Object.entries(sessionExternalLoadByPattern).length > 0 ? (
               Object.entries(sessionExternalLoadByPattern).map(([pattern, load]) => (
@@ -2990,14 +2992,14 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
               ))
             ) : (
               <p className="rounded-md border border-dashed border-line bg-panel/45 p-4 text-sm font-semibold text-ink/50">
-                Sin datos de ejercicios para esta sesion.
+                Sin datos de ejercicios para esta sesión.
               </p>
             )}
           </div>
         </section>
 
         <section className="rounded-md border border-line bg-white p-4">
-          <h3 className="font-semibold text-ink">Series efectivas de la sesion</h3>
+          <h3 className="font-semibold text-ink">Series efectivas de la sesión</h3>
           <div className="mt-3 grid gap-2">
             {Object.entries(sessionMuscleSets).length > 0 ? (
               Object.entries(sessionMuscleSets).map(([muscle, sets]) => (
@@ -3008,7 +3010,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
               ))
             ) : (
               <p className="rounded-md border border-dashed border-line bg-panel/45 p-4 text-sm font-semibold text-ink/50">
-                Sin datos de ejercicios para esta sesion.
+                Sin datos de ejercicios para esta sesión.
               </p>
             )}
           </div>
@@ -3056,8 +3058,8 @@ function getPlanningWeeks(peakDate: string, eventType: PlanningEventType) {
 
 function getPlanningBlockStatus(block: PlanningRoadmapBlock, currentBlock?: string | null) {
   if (currentBlock && block.name === currentBlock) return "En curso";
-  if (currentBlock) return "PrÃ³ximo";
-  return block.startWeek === 1 ? "En curso" : "PrÃ³ximo";
+  if (currentBlock) return "Próximo";
+  return block.startWeek === 1 ? "En curso" : "Próximo";
 }
 
 function getPlanningBlockStatusClass(status: string) {
@@ -3066,7 +3068,7 @@ function getPlanningBlockStatusClass(status: string) {
       return "border-moss/25 bg-mint text-moss";
     case "Finalizado":
       return "border-line bg-panel text-ink/55";
-    case "PrÃ³ximo":
+    case "Próximo":
     default:
       return "border-steel/25 bg-sky text-steel";
   }
@@ -3106,7 +3108,7 @@ function downloadPlanningCalendarCsv({
 }) {
   if (blocks.length === 0 || typeof window === "undefined") return;
 
-  const header = ["Bloque", "Duracion", "Objetivo principal", "Objetivo secundario", "Distribucion semanal", "Notas"];
+  const header = ["Bloque", "Duración", "Objetivo principal", "Objetivo secundario", "Distribución semanal", "Notas"];
   const rows = blocks.map((block, index) => [
     index + 1,
     `${block.durationWeeks} semanas`,
@@ -3211,7 +3213,7 @@ function PlanningView({
     return (
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
         <p className="text-sm font-semibold text-ink">
-          Selecciona primero un cliente desde Clientes para ver su planificaciÃ³n.
+          Selecciona primero un cliente desde Clientes para ver su planificación.
         </p>
       </section>
     );
@@ -3238,7 +3240,7 @@ function PlanningView({
           <ClientInfoCard label="Mesociclos" value={String(planningBlocks.length)} />
           <ClientInfoCard label="Bloque actual" value={client.planning.currentBlock || "Sin asignar"} />
           <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal || "Pendiente"} />
-          <ClientInfoCard label="Duracion total" value={`${totalWeeks} semanas`} />
+          <ClientInfoCard label="Duración total" value={`${totalWeeks} semanas`} />
         </div>
 
         <div className="mt-5">
@@ -3275,7 +3277,7 @@ function PlanningView({
                       <p>{block.durationWeeks} semanas</p>
                       <p>Semana {block.startWeek}-{block.endWeek}</p>
                       <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
-                      <p>Distribucion: {block.weeklyDistribution || "Sin asignar"}</p>
+                      <p>Distribución: {block.weeklyDistribution || "Sin asignar"}</p>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
                       <span>
@@ -3309,9 +3311,9 @@ function PlanningView({
       ) : null}
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Metodo de planificaciÃ³n</h2>
+        <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
-          Metodo de planificaciÃ³n
+          Metodo de planificación
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setPlanningMethod(event.target.value as PlanningMethod)}
@@ -3380,7 +3382,7 @@ function PlanningView({
               />
             </label>
             <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              PlanificaciÃ³n sin fecha clave. El entrenador decide los mesociclos manualmente.
+              Planificación sin fecha clave. El entrenador decide los mesociclos manualmente.
             </p>
           </PlanningStep>
         )}
@@ -3435,7 +3437,7 @@ function PlanningView({
                       />
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Duracion en semanas
+                      Duración en semanas
                       <input
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                         min={1}
@@ -3450,7 +3452,7 @@ function PlanningView({
                         list={`primary-objectives-${block.id}`}
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                         onChange={(event) => updateBlock(block.id, { primaryObjective: event.target.value })}
-                        placeholder="Ej. Fuerza maxima"
+                        placeholder="Ej. Fuerza máxima"
                         value={block.primaryObjective}
                       />
                       <datalist id={`primary-objectives-${block.id}`}>
@@ -3475,7 +3477,7 @@ function PlanningView({
                       </datalist>
                     </label>
                     <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-                      Distribucion semanal
+                      Distribución semanal
                       <select
                         className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                         onChange={(event) => updateBlock(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
@@ -3538,7 +3540,7 @@ function PlanningBlockDetail({
             type="button"
           >
             <ArrowLeft size={16} />
-            Volver a planificaciÃ³n
+            Volver a planificación
           </button>
           <p className="mt-5 text-xs font-semibold uppercase text-moss">Detalle del bloque</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">{block.name}</h2>
@@ -3552,9 +3554,9 @@ function PlanningBlockDetail({
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <ClientInfoCard label="DuraciÃ³n" value={`${block.durationWeeks} semanas`} />
+        <ClientInfoCard label="Duración" value={`${block.durationWeeks} semanas`} />
         <ClientInfoCard label="Fechas" value={`Semana ${block.startWeek}-${block.endWeek}`} />
-        <ClientInfoCard label="DistribuciÃ³n" value={block.weeklyDistribution || "Sin asignar"} />
+        <ClientInfoCard label="Distribución" value={block.weeklyDistribution || "Sin asignar"} />
         <ClientInfoCard label="Objetivo" value={block.primaryObjective || "Sin definir"} />
         <ClientInfoCard
           label="Progreso"
@@ -3600,7 +3602,7 @@ function PlanningBlockDetail({
                     <PlanningMiniChip Icon={Target} label={block.primaryObjective || "Objetivo"} tone="moss" />
                   ) : null}
                   {dayIndex === 2 ? (
-                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "DistribuciÃ³n"} tone="steel" />
+                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "Distribución"} tone="steel" />
                   ) : null}
                   {dayIndex === 4 ? (
                     <PlanningMiniChip Icon={Plus} label="Sesiones" tone="ink" />
@@ -3678,7 +3680,7 @@ function PlanningSummary({
     <div className="mt-5 border-t border-line pt-4">
       <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65">
         <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Cliente: {selectedPlan.clientName}</span>
-        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">MÃ©todo: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</span>
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Método: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</span>
         <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Evento: {selectedPlan.planningEventType}</span>
         {selectedPlan.planningEventType !== "Sin evento definido" ? (
           <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Fecha: {selectedPlan.planningPeakDate || "Sin fecha"}</span>
@@ -3693,7 +3695,7 @@ function PlanningSummary({
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/55">
           {selectedPlan.blocks.map((block, index) => (
             <span className="rounded-md bg-panel/35 px-2.5 py-1.5" key={block.id}>
-              {index + 1}. {block.name} Â· {block.durationWeeks} sem.
+              {index + 1}. {block.name} · {block.durationWeeks} sem.
             </span>
           ))}
         </div>
@@ -3737,9 +3739,9 @@ function PlanningCalendarPreview({
             <thead className="bg-panel/60 text-xs uppercase text-ink/55">
               <tr>
                 <th className="px-3 py-2">Bloque</th>
-                <th className="px-3 py-2">Duracion</th>
+                <th className="px-3 py-2">Duración</th>
                 <th className="px-3 py-2">Objetivo principal</th>
-                <th className="px-3 py-2">Distribucion</th>
+                <th className="px-3 py-2">Distribución</th>
               </tr>
             </thead>
             <tbody>
@@ -3761,22 +3763,22 @@ function PlanningCalendarPreview({
 
 const exerciseVariantTypeLabels: Record<ExerciseVariantType, string> = {
   complex: "Complejo",
-  direction: "DirecciÃ³n",
+  direction: "Dirección",
   grip: "Agarre",
   material: "Material",
-  progression: "ProgresiÃ³n",
+  progression: "Progresión",
   range: "Rango",
-  reception: "RecepciÃ³n",
-  regression: "RegresiÃ³n",
-  stance: "Apoyo / posiciÃ³n",
-  start_position: "PosiciÃ³n inicial",
+  reception: "Recepción",
+  regression: "Regresión",
+  stance: "Apoyo / posición",
+  start_position: "Posición inicial",
   support: "Soporte",
   tempo: "Tempo"
 };
 
 const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string> = {
   advanced: "Avanzada",
-  basic: "BÃ¡sica",
+  basic: "Básica",
   intermediate: "Intermedia"
 };
 
@@ -3838,7 +3840,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            RegiÃ³n corporal
+            Región corporal
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -3859,7 +3861,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            PatrÃ³n
+            Patrón
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -3922,7 +3924,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </div>
 
             <div className="mt-5 rounded-md bg-panel/45 p-4">
-              <h3 className="text-sm font-semibold text-ink">DescripciÃ³n tÃ©cnica</h3>
+              <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
               <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
             </div>
 
@@ -3979,7 +3981,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               </div>
 
               <div className="rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">MÃºsculos implicados</h3>
+                <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
                 <div className="mt-3">
                   <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
                   <p className="mt-1 text-sm text-ink/70">
@@ -3998,9 +4000,9 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             <div className="mt-4 rounded-md border border-line p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">ActivaciÃ³n muscular basada en evidencia</h3>
+                  <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
                   <p className="mt-1 text-xs text-ink/50">
-                    Escala cualitativa basada en fuentes PubMed aÃ±adidas a la biblioteca.
+                    Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.
                   </p>
                 </div>
                 {activationEvidence ? (
@@ -4033,7 +4035,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                               ))}
                             </div>
                           ) : (
-                            <p className="mt-2 text-sm text-ink/45">Sin mÃºsculos en este rol.</p>
+                            <p className="mt-2 text-sm text-ink/45">Sin músculos en este rol.</p>
                           )}
                         </div>
                       );
@@ -4044,7 +4046,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                     <div className="mt-3 grid gap-2">
                       {activationEvidence.sources.map((source) => (
                         <p className="rounded-md border border-line bg-panel/60 px-3 py-2 text-xs leading-5 text-ink/65" key={source.pmid}>
-                          <span className="font-semibold text-ink">PMID {source.pmid}</span> Â· {source.title}
+                          <span className="font-semibold text-ink">PMID {source.pmid}</span> · {source.title}
                         </p>
                       ))}
                     </div>
@@ -4055,7 +4057,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                 </div>
               ) : (
                 <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
-                  Sin evidencia PubMed aÃ±adida todavÃ­a para este ejercicio.
+                  Sin evidencia PubMed añadida todavía para este ejercicio.
                 </p>
               )}
             </div>
@@ -4101,10 +4103,10 @@ function formatFatigueKey(key: string) {
     core: "Core",
     forearms: "Antebrazos",
     anteriorDelts: "Deltoides anterior",
-    biceps: "BÃ­ceps",
+    biceps: "Bíceps",
     chest: "Pectoral",
-    glutes: "GlÃºteos",
-    gluteMed: "GlÃºteo medio",
+    glutes: "Glúteos",
+    gluteMed: "Glúteo medio",
     hamstrings: "Isquios",
     hips: "Caderas",
     hipFlexors: "Flexores cadera",
@@ -4115,20 +4117,20 @@ function formatFatigueKey(key: string) {
     lateralDelts: "Deltoides lateral",
     lowerTraps: "Trapecio inferior",
     lumbarStabilizers: "Estabilizadores lumbares",
-    midBack: "Espalda media",
+    midBack: "Espalda medía",
     obliques: "Oblicuos",
-    quadriceps: "CuÃ¡driceps",
+    quadriceps: "Cuádriceps",
     rectusAbdominis: "Recto abdominal",
     rearDelts: "Deltoides posterior",
     rotatorCuff: "Manguito rotador",
     serratusAnterior: "Serrato anterior",
     shoulders: "Hombros",
-    soleus: "SÃ³leo",
+    soleus: "Sóleo",
     spinalErectors: "Erectores",
-    thoracicSpine: "Columna torÃ¡cica",
+    thoracicSpine: "Columna torácica",
     tibialisAnterior: "Tibial anterior",
     traps: "Trapecio",
-    triceps: "TrÃ­ceps",
+    triceps: "Tríceps",
     transverseAbdominis: "Transverso abdominal",
     upperTraps: "Trapecio superior",
     upperBack: "Upper back"
@@ -4197,9 +4199,9 @@ const routineTemplates: RoutineTemplate[] = [
     type: "Torso-pierna",
     exercises: [
       { exercise: "Sentadilla en silla sin apoyo", pattern: "Empuje tren inferior", sets: "2-3", reps: "8-10", rir: "3-4", rest: "90 s" },
-      { exercise: "Puente de gluteo en suelo", pattern: "Traccion tren inferior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
+      { exercise: "Puente de glúteo en suelo", pattern: "Traccion tren inferior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
       { exercise: "Press pared", pattern: "Empuje tren superior", sets: "2-3", reps: "8-12", rir: "3-4", rest: "60 s" },
-      { exercise: "Remo con banda elastica", pattern: "Traccion tren superior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" }
+      { exercise: "Remo con banda elástica", pattern: "Traccion tren superior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" }
     ]
   },
   {
@@ -4209,9 +4211,9 @@ const routineTemplates: RoutineTemplate[] = [
     profile: "Persona mayor",
     type: "Full body",
     exercises: [
-      { exercise: "Sentadilla en silla con apoyo de manos", pattern: "Empuje tren inferior", sets: "2-3", reps: "8-10", rir: "3-4", rest: "90 s" },
-      { exercise: "Remo con banda elastica", pattern: "Traccion tren superior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
-      { exercise: "Puente de gluteo en suelo", pattern: "Traccion tren inferior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
+      { exercise: "Sentadilla en silla con apoyo de maños", pattern: "Empuje tren inferior", sets: "2-3", reps: "8-10", rir: "3-4", rest: "90 s" },
+      { exercise: "Remo con banda elástica", pattern: "Traccion tren superior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
+      { exercise: "Puente de glúteo en suelo", pattern: "Traccion tren inferior", sets: "2-3", reps: "10-12", rir: "3", rest: "60 s" },
       { exercise: "Press pared", pattern: "Empuje tren superior", sets: "2", reps: "8-12", rir: "3-4", rest: "60 s" }
     ]
   },
@@ -4278,7 +4280,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
   if (daysPerWeek === 1) {
     return {
       name: "Full body",
-      reason: "Con un solo dia semanal conviene tocar los patrones principales en una sesion.",
+      reason: "Con un solo día semanal conviene tocar los patrones principales en una sesión.",
       templateType: "Full body"
     };
   }
@@ -4286,7 +4288,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
   if (daysPerWeek === 2 && consecutiveDays) {
     return {
       name: "Torso-pierna",
-      reason: "Si los dos dias son seguidos, separar tren inferior y superior reduce solapamiento de fatiga.",
+      reason: "Si los dos días son seguidos, separar tren inferior y superior reduce solapamiento de fatiga.",
       templateType: "Torso-pierna"
     };
   }
@@ -4294,7 +4296,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
   if (daysPerWeek === 2) {
     return {
       name: "Full body A/B",
-      reason: "Con dos dias alternos puede repetirse full body variando enfasis e intensidad.",
+      reason: "Con dos días alternos puede repetirse full body variando enfasis e intensidad.",
       templateType: "Full body"
     };
   }
@@ -4303,15 +4305,15 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
     return {
       name: consecutiveDays ? "Empuje-traccion-pierna" : "Full body ondulante",
       reason: consecutiveDays
-        ? "Tres dias seguidos encajan mejor separando patrones para controlar fatiga local."
-        : "Tres dias alternos permiten repetir patrones con cambios de carga.",
+        ? "Tres días seguidos encajan mejor separando patrones para controlar fatiga local."
+        : "Tres días alternos permiten repetir patrones con cambios de carga.",
       templateType: consecutiveDays ? "Empuje-traccion-pierna" : "Full body"
     };
   }
 
   return {
     name: "Torso-pierna / enfasis por patrones",
-    reason: "Con mÃ¡s frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
+    reason: "Con más frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
     templateType: "Torso-pierna"
   };
 }
@@ -4393,7 +4395,7 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
         </div>
 
         <div className="mt-5 rounded-md border border-line bg-sky p-4">
-          <p className="text-sm font-semibold text-steel">Distribucion recomendada</p>
+          <p className="text-sm font-semibold text-steel">Distribución recomendada</p>
           <p className="mt-1 text-lg font-semibold text-ink">{recommendedDistribution.name}</p>
           <p className="mt-2 text-sm text-ink/65">{recommendedDistribution.reason}</p>
         </div>
@@ -4441,7 +4443,7 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
           <table className="w-full min-w-[960px] border-separate border-spacing-y-2 text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink/50">
               <tr>
-                <th className="px-3 py-2">PatrÃ³n</th>
+                <th className="px-3 py-2">Patrón</th>
                 <th className="px-3 py-2">Ejercicio</th>
                 <th className="px-3 py-2">Series</th>
                 <th className="px-3 py-2">Reps</th>
@@ -4831,9 +4833,9 @@ const assessmentCategoriesSimple = [
   "Salto",
   "FMS",
   "Movilidad",
-  "AntropometrÃ­a",
+  "Antropometría",
   "Cuestionarios",
-  "TÃ©cnica",
+  "Técnica",
   "Otro"
 ];
 
@@ -5136,7 +5138,7 @@ function AssessmentsView({
           </div>
         ) : (
           <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
-            No hay valoraciones registradas todavÃ­a.
+            No hay valoraciones registradas todavía.
           </div>
         )}
       </section>
@@ -5315,7 +5317,7 @@ function muscleShape(muscle: string, side: "Frontal" | "Posterior") {
   const frontal: Record<string, { cx: number; cy: number; mirror?: boolean; rx: number; ry: number }> = {
     Pectoral: { cx: 107, cy: 130, mirror: true, rx: 14, ry: 11 },
     Deltoides: { cx: 75, cy: 126, mirror: true, rx: 10, ry: 16 },
-    Cuadriceps: { cx: 103, cy: 274, mirror: true, rx: 13, ry: 38 }
+    Cuádriceps: { cx: 103, cy: 274, mirror: true, rx: 13, ry: 38 }
   };
   const posterior: Record<string, { cx: number; cy: number; mirror?: boolean; rx: number; ry: number }> = {
     Dorsal: { cx: 104, cy: 145, mirror: true, rx: 16, ry: 33 },
@@ -5416,7 +5418,7 @@ function getFatigueDisplayGroup(muscleKey: string) {
     hamstrings: { muscle: "Isquios", side: "Posterior" },
     lats: { muscle: "Dorsal", side: "Posterior" },
     midBack: { muscle: "Dorsal", side: "Posterior" },
-    quadriceps: { muscle: "Cuadriceps", side: "Frontal" },
+    quadriceps: { muscle: "Cuádriceps", side: "Frontal" },
     rearDelts: { muscle: "Deltoides", side: "Posterior" },
     triceps: { muscle: "Pectoral", side: "Frontal" },
     upperBack: { muscle: "Dorsal", side: "Posterior" },
@@ -5432,6 +5434,8 @@ type StrengthSessionBlock = "activation" | "auxiliary" | "main";
 type StrengthIntensityMethod = "rir" | "rpe" | "percent_1rm" | "velocity" | "kg" | "external_load";
 type EnduranceIntensityMethod = "zones" | "rounds" | "thresholds";
 type PlannedStrengthExerciseDraft = {
+  bandColor?: string;
+  bandResistance?: string;
   block: StrengthSessionBlock;
   exerciseId: string;
   exerciseSearch: string;
@@ -5471,10 +5475,10 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
   Cardio: {
     primary: ["sRPE", "iTRIMP", "tiempo en zona", "distancia", "ritmo/potencia"],
     fields: [
-      "Duracion planificada",
+      "Duración planificada",
       "RPE esperado",
-      "FC media objetivo",
-      "FC maxima estimada",
+      "FC medía objetivo",
+      "FC máxima estimada",
       "Tiempo Z1-Z2",
       "Tiempo Z3-Z4",
       "Distancia / metros",
@@ -5486,13 +5490,13 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
     primary: ["tonelaje", "series duras", "RPE/RIR", "volumen-carga", "velocidad"],
     fields: [
       "Ejercicio",
-      "PatrÃ³n de movimiento",
+      "Patrón de movimiento",
       "Series",
       "Repeticiones",
       "Carga",
       "Descanso",
       "RPE/RIR",
-      "Velocidad o perdida de velocidad",
+      "Velocidad o pérdida de velocidad",
       "Observaciones"
     ]
   },
@@ -5500,14 +5504,14 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
     primary: ["sRPE", "volumen-carga", "tiempo de trabajo", "rounds/esfuerzos", "carga semanal"],
     fields: [
       "Bloque de fuerza",
-      "Bloque metabolico",
-      "Duracion total",
+      "Bloque metabólico",
+      "Duración total",
       "RPE esperado",
       "Rounds / esfuerzos",
       "Tiempo de trabajo",
       "Volumen-carga",
       "FC objetivo",
-      "Notas de transicion"
+      "Notas de transición"
     ]
   }
 };
@@ -5515,7 +5519,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 const cardioSportOptions: Array<{ label: string; value: NonNullable<CardioPlan["sport"]> }> = [
   { label: "Carrera", value: "run" },
   { label: "Ciclismo", value: "ride" },
-  { label: "NataciÃ³n", value: "swim" },
+  { label: "Natación", value: "swim" },
   { label: "Remo", value: "row" },
   { label: "Caminar", value: "walk" },
   { label: "Otro", value: "other" }
@@ -5533,6 +5537,7 @@ const strengthIntensityMethodOptions: Array<{ label: string; value: StrengthInte
   { label: "%1RM", value: "percent_1rm" },
   { label: "Velocidad de barra", value: "velocity" }
 ];
+const bandColorOptions = ["Amarilla", "Roja", "Verde", "Azul", "Negra", "Otra"];
 const resistanceZoneMetricLabels: Array<{ key: keyof NonNullable<ResistanceZone["metrics"]>; label: string }> = [
   { key: "masPercent", label: "MAS" },
   { key: "mapPercent", label: "MAP" },
@@ -5573,7 +5578,7 @@ function buildCardioPlanFromDraft(draft: CardioPlanDraft): CardioPlan | undefine
 }
 
 function getResistanceMethodLabel(method?: ResistanceMethod | null) {
-  return method ? `${method.method} Â· ${method.name}` : "";
+  return method ? `${method.method} · ${method.name}` : "";
 }
 
 function getResistanceZoneMetrics(zone?: ResistanceZone | null) {
@@ -5594,19 +5599,19 @@ function getResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null)
 
 function buildResistanceMethodTemplateNotes(method: ResistanceMethod, sport?: ResistanceSport, zoneId?: string) {
   const zoneGuide = getResistanceZoneGuide(sport, zoneId);
-  const zoneMetrics = zoneGuide.metrics.slice(0, 3).join(" Â· ");
+  const zoneMetrics = zoneGuide.metrics.slice(0, 3).join(" · ");
   return [
-    `MÃ©todo de resistencia: ${getResistanceMethodLabel(method)}`,
+    `Método de resistencia: ${getResistanceMethodLabel(method)}`,
     sport ? `Deporte: ${zoneGuide.profile.name}` : "",
     zoneGuide.zone ? `Zona objetivo: ${zoneGuide.zone.label}` : "",
-    zoneMetrics ? `GuÃ­a: ${zoneMetrics}` : "",
+    zoneMetrics ? `Guía: ${zoneMetrics}` : "",
     method.intensity ? `Intensidad: ${method.intensity}` : "",
-    method.sessionDuration ? `DuraciÃ³n / tiempo total: ${method.sessionDuration}` : "",
+    method.sessionDuration ? `Duración / tiempo total: ${method.sessionDuration}` : "",
     method.repetitions ? `Repeticiones: ${method.repetitions}` : "",
-    method.repetitionDuration ? `DuraciÃ³n repeticiones: ${method.repetitionDuration}` : "",
-    method.recoveryBetweenRepetitions ? `RecuperaciÃ³n entre repeticiones: ${method.recoveryBetweenRepetitions}` : "",
+    method.repetitionDuration ? `Duración repeticiones: ${method.repetitionDuration}` : "",
+    method.recoveryBetweenRepetitions ? `Recuperación entre repeticiones: ${method.recoveryBetweenRepetitions}` : "",
     method.series ? `Series: ${method.series}` : "",
-    method.recoveryBetweenSeries ? `RecuperaciÃ³n entre series: ${method.recoveryBetweenSeries}` : "",
+    method.recoveryBetweenSeries ? `Recuperación entre series: ${method.recoveryBetweenSeries}` : "",
     method.examples[0] ? `Ejemplo: ${method.examples[0]}` : ""
   ].filter(Boolean).join("\n");
 }
@@ -5702,7 +5707,7 @@ function CoachTrainingPlanner({
       ? [{ label: "Wellness", tone: planningLoadData.hooperStatus === "Alto" ? "high" : "moderate", value: `${planningLoadData.hooper}/25` }]
       : []),
     ...(activeSessionClient && activeSessionClient.hooper.sleep > 0 && activeSessionClient.hooper.sleep <= 2
-      ? [{ label: "SueÃ±o", tone: "moderate", value: `${activeSessionClient.hooper.sleep}/5` }]
+      ? [{ label: "Sueño", tone: "moderate", value: `${activeSessionClient.hooper.sleep}/5` }]
       : []),
     ...(activeSessionClient && activeSessionClient.hooper.fatigue >= 4
       ? [{ label: "Fatiga", tone: "moderate", value: `${activeSessionClient.hooper.fatigue}/5` }]
@@ -5771,6 +5776,8 @@ function CoachTrainingPlanner({
     setStrengthExercises((current) => [
       ...current,
       {
+        bandColor: "",
+        bandResistance: "",
         block,
         exerciseId: "",
         exerciseSearch: "",
@@ -5839,6 +5846,8 @@ function CoachTrainingPlanner({
     });
   };
   const plannedTemplateExercises = strengthExercises.map((exercise) => ({
+    bandColor: exercise.bandColor || undefined,
+    bandResistance: exercise.bandResistance || undefined,
     block: exercise.block,
     exerciseId: exercise.exerciseId,
     exerciseSearch: exercise.exerciseSearch,
@@ -5859,7 +5868,7 @@ function CoachTrainingPlanner({
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
-      setSessionSendMessage("Selecciona una fecha antes de enviar la sesiÃ³n.");
+      setSessionSendMessage("Selecciona una fecha antes de enviar la sesión.");
       return;
     }
 
@@ -5871,12 +5880,14 @@ function CoachTrainingPlanner({
     );
 
     if (duplicateSession) {
-      setSessionSendMessage("Esta sesiÃ³n ya estÃ¡ asignada al deportista.");
+      setSessionSendMessage("Esta sesión ya está asignada al deportista.");
       return;
     }
 
     const plannedExercises: ConnectedSessionExercise[] = strengthExercises.map((exercise) => ({
       block: exercise.block,
+      bandColor: exercise.bandColor || undefined,
+      bandResistance: exercise.bandResistance || undefined,
       exerciseId: exercise.exerciseId || null,
       exerciseName: getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar"),
       id: exercise.id,
@@ -5909,7 +5920,7 @@ function CoachTrainingPlanner({
       sessionNumber,
       status: "Planificada",
       strengthMethod: sessionStrengthMethod,
-      summary: sessionSummary.trim() || "SesiÃ³n planificada",
+      summary: sessionSummary.trim() || "Sesión planificada",
       targetResistanceZoneId: sessionType === "Cardio" ? targetResistanceZoneId || undefined : undefined,
       targetRpe: sessionTargetRpe,
       type: sessionType,
@@ -5921,7 +5932,7 @@ function CoachTrainingPlanner({
       ...activeSessionClient,
       sessionRecords: [plannedRecord, ...(activeSessionClient.sessionRecords ?? [])]
     });
-    setSessionSendMessage("SesiÃ³n enviada al deportista.");
+    setSessionSendMessage("Sesión enviada al deportista.");
   };
   const resetTemplateForm = () => {
     setShowTemplateForm(false);
@@ -5949,7 +5960,7 @@ function CoachTrainingPlanner({
     resetTemplateForm();
   };
   const loadSessionTemplate = (template: SessionTemplate) => {
-    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazarÃ¡ los ejercicios actuales. Â¿Continuar?")) return;
+    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazará los ejercicios actuales. ¿Continuar?")) return;
 
     setSessionType(template.sessionType);
     setSessionStrengthMethod(template.strengthMethod ?? "rir");
@@ -5960,6 +5971,8 @@ function CoachTrainingPlanner({
         ...exercise,
         id: `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
+        bandColor: exercise.bandColor ?? "",
+        bandResistance: exercise.bandResistance ?? "",
         percent1RM: exercise.percent1RM ?? "",
         selectedEquipment: exercise.selectedEquipment ?? "",
         selectedVariantId: exercise.selectedVariantId ?? "",
@@ -5981,14 +5994,27 @@ function CoachTrainingPlanner({
     if (method === "velocity" && exercise.targetVelocity) return `${exercise.targetVelocity} m/s`;
     return "";
   };
+  const isElasticBandEquipment = (value?: string | null) =>
+    Boolean(
+      value &&
+        ["banda", "band", "elastic", "goma", "miniband", "superband"].some((keyword) =>
+          value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(keyword)
+        )
+    );
+  const getBandSummary = (exercise: PlannedStrengthExerciseDraft | ConnectedSessionExercise | ReviewSessionExercise) =>
+    [exercise.bandColor, exercise.bandResistance].filter(Boolean).join(" · ");
   const getExerciseSummaryLine = (exercise: PlannedStrengthExerciseDraft) => {
     const name = getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar");
     const volume = [exercise.sets, exercise.reps].filter(Boolean).length === 2
       ? `${exercise.sets}x${exercise.reps}`
-      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" Â· ");
+      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
     const intensity = getExerciseIntensitySummary(exercise);
     const mainLine = [name, volume].filter(Boolean).join(" ");
-    const variantLine = exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "";
+    const bandSummary = getBandSummary(exercise);
+    const variantLine = [
+      exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "",
+      bandSummary ? `Banda elástica: ${bandSummary}` : ""
+    ].filter(Boolean).join(" · ");
 
     return {
       main: `${mainLine}${intensity ? ` (${intensity})` : ""}`,
@@ -6012,8 +6038,8 @@ function CoachTrainingPlanner({
           onClick={() => setCollapsedStrengthBlocks((current) => ({ ...current, [block]: !current[block] }))}
           type="button"
         >
-          <span className="text-lg leading-none">{isCollapsed ? "â€º" : "âŒ„"}</span>
-          <span>{blockLabel} Â· {exerciseCountLabel}</span>
+          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
+          <span>{blockLabel} · {exerciseCountLabel}</span>
         </button>
         {!isCollapsed ? (
         <>
@@ -6024,13 +6050,13 @@ function CoachTrainingPlanner({
             type="button"
           >
             <Plus size={16} />
-            AÃ±adir ejercicio
+            Añadir ejercicio
           </button>
         </div>
         <div className="mt-4 grid gap-3">
           {blockExercises.length === 0 ? (
             <div className="rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
-              Sin ejercicios aÃ±adidos.
+              Sin ejercicios añadidos.
             </div>
           ) : blockExercises.map((exercise) => {
             const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
@@ -6064,6 +6090,8 @@ function CoachTrainingPlanner({
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     onChange={(event) =>
                       updateStrengthExercise(exercise.id, {
+                        bandColor: "",
+                        bandResistance: "",
                         exerciseId: "",
                         exerciseSearch: event.target.value,
                         selectedEquipment: "",
@@ -6086,7 +6114,7 @@ function CoachTrainingPlanner({
                         >
                           <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
                           <span className="mt-0.5 block text-xs font-medium text-ink/55">
-                            {libraryExercise.pattern} Â· {libraryExercise.block} Â· {libraryExercise.equipment.join(" / ")}
+                            {libraryExercise.pattern} · {libraryExercise.block} · {libraryExercise.equipment.join(" / ")}
                           </span>
                         </button>
                       )) : (
@@ -6112,7 +6140,13 @@ function CoachTrainingPlanner({
                       Material
                       <select
                         className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateStrengthExercise(exercise.id, { selectedEquipment: event.target.value })}
+                        onChange={(event) =>
+                          updateStrengthExercise(exercise.id, {
+                            bandColor: isElasticBandEquipment(event.target.value) ? exercise.bandColor ?? "" : "",
+                            bandResistance: isElasticBandEquipment(event.target.value) ? exercise.bandResistance ?? "" : "",
+                            selectedEquipment: event.target.value
+                          })
+                        }
                         value={exercise.selectedEquipment ?? ""}
                       >
                         <option value="">Seleccionar material</option>
@@ -6136,7 +6170,7 @@ function CoachTrainingPlanner({
                         }}
                         value={exercise.selectedVariantId ?? ""}
                       >
-                        <option value="">Sin variante especÃ­fica</option>
+                        <option value="">Sin variante específica</option>
                         {selectedLibraryExercise.variants.map((variant) => (
                           <option key={variant.id} value={variant.id}>{variant.name}</option>
                         ))}
@@ -6146,13 +6180,40 @@ function CoachTrainingPlanner({
                   {selectedVariant ? (
                     <div className="rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65 md:col-span-2">
                       <p className="font-semibold text-ink">
-                        {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} Â· {exerciseVariantTypeLabels[selectedVariant.type]}
+                        {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} · {exerciseVariantTypeLabels[selectedVariant.type]}
                       </p>
                       {selectedVariant.coachingNotes ? (
                         <p className="mt-1">{selectedVariant.coachingNotes}</p>
                       ) : selectedVariant.description ? (
                         <p className="mt-1">{selectedVariant.description}</p>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {isElasticBandEquipment(exercise.selectedEquipment) ? (
+                    <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:col-span-2 md:grid-cols-2">
+                      <label className="space-y-1 text-xs font-semibold text-ink/55">
+                        Color de la banda
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                          onChange={(event) => updateStrengthExercise(exercise.id, { bandColor: event.target.value })}
+                          value={exercise.bandColor ?? ""}
+                        >
+                          <option value="">Sin especificar</option>
+                          {bandColorOptions.map((color) => (
+                            <option key={color} value={color}>{color}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-xs font-semibold text-ink/55">
+                        Resistencia de la banda
+                        <input
+                          className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                          onChange={(event) => updateStrengthExercise(exercise.id, { bandResistance: event.target.value })}
+                          placeholder="Ligera, media, fuerte, 15-25 kg..."
+                          type="text"
+                          value={exercise.bandResistance ?? ""}
+                        />
+                      </label>
                     </div>
                   ) : null}
                 </div>
@@ -6341,7 +6402,7 @@ function CoachTrainingPlanner({
           }}
           type="button"
         >
-          Planificar sesiÃ³n
+          Planificar sesión
         </button>
       </div>
 
@@ -6360,8 +6421,8 @@ function CoachTrainingPlanner({
           <div className="assessment-modal-panel max-w-7xl" onClick={(event) => event.stopPropagation()}>
             <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
               <div>
-                <h2 className="text-xl font-semibold text-ink" id="session-planner-modal-title">Planificar sesiÃ³n</h2>
-                <p className="mt-1 text-sm text-ink/55">Revisa el contexto y ajusta la sesiÃ³n antes de enviarla al deportista.</p>
+                <h2 className="text-xl font-semibold text-ink" id="session-planner-modal-title">Planificar sesión</h2>
+                <p className="mt-1 text-sm text-ink/55">Revisa el contexto y ajusta la sesión antes de enviarla al deportista.</p>
               </div>
               <button
                 aria-label="Cerrar planificador"
@@ -6377,21 +6438,21 @@ function CoachTrainingPlanner({
             </header>
             <div className="assessment-modal-body px-5 py-5">
               <section className="rounded-md border border-line bg-white p-4">
-                <p className="text-xs font-semibold uppercase text-ink/45">Resumen de sesiÃ³n</p>
+                <p className="text-xs font-semibold uppercase text-ink/45">Resumen de sesión</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                   <ClientInfoCard label="Deportista" value={activeSessionClient.name} />
                   <ClientInfoCard label="Bloque / mesociclo" value={currentBlockLabel || "Sin asignar"} />
                   <ClientInfoCard
-                    label="Semana / sesiÃ³n"
-                    value={calculatedSessionNumber ? `Semana ${selectedBlockWeek} Â· SesiÃ³n ${calculatedSessionNumber}` : "SesiÃ³n pendiente"}
+                    label="Semana / sesión"
+                    value={calculatedSessionNumber ? `Semana ${selectedBlockWeek} · Sesión ${calculatedSessionNumber}` : "Sesión pendiente"}
                   />
-                  <ClientInfoCard label="Tipo de sesiÃ³n" value={sessionType} />
+                  <ClientInfoCard label="Tipo de sesión" value={sessionType} />
                   <ClientInfoCard label="Objetivo / resumen" value={sessionSummary.trim() || "Sin resumen"} />
                 </div>
               </section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Planificar sesion</h2>
+            <h2 className="text-lg font-semibold text-ink">Planificar sesión</h2>
           </div>
           <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
             {sessionType}
@@ -6413,7 +6474,7 @@ function CoachTrainingPlanner({
         ) : null}
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-        <h3 className="font-semibold text-ink">Datos de sesion</h3>
+        <h3 className="font-semibold text-ink">Datos de sesión</h3>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Deportista
@@ -6446,15 +6507,15 @@ function CoachTrainingPlanner({
             </div>
           </div>
           <div className="space-y-2 text-sm font-medium text-ink/75">
-            Semana y sesion
+            Semana y sesión
             <div className="flex min-h-11 items-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink">
               {calculatedSessionNumber
-                ? `Semana ${selectedBlockWeek} - Sesion ${calculatedSessionNumber}`
-                : "Sesion pendiente de asignar"}
+                ? `Semana ${selectedBlockWeek} - Sesión ${calculatedSessionNumber}`
+                : "Sesión pendiente de asignar"}
             </div>
           </div>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Tipo de sesion
+            Tipo de sesión
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => setSessionType(event.target.value as CoachSessionType)}
@@ -6482,7 +6543,7 @@ function CoachTrainingPlanner({
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Resumen / objetivo de la sesion
+            Resumen / objetivo de la sesión
             <textarea
               className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
               onChange={(event) => setSessionSummary(event.target.value)}
@@ -6595,7 +6656,7 @@ function CoachTrainingPlanner({
                 </span>
               </div>
             </div>
-            {renderStrengthBlock("activation", "ActivaciÃ³n")}
+            {renderStrengthBlock("activation", "Activación")}
             {renderStrengthBlock("main", "Bloque principal")}
             {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional")}
           </>
@@ -6606,16 +6667,16 @@ function CoachTrainingPlanner({
             <div className="mt-4 rounded-md border border-line bg-white p-4">
               <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  MÃ©todo de resistencia
+                  Método de resistencia
                   <select
                     className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setSelectedResistanceMethodId(event.target.value)}
                     value={selectedResistanceMethodId}
                   >
-                    <option value="">Sin mÃ©todo seleccionado</option>
+                    <option value="">Sin método seleccionado</option>
                     {completeResistanceMethods.map((method) => (
                       <option key={method.id} value={method.id}>
-                        {method.method} Â· {method.name}
+                        {method.method} · {method.name}
                       </option>
                     ))}
                   </select>
@@ -6627,8 +6688,8 @@ function CoachTrainingPlanner({
                       <div>
                         <p className="font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
                         <p className="mt-1 text-xs font-medium text-ink/55">
-                          {selectedResistanceMethod.family} Â· {selectedResistanceMethod.group}
-                          {selectedResistanceMethod.subgroup ? ` Â· ${selectedResistanceMethod.subgroup}` : ""}
+                          {selectedResistanceMethod.family} · {selectedResistanceMethod.group}
+                          {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
                         </p>
                       </div>
                       <button
@@ -6641,7 +6702,7 @@ function CoachTrainingPlanner({
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <ClientInfoCard label="Intensidad" value={selectedResistanceMethod.intensity || "Sin especificar"} />
-                      <ClientInfoCard label="DuraciÃ³n / tiempo total" value={selectedResistanceMethod.sessionDuration || "Sin especificar"} />
+                      <ClientInfoCard label="Duración / tiempo total" value={selectedResistanceMethod.sessionDuration || "Sin especificar"} />
                     </div>
                     <button
                       className="mt-3 text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
@@ -6675,7 +6736,7 @@ function CoachTrainingPlanner({
                     {selectedResistanceMethod.trainingEffects.length > 0 ? (
                       <p className="mt-3 text-xs text-ink/55">
                         <span className="font-semibold text-ink/70">Efectos principales: </span>
-                        {selectedResistanceMethod.trainingEffects.slice(0, 2).join(" Â· ")}
+                        {selectedResistanceMethod.trainingEffects.slice(0, 2).join(" · ")}
                       </p>
                     ) : null}
                     {selectedResistanceMethod.examples.length > 0 ? (
@@ -6688,12 +6749,12 @@ function CoachTrainingPlanner({
                       </div>
                     ) : null}
                     <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink/55">
-                      GuÃ­a metodolÃ³gica. Ajusta el contenido segÃºn deporte, nivel y momento de la temporada.
+                      Guía metodológica. Ajusta el contenido según deporte, nivel y momento de la temporada.
                     </p>
                   </div>
                 ) : (
                   <div className="flex min-h-24 items-center rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-medium text-ink/50">
-                    Selecciona un mÃ©todo completo para ver la guÃ­a metodolÃ³gica. CyC sigue pendiente y no aparece como seleccionable.
+                    Selecciona un método completo para ver la guía metodológica. CyC sigue pendiente y no aparece como seleccionable.
                   </div>
                 )}
               </div>
@@ -6751,15 +6812,15 @@ function CoachTrainingPlanner({
                       </span>
                     )) : (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/55">
-                        Sin porcentajes aÃ±adidos todavÃ­a.
+                        Sin porcentajes añadidos todavía.
                       </span>
                     )}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <ClientInfoCard label="MÃ©tricas secundarias" value={selectedResistanceZoneGuide.profile.secondaryMetrics.join(" Â· ") || "Sin especificar"} />
-                    <ClientInfoCard label="Foco fisiolÃ³gico" value={selectedResistanceZoneGuide.zone.physiologicalFocus?.join(" Â· ") || "Sin especificar"} />
-                    <ClientInfoCard label="MÃ©todos relacionados" value={selectedResistanceZoneGuide.zone.methodLinks?.join(" Â· ") || "Sin especificar"} />
-                    <ClientInfoCard label="GuÃ­a" value="Individualiza con test, deporte, nivel y contexto." />
+                    <ClientInfoCard label="Métricas secundarias" value={selectedResistanceZoneGuide.profile.secondaryMetrics.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Foco fisiológico" value={selectedResistanceZoneGuide.zone.physiologicalFocus?.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Métodos relacionados" value={selectedResistanceZoneGuide.zone.methodLinks?.join(" · ") || "Sin especificar"} />
+                    <ClientInfoCard label="Guía" value="Individualiza con test, deporte, nivel y contexto." />
                   </div>
                   {selectedResistanceZoneGuide.zone.sourceNote ? (
                     <p className="mt-3 text-xs font-medium text-ink/45">{selectedResistanceZoneGuide.zone.sourceNote}</p>
@@ -6779,7 +6840,7 @@ function CoachTrainingPlanner({
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                DuraciÃ³n objetivo
+                Duración objetivo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   min={0}
@@ -6801,7 +6862,7 @@ function CoachTrainingPlanner({
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                RPE objetivo mÃ­nimo
+                RPE objetivo mínimo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   max={10}
@@ -6813,7 +6874,7 @@ function CoachTrainingPlanner({
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                RPE objetivo mÃ¡ximo
+                RPE objetivo máximo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   max={10}
@@ -6837,14 +6898,14 @@ function CoachTrainingPlanner({
           </div>
         ) : (
           <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-            <h3 className="font-semibold text-ink">Sesion mixta</h3>
+            <h3 className="font-semibold text-ink">Sesión mixta</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Bloque de fuerza
                 <textarea className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss" placeholder="Ejercicios, series, reps, carga, RPE/RIR" />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Bloque metabolico / especifico
+                Bloque metabólico / específico
                 <textarea className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss" placeholder="Rounds, esfuerzos, tiempos, pausas, distancia" />
               </label>
             </div>
@@ -6856,7 +6917,7 @@ function CoachTrainingPlanner({
             Observaciones finales
             <textarea
               className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
-              placeholder="Notas finales de la sesion"
+              placeholder="Notas finales de la sesión"
             />
           </label>
         </section>
@@ -6884,8 +6945,8 @@ function CoachTrainingPlanner({
             <div className="assessment-modal-panel" onClick={(event) => event.stopPropagation()}>
               <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
                 <div>
-                  <h3 className="text-xl font-semibold text-ink" id="session-summary-modal-title">Resumen de sesiÃ³n</h3>
-                  <p className="mt-1 text-sm text-ink/55">Revisa la sesiÃ³n antes de enviarla al deportista.</p>
+                  <h3 className="text-xl font-semibold text-ink" id="session-summary-modal-title">Resumen de sesión</h3>
+                  <p className="mt-1 text-sm text-ink/55">Revisa la sesión antes de enviarla al deportista.</p>
                 </div>
                 <button
                   aria-label="Cerrar"
@@ -6900,29 +6961,29 @@ function CoachTrainingPlanner({
               <div className="assessment-modal-body grid gap-4 px-5 py-5">
                 {sessionType === "Cardio" && selectedResistanceMethod ? (
                   <section className="rounded-md border border-line bg-white p-4">
-                    <p className="text-xs font-semibold uppercase text-ink/45">MÃ©todo de resistencia</p>
+                    <p className="text-xs font-semibold uppercase text-ink/45">Método de resistencia</p>
                     <p className="mt-2 font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
                     <p className="mt-1 text-sm text-ink/60">
                       {selectedResistanceMethod.group}
-                      {selectedResistanceMethod.subgroup ? ` Â· ${selectedResistanceMethod.subgroup}` : ""}
+                      {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
                     </p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <ClientInfoCard label="Deporte" value={selectedResistanceZoneGuide.profile.name} />
                       <ClientInfoCard label="Zona objetivo" value={selectedResistanceZoneGuide.zone?.label || "Sin zona objetivo"} />
                     </div>
                     {selectedResistanceZoneGuide.metrics.length > 0 ? (
-                      <p className="mt-3 text-sm font-medium text-ink/60">{selectedResistanceZoneGuide.metrics.join(" Â· ")}</p>
+                      <p className="mt-3 text-sm font-medium text-ink/60">{selectedResistanceZoneGuide.metrics.join(" · ")}</p>
                     ) : selectedResistanceZoneGuide.zone ? (
-                      <p className="mt-3 text-sm font-medium text-ink/60">Sin porcentajes aÃ±adidos todavÃ­a.</p>
+                      <p className="mt-3 text-sm font-medium text-ink/60">Sin porcentajes añadidos todavía.</p>
                     ) : null}
                   </section>
                 ) : null}
                 {strengthExercises.length === 0 ? (
                   <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-medium text-ink/55">
-                    No hay ejercicios aÃ±adidos.
+                    No hay ejercicios añadidos.
                   </div>
                 ) : ([
-                  ["activation", "ACTIVACIÃ“N"],
+                  ["activation", "ACTIVACIÓN"],
                   ["main", "BLOQUE PRINCIPAL"],
                   ["auxiliary", "BLOQUE AUXILIAR / OPCIONAL"]
                 ] as const).map(([blockKey, blockLabel]) => {
@@ -6986,7 +7047,7 @@ function CoachTrainingPlanner({
         ) : (
           <div className="flex min-h-80 items-center justify-center rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
             <p className="text-sm font-semibold text-ink/55">
-              Selecciona Planificar sesion o Sesiones anteriores.
+              Selecciona Planificar sesión o Sesiones anteriores.
             </p>
           </div>
         )}
@@ -6999,6 +7060,8 @@ type ReviewSessionExercise = SessionExerciseInput & {
   actualRest?: number | string | null;
   actualRpe?: number | string | null;
   athleteNotes?: string | null;
+  bandColor?: string | null;
+  bandResistance?: string | null;
   block?: string | null;
   exerciseRpe?: number | string | null;
   id?: string | null;
@@ -7015,6 +7078,7 @@ type ReviewSessionExercise = SessionExerciseInput & {
   rpe?: number | string | null;
   section?: string | null;
   selectedEquipment?: string | null;
+  selectedVariantId?: string | null;
   selectedVariantName?: string | null;
   setDetails?: Array<{ reps?: number | string | null; setNumber?: number }>;
   intensityMethod?: StrengthIntensityMethod | null;
@@ -7052,6 +7116,11 @@ type ReviewSessionRecord = ClientSessionRecord & {
 
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && `${value}`.trim() !== "";
+}
+
+function getBandSummaryLabel(entry?: { bandColor?: string | null; bandResistance?: string | null }) {
+  if (!entry) return "";
+  return [entry.bandColor, entry.bandResistance].filter((value) => hasDisplayValue(value)).join(" · ");
 }
 
 function displayValue(value: unknown, fallback = "Sin especificar") {
@@ -7120,7 +7189,7 @@ function formatWeekAndSession(session: ReviewSessionRecord, client: CoachClient)
   const sessionNumber = session.sessionNumber;
 
   if (hasDisplayValue(week) && hasDisplayValue(sessionNumber)) {
-    return `${week} Â· SesiÃ³n ${sessionNumber}`;
+    return `${week} · Sesión ${sessionNumber}`;
   }
 
   return displayValue(week);
@@ -7190,12 +7259,14 @@ function getSetDetailsReps(entry?: ReviewSessionExercise) {
 }
 
 function getExerciseMetaLabel(entry?: ReviewSessionExercise) {
+  const bandSummary = getBandSummaryLabel(entry);
   const meta = [
     entry?.selectedEquipment ? `Material: ${entry.selectedEquipment}` : "",
-    entry?.selectedVariantName ? `Variante: ${entry.selectedVariantName}` : ""
+    entry?.selectedVariantName ? `Variante: ${entry.selectedVariantName}` : "",
+    bandSummary ? `Banda elástica: ${bandSummary}` : ""
   ].filter(Boolean);
 
-  return meta.join(" Â· ");
+  return meta.join(" · ");
 }
 
 function getExerciseDifferenceLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise) {
@@ -7225,7 +7296,7 @@ function getExerciseDifferenceLabel(planned?: ReviewSessionExercise, performed?:
     changes.push(`${performedLoad - plannedLoad > 0 ? "+" : ""}${performedLoad - plannedLoad} carga`);
   }
 
-  return changes.length > 0 ? changes.join(" Â· ") : "Dentro de lo previsto";
+  return changes.length > 0 ? changes.join(" · ") : "Dentro de lo previsto";
 }
 
 function hasRealSessionData(session: ReviewSessionRecord) {
@@ -7418,7 +7489,6 @@ function getCompactExerciseLabel(planned?: ReviewSessionExercise, performed?: Re
   if (!entry) return source === "planned" ? "Sin datos planificados" : "Sin registro real";
   const pieces = [
     getCompactSetLabel(entry, source),
-    source === "planned" && hasDisplayValue(getPlannedValue(entry, "rest")) ? `${getPlannedValue(entry, "rest")}` : "",
     source === "planned" && hasDisplayValue(getPlannedValue(entry, "load")) ? `${getPlannedValue(entry, "load")} kg` : "",
     source === "performed" && hasDisplayValue(getPerformedValue(entry, "load")) ? `${getPerformedValue(entry, "load")} kg` : "",
     getReviewIntensityLabel(planned, performed, source)
@@ -7613,7 +7683,7 @@ function SessionHistoryPanel({
                 ) : null}
                 {resistanceMethod ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
-                    <span className="font-semibold text-ink">MÃ©todo de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
+                    <span className="font-semibold text-ink">Método de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
                   </p>
                 ) : null}
 
@@ -7648,7 +7718,7 @@ function SessionHistoryPanel({
                           onClick={() => setOpenSessionKey("")}
                           type="button"
                         >
-                          Ã—
+                          ×
                         </button>
                       </div>
                   <div className="rounded-md border border-line bg-panel/25 p-4">
@@ -7743,14 +7813,14 @@ function SessionHistoryPanel({
                         <h5 className="font-semibold text-ink">Realizado resistencia</h5>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <ClientInfoCard
-                            label="DuraciÃ³n real"
+                            label="Duración real"
                             value={hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}
                           />
                           <ClientInfoCard label="Distancia real" value={formatResistanceDistance(session.cardioResult?.distanceMeters)} />
                           <ClientInfoCard label="RPE final" value={hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"} />
                           <ClientInfoCard label="Deporte" value={resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"} />
                           <ClientInfoCard label="Zona objetivo" value={resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"} />
-                          <ClientInfoCard label="MÃ©todo" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin mÃ©todo asignado"} />
+                          <ClientInfoCard label="Método" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin método asignado"} />
                           {session.cardioResult?.intervalsCompleted ? (
                             <ClientInfoCard label="Repeticiones / intervalos" value={session.cardioResult.intervalsCompleted} />
                           ) : null}
@@ -7758,7 +7828,7 @@ function SessionHistoryPanel({
                             <ClientInfoCard label="Intensidad realizada" value={session.cardioResult.intensityCompleted} />
                           ) : null}
                           {session.cardioResult?.recoveryCompleted ? (
-                            <ClientInfoCard label="RecuperaciÃ³n realizada" value={session.cardioResult.recoveryCompleted} />
+                            <ClientInfoCard label="Recuperación realizada" value={session.cardioResult.recoveryCompleted} />
                           ) : null}
                         </div>
                         {session.cardioResult?.notes ? (
@@ -7774,7 +7844,7 @@ function SessionHistoryPanel({
                               </span>
                             )) : (
                               <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
-                                Sin porcentajes aÃ±adidos todavÃ­a.
+                                Sin porcentajes añadidos todavía.
                               </span>
                             )}
                             <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
@@ -7798,7 +7868,7 @@ function SessionHistoryPanel({
                         </div>
                         {resistanceMethod ? (
                           <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
-                            MÃ©todo de resistencia: {getResistanceMethodLabel(resistanceMethod)}
+                            Método de resistencia: {getResistanceMethodLabel(resistanceMethod)}
                           </p>
                         ) : null}
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -8041,7 +8111,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
           type="button"
         >
           <Unlock size={18} />
-          Desbloquear sesion
+          Desbloquear sesión
         </button>
       </section>
 
@@ -8050,7 +8120,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
         <section className={`rounded-md border border-line p-4 shadow-soft sm:p-5 ${hooperDone ? "bg-white" : "bg-white/60"}`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Sesion planificada</h2>
+              <h2 className="text-lg font-semibold text-ink">Sesión planificada</h2>
               <p className="mt-1 text-sm text-ink/60">
                 {hooperDone
                   ? "Ya puedes verla y registrarla al terminar."
@@ -8072,7 +8142,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
                     Objetivo: {plannedSession.strengthObjective}
                   </span>
                   <span className="rounded-md bg-white px-3 py-1 text-moss">
-                    Duracion estimada: {plannedSession.estimatedMinutes} min
+                    Duración estimada: {plannedSession.estimatedMinutes} min
                   </span>
                 </div>
               </div>
@@ -8088,7 +8158,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
                     <thead className="text-xs uppercase tracking-wide text-ink/50">
                       <tr>
                         <th className="px-3 py-2">Ejercicio</th>
-                        <th className="px-3 py-2">PatrÃ³n</th>
+                        <th className="px-3 py-2">Patrón</th>
                         <th className="px-3 py-2">Musculo</th>
                         <th className="px-3 py-2">Series</th>
                         <th className="px-3 py-2">Reps</th>
@@ -8214,7 +8284,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
                   }}
                   type="button"
                 >
-                  No he realizado la sesion
+                  No he realizado la sesión
                 </button>
               </div>
 
@@ -8228,7 +8298,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
             </div>
           ) : (
             <div className="mt-5 rounded-md border border-line bg-panel/45 p-6 text-center text-sm text-ink/55">
-              La sesion se desbloquea al completar las cuatro preguntas.
+              La sesión se desbloquea al completar las cuatro preguntas.
             </div>
           )}
         </section>
@@ -8281,10 +8351,10 @@ function CompletedSessionSummary({
 }) {
   return (
     <section className="mt-4 rounded-md border border-line bg-white p-4">
-      <h4 className="font-semibold text-ink">Sesion completada</h4>
+      <h4 className="font-semibold text-ink">Sesión completada</h4>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <ClientInfoCard
-          label="Duracion real"
+          label="Duración real"
           value={record ? `${record.actualDurationMinutes} min` : "Pendiente"}
         />
         <ClientInfoCard
@@ -8303,9 +8373,9 @@ function CompletedSessionSummary({
 function MissedSessionReason() {
   return (
     <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-      <h4 className="font-semibold text-amber-900">CuÃ©ntanos por quÃ© no se realizÃ³</h4>
+      <h4 className="font-semibold text-amber-900">Cuéntanos por qué no se realizó</h4>
       <p className="mt-1 text-sm text-amber-800">
-        Esta informacion ayuda al entrenador a ajustar la planificaciÃ³n.
+        Esta información ayuda al entrenador a ajustar la planificación.
       </p>
       <textarea
         className="mt-3 min-h-24 w-full rounded-md border border-amber-200 bg-white px-3 py-3 text-ink outline-none focus:border-amber-500"
@@ -8359,7 +8429,7 @@ function PastSessionsList({
                 <div className="border-t border-line px-4 pb-4 pt-3">
                   <div className="grid gap-3 text-sm sm:grid-cols-2">
                     <p className="rounded-md bg-white px-3 py-2 text-ink/70">
-                      Duracion: {session.details.duration}
+                      Duración: {session.details.duration}
                     </p>
                     <p className="rounded-md bg-white px-3 py-2 text-ink/70">
                       RPE: {session.details.rpe}
@@ -8408,7 +8478,7 @@ function SessionRpeSliders({
     <section className="mt-4 rounded-md border border-line bg-white p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h4 className="font-semibold text-ink">Registro final de sesion</h4>
+          <h4 className="font-semibold text-ink">Registro final de sesión</h4>
           <p className="mt-1 text-sm text-ink/60">
             Completa estos datos al terminar para calcular la carga interna real.
           </p>
@@ -8419,7 +8489,7 @@ function SessionRpeSliders({
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <SliderField
-          label="Duracion real de la sesion"
+          label="Duración real de la sesión"
           max={180}
           min={0}
           onChange={onDurationChange}
@@ -8427,7 +8497,7 @@ function SessionRpeSliders({
           value={actualDurationMinutes}
         />
         <SliderField
-          label="RPE total de sesion"
+          label="RPE total de sesión"
           max={10}
           min={0}
           onChange={onFinalRpeChange}
@@ -8491,14 +8561,14 @@ function SliderField({ label, max, min, onChange, suffix = "", value }: SliderFi
 function FreeSessionForm() {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-      <h2 className="text-lg font-semibold text-ink">Registrar sesion no planificada</h2>
+      <h2 className="text-lg font-semibold text-ink">Registrar sesión no planificada</h2>
       <p className="mt-1 text-sm text-ink/60">
-        Para entrenamientos realizados por cuenta propia o cambios de ultima hora.
+        Para entrenamientos realizados por cuenta propia o cambios de última hora.
       </p>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm font-medium text-ink/75">
-          Tipo de sesion
+          Tipo de sesión
           <select className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss">
             <option>Fuerza</option>
             <option>Cardio - Carrera</option>
@@ -8508,7 +8578,7 @@ function FreeSessionForm() {
           </select>
         </label>
         <label className="space-y-2 text-sm font-medium text-ink/75">
-          Duracion total
+          Duración total
           <input
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             placeholder="Minutos"
@@ -8524,7 +8594,7 @@ function FreeSessionForm() {
           />
         </label>
         <label className="space-y-2 text-sm font-medium text-ink/75">
-          RPE cardiaco
+          RPE cardíaco
           <input
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             placeholder="1-10"
@@ -8558,7 +8628,7 @@ function FreeSessionForm() {
 
       <button className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white sm:w-auto" type="button">
         <ClipboardCheck size={18} />
-        Guardar sesion libre
+        Guardar sesión libre
       </button>
     </section>
   );
@@ -8665,7 +8735,7 @@ function AthleteClientForm({
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Distribucion de dias
+                Distribución de días
                 <select
                   className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                   onChange={(event) =>
@@ -8684,7 +8754,7 @@ function AthleteClientForm({
           </div>
 
           <div className="space-y-3 sm:col-span-2">
-            <p className="text-sm font-medium text-ink/75">Tipos de sesion habituales</p>
+            <p className="text-sm font-medium text-ink/75">Tipos de sesión habituales</p>
             <div className="grid gap-3 md:grid-cols-2">
               {sessionQuantifiers.map((group) => (
                 <label
@@ -8746,7 +8816,7 @@ function AthleteClientForm({
 
         <div className="mt-6 border-t border-white/15 pt-5">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
-            Cuantificadores por sesion
+            Cuantificadores por sesión
           </h3>
           <div className="mt-3 grid gap-3">
             {sessionQuantifiers.map((group) => (

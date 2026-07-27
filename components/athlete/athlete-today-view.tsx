@@ -38,6 +38,8 @@ type AthleteSetDetail = {
 type AthleteExercise = {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
+  bandColor?: string | null;
+  bandResistance?: string | null;
   block?: string | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
@@ -403,9 +405,14 @@ function formatAthleteRestDuration(value?: number | string | null) {
 }
 
 function getAthleteExerciseMaterialVariant(exercise: AthleteExercise) {
+  const bandSummary = [exercise.bandColor, exercise.bandResistance]
+    .filter((value) => hasAthleteDisplayValue(value))
+    .join(" · ");
+
   return [
     hasAthleteDisplayValue(exercise.selectedEquipment) ? `Material: ${exercise.selectedEquipment}` : "",
-    hasAthleteDisplayValue(exercise.selectedVariantName) ? `Variante: ${exercise.selectedVariantName}` : ""
+    hasAthleteDisplayValue(exercise.selectedVariantName) ? `Variante: ${exercise.selectedVariantName}` : "",
+    bandSummary ? `Banda elástica: ${bandSummary}` : ""
   ].filter(Boolean).join(" · ");
 }
 

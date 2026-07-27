@@ -15,7 +15,7 @@ import {
 } from "@/lib/resistance-zones";
 
 type ExerciseLibraryMode = "strength" | "resistance";
-type ResistanceMethodFilter = "all" | "continuous" | "fractional" | "taper" | "complete" | "pending";
+type ResistanceMethodFilter = "all" | "continuous" | "fractional" | "taper";
 
 type ResistanceMethodsViewProps = {
   libraryMode: ExerciseLibraryMode;
@@ -26,9 +26,7 @@ const resistanceMethodFilters: Array<{ label: string; value: ResistanceMethodFil
   { label: "Todos", value: "all" },
   { label: "Continuos", value: "continuous" },
   { label: "Fraccionados", value: "fractional" },
-  { label: "Puesta a punto", value: "taper" },
-  { label: "Completos", value: "complete" },
-  { label: "Pendientes", value: "pending" }
+  { label: "Puesta a punto", value: "taper" }
 ];
 
 const sportZoneProfiles = getSportZoneProfiles();
@@ -57,8 +55,6 @@ function methodMatchesResistanceFilter(method: ResistanceMethod, filter: Resista
   if (filter === "continuous") return method.family === "Métodos continuos";
   if (filter === "fractional") return method.family === "Métodos fraccionados";
   if (filter === "taper") return method.family === "Métodos puesta a punto";
-  if (filter === "complete") return method.status === "complete";
-  if (filter === "pending") return method.status === "pending";
   return true;
 }
 
@@ -132,7 +128,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
           <div>
             <h2 className="text-lg font-semibold text-ink">Biblioteca de resistencia</h2>
             <p className="mt-1 text-sm text-ink/55">
-              Catálogo metodológico construido desde docs/Métodos de entrenamiento.xlsx.
+              Catálogo metodológico construido desde Métodos de entrenamiento..xlsx.
             </p>
           </div>
           <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
@@ -186,11 +182,8 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-ink/45">Zonas de entrenamiento</p>
-            <h3 className="mt-1 text-lg font-semibold text-ink">{selectedZoneProfile.name}</h3>
-            <p className="mt-1 text-sm text-ink/55">
-              Guía metodológica. Las zonas deben individualizarse con test, deporte, nivel y contexto.
-            </p>
+            <h3 className="text-lg font-semibold text-ink">Zonas de entrenamiento</h3>
+            <p className="mt-1 text-sm font-medium text-ink/55">{selectedZoneProfile.name}</p>
           </div>
           <label className="w-full max-w-xs space-y-2 text-sm font-semibold text-ink/70">
             Deporte
@@ -207,18 +200,6 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
             </select>
           </label>
         </div>
-
-        <div className="mt-4 grid gap-2 md:grid-cols-3">
-          <ResistanceInfoCard label="Métrica principal" value={selectedZoneProfile.mainReferenceMetric} />
-          <ResistanceInfoCard label="Métricas secundarias" value={selectedZoneProfile.secondaryMetrics.join(" · ") || "Sin especificar"} />
-          <ResistanceInfoCard label="Fuente" value={selectedZoneProfile.source || "Capturas docentes aportadas por Rafa"} />
-        </div>
-
-        {selectedZoneProfile.notes ? (
-          <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/65">
-            {selectedZoneProfile.notes}
-          </p>
-        ) : null}
 
         <div className="mt-4 grid gap-3">
           {selectedZoneProfile.zones.map((zoneItem) => {
@@ -275,53 +256,60 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {filteredResistanceMethods.map((method) => (
-          <button
-            className="rounded-md border border-line bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-moss"
-            key={method.id}
-            onClick={() => setSelectedResistanceMethod(method)}
-            type="button"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase text-ink/45">{method.method}</p>
-                <h3 className="mt-1 text-base font-semibold text-ink">{method.name}</h3>
-              </div>
-              <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${getResistanceStatusClass(method.status)}`}>
-                {getResistanceStatusLabel(method.status)}
-              </span>
-            </div>
-            <p className="mt-3 text-xs font-semibold text-ink/50">{getResistanceMeta(method)}</p>
-            {method.status === "pending" ? (
-              <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-medium text-ink/55">
-                Pendiente de completar en el documento base.
-              </p>
-            ) : (
-              <div className="mt-4 grid gap-2 text-sm text-ink/70">
-                <p><span className="font-semibold text-ink">Intensidad:</span> {method.zones.length > 0 ? method.zones.join(" / ") : method.intensity}</p>
-                <p><span className="font-semibold text-ink">Duración:</span> {method.sessionDuration}</p>
-                {method.examples.length > 0 ? (
-                  <div>
-                    <p className="font-semibold text-ink">Ejemplos:</p>
-                    <ul className="mt-1 space-y-1">
-                      {method.examples.slice(0, 2).map((example) => (
-                        <li key={example}>{example}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </button>
-        ))}
-      </section>
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div>
+          <h3 className="text-lg font-semibold text-ink">Métodos de entrenamiento</h3>
+          <p className="mt-1 text-sm text-ink/55">Selecciona un método para ver sus parámetros, ejemplos y efectos.</p>
+        </div>
 
-      {filteredResistanceMethods.length === 0 ? (
-        <section className="rounded-md border border-dashed border-line bg-white p-8 text-center text-sm text-ink/55">
-          No hay métodos que coincidan con el filtro actual.
-        </section>
-      ) : null}
+        {filteredResistanceMethods.length > 0 ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filteredResistanceMethods.map((method) => (
+              <button
+                className="rounded-md border border-line bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-moss"
+                key={method.id}
+                onClick={() => setSelectedResistanceMethod(method)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-ink/45">{method.method}</p>
+                    <h3 className="mt-1 text-base font-semibold text-ink">{method.name}</h3>
+                  </div>
+                  <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${getResistanceStatusClass(method.status)}`}>
+                    {getResistanceStatusLabel(method.status)}
+                  </span>
+                </div>
+                <p className="mt-3 text-xs font-semibold text-ink/50">{getResistanceMeta(method)}</p>
+                {method.status === "pending" ? (
+                  <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-medium text-ink/55">
+                    Pendiente de completar en el documento base.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid gap-2 text-sm text-ink/70">
+                    <p><span className="font-semibold text-ink">Intensidad:</span> {method.zones.length > 0 ? method.zones.join(" / ") : method.intensity}</p>
+                    <p><span className="font-semibold text-ink">Duración:</span> {method.sessionDuration}</p>
+                    {method.examples.length > 0 ? (
+                      <div>
+                        <p className="font-semibold text-ink">Ejemplos:</p>
+                        <ul className="mt-1 space-y-1">
+                          {method.examples.slice(0, 2).map((example) => (
+                            <li key={example}>{example}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center text-sm text-ink/55">
+            No hay métodos que coincidan con el filtro actual.
+          </div>
+        )}
+      </section>
 
       {selectedResistanceMethod ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">

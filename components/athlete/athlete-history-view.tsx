@@ -28,6 +28,8 @@ type AthleteWellness = {
 type ReviewSessionExercise = {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
+  bandColor?: string | null;
+  bandResistance?: string | null;
   block?: string | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
@@ -46,6 +48,8 @@ type ReviewSessionExercise = {
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
+  selectedEquipment?: string | null;
+  selectedVariantName?: string | null;
   sets?: number | string | null;
   setDetails?: Array<{
     reps?: number | string | null;
@@ -152,6 +156,15 @@ function getExerciseLabel(entry?: ReviewSessionExercise) {
   if (entry.name) return entry.name;
   if (entry.exerciseId) return getExerciseById(entry.exerciseId)?.name ?? entry.exerciseId;
   return "Ejercicio sin especificar";
+}
+
+function getExerciseMetaLabel(entry?: ReviewSessionExercise) {
+  const bandSummary = [entry?.bandColor, entry?.bandResistance].filter((value) => hasDisplayValue(value)).join(" · ");
+  return [
+    hasDisplayValue(entry?.selectedEquipment) ? `Material: ${entry?.selectedEquipment}` : "",
+    hasDisplayValue(entry?.selectedVariantName) ? `Variante: ${entry?.selectedVariantName}` : "",
+    bandSummary ? `Banda elástica: ${bandSummary}` : ""
+  ].filter(Boolean).join(" · ");
 }
 
 function getPlannedValue(entry: ReviewSessionExercise | undefined, field: "sets" | "reps" | "load" | "rest" | "rir") {
@@ -508,6 +521,9 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         {detailRows.map(({ planned, performed }, exerciseIndex) => (
                           <article className="rounded-md border border-line bg-panel/35 p-3" key={`${sessionKey}-${exerciseIndex}`}>
                             <p className="font-semibold text-ink">{getExerciseLabel(performed ?? planned)}</p>
+                            {getExerciseMetaLabel(performed ?? planned) ? (
+                              <p className="mt-1 text-xs font-semibold text-ink/45">{getExerciseMetaLabel(performed ?? planned)}</p>
+                            ) : null}
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                               {([
                                 ["Series", getPlannedValue(planned, "sets"), getPerformedValue(performed, "sets")],
