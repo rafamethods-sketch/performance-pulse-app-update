@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ArrowLeft,
@@ -50,7 +50,6 @@ import {
   type PlanningMethod,
   type WeeklyDistribution
 } from "@/lib/planning-config";
-import { calculateFatigueZones } from "@/lib/fatigue-zones";
 import {
   bodyRegionLabels,
   bodyRegions,
@@ -334,12 +333,12 @@ export default function ClientsPage() {
             <div>
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "today"
-                  ? role === "coach" ? "Resumen del día" : "Hoy"
+                  ? role === "coach" ? "Resumen del dÃ­a" : "Hoy"
                   : activeSheet === "clients"
                   ? role === "coach" && trainerClientPanel === "dashboard"
                     ? `Resumen - ${selectedClient?.name ?? "cliente"}`
                     : role === "coach" && trainerClientPanel === "details"
-                      ? `Información - ${selectedClient?.name ?? "cliente"}`
+                      ? `InformaciÃ³n - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "training"
                     ? role === "coach" ? "Sesiones" : "Historial"
@@ -354,9 +353,9 @@ export default function ClientsPage() {
                   : activeSheet === "fatigue"
                     ? "Fatiga"
                   : activeSheet === "weeklyLoad"
-                    ? role === "coach" ? "Métricas" : "Carga semanal"
+                    ? role === "coach" ? "MÃ©tricas" : "Carga semanal"
                   : activeSheet === "planning"
-                    ? "Planificación"
+                    ? "PlanificaciÃ³n"
                   : activeSheet === "progressions"
                     ? "Ejercicios"
                   : activeSheet === "resources"
@@ -1192,7 +1191,7 @@ function buildDemoClient(): CoachClient {
       { action: "Ver historial", date: getRelativeDateKey(-28), id: "demo-assessment-strength-1", isDemo: true, name: "3RM sentadilla", result: "105 kg", type: "Fuerza" },
       { action: "Ver historial", date: getRelativeDateKey(-21), id: "demo-assessment-jump-1", isDemo: true, name: "CMJ", result: "38 cm", type: "Salto" },
       { action: "Ver historial", date: getRelativeDateKey(-18), id: "demo-assessment-cardio-1", isDemo: true, name: "Test 6 min", result: "1420 m", type: "Resistencia" },
-      { action: "Ver historial", date: getRelativeDateKey(-12), id: "demo-assessment-body-1", isDemo: true, name: "Peso corporal", result: "76.4 kg", type: "Antropometría" }
+      { action: "Ver historial", date: getRelativeDateKey(-12), id: "demo-assessment-body-1", isDemo: true, name: "Peso corporal", result: "76.4 kg", type: "AntropometrÃ­a" }
     ],
     availability: "4 dias / semana",
     availableEquipment: "Barra, mancuernas, polea, cajon, balon medicinal",
@@ -1329,12 +1328,12 @@ function ClientQuickNav({
     },
     {
       active: activeSheet === "clients" && trainerClientPanel === "details",
-      label: "Información",
+      label: "InformaciÃ³n",
       onClick: () => onOpenDetails(client.id)
     },
     {
       active: activeSheet === "planning",
-      label: "Planificación",
+      label: "PlanificaciÃ³n",
       onClick: () => onOpenClientSheet(client.id, "planning")
     },
     {
@@ -1419,7 +1418,7 @@ function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
     <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
       <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
-        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y tests pertenezcan al cliente activo.
+        Las paginas del entrenador se filtran por deportista para que calendario, sesiones, planificaciÃ³n, mensajes y tests pertenezcan al cliente activo.
       </p>
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
         Ir a Clientes
@@ -1442,7 +1441,7 @@ function AthleteAccessEndedNotice({
       <p className="text-xs font-semibold uppercase text-coral">Acceso finalizado</p>
       <h2 className="mt-2 text-xl font-semibold text-ink">Tu acceso activo ha finalizado</h2>
       <p className="mt-2 max-w-2xl text-sm text-ink/65">
-        Puedes seguir entrando a la app, pero no tienes una planificación activa. Contacta con tu entrenador para revisar tu acceso.
+        Puedes seguir entrando a la app, pero no tienes una planificaciÃ³n activa. Contacta con tu entrenador para revisar tu acceso.
       </p>
       {client ? (
         <p className="mt-3 text-sm font-semibold text-ink/55">{getClientAccessInfo(client).text}</p>
@@ -1452,7 +1451,7 @@ function AthleteAccessEndedNotice({
           Ver historial
         </button>
         <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={onShowPlanning} type="button">
-          Ver planificación
+          Ver planificaciÃ³n
         </button>
       </div>
     </section>
@@ -1764,7 +1763,7 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, availability: event.target.value }))}
-                    placeholder="Ej: 3 días/semana, 60 min por sesión"
+                    placeholder="Ej: 3 dÃ­as/semana, 60 min por sesiÃ³n"
                     value={newClientDraft.availability}
                   />
                 </label>
@@ -1782,7 +1781,7 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, injuries: event.target.value }))}
-                    placeholder="Ej. tendinopatía, dolor lumbar, sin limitaciones..."
+                    placeholder="Ej. tendinopatÃ­a, dolor lumbar, sin limitaciones..."
                     value={newClientDraft.injuries}
                   />
                 </label>
@@ -1805,16 +1804,16 @@ function CoachClientsView({
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, objective: event.target.value }))}
-                    placeholder="Ej. fuerza máxima, salud metabólica, 10K..."
+                    placeholder="Ej. fuerza mÃ¡xima, salud metabÃ³lica, 10K..."
                     value={newClientDraft.objective}
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  Próxima competición / test / pico de forma
+                  PrÃ³xima competiciÃ³n / test / pico de forma
                   <input
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, eventName: event.target.value }))}
-                    placeholder="Ej. Test fuerza máxima"
+                    placeholder="Ej. Test fuerza mÃ¡xima"
                     value={newClientDraft.eventName}
                   />
                 </label>
@@ -1843,7 +1842,7 @@ function CoachClientsView({
               <div className="mt-4 grid gap-4">
                 <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  Modelo de periodización
+                  Modelo de periodizaciÃ³n
                   <select
                     className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setNewClientDraft((draft) => ({ ...draft, planningMethod: event.target.value as PlanningMethod }))}
@@ -1857,7 +1856,7 @@ function CoachClientsView({
                   </select>
                 </label>
                 <div className="space-y-2 text-sm font-medium text-ink/75">
-                  Número de mesociclos
+                  NÃºmero de mesociclos
                   <div className="flex h-11 items-center rounded-md border border-line bg-white px-3 text-lg font-semibold text-ink">
                     {newClientDraft.planningBlocks.length}
                   </div>
@@ -1870,12 +1869,12 @@ function CoachClientsView({
                   type="button"
                 >
                   <Plus size={16} />
-                  Añadir mesociclo
+                  AÃ±adir mesociclo
                 </button>
 
                 {newClientDraft.planningBlocks.length === 0 ? (
                   <div className="rounded-md bg-white px-3 py-3 text-sm text-ink/60">
-                    Puedes crear el cliente sin mesociclos y completar la planificación después.
+                    Puedes crear el cliente sin mesociclos y completar la planificaciÃ³n despuÃ©s.
                   </div>
                 ) : (
                   <div className="grid gap-3">
@@ -1902,7 +1901,7 @@ function CoachClientsView({
                             />
                           </label>
                           <label className="space-y-2 text-sm font-medium text-ink/75">
-                            Duración
+                            DuraciÃ³n
                             <input
                               className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                               min={1}
@@ -1928,7 +1927,7 @@ function CoachClientsView({
                             />
                           </label>
                           <label className="space-y-2 text-sm font-medium text-ink/75">
-                            Distribución semanal
+                            DistribuciÃ³n semanal
                             <select
                               className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                               onChange={(event) => updateClientMesocycle(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
@@ -1962,7 +1961,7 @@ function CoachClientsView({
                   <h4 className="font-semibold text-ink">Datos del cliente</h4>
                   <div className="mt-3 grid gap-2 text-sm text-ink/65">
                     <p><span className="font-semibold text-ink">Nombre:</span> {newClientDraft.name || "Sin nombre"}</p>
-                    <p><span className="font-semibold text-ink">Edad:</span> {newClientDraft.age} años</p>
+                    <p><span className="font-semibold text-ink">Edad:</span> {newClientDraft.age} aÃ±os</p>
                     <p><span className="font-semibold text-ink">Disciplina:</span> {newClientDraft.modality}</p>
                     <p><span className="font-semibold text-ink">Contexto:</span> {newClientDraft.goalType}</p>
                     <p><span className="font-semibold text-ink">Disponibilidad:</span> {newClientDraft.availability || "Pendiente"}</p>
@@ -1981,7 +1980,7 @@ function CoachClientsView({
                   </div>
                 </div>
                 <div className="rounded-md border border-line bg-white p-4 shadow-soft">
-                  <h4 className="font-semibold text-ink">Planificación inicial</h4>
+                  <h4 className="font-semibold text-ink">PlanificaciÃ³n inicial</h4>
                   <div className="mt-3 grid gap-2 text-sm text-ink/65">
                     <p><span className="font-semibold text-ink">Modelo:</span> {newClientDraft.planningMethod ? getPlanningMethodLabel(newClientDraft.planningMethod) : "Sin modelo"}</p>
                     <p><span className="font-semibold text-ink">Mesociclos:</span> {newClientDraft.planningBlocks.length}</p>
@@ -1990,7 +1989,7 @@ function CoachClientsView({
                       <div className="mt-1 grid gap-1">
                         {newClientDraft.planningBlocks.map((block, index) => (
                           <p className="rounded-md bg-panel/45 px-2 py-1" key={block.id}>
-                            Mesociclo {index + 1} · {block.durationWeeks} semanas
+                            Mesociclo {index + 1} Â· {block.durationWeeks} semanas
                           </p>
                         ))}
                       </div>
@@ -2179,13 +2178,13 @@ function CoachClientsView({
                     Resumen
                   </button>
                   <button
-                    aria-label={`Información de ${listedClient.name}`}
+                    aria-label={`InformaciÃ³n de ${listedClient.name}`}
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenDetails(listedClient.id)}
-                    title={`Información de ${listedClient.name}`}
+                    title={`InformaciÃ³n de ${listedClient.name}`}
                     type="button"
                   >
-                    Información
+                    InformaciÃ³n
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -2199,7 +2198,7 @@ function CoachClientsView({
                     onClick={() => onOpenClientSheet(listedClient.id, "planning")}
                     type="button"
                   >
-                    Planificación
+                    PlanificaciÃ³n
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -2212,7 +2211,7 @@ function CoachClientsView({
                 </div>
 
                 <div className="mt-3 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
-                  <span>{listedClient.age} anos · {listedClient.modality ?? listedClient.sport}</span>
+                  <span>{listedClient.age} anos Â· {listedClient.modality ?? listedClient.sport}</span>
                   <span>Ultima actividad: {listedClient.lastActivity}</span>
                   <span>Evento: {listedClient.nextEvent}</span>
                   <span>{accessInfo.text}</span>
@@ -2374,17 +2373,17 @@ function ClientDetailsView({
     {
       fields: [
         ["Nombre", displayValue(client.name)],
-        ["Edad", `${displayValue(client.age)} años`],
+        ["Edad", `${displayValue(client.age)} aÃ±os`],
         ["Disciplina / deporte", displayValue(client.modality || client.sport)],
         ["Contexto", displayValue(client.goalType)],
         ["Estado", displayValue(client.status)]
       ],
-      title: "Datos básicos"
+      title: "Datos bÃ¡sicos"
     },
     {
       fields: [
         ["Objetivo principal", displayValue(client.planning.primaryGoal)],
-        ["Evento / test / competición", displayValue(client.planning.eventName || client.nextEvent)],
+        ["Evento / test / competiciÃ³n", displayValue(client.planning.eventName || client.nextEvent)],
         ["Fecha objetivo", displayValue(client.planning.eventDate)],
         ["Notas del objetivo", displayValue(client.planning.eventNotes)]
       ],
@@ -2489,7 +2488,7 @@ function ClientDetailsView({
       {isEditing ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
           <section className="rounded-md border border-line bg-panel/35 p-4">
-            <h3 className="font-semibold text-ink">Datos básicos</h3>
+            <h3 className="font-semibold text-ink">Datos bÃ¡sicos</h3>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-semibold text-ink/70">
                 Nombre
@@ -2525,7 +2524,7 @@ function ClientDetailsView({
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("primaryGoal", event.target.value)} value={draft.primaryGoal} />
               </label>
               <label className="text-sm font-semibold text-ink/70">
-                Evento / test / competición
+                Evento / test / competiciÃ³n
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("eventName", event.target.value)} value={draft.eventName} />
               </label>
               <label className="text-sm font-semibold text-ink/70">
@@ -2593,7 +2592,7 @@ function ClientDetailsView({
                 <div>
                   <p className="font-semibold text-ink">Intervals.icu</p>
                   <p className="mt-1 text-sm text-ink/55">
-                    La app solo guardará un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
+                    La app solo guardarÃ¡ un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
                   </p>
                 </div>
                 <span className="w-fit rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65">
@@ -2606,12 +2605,12 @@ function ClientDetailsView({
                   <p className="mt-1 text-sm font-semibold text-ink">{getCardioConnectionLabel(intervalsConnection?.status)}</p>
                 </div>
                 <div className="rounded-md border border-line bg-panel/35 px-3 py-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Última sincronización</p>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Ãšltima sincronizaciÃ³n</p>
                   <p className="mt-1 text-sm font-semibold text-ink">{formatCardioSyncDate(intervalsConnection?.lastSyncAt)}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs font-medium text-ink/45">
-                La integración real debe hacerse desde backend/API route/Supabase Edge Function.
+                La integraciÃ³n real debe hacerse desde backend/API route/Supabase Edge Function.
               </p>
             </div>
           </article>
@@ -2624,9 +2623,12 @@ function ClientDetailsView({
 function ClientProgressView({ client }: { client?: CoachClient | null }) {
   const assessments = client?.assessments ?? [];
   const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
-  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "Antropometría");
-  const otherTests = assessments.filter((assessment) => assessment.type !== "Fuerza" && assessment.type !== "Antropometría");
+  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "AntropometrÃ­a");
+  const enduranceTests = assessments.filter((assessment) => assessment.type === "Resistencia");
+  const otherTests = assessments.filter((assessment) => !["Fuerza", "Resistencia", "AntropometrÃ­a"].includes(assessment.type));
   const completedSessions = (client?.sessionRecords ?? []).filter((session) => session.completed || session.status === "Completada");
+  const plannedSessions = client?.sessionRecords?.length ?? 0;
+  const adherence = plannedSessions > 0 ? Math.round((completedSessions.length / plannedSessions) * 100) : null;
 
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
 
@@ -2634,33 +2636,34 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
     <div className="mt-6 grid gap-5">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-ink">Progreso de {client.name}</h2>
-        <p className="mt-1 text-sm text-ink/55">Vista inicial para reunir tests, marcas y evolución sin añadir cálculos nuevos.</p>
+        <p className="mt-1 text-sm text-ink/55">Evolución del deportista a partir de tests, sesiones y datos ya registrados.</p>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <h3 className="font-semibold text-ink">Resumen de evolución</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
+          <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
+          <ClientInfoCard label="Adherencia" value={adherence !== null ? `${adherence}%` : "Sin datos todavía"} />
+          <ClientInfoCard label="Tests registrados" value={`${assessments.length}`} />
+        </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ClientProgressCard title="Marcas máximas / tests de fuerza" items={strengthTests} />
-        <ClientProgressCard title="Otros tests" items={otherTests} />
-        <ClientProgressCard title="Composición corporal" items={bodyCompositionTests} />
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-          <h3 className="font-semibold text-ink">Carga / evolución</h3>
-          {completedSessions.length > 0 ? (
-            <div className="mt-3 grid gap-2">
-              <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
-              <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
-            </div>
-          ) : (
-            <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
-          )}
-        </section>
+        <ClientProgressCard description="Marcas máximas y pruebas de fuerza disponibles." title="Fuerza" items={strengthTests} />
+        <ClientProgressCard description="Tests de resistencia y evolución aeróbica registrada." title="Resistencia" items={enduranceTests} />
+        <ClientProgressCard description="Peso corporal, perímetros u otras mediciones disponibles." title="Composición corporal" items={bodyCompositionTests} />
+        <ClientProgressCard description="Otros tests registrados sin categoría específica." title="Otros tests" items={otherTests} />
       </div>
     </div>
   );
 }
 
-function ClientProgressCard({ items, title }: { items: ClientAssessment[]; title: string }) {
+function ClientProgressCard({ description, items, title }: { description?: string; items: ClientAssessment[]; title: string }) {
   return (
     <section className="rounded-md border border-line bg-white p-5 shadow-soft">
       <h3 className="font-semibold text-ink">{title}</h3>
+      {description ? <p className="mt-1 text-sm text-ink/55">{description}</p> : null}
       {items.length > 0 ? (
         <div className="mt-3 grid gap-2">
           {items.slice(0, 4).map((item, index) => (
@@ -2672,17 +2675,41 @@ function ClientProgressCard({ items, title }: { items: ClientAssessment[]; title
           ))}
         </div>
       ) : (
-        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
       )}
     </section>
   );
 }
 
 function ClientWellnessView({ client }: { client?: CoachClient | null }) {
+  const [wellnessRange, setWellnessRange] = useState<7 | 14 | 28>(7);
   const records = client?.sessionRecords ?? [];
-  const wellnessRecords = records.filter((session) => session.wellness);
+  const wellnessRecords = records
+    .filter((session) => session.wellness)
+    .sort((a, b) => (getReviewSessionDate(b.date)?.getTime() ?? 0) - (getReviewSessionDate(a.date)?.getTime() ?? 0));
   const latestWellness = wellnessRecords[0]?.wellness;
   const discomfortRecords = records.filter((session) => session.discomfort?.hasDiscomfort || session.discomfort?.notes);
+  const positiveWellnessValue = (wellness: ClientWellness | undefined, key: "calm" | "energy" | "motivation" | "recovery" | "sleep") => {
+    if (!wellness) return 0;
+    if (key === "energy") return wellness.energy ?? Math.max(1, 6 - wellness.fatigue);
+    if (key === "recovery") return wellness.recovery ?? Math.max(1, 6 - wellness.soreness);
+    if (key === "calm") return wellness.calm ?? Math.max(1, 6 - wellness.stress);
+    return wellness[key] ?? 0;
+  };
+  const readinessScore = (wellness: ClientWellness | undefined) => {
+    if (!wellness) return 0;
+    const values = [
+      positiveWellnessValue(wellness, "sleep"),
+      positiveWellnessValue(wellness, "energy"),
+      positiveWellnessValue(wellness, "recovery"),
+      positiveWellnessValue(wellness, "calm"),
+      positiveWellnessValue(wellness, "motivation")
+    ].filter((value) => value > 0);
+    if (values.length === 0) return 0;
+    return values.reduce((total, value) => total + value, 0) / values.length;
+  };
+  const visibleWellnessRecords = wellnessRecords.slice(0, wellnessRange).reverse();
+  const latestReadiness = readinessScore(latestWellness);
 
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
 
@@ -2694,13 +2721,75 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ClientInfoCard label="Preparación reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavía"} />
-        <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Energía / fatiga" value={latestWellness?.fatigue ? `${latestWellness.fatigue}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Recuperación muscular" value={latestWellness?.soreness ? `${latestWellness.soreness}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Ánimo / estrés" value={latestWellness?.stress ? `${latestWellness.stress}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavía"} />
+        <ClientInfoCard label="PreparaciÃ³n reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="Readiness actual" value={latestReadiness > 0 ? `${latestReadiness.toFixed(1)}/5` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="SueÃ±o" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="EnergÃ­a" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="RecuperaciÃ³n muscular" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="Calma / Ã¡nimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavÃ­a"} />
+        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavÃ­a"} />
       </div>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">EvoluciÃ³n diaria del bienestar</h3>
+            <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueÃ±o, energÃ­a, recuperaciÃ³n y calma.</p>
+          </div>
+          <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
+            {[7, 14, 28].map((range) => (
+              <button
+                className={`rounded px-3 py-1 text-xs font-semibold transition ${wellnessRange === range ? "bg-ink text-white" : "text-ink/60 hover:bg-white"}`}
+                key={range}
+                onClick={() => setWellnessRange(range as 7 | 14 | 28)}
+                type="button"
+              >
+                {range} días
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {visibleWellnessRecords.length > 0 ? (
+          <div className="mt-5 grid gap-4">
+            <div className="flex h-40 items-end gap-2 rounded-md border border-line bg-panel/35 p-3">
+              {visibleWellnessRecords.map((session, index) => {
+                const score = readinessScore(session.wellness);
+                const height = Math.max(8, (score / 5) * 100);
+
+                return (
+                  <div className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2" key={`${session.date}-${index}`}>
+                    <div className="flex h-28 w-full items-end rounded bg-white">
+                      <div className="w-full rounded bg-moss" style={{ height: `${height}%` }} />
+                    </div>
+                    <span className="truncate text-[10px] font-semibold text-ink/45">{session.date}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              {[
+                ["SueÃ±o", positiveWellnessValue(latestWellness, "sleep")],
+                ["EnergÃ­a", positiveWellnessValue(latestWellness, "energy")],
+                ["RecuperaciÃ³n", positiveWellnessValue(latestWellness, "recovery")],
+                ["Calma", positiveWellnessValue(latestWellness, "calm")]
+              ].map(([label, value]) => (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-ink">{label}</p>
+                    <span className="text-sm font-semibold text-ink/70">{Number(value) > 0 ? `${value}/5` : "Sin datos"}</span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full bg-steel" style={{ width: `${Math.min(100, (Number(value) / 5) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
+        )}
+      </section>
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <h3 className="font-semibold text-ink">Notas recientes</h3>
@@ -2714,7 +2803,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             ))}
           </div>
         ) : (
-          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavÃ­a.</p>
         )}
       </section>
     </div>
@@ -2967,8 +3056,8 @@ function getPlanningWeeks(peakDate: string, eventType: PlanningEventType) {
 
 function getPlanningBlockStatus(block: PlanningRoadmapBlock, currentBlock?: string | null) {
   if (currentBlock && block.name === currentBlock) return "En curso";
-  if (currentBlock) return "Próximo";
-  return block.startWeek === 1 ? "En curso" : "Próximo";
+  if (currentBlock) return "PrÃ³ximo";
+  return block.startWeek === 1 ? "En curso" : "PrÃ³ximo";
 }
 
 function getPlanningBlockStatusClass(status: string) {
@@ -2977,7 +3066,7 @@ function getPlanningBlockStatusClass(status: string) {
       return "border-moss/25 bg-mint text-moss";
     case "Finalizado":
       return "border-line bg-panel text-ink/55";
-    case "Próximo":
+    case "PrÃ³ximo":
     default:
       return "border-steel/25 bg-sky text-steel";
   }
@@ -3122,7 +3211,7 @@ function PlanningView({
     return (
       <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
         <p className="text-sm font-semibold text-ink">
-          Selecciona primero un cliente desde Clientes para ver su planificación.
+          Selecciona primero un cliente desde Clientes para ver su planificaciÃ³n.
         </p>
       </section>
     );
@@ -3220,9 +3309,9 @@ function PlanningView({
       ) : null}
 
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
+        <h2 className="text-lg font-semibold text-ink">Metodo de planificaciÃ³n</h2>
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
-          Metodo de planificación
+          Metodo de planificaciÃ³n
           <select
             className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
             onChange={(event) => setPlanningMethod(event.target.value as PlanningMethod)}
@@ -3291,7 +3380,7 @@ function PlanningView({
               />
             </label>
             <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              Planificación sin fecha clave. El entrenador decide los mesociclos manualmente.
+              PlanificaciÃ³n sin fecha clave. El entrenador decide los mesociclos manualmente.
             </p>
           </PlanningStep>
         )}
@@ -3449,7 +3538,7 @@ function PlanningBlockDetail({
             type="button"
           >
             <ArrowLeft size={16} />
-            Volver a planificación
+            Volver a planificaciÃ³n
           </button>
           <p className="mt-5 text-xs font-semibold uppercase text-moss">Detalle del bloque</p>
           <h2 className="mt-1 text-xl font-semibold text-ink">{block.name}</h2>
@@ -3463,9 +3552,9 @@ function PlanningBlockDetail({
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <ClientInfoCard label="Duración" value={`${block.durationWeeks} semanas`} />
+        <ClientInfoCard label="DuraciÃ³n" value={`${block.durationWeeks} semanas`} />
         <ClientInfoCard label="Fechas" value={`Semana ${block.startWeek}-${block.endWeek}`} />
-        <ClientInfoCard label="Distribución" value={block.weeklyDistribution || "Sin asignar"} />
+        <ClientInfoCard label="DistribuciÃ³n" value={block.weeklyDistribution || "Sin asignar"} />
         <ClientInfoCard label="Objetivo" value={block.primaryObjective || "Sin definir"} />
         <ClientInfoCard
           label="Progreso"
@@ -3511,7 +3600,7 @@ function PlanningBlockDetail({
                     <PlanningMiniChip Icon={Target} label={block.primaryObjective || "Objetivo"} tone="moss" />
                   ) : null}
                   {dayIndex === 2 ? (
-                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "Distribución"} tone="steel" />
+                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "DistribuciÃ³n"} tone="steel" />
                   ) : null}
                   {dayIndex === 4 ? (
                     <PlanningMiniChip Icon={Plus} label="Sesiones" tone="ink" />
@@ -3589,7 +3678,7 @@ function PlanningSummary({
     <div className="mt-5 border-t border-line pt-4">
       <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65">
         <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Cliente: {selectedPlan.clientName}</span>
-        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Método: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</span>
+        <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">MÃ©todo: {getPlanningMethodLabel(selectedPlan.planningMethod) || "Sin seleccionar"}</span>
         <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Evento: {selectedPlan.planningEventType}</span>
         {selectedPlan.planningEventType !== "Sin evento definido" ? (
           <span className="rounded-md border border-line bg-panel/35 px-2.5 py-1.5">Fecha: {selectedPlan.planningPeakDate || "Sin fecha"}</span>
@@ -3604,7 +3693,7 @@ function PlanningSummary({
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/55">
           {selectedPlan.blocks.map((block, index) => (
             <span className="rounded-md bg-panel/35 px-2.5 py-1.5" key={block.id}>
-              {index + 1}. {block.name} · {block.durationWeeks} sem.
+              {index + 1}. {block.name} Â· {block.durationWeeks} sem.
             </span>
           ))}
         </div>
@@ -3672,22 +3761,22 @@ function PlanningCalendarPreview({
 
 const exerciseVariantTypeLabels: Record<ExerciseVariantType, string> = {
   complex: "Complejo",
-  direction: "Dirección",
+  direction: "DirecciÃ³n",
   grip: "Agarre",
   material: "Material",
-  progression: "Progresión",
+  progression: "ProgresiÃ³n",
   range: "Rango",
-  reception: "Recepción",
-  regression: "Regresión",
-  stance: "Apoyo / posición",
-  start_position: "Posición inicial",
+  reception: "RecepciÃ³n",
+  regression: "RegresiÃ³n",
+  stance: "Apoyo / posiciÃ³n",
+  start_position: "PosiciÃ³n inicial",
   support: "Soporte",
   tempo: "Tempo"
 };
 
 const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string> = {
   advanced: "Avanzada",
-  basic: "Básica",
+  basic: "BÃ¡sica",
   intermediate: "Intermedia"
 };
 
@@ -3749,7 +3838,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         </div>
         <div className="mt-5 grid gap-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Región corporal
+            RegiÃ³n corporal
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -3770,7 +3859,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </select>
           </label>
           <label className="space-y-2 text-sm font-medium text-ink/75">
-            Patrón
+            PatrÃ³n
             <select
               className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
               onChange={(event) => {
@@ -3833,7 +3922,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </div>
 
             <div className="mt-5 rounded-md bg-panel/45 p-4">
-              <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
+              <h3 className="text-sm font-semibold text-ink">DescripciÃ³n tÃ©cnica</h3>
               <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
             </div>
 
@@ -3890,7 +3979,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               </div>
 
               <div className="rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
+                <h3 className="text-sm font-semibold text-ink">MÃºsculos implicados</h3>
                 <div className="mt-3">
                   <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
                   <p className="mt-1 text-sm text-ink/70">
@@ -3909,9 +3998,9 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             <div className="mt-4 rounded-md border border-line p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
+                  <h3 className="text-sm font-semibold text-ink">ActivaciÃ³n muscular basada en evidencia</h3>
                   <p className="mt-1 text-xs text-ink/50">
-                    Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.
+                    Escala cualitativa basada en fuentes PubMed aÃ±adidas a la biblioteca.
                   </p>
                 </div>
                 {activationEvidence ? (
@@ -3944,7 +4033,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                               ))}
                             </div>
                           ) : (
-                            <p className="mt-2 text-sm text-ink/45">Sin músculos en este rol.</p>
+                            <p className="mt-2 text-sm text-ink/45">Sin mÃºsculos en este rol.</p>
                           )}
                         </div>
                       );
@@ -3955,7 +4044,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                     <div className="mt-3 grid gap-2">
                       {activationEvidence.sources.map((source) => (
                         <p className="rounded-md border border-line bg-panel/60 px-3 py-2 text-xs leading-5 text-ink/65" key={source.pmid}>
-                          <span className="font-semibold text-ink">PMID {source.pmid}</span> · {source.title}
+                          <span className="font-semibold text-ink">PMID {source.pmid}</span> Â· {source.title}
                         </p>
                       ))}
                     </div>
@@ -3966,7 +4055,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                 </div>
               ) : (
                 <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
-                  Sin evidencia PubMed añadida todavía para este ejercicio.
+                  Sin evidencia PubMed aÃ±adida todavÃ­a para este ejercicio.
                 </p>
               )}
             </div>
@@ -4012,10 +4101,10 @@ function formatFatigueKey(key: string) {
     core: "Core",
     forearms: "Antebrazos",
     anteriorDelts: "Deltoides anterior",
-    biceps: "Bíceps",
+    biceps: "BÃ­ceps",
     chest: "Pectoral",
-    glutes: "Glúteos",
-    gluteMed: "Glúteo medio",
+    glutes: "GlÃºteos",
+    gluteMed: "GlÃºteo medio",
     hamstrings: "Isquios",
     hips: "Caderas",
     hipFlexors: "Flexores cadera",
@@ -4028,18 +4117,18 @@ function formatFatigueKey(key: string) {
     lumbarStabilizers: "Estabilizadores lumbares",
     midBack: "Espalda media",
     obliques: "Oblicuos",
-    quadriceps: "Cuádriceps",
+    quadriceps: "CuÃ¡driceps",
     rectusAbdominis: "Recto abdominal",
     rearDelts: "Deltoides posterior",
     rotatorCuff: "Manguito rotador",
     serratusAnterior: "Serrato anterior",
     shoulders: "Hombros",
-    soleus: "Sóleo",
+    soleus: "SÃ³leo",
     spinalErectors: "Erectores",
-    thoracicSpine: "Columna torácica",
+    thoracicSpine: "Columna torÃ¡cica",
     tibialisAnterior: "Tibial anterior",
     traps: "Trapecio",
-    triceps: "Tríceps",
+    triceps: "TrÃ­ceps",
     transverseAbdominis: "Transverso abdominal",
     upperTraps: "Trapecio superior",
     upperBack: "Upper back"
@@ -4222,7 +4311,7 @@ function recommendTrainingDistribution(availability: TrainingAvailability) {
 
   return {
     name: "Torso-pierna / enfasis por patrones",
-    reason: "Con más frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
+    reason: "Con mÃ¡s frecuencia semanal se puede distribuir por patrones y controlar mejor volumen por grupo muscular.",
     templateType: "Torso-pierna"
   };
 }
@@ -4352,7 +4441,7 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
           <table className="w-full min-w-[960px] border-separate border-spacing-y-2 text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-ink/50">
               <tr>
-                <th className="px-3 py-2">Patrón</th>
+                <th className="px-3 py-2">PatrÃ³n</th>
                 <th className="px-3 py-2">Ejercicio</th>
                 <th className="px-3 py-2">Series</th>
                 <th className="px-3 py-2">Reps</th>
@@ -4742,9 +4831,9 @@ const assessmentCategoriesSimple = [
   "Salto",
   "FMS",
   "Movilidad",
-  "Antropometría",
+  "AntropometrÃ­a",
   "Cuestionarios",
-  "Técnica",
+  "TÃ©cnica",
   "Otro"
 ];
 
@@ -5047,7 +5136,7 @@ function AssessmentsView({
           </div>
         ) : (
           <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
-            No hay valoraciones registradas todavía.
+            No hay valoraciones registradas todavÃ­a.
           </div>
         )}
       </section>
@@ -5397,7 +5486,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
     primary: ["tonelaje", "series duras", "RPE/RIR", "volumen-carga", "velocidad"],
     fields: [
       "Ejercicio",
-      "Patrón de movimiento",
+      "PatrÃ³n de movimiento",
       "Series",
       "Repeticiones",
       "Carga",
@@ -5426,7 +5515,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
 const cardioSportOptions: Array<{ label: string; value: NonNullable<CardioPlan["sport"]> }> = [
   { label: "Carrera", value: "run" },
   { label: "Ciclismo", value: "ride" },
-  { label: "Natación", value: "swim" },
+  { label: "NataciÃ³n", value: "swim" },
   { label: "Remo", value: "row" },
   { label: "Caminar", value: "walk" },
   { label: "Otro", value: "other" }
@@ -5484,7 +5573,7 @@ function buildCardioPlanFromDraft(draft: CardioPlanDraft): CardioPlan | undefine
 }
 
 function getResistanceMethodLabel(method?: ResistanceMethod | null) {
-  return method ? `${method.method} · ${method.name}` : "";
+  return method ? `${method.method} Â· ${method.name}` : "";
 }
 
 function getResistanceZoneMetrics(zone?: ResistanceZone | null) {
@@ -5505,19 +5594,19 @@ function getResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null)
 
 function buildResistanceMethodTemplateNotes(method: ResistanceMethod, sport?: ResistanceSport, zoneId?: string) {
   const zoneGuide = getResistanceZoneGuide(sport, zoneId);
-  const zoneMetrics = zoneGuide.metrics.slice(0, 3).join(" · ");
+  const zoneMetrics = zoneGuide.metrics.slice(0, 3).join(" Â· ");
   return [
-    `Método de resistencia: ${getResistanceMethodLabel(method)}`,
+    `MÃ©todo de resistencia: ${getResistanceMethodLabel(method)}`,
     sport ? `Deporte: ${zoneGuide.profile.name}` : "",
     zoneGuide.zone ? `Zona objetivo: ${zoneGuide.zone.label}` : "",
-    zoneMetrics ? `Guía: ${zoneMetrics}` : "",
+    zoneMetrics ? `GuÃ­a: ${zoneMetrics}` : "",
     method.intensity ? `Intensidad: ${method.intensity}` : "",
-    method.sessionDuration ? `Duración / tiempo total: ${method.sessionDuration}` : "",
+    method.sessionDuration ? `DuraciÃ³n / tiempo total: ${method.sessionDuration}` : "",
     method.repetitions ? `Repeticiones: ${method.repetitions}` : "",
-    method.repetitionDuration ? `Duración repeticiones: ${method.repetitionDuration}` : "",
-    method.recoveryBetweenRepetitions ? `Recuperación entre repeticiones: ${method.recoveryBetweenRepetitions}` : "",
+    method.repetitionDuration ? `DuraciÃ³n repeticiones: ${method.repetitionDuration}` : "",
+    method.recoveryBetweenRepetitions ? `RecuperaciÃ³n entre repeticiones: ${method.recoveryBetweenRepetitions}` : "",
     method.series ? `Series: ${method.series}` : "",
-    method.recoveryBetweenSeries ? `Recuperación entre series: ${method.recoveryBetweenSeries}` : "",
+    method.recoveryBetweenSeries ? `RecuperaciÃ³n entre series: ${method.recoveryBetweenSeries}` : "",
     method.examples[0] ? `Ejemplo: ${method.examples[0]}` : ""
   ].filter(Boolean).join("\n");
 }
@@ -5544,7 +5633,7 @@ function CoachTrainingPlanner({
   setSessionTemplates: React.Dispatch<React.SetStateAction<SessionTemplate[]>>;
   targetTrainingSession: TargetTrainingSession | null;
 }) {
-  const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("planner");
+  const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("history");
   const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
   const activeSessionClient =
     client ?? clients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? null;
@@ -5569,7 +5658,9 @@ function CoachTrainingPlanner({
     targetZone: ""
   });
   const [sessionSendMessage, setSessionSendMessage] = useState("");
+  const [showPlannerModal, setShowPlannerModal] = useState(false);
   const [showSessionSummaryModal, setShowSessionSummaryModal] = useState(false);
+  const [showCardioAdvancedOptions, setShowCardioAdvancedOptions] = useState(false);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const [collapsedStrengthBlocks, setCollapsedStrengthBlocks] = useState<Record<StrengthSessionBlock, boolean>>({
     activation: false,
@@ -5599,23 +5690,8 @@ function CoachTrainingPlanner({
   const fatigueAlerts = calculateMuscleFatigue(getClientTrainingSessionInputs(activeSessionClient))
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
-  const weeklyZoneScores = calculateFatigueZones(
-    (activeSessionClient?.sessionRecords ?? []).filter((session) => hasRealSessionData(session) && isSessionThisWeek(session.date))
-  );
-  const weeklyZoneAlerts = weeklyZoneScores.filter((zone) => zone.level === "moderate" || zone.level === "high");
-  const maxWeeklyZoneScore = Math.max(0, ...weeklyZoneScores.map((zone) => zone.score));
   const planningLoadData = activeSessionClient ? getClientLoadData(activeSessionClient) : null;
   const planningActionAlerts = [
-    ...fatigueAlerts.map((item) => ({
-      label: item.muscle,
-      tone: item.status === "Rojo" ? "high" : "moderate",
-      value: `${item.fatigueScore}%`
-    })),
-    ...weeklyZoneAlerts.map((zone) => ({
-      label: zone.label,
-      tone: zone.level === "high" ? "high" : "moderate",
-      value: `${maxWeeklyZoneScore > 0 ? Math.round(zone.score / maxWeeklyZoneScore * 100) : 0}%`
-    })),
     ...(planningLoadData && planningLoadData.weeklyLoad >= 2200
       ? [{ label: "sRPE semanal", tone: "high", value: `${Math.round(planningLoadData.weeklyLoad).toLocaleString("es-ES")} UA` }]
       : []),
@@ -5626,7 +5702,7 @@ function CoachTrainingPlanner({
       ? [{ label: "Wellness", tone: planningLoadData.hooperStatus === "Alto" ? "high" : "moderate", value: `${planningLoadData.hooper}/25` }]
       : []),
     ...(activeSessionClient && activeSessionClient.hooper.sleep > 0 && activeSessionClient.hooper.sleep <= 2
-      ? [{ label: "Sueño", tone: "moderate", value: `${activeSessionClient.hooper.sleep}/5` }]
+      ? [{ label: "SueÃ±o", tone: "moderate", value: `${activeSessionClient.hooper.sleep}/5` }]
       : []),
     ...(activeSessionClient && activeSessionClient.hooper.fatigue >= 4
       ? [{ label: "Fatiga", tone: "moderate", value: `${activeSessionClient.hooper.fatigue}/5` }]
@@ -5783,7 +5859,7 @@ function CoachTrainingPlanner({
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
-      setSessionSendMessage("Selecciona una fecha antes de enviar la sesión.");
+      setSessionSendMessage("Selecciona una fecha antes de enviar la sesiÃ³n.");
       return;
     }
 
@@ -5795,7 +5871,7 @@ function CoachTrainingPlanner({
     );
 
     if (duplicateSession) {
-      setSessionSendMessage("Esta sesión ya está asignada al deportista.");
+      setSessionSendMessage("Esta sesiÃ³n ya estÃ¡ asignada al deportista.");
       return;
     }
 
@@ -5833,7 +5909,7 @@ function CoachTrainingPlanner({
       sessionNumber,
       status: "Planificada",
       strengthMethod: sessionStrengthMethod,
-      summary: sessionSummary.trim() || "Sesión planificada",
+      summary: sessionSummary.trim() || "SesiÃ³n planificada",
       targetResistanceZoneId: sessionType === "Cardio" ? targetResistanceZoneId || undefined : undefined,
       targetRpe: sessionTargetRpe,
       type: sessionType,
@@ -5845,7 +5921,7 @@ function CoachTrainingPlanner({
       ...activeSessionClient,
       sessionRecords: [plannedRecord, ...(activeSessionClient.sessionRecords ?? [])]
     });
-    setSessionSendMessage("Sesión enviada al deportista.");
+    setSessionSendMessage("SesiÃ³n enviada al deportista.");
   };
   const resetTemplateForm = () => {
     setShowTemplateForm(false);
@@ -5873,7 +5949,7 @@ function CoachTrainingPlanner({
     resetTemplateForm();
   };
   const loadSessionTemplate = (template: SessionTemplate) => {
-    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazará los ejercicios actuales. ¿Continuar?")) return;
+    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazarÃ¡ los ejercicios actuales. Â¿Continuar?")) return;
 
     setSessionType(template.sessionType);
     setSessionStrengthMethod(template.strengthMethod ?? "rir");
@@ -5909,7 +5985,7 @@ function CoachTrainingPlanner({
     const name = getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar");
     const volume = [exercise.sets, exercise.reps].filter(Boolean).length === 2
       ? `${exercise.sets}x${exercise.reps}`
-      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
+      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" Â· ");
     const intensity = getExerciseIntensitySummary(exercise);
     const mainLine = [name, volume].filter(Boolean).join(" ");
     const variantLine = exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "";
@@ -5936,8 +6012,8 @@ function CoachTrainingPlanner({
           onClick={() => setCollapsedStrengthBlocks((current) => ({ ...current, [block]: !current[block] }))}
           type="button"
         >
-          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-          <span>{blockLabel} · {exerciseCountLabel}</span>
+          <span className="text-lg leading-none">{isCollapsed ? "â€º" : "âŒ„"}</span>
+          <span>{blockLabel} Â· {exerciseCountLabel}</span>
         </button>
         {!isCollapsed ? (
         <>
@@ -5948,13 +6024,13 @@ function CoachTrainingPlanner({
             type="button"
           >
             <Plus size={16} />
-            Añadir ejercicio
+            AÃ±adir ejercicio
           </button>
         </div>
         <div className="mt-4 grid gap-3">
           {blockExercises.length === 0 ? (
             <div className="rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
-              Sin ejercicios añadidos.
+              Sin ejercicios aÃ±adidos.
             </div>
           ) : blockExercises.map((exercise) => {
             const sessionSection = block === "activation" ? "activation" : block === "main" ? "main" : "accessory";
@@ -6010,7 +6086,7 @@ function CoachTrainingPlanner({
                         >
                           <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
                           <span className="mt-0.5 block text-xs font-medium text-ink/55">
-                            {libraryExercise.pattern} · {libraryExercise.block} · {libraryExercise.equipment.join(" / ")}
+                            {libraryExercise.pattern} Â· {libraryExercise.block} Â· {libraryExercise.equipment.join(" / ")}
                           </span>
                         </button>
                       )) : (
@@ -6060,7 +6136,7 @@ function CoachTrainingPlanner({
                         }}
                         value={exercise.selectedVariantId ?? ""}
                       >
-                        <option value="">Sin variante específica</option>
+                        <option value="">Sin variante especÃ­fica</option>
                         {selectedLibraryExercise.variants.map((variant) => (
                           <option key={variant.id} value={variant.id}>{variant.name}</option>
                         ))}
@@ -6070,7 +6146,7 @@ function CoachTrainingPlanner({
                   {selectedVariant ? (
                     <div className="rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65 md:col-span-2">
                       <p className="font-semibold text-ink">
-                        {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} · {exerciseVariantTypeLabels[selectedVariant.type]}
+                        {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} Â· {exerciseVariantTypeLabels[selectedVariant.type]}
                       </p>
                       {selectedVariant.coachingNotes ? (
                         <p className="mt-1">{selectedVariant.coachingNotes}</p>
@@ -6220,32 +6296,99 @@ function CoachTrainingPlanner({
 
   return (
     <div className="mt-5 xl:mt-6">
-      <div className="rounded-md border border-line bg-white p-2 shadow-soft">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            className={`flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition ${
-              activeSessionPanel === "planner" ? "bg-ink text-white shadow-soft" : "bg-panel/45 text-ink/70 hover:bg-panel"
-            }`}
-            onClick={() => setActiveSessionPanel("planner")}
-            type="button"
-          >
-            Planificar sesion
-          </button>
-          <button
-            className={`flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition ${
-              activeSessionPanel === "history" ? "bg-ink text-white shadow-soft" : "bg-panel/45 text-ink/70 hover:bg-panel"
-            }`}
-            onClick={() => setActiveSessionPanel("history")}
-            type="button"
-          >
-            Sesiones anteriores
-          </button>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-md border border-line border-l-clay border-l-4 bg-white p-4 shadow-soft">
+          <p className="text-sm font-semibold text-ink">Lesiones / limitaciones</p>
+          <p className="mt-2 text-sm text-ink/65">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
+        </div>
+        <div className="rounded-md border border-line border-l-coral border-l-4 bg-white p-4 shadow-soft">
+          <p className="text-sm font-semibold text-ink">Fatiga muscular a vigilar</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {fatigueAlerts.length > 0 ? fatigueAlerts.map((item) => (
+              <span className="rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold text-coral" key={item.muscle}>
+                {item.muscle} {item.fatigueScore}%
+              </span>
+            )) : (
+              <span className="text-sm text-ink/65">Sin grupos en alerta alta.</span>
+            )}
+          </div>
+        </div>
+        <div className="rounded-md border border-line bg-white p-4 shadow-soft">
+          <p className="text-sm font-semibold text-ink">Indicadores a vigilar</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {planningActionAlerts.length > 0 ? planningActionAlerts.map((alert) => (
+              <div
+                className={`rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold ${
+                  alert.tone === "high" ? "text-coral" : "text-clay"
+                }`}
+                key={`${alert.label}-${alert.value}`}
+              >
+                {alert.label} {"\u00b7"} {alert.value}
+              </div>
+            )) : (
+              <span className="text-sm font-medium text-ink/55">Sin alertas relevantes.</span>
+            )}
+          </div>
         </div>
       </div>
 
+      <div className="mt-4 flex justify-end">
+        <button
+          className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel"
+          onClick={() => {
+            setActiveSessionPanel("planner");
+            setShowPlannerModal(true);
+          }}
+          type="button"
+        >
+          Planificar sesiÃ³n
+        </button>
+      </div>
+
       <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5 xl:mt-6">
-        {activeSessionPanel === "planner" ? (
-        <>
+        {activeSessionPanel === "planner" && showPlannerModal ? (
+        <div
+          aria-labelledby="session-planner-modal-title"
+          aria-modal="true"
+          className="assessment-modal-overlay"
+          onClick={() => {
+            setShowPlannerModal(false);
+            setActiveSessionPanel("history");
+          }}
+          role="dialog"
+        >
+          <div className="assessment-modal-panel max-w-7xl" onClick={(event) => event.stopPropagation()}>
+            <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <h2 className="text-xl font-semibold text-ink" id="session-planner-modal-title">Planificar sesiÃ³n</h2>
+                <p className="mt-1 text-sm text-ink/55">Revisa el contexto y ajusta la sesiÃ³n antes de enviarla al deportista.</p>
+              </div>
+              <button
+                aria-label="Cerrar planificador"
+                className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink"
+                onClick={() => {
+                  setShowPlannerModal(false);
+                  setActiveSessionPanel("history");
+                }}
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="assessment-modal-body px-5 py-5">
+              <section className="rounded-md border border-line bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-ink/45">Resumen de sesiÃ³n</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  <ClientInfoCard label="Deportista" value={activeSessionClient.name} />
+                  <ClientInfoCard label="Bloque / mesociclo" value={currentBlockLabel || "Sin asignar"} />
+                  <ClientInfoCard
+                    label="Semana / sesiÃ³n"
+                    value={calculatedSessionNumber ? `Semana ${selectedBlockWeek} Â· SesiÃ³n ${calculatedSessionNumber}` : "SesiÃ³n pendiente"}
+                  />
+                  <ClientInfoCard label="Tipo de sesiÃ³n" value={sessionType} />
+                  <ClientInfoCard label="Objetivo / resumen" value={sessionSummary.trim() || "Sin resumen"} />
+                </div>
+              </section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Planificar sesion</h2>
@@ -6268,42 +6411,6 @@ function CoachTrainingPlanner({
             </div>
           </div>
         ) : null}
-
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-md border border-line border-l-clay border-l-4 bg-panel/35 p-4">
-            <p className="text-sm font-semibold text-ink">Lesiones / limitaciones</p>
-            <p className="mt-2 text-sm text-ink/65">{activeSessionClient.injuries || "Sin lesiones registradas."}</p>
-          </div>
-          <div className="rounded-md border border-line border-l-coral border-l-4 bg-panel/35 p-4">
-            <p className="text-sm font-semibold text-ink">Fatiga muscular a vigilar</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {fatigueAlerts.length > 0 ? fatigueAlerts.map((item) => (
-                <span className="rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold text-coral" key={item.muscle}>
-                  {item.muscle} {item.fatigueScore}%
-                </span>
-              )) : (
-                <span className="text-sm text-ink/65">Sin grupos en alerta alta.</span>
-              )}
-            </div>
-          </div>
-          <div className="rounded-md border border-line bg-panel/35 p-4">
-            <p className="text-sm font-semibold text-ink">Alertas accionables</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {planningActionAlerts.length > 0 ? planningActionAlerts.map((alert) => (
-                <div
-                  className={`rounded-md border border-line bg-panel/70 px-2 py-1 text-xs font-semibold ${
-                    alert.tone === "high" ? "text-coral" : "text-clay"
-                  }`}
-                  key={`${alert.label}-${alert.value}`}
-                >
-                  {alert.label} {"\u00b7"} {alert.value}
-                </div>
-              )) : (
-                <span className="text-sm font-medium text-ink/55">Sin alertas relevantes.</span>
-              )}
-            </div>
-          </div>
-        </div>
 
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
         <h3 className="font-semibold text-ink">Datos de sesion</h3>
@@ -6488,7 +6595,7 @@ function CoachTrainingPlanner({
                 </span>
               </div>
             </div>
-            {renderStrengthBlock("activation", "Activación")}
+            {renderStrengthBlock("activation", "ActivaciÃ³n")}
             {renderStrengthBlock("main", "Bloque principal")}
             {renderStrengthBlock("auxiliary", "Bloque auxiliar / opcional")}
           </>
@@ -6499,16 +6606,16 @@ function CoachTrainingPlanner({
             <div className="mt-4 rounded-md border border-line bg-white p-4">
               <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  Método de resistencia
+                  MÃ©todo de resistencia
                   <select
                     className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setSelectedResistanceMethodId(event.target.value)}
                     value={selectedResistanceMethodId}
                   >
-                    <option value="">Sin método seleccionado</option>
+                    <option value="">Sin mÃ©todo seleccionado</option>
                     {completeResistanceMethods.map((method) => (
                       <option key={method.id} value={method.id}>
-                        {method.method} · {method.name}
+                        {method.method} Â· {method.name}
                       </option>
                     ))}
                   </select>
@@ -6520,8 +6627,8 @@ function CoachTrainingPlanner({
                       <div>
                         <p className="font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
                         <p className="mt-1 text-xs font-medium text-ink/55">
-                          {selectedResistanceMethod.family} · {selectedResistanceMethod.group}
-                          {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
+                          {selectedResistanceMethod.family} Â· {selectedResistanceMethod.group}
+                          {selectedResistanceMethod.subgroup ? ` Â· ${selectedResistanceMethod.subgroup}` : ""}
                         </p>
                       </div>
                       <button
@@ -6534,16 +6641,41 @@ function CoachTrainingPlanner({
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <ClientInfoCard label="Intensidad" value={selectedResistanceMethod.intensity || "Sin especificar"} />
-                      <ClientInfoCard label="Duración / tiempo total" value={selectedResistanceMethod.sessionDuration || "Sin especificar"} />
-                      <ClientInfoCard label="Nº repeticiones" value={selectedResistanceMethod.repetitions || "Sin especificar"} />
-                      <ClientInfoCard label="Rec. repeticiones" value={selectedResistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
-                      <ClientInfoCard label="Nº series" value={selectedResistanceMethod.series || "Sin especificar"} />
-                      <ClientInfoCard label="Rec. series" value={selectedResistanceMethod.recoveryBetweenSeries || "Sin especificar"} />
+                      <ClientInfoCard label="DuraciÃ³n / tiempo total" value={selectedResistanceMethod.sessionDuration || "Sin especificar"} />
                     </div>
+                    <button
+                      className="mt-3 text-xs font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+                      onClick={() => setShowCardioAdvancedOptions((current) => !current)}
+                      type="button"
+                    >
+                      {showCardioAdvancedOptions ? "Ocultar opciones avanzadas" : "Opciones avanzadas"}
+                    </button>
+                    {showCardioAdvancedOptions ? (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <ClientInfoCard label="Nº repeticiones" value={selectedResistanceMethod.repetitions || "Sin especificar"} />
+                        <ClientInfoCard label="Duración repeticiones" value={selectedResistanceMethod.repetitionDuration || "Sin especificar"} />
+                        <ClientInfoCard label="Rec. repeticiones" value={selectedResistanceMethod.recoveryBetweenRepetitions || "Sin especificar"} />
+                        <ClientInfoCard label="Nº series" value={selectedResistanceMethod.series || "Sin especificar"} />
+                        <ClientInfoCard label="Rec. series" value={selectedResistanceMethod.recoveryBetweenSeries || "Sin especificar"} />
+                        <div className="rounded-md border border-line bg-panel/35 px-3 py-2">
+                          <p className="text-xs font-semibold uppercase text-ink/45">Zona interna Z1-Z5</p>
+                          <select
+                            className="mt-2 h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                            onChange={(event) => updateCardioPlanDraft("targetZone", event.target.value)}
+                            value={cardioPlanDraft.targetZone}
+                          >
+                            <option value="">Sin zona interna</option>
+                            {cardioZoneOptions.map((zone) => (
+                              <option key={zone.value} value={zone.value}>{zone.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
                     {selectedResistanceMethod.trainingEffects.length > 0 ? (
                       <p className="mt-3 text-xs text-ink/55">
                         <span className="font-semibold text-ink/70">Efectos principales: </span>
-                        {selectedResistanceMethod.trainingEffects.slice(0, 2).join(" · ")}
+                        {selectedResistanceMethod.trainingEffects.slice(0, 2).join(" Â· ")}
                       </p>
                     ) : null}
                     {selectedResistanceMethod.examples.length > 0 ? (
@@ -6556,12 +6688,12 @@ function CoachTrainingPlanner({
                       </div>
                     ) : null}
                     <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-xs font-medium text-ink/55">
-                      Guía metodológica. Ajusta el contenido según deporte, nivel y momento de la temporada.
+                      GuÃ­a metodolÃ³gica. Ajusta el contenido segÃºn deporte, nivel y momento de la temporada.
                     </p>
                   </div>
                 ) : (
                   <div className="flex min-h-24 items-center rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-medium text-ink/50">
-                    Selecciona un método completo para ver la guía metodológica. CyC sigue pendiente y no aparece como seleccionable.
+                    Selecciona un mÃ©todo completo para ver la guÃ­a metodolÃ³gica. CyC sigue pendiente y no aparece como seleccionable.
                   </div>
                 )}
               </div>
@@ -6619,15 +6751,15 @@ function CoachTrainingPlanner({
                       </span>
                     )) : (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/55">
-                        Sin porcentajes añadidos todavía.
+                        Sin porcentajes aÃ±adidos todavÃ­a.
                       </span>
                     )}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <ClientInfoCard label="Métricas secundarias" value={selectedResistanceZoneGuide.profile.secondaryMetrics.join(" · ") || "Sin especificar"} />
-                    <ClientInfoCard label="Foco fisiológico" value={selectedResistanceZoneGuide.zone.physiologicalFocus?.join(" · ") || "Sin especificar"} />
-                    <ClientInfoCard label="Métodos relacionados" value={selectedResistanceZoneGuide.zone.methodLinks?.join(" · ") || "Sin especificar"} />
-                    <ClientInfoCard label="Guía" value="Individualiza con test, deporte, nivel y contexto." />
+                    <ClientInfoCard label="MÃ©tricas secundarias" value={selectedResistanceZoneGuide.profile.secondaryMetrics.join(" Â· ") || "Sin especificar"} />
+                    <ClientInfoCard label="Foco fisiolÃ³gico" value={selectedResistanceZoneGuide.zone.physiologicalFocus?.join(" Â· ") || "Sin especificar"} />
+                    <ClientInfoCard label="MÃ©todos relacionados" value={selectedResistanceZoneGuide.zone.methodLinks?.join(" Â· ") || "Sin especificar"} />
+                    <ClientInfoCard label="GuÃ­a" value="Individualiza con test, deporte, nivel y contexto." />
                   </div>
                   {selectedResistanceZoneGuide.zone.sourceNote ? (
                     <p className="mt-3 text-xs font-medium text-ink/45">{selectedResistanceZoneGuide.zone.sourceNote}</p>
@@ -6647,7 +6779,7 @@ function CoachTrainingPlanner({
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                Duración objetivo
+                DuraciÃ³n objetivo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   min={0}
@@ -6656,19 +6788,6 @@ function CoachTrainingPlanner({
                   type="number"
                   value={cardioPlanDraft.targetDurationMinutes}
                 />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Zona objetivo
-                <select
-                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateCardioPlanDraft("targetZone", event.target.value)}
-                  value={cardioPlanDraft.targetZone}
-                >
-                  <option value="">Sin zona objetivo</option>
-                  {cardioZoneOptions.map((zone) => (
-                    <option key={zone.value} value={zone.value}>{zone.label}</option>
-                  ))}
-                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Distancia objetivo
@@ -6682,7 +6801,7 @@ function CoachTrainingPlanner({
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                RPE objetivo mínimo
+                RPE objetivo mÃ­nimo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   max={10}
@@ -6694,7 +6813,7 @@ function CoachTrainingPlanner({
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
-                RPE objetivo máximo
+                RPE objetivo mÃ¡ximo
                 <input
                   className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
                   max={10}
@@ -6765,8 +6884,8 @@ function CoachTrainingPlanner({
             <div className="assessment-modal-panel" onClick={(event) => event.stopPropagation()}>
               <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
                 <div>
-                  <h3 className="text-xl font-semibold text-ink" id="session-summary-modal-title">Resumen de sesión</h3>
-                  <p className="mt-1 text-sm text-ink/55">Revisa la sesión antes de enviarla al deportista.</p>
+                  <h3 className="text-xl font-semibold text-ink" id="session-summary-modal-title">Resumen de sesiÃ³n</h3>
+                  <p className="mt-1 text-sm text-ink/55">Revisa la sesiÃ³n antes de enviarla al deportista.</p>
                 </div>
                 <button
                   aria-label="Cerrar"
@@ -6781,29 +6900,29 @@ function CoachTrainingPlanner({
               <div className="assessment-modal-body grid gap-4 px-5 py-5">
                 {sessionType === "Cardio" && selectedResistanceMethod ? (
                   <section className="rounded-md border border-line bg-white p-4">
-                    <p className="text-xs font-semibold uppercase text-ink/45">Método de resistencia</p>
+                    <p className="text-xs font-semibold uppercase text-ink/45">MÃ©todo de resistencia</p>
                     <p className="mt-2 font-semibold text-ink">{getResistanceMethodLabel(selectedResistanceMethod)}</p>
                     <p className="mt-1 text-sm text-ink/60">
                       {selectedResistanceMethod.group}
-                      {selectedResistanceMethod.subgroup ? ` · ${selectedResistanceMethod.subgroup}` : ""}
+                      {selectedResistanceMethod.subgroup ? ` Â· ${selectedResistanceMethod.subgroup}` : ""}
                     </p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <ClientInfoCard label="Deporte" value={selectedResistanceZoneGuide.profile.name} />
                       <ClientInfoCard label="Zona objetivo" value={selectedResistanceZoneGuide.zone?.label || "Sin zona objetivo"} />
                     </div>
                     {selectedResistanceZoneGuide.metrics.length > 0 ? (
-                      <p className="mt-3 text-sm font-medium text-ink/60">{selectedResistanceZoneGuide.metrics.join(" · ")}</p>
+                      <p className="mt-3 text-sm font-medium text-ink/60">{selectedResistanceZoneGuide.metrics.join(" Â· ")}</p>
                     ) : selectedResistanceZoneGuide.zone ? (
-                      <p className="mt-3 text-sm font-medium text-ink/60">Sin porcentajes añadidos todavía.</p>
+                      <p className="mt-3 text-sm font-medium text-ink/60">Sin porcentajes aÃ±adidos todavÃ­a.</p>
                     ) : null}
                   </section>
                 ) : null}
                 {strengthExercises.length === 0 ? (
                   <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-medium text-ink/55">
-                    No hay ejercicios añadidos.
+                    No hay ejercicios aÃ±adidos.
                   </div>
                 ) : ([
-                  ["activation", "ACTIVACIÓN"],
+                  ["activation", "ACTIVACIÃ“N"],
                   ["main", "BLOQUE PRINCIPAL"],
                   ["auxiliary", "BLOQUE AUXILIAR / OPCIONAL"]
                 ] as const).map(([blockKey, blockLabel]) => {
@@ -6850,13 +6969,18 @@ function CoachTrainingPlanner({
             </div>
           </div>
         ) : null}
-        </>
+            </div>
+          </div>
+        </div>
         ) : activeSessionPanel === "history" ? (
           <SessionHistoryPanel
             client={activeSessionClient}
             onConsumeTargetTrainingSession={onConsumeTargetTrainingSession}
             onMarkSessionReviewed={markSessionAsReviewed}
-            onPlanNewSession={() => setActiveSessionPanel("planner")}
+            onPlanNewSession={() => {
+              setActiveSessionPanel("planner");
+              setShowPlannerModal(true);
+            }}
             targetTrainingSession={targetTrainingSession}
           />
         ) : (
@@ -6996,7 +7120,7 @@ function formatWeekAndSession(session: ReviewSessionRecord, client: CoachClient)
   const sessionNumber = session.sessionNumber;
 
   if (hasDisplayValue(week) && hasDisplayValue(sessionNumber)) {
-    return `${week} · Sesión ${sessionNumber}`;
+    return `${week} Â· SesiÃ³n ${sessionNumber}`;
   }
 
   return displayValue(week);
@@ -7071,7 +7195,7 @@ function getExerciseMetaLabel(entry?: ReviewSessionExercise) {
     entry?.selectedVariantName ? `Variante: ${entry.selectedVariantName}` : ""
   ].filter(Boolean);
 
-  return meta.join(" · ");
+  return meta.join(" Â· ");
 }
 
 function getExerciseDifferenceLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise) {
@@ -7101,7 +7225,7 @@ function getExerciseDifferenceLabel(planned?: ReviewSessionExercise, performed?:
     changes.push(`${performedLoad - plannedLoad > 0 ? "+" : ""}${performedLoad - plannedLoad} carga`);
   }
 
-  return changes.length > 0 ? changes.join(" · ") : "Dentro de lo previsto";
+  return changes.length > 0 ? changes.join(" Â· ") : "Dentro de lo previsto";
 }
 
 function hasRealSessionData(session: ReviewSessionRecord) {
@@ -7132,21 +7256,6 @@ function getReviewSessionDate(value?: string | null) {
   const [, day, month, year] = dateMatch;
   const parsed = new Date(Number(year), Number(month) - 1, Number(day));
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function isSessionThisWeek(value?: string | null) {
-  const date = getReviewSessionDate(value);
-  if (!date) return false;
-
-  const start = new Date();
-  const day = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - day);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-
-  return date >= start && date < end;
 }
 
 function getSessionReviewStatus(session: ReviewSessionRecord): SessionReviewStatus | null {
@@ -7504,7 +7613,7 @@ function SessionHistoryPanel({
                 ) : null}
                 {resistanceMethod ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
-                    <span className="font-semibold text-ink">Método de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
+                    <span className="font-semibold text-ink">MÃ©todo de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
                   </p>
                 ) : null}
 
@@ -7539,7 +7648,7 @@ function SessionHistoryPanel({
                           onClick={() => setOpenSessionKey("")}
                           type="button"
                         >
-                          ×
+                          Ã—
                         </button>
                       </div>
                   <div className="rounded-md border border-line bg-panel/25 p-4">
@@ -7634,14 +7743,14 @@ function SessionHistoryPanel({
                         <h5 className="font-semibold text-ink">Realizado resistencia</h5>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <ClientInfoCard
-                            label="Duración real"
+                            label="DuraciÃ³n real"
                             value={hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}
                           />
                           <ClientInfoCard label="Distancia real" value={formatResistanceDistance(session.cardioResult?.distanceMeters)} />
                           <ClientInfoCard label="RPE final" value={hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"} />
                           <ClientInfoCard label="Deporte" value={resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"} />
                           <ClientInfoCard label="Zona objetivo" value={resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"} />
-                          <ClientInfoCard label="Método" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin método asignado"} />
+                          <ClientInfoCard label="MÃ©todo" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin mÃ©todo asignado"} />
                           {session.cardioResult?.intervalsCompleted ? (
                             <ClientInfoCard label="Repeticiones / intervalos" value={session.cardioResult.intervalsCompleted} />
                           ) : null}
@@ -7649,7 +7758,7 @@ function SessionHistoryPanel({
                             <ClientInfoCard label="Intensidad realizada" value={session.cardioResult.intensityCompleted} />
                           ) : null}
                           {session.cardioResult?.recoveryCompleted ? (
-                            <ClientInfoCard label="Recuperación realizada" value={session.cardioResult.recoveryCompleted} />
+                            <ClientInfoCard label="RecuperaciÃ³n realizada" value={session.cardioResult.recoveryCompleted} />
                           ) : null}
                         </div>
                         {session.cardioResult?.notes ? (
@@ -7665,7 +7774,7 @@ function SessionHistoryPanel({
                               </span>
                             )) : (
                               <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
-                                Sin porcentajes añadidos todavía.
+                                Sin porcentajes aÃ±adidos todavÃ­a.
                               </span>
                             )}
                             <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
@@ -7689,7 +7798,7 @@ function SessionHistoryPanel({
                         </div>
                         {resistanceMethod ? (
                           <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
-                            Método de resistencia: {getResistanceMethodLabel(resistanceMethod)}
+                            MÃ©todo de resistencia: {getResistanceMethodLabel(resistanceMethod)}
                           </p>
                         ) : null}
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -7979,7 +8088,7 @@ function LegacyAthleteTrainingView({ hooperDone, onCompleteHooper }: LegacyAthle
                     <thead className="text-xs uppercase tracking-wide text-ink/50">
                       <tr>
                         <th className="px-3 py-2">Ejercicio</th>
-                        <th className="px-3 py-2">Patrón</th>
+                        <th className="px-3 py-2">PatrÃ³n</th>
                         <th className="px-3 py-2">Musculo</th>
                         <th className="px-3 py-2">Series</th>
                         <th className="px-3 py-2">Reps</th>
@@ -8194,9 +8303,9 @@ function CompletedSessionSummary({
 function MissedSessionReason() {
   return (
     <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-      <h4 className="font-semibold text-amber-900">Cuéntanos por qué no se realizó</h4>
+      <h4 className="font-semibold text-amber-900">CuÃ©ntanos por quÃ© no se realizÃ³</h4>
       <p className="mt-1 text-sm text-amber-800">
-        Esta informacion ayuda al entrenador a ajustar la planificación.
+        Esta informacion ayuda al entrenador a ajustar la planificaciÃ³n.
       </p>
       <textarea
         className="mt-3 min-h-24 w-full rounded-md border border-amber-200 bg-white px-3 py-3 text-ink outline-none focus:border-amber-500"
