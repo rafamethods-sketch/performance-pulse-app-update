@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Pencil, Plus, Trash2, Upload } from "lucide-react";
 
 export type ResourceType =
   | "Roadmap"
@@ -54,6 +54,22 @@ type ResourceDraft = {
 type CoachResourcesViewProps = {
   resources: ResourceLink[];
   setResources: Dispatch<SetStateAction<ResourceLink[]>>;
+};
+
+const backupStorageKeys = [
+  "coach_clients_v1",
+  "coach_session_templates_v1",
+  "coach_resources_v1",
+  "coach_message_threads_v1",
+  "coach_theme_preference",
+  "rafa-methods-sidebar-collapsed"
+] as const;
+
+type BackupPayload = {
+  appName: "RAC System";
+  backupVersion: 1;
+  exportedAt: string;
+  data: Partial<Record<(typeof backupStorageKeys)[number], unknown>>;
 };
 
 const resourceTypes: ResourceType[] = [
@@ -123,6 +139,22 @@ function normalizeResourceCategory(value: string): ResourceCategory {
   return "Otros";
 }
 
+function parseStoredBackupValue(value: string | null) {
+  if (value === null) return null;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function stringifyBackupValue(value: unknown) {
+  if (value === null || typeof value === "undefined") return null;
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
 export function CoachResourcesView({ resources, setResources }: CoachResourcesViewProps) {
   const [draft, setDraft] = useState<ResourceDraft>(emptyDraft);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
@@ -130,6 +162,8 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
   const [selectedCategory, setSelectedCategory] = useState<"all" | ResourceCategory>("all");
   const [selectedType, setSelectedType] = useState<"all" | ResourceType>("all");
   const [showForm, setShowForm] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
+  const [backupError, setBackupError] = useState("");
 
   const filteredResources = useMemo(
     () =>
@@ -233,6 +267,82 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
     setResources((current) => current.filter((resource) => resource.id !== resourceId));
   }
 
+  function handleExportBackup() {
+    if (typeof window === "undefined") return;
+
+    const backup: BackupPayload = {
+      appName: "RAC System",
+      backupVersion: 1,
+      exportedAt: new Date().toISOString(),
+      data: backupStorageKeys.reduce<BackupPayload["data"]>((current, key) => {
+        current[key] = parseStoredBackupValue(window.localStorage.getItem(key));
+        return current;
+      }, {})
+    };
+
+    const dateKey = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rac-system-backup-${dateKey}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setBackupError("");
+    setBackupMessage("Backup exportado correctamente.");
+  }
+
+  function isValidBackupPayload(value: unknown): value is BackupPayload {
+    if (!value || typeof value !== "object") return false;
+    const payload = value as Partial<BackupPayload>;
+    if (payload.backupVersion !== 1) return false;
+    if (!payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) return false;
+    return Object.keys(payload.data).every((key) => backupStorageKeys.includes(key as (typeof backupStorageKeys)[number]));
+  }
+
+  function handleRestoreBackup(file: File | null) {
+    if (!file || typeof window === "undefined") return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result ?? ""));
+        if (!isValidBackupPayload(parsed)) {
+          setBackupMessage("");
+          setBackupError("El archivo seleccionado no es un backup válido de la app.");
+          return;
+        }
+
+        const shouldRestore = window.confirm(
+          "Esto reemplazará los datos locales actuales de la app. ¿Quieres continuar?"
+        );
+        if (!shouldRestore) {
+          setBackupMessage("");
+          setBackupError("Restauración cancelada.");
+          return;
+        }
+
+        backupStorageKeys.forEach((key) => {
+          const nextValue = stringifyBackupValue(parsed.data[key]);
+          if (typeof nextValue === "string") {
+            window.localStorage.setItem(key, nextValue);
+          } else {
+            window.localStorage.removeItem(key);
+          }
+        });
+
+        setBackupError("");
+        setBackupMessage("Backup restaurado. Recarga la página para aplicar los cambios.");
+      } catch {
+        setBackupMessage("");
+        setBackupError("No se pudo leer el archivo JSON seleccionado.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
   return (
     <div className="mt-6 grid gap-6">
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
@@ -252,6 +362,46 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
             Añadir recurso
           </button>
         </div>
+      </section>
+
+      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Datos locales</p>
+            <h3 className="mt-1 font-semibold text-ink">Copia de seguridad</h3>
+            <p className="mt-2 max-w-2xl text-sm text-ink/60">
+              Exporta tus datos locales antes de hacer pruebas importantes o trabajar con clientes reales.
+            </p>
+            <p className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+              Restaurar un backup reemplazará los datos locales actuales de la app en este navegador.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <button
+              className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              onClick={handleExportBackup}
+              type="button"
+            >
+              <Download className="h-4 w-4" />
+              Exportar backup
+            </button>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70">
+              <Upload className="h-4 w-4" />
+              Restaurar backup
+              <input
+                accept="application/json,.json"
+                className="sr-only"
+                onChange={(event) => {
+                  handleRestoreBackup(event.target.files?.[0] ?? null);
+                  event.target.value = "";
+                }}
+                type="file"
+              />
+            </label>
+          </div>
+        </div>
+        {backupMessage ? <p className="mt-4 text-sm font-semibold text-moss">{backupMessage}</p> : null}
+        {backupError ? <p className="mt-4 text-sm font-semibold text-coral">{backupError}</p> : null}
       </section>
 
       {showForm ? (
