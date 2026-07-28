@@ -719,6 +719,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   cardioConnections?: CardioConnectionStatus[];
   isDemo?: boolean;
   menstrualTracking?: MenstrualTracking;
+  onboarding?: ClientOnboarding;
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -731,6 +732,57 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
 };
 type ClientAssessment = CoachClient["assessments"][number];
 
+type ClientOnboarding = {
+  baselineTests?: {
+    bodyComposition?: string;
+    enduranceTests?: string;
+    mobilityTests?: string;
+    otherTests?: string;
+    strengthTests?: string;
+  };
+  communication?: {
+    feedbackFrequency?: "daily" | "weekly" | "after_session" | "only_when_needed" | "";
+    notes?: string;
+    preferredContact?: "app" | "whatsapp" | "email" | "in_person" | "";
+  };
+  completed?: boolean;
+  completedAt?: string;
+  equipmentAccess?: {
+    availableEquipment?: string[];
+    equipmentNotes?: string;
+    gymAccess?: boolean;
+    homeTraining?: boolean;
+  };
+  goals?: {
+    mainGoal?: string;
+    notes?: string;
+    priority?: "performance" | "health" | "body_composition" | "return_to_play" | "general_fitness" | "";
+    secondaryGoal?: string;
+    targetDate?: string;
+  };
+  limitations?: {
+    contraindications?: string;
+    injuries?: string;
+    medicalNotes?: string;
+    movementLimitations?: string;
+    painAreas?: string[];
+  };
+  sportProfile?: {
+    competitiveLevel?: "beginner" | "intermediate" | "advanced" | "competitive" | "elite" | "";
+    nextCompetitionDate?: string;
+    nextCompetitionName?: string;
+    primarySport?: string;
+    secondarySports?: string[];
+    sportCategory?: "strength" | "endurance" | "mixed" | "team" | "combat" | "other" | "";
+  };
+  trainingAvailability?: {
+    daysPerWeek?: number;
+    preferredTrainingDays?: string[];
+    scheduleNotes?: string;
+    sessionDurationMinutes?: number;
+  };
+};
+
 const clientSexLabels: Record<ClientSex, string> = {
   female: "Mujer",
   male: "Hombre",
@@ -740,6 +792,102 @@ const clientSexLabels: Record<ClientSex, string> = {
 
 function getClientSexLabel(sex?: ClientSex) {
   return sex ? clientSexLabels[sex] : "Sin especificar";
+}
+
+function splitOnboardingList(value?: string | string[]) {
+  if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean);
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinOnboardingList(value?: string[]) {
+  return (value ?? []).join(", ");
+}
+
+function getOnboardingValue(value?: number | string | string[] | null) {
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "";
+  if (value === undefined || value === null) return "";
+  return `${value}`.trim();
+}
+
+function getOnboardingSummary(client: Pick<CoachClient, "availableEquipment" | "availability" | "injuries" | "modality" | "nextEvent" | "onboarding" | "planning" | "sport">) {
+  const onboarding = client.onboarding;
+  const equipment = [
+    ...(onboarding?.equipmentAccess?.availableEquipment ?? []),
+    onboarding?.equipmentAccess?.gymAccess ? "Gimnasio" : "",
+    onboarding?.equipmentAccess?.homeTraining ? "Casa" : ""
+  ].filter(Boolean);
+
+  return {
+    availability: getOnboardingValue(onboarding?.trainingAvailability?.daysPerWeek)
+      ? `${onboarding?.trainingAvailability?.daysPerWeek} días/semana${onboarding?.trainingAvailability?.sessionDurationMinutes ? ` · ${onboarding.trainingAvailability.sessionDurationMinutes} min` : ""}`
+      : getOnboardingValue(client.availability),
+    equipment: equipment.length > 0 ? equipment.join(", ") : getOnboardingValue(client.availableEquipment),
+    limitations: getOnboardingValue(onboarding?.limitations?.injuries || onboarding?.limitations?.movementLimitations || client.injuries),
+    mainGoal: getOnboardingValue(onboarding?.goals?.mainGoal || client.planning?.primaryGoal),
+    nextEvent: getOnboardingValue(onboarding?.sportProfile?.nextCompetitionName || client.planning?.eventName || client.nextEvent),
+    primarySport: getOnboardingValue(onboarding?.sportProfile?.primarySport || client.modality || client.sport)
+  };
+}
+
+function getOnboardingCompletion(client: Pick<CoachClient, "availableEquipment" | "availability" | "injuries" | "modality" | "nextEvent" | "onboarding" | "planning" | "sport">) {
+  if (client.onboarding?.completed) return { label: "Completa", isComplete: true };
+  const summary = getOnboardingSummary(client);
+  const filledCount = Object.values(summary).filter((value) => value && !["Pendiente", "Pendiente de completar.", "Sin evento definido"].includes(value)).length;
+  return {
+    isComplete: filledCount >= 4,
+    label: filledCount >= 4 ? "Completa" : "Pendiente"
+  };
+}
+
+function OnboardingSummaryCard({ client, compact = false, title = "Ficha inicial" }: { client: CoachClient; compact?: boolean; title?: string }) {
+  const summary = getOnboardingSummary(client);
+  const completion = getOnboardingCompletion(client);
+  const items = [
+    ["Deporte principal", summary.primarySport],
+    ["Objetivo principal", summary.mainGoal],
+    ["Disponibilidad", summary.availability],
+    ["Próxima competición/test", summary.nextEvent],
+    ["Limitaciones relevantes", summary.limitations],
+    ["Material disponible", summary.equipment]
+  ].filter(([, value]) => value);
+
+  return (
+    <section className={`rounded-md border border-line bg-panel/35 ${compact ? "p-3" : "p-4"}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">{title}</h3>
+          <p className="mt-1 text-sm text-ink/55">
+            {completion.isComplete ? "Contexto inicial disponible para planificar." : "Ficha inicial pendiente de completar."}
+          </p>
+        </div>
+        <span className={`w-fit rounded-md border px-2 py-1 text-xs font-semibold ${completion.isComplete ? "border-moss/30 bg-mint text-moss" : "border-line bg-white text-ink/55"}`}>
+          {completion.label}
+        </span>
+      </div>
+      {items.length > 0 ? (
+        <div className={`mt-3 grid gap-2 ${compact ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-3"}`}>
+          {items.map(([label, value]) => (
+            <div className="rounded-md border border-line bg-white px-3 py-2" key={label}>
+              <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-line bg-white p-3 text-sm font-semibold text-ink/50">
+          Ficha inicial pendiente de completar.
+        </p>
+      )}
+      {!compact ? (
+        <p className="mt-3 text-xs font-medium text-ink/45">
+          Registra solo información necesaria para la planificación. Los datos se guardan localmente en este navegador.
+        </p>
+      ) : null}
+    </section>
+  );
 }
 
 function getSharedMenstrualContext(client?: CoachClient | null) {
@@ -1699,6 +1847,31 @@ function CoachClientsView({
     const nextEvent = newClientDraft.eventName.trim()
       ? `${newClientDraft.eventName.trim()}${newClientDraft.eventDate ? ` - ${newClientDraft.eventDate}` : ""}`
       : "Sin evento definido";
+    const initialOnboarding: ClientOnboarding = {
+      completed: false,
+      equipmentAccess: {
+        availableEquipment: splitOnboardingList(newClientDraft.availableEquipment),
+        equipmentNotes: newClientDraft.availableEquipment.trim()
+      },
+      goals: {
+        mainGoal: newClientDraft.objective.trim(),
+        notes: newClientDraft.eventNotes.trim(),
+        priority: newClientDraft.goalType === "Rendimiento" ? "performance" : "health",
+        targetDate: newClientDraft.eventDate
+      },
+      limitations: {
+        injuries: newClientDraft.injuries.trim()
+      },
+      sportProfile: {
+        nextCompetitionDate: newClientDraft.eventDate,
+        nextCompetitionName: newClientDraft.eventName.trim(),
+        primarySport: newClientDraft.modality,
+        sportCategory: "other"
+      },
+      trainingAvailability: {
+        scheduleNotes: newClientDraft.availability.trim()
+      }
+    };
 
     const createdClient: CoachClient = {
       activeBlocks: planningBlocks.length > 0 ? planningBlocks.map((block) => block.name) : ["Sin asignar"],
@@ -1721,6 +1894,7 @@ function CoachClientsView({
       modality: newClientDraft.modality,
       name,
       nextEvent,
+      onboarding: initialOnboarding,
       planning: {
         blocks: planningBlocks,
         currentBlock: firstBlock?.name || "Sin asignar",
@@ -2242,6 +2416,8 @@ function CoachClientsView({
         <div className="mt-5 space-y-3">
           {filteredClients.map((listedClient) => {
             const accessInfo = getClientAccessInfo(listedClient);
+            const onboardingCompletion = getOnboardingCompletion(listedClient);
+            const onboardingSummary = getOnboardingSummary(listedClient);
             const visibleBadges = [listedClient.goalType, listedClient.status].filter(
               (badge) => badge && badge !== "Datos completos"
             );
@@ -2269,6 +2445,15 @@ function CoachClientsView({
                     </span>
                     <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
                       {accessInfo.label}
+                    </span>
+                    <span
+                      className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                        onboardingCompletion.isComplete
+                          ? "border-moss/30 bg-mint text-moss"
+                          : "border-line bg-white text-ink/55"
+                      }`}
+                    >
+                      Ficha inicial {onboardingCompletion.label.toLowerCase()}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
@@ -2309,11 +2494,22 @@ function CoachClientsView({
                   >
                     Sesiones
                   </button>
+                  {!onboardingCompletion.isComplete ? (
+                    <button
+                      className="rounded-md border border-moss/30 bg-mint px-2.5 py-1.5 text-xs font-semibold text-moss"
+                      onClick={() => onOpenDetails(listedClient.id)}
+                      type="button"
+                    >
+                      Completar ficha inicial
+                    </button>
+                  ) : null}
                   </div>
                 </div>
 
                 <div className="mt-3 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
-                  <span>{listedClient.age} años · {listedClient.modality ?? listedClient.sport}</span>
+                  <span>{listedClient.age} años · {onboardingSummary.primarySport || listedClient.modality || listedClient.sport}</span>
+                  <span>Objetivo: {onboardingSummary.mainGoal || listedClient.planning.primaryGoal || "Ficha inicial pendiente"}</span>
+                  <span>Disponibilidad: {onboardingSummary.availability || listedClient.availability || "Pendiente"}</span>
                   <span>Última actividad: {listedClient.lastActivity}</span>
                   <span>Evento: {listedClient.nextEvent}</span>
                   <span>{accessInfo.text}</span>
@@ -2381,16 +2577,47 @@ function ClientDetailsView({
     age: String(sourceClient.age ?? ""),
     availableEquipment: sourceClient.availableEquipment ?? "",
     availability: sourceClient.availability ?? "",
+    baselineBodyComposition: sourceClient.onboarding?.baselineTests?.bodyComposition ?? "",
+    baselineEnduranceTests: sourceClient.onboarding?.baselineTests?.enduranceTests ?? "",
+    baselineMobilityTests: sourceClient.onboarding?.baselineTests?.mobilityTests ?? "",
+    baselineOtherTests: sourceClient.onboarding?.baselineTests?.otherTests ?? "",
+    baselineStrengthTests: sourceClient.onboarding?.baselineTests?.strengthTests ?? "",
     coachNotes: sourceClient.coachNotes ?? "",
+    communicationNotes: sourceClient.onboarding?.communication?.notes ?? "",
+    competitiveLevel: sourceClient.onboarding?.sportProfile?.competitiveLevel ?? "",
+    completed: sourceClient.onboarding?.completed ?? false,
+    contraindications: sourceClient.onboarding?.limitations?.contraindications ?? "",
+    equipmentList: joinOnboardingList(sourceClient.onboarding?.equipmentAccess?.availableEquipment),
+    equipmentNotes: sourceClient.onboarding?.equipmentAccess?.equipmentNotes ?? "",
     eventDate: sourceClient.planning.eventDate ?? "",
     eventName: sourceClient.planning.eventName ?? "",
     eventNotes: sourceClient.planning.eventNotes ?? "",
+    feedbackFrequency: sourceClient.onboarding?.communication?.feedbackFrequency ?? "",
     goalType: sourceClient.goalType,
+    gymAccess: sourceClient.onboarding?.equipmentAccess?.gymAccess ?? false,
+    homeTraining: sourceClient.onboarding?.equipmentAccess?.homeTraining ?? false,
     injuries: sourceClient.injuries ?? "",
+    mainGoal: sourceClient.onboarding?.goals?.mainGoal ?? sourceClient.planning.primaryGoal ?? "",
+    medicalNotes: sourceClient.onboarding?.limitations?.medicalNotes ?? "",
     modality: sourceClient.modality ?? sourceClient.sport ?? "",
+    movementLimitations: sourceClient.onboarding?.limitations?.movementLimitations ?? "",
     name: sourceClient.name ?? "",
+    nextCompetitionDate: sourceClient.onboarding?.sportProfile?.nextCompetitionDate ?? sourceClient.planning.eventDate ?? "",
+    nextCompetitionName: sourceClient.onboarding?.sportProfile?.nextCompetitionName ?? sourceClient.planning.eventName ?? "",
+    onboardingInjuries: sourceClient.onboarding?.limitations?.injuries ?? sourceClient.injuries ?? "",
+    painAreas: joinOnboardingList(sourceClient.onboarding?.limitations?.painAreas),
+    preferredContact: sourceClient.onboarding?.communication?.preferredContact ?? "",
+    preferredTrainingDays: joinOnboardingList(sourceClient.onboarding?.trainingAvailability?.preferredTrainingDays),
     primaryGoal: sourceClient.planning.primaryGoal ?? "",
+    priority: sourceClient.onboarding?.goals?.priority ?? "",
+    scheduleNotes: sourceClient.onboarding?.trainingAvailability?.scheduleNotes ?? "",
+    secondaryGoal: sourceClient.onboarding?.goals?.secondaryGoal ?? sourceClient.planning.secondaryGoal ?? "",
+    secondarySports: joinOnboardingList(sourceClient.onboarding?.sportProfile?.secondarySports),
+    sessionDurationMinutes: sourceClient.onboarding?.trainingAvailability?.sessionDurationMinutes ? String(sourceClient.onboarding.trainingAvailability.sessionDurationMinutes) : "",
     sex: sourceClient.sex ?? "prefer_not_to_say",
+    sportCategory: sourceClient.onboarding?.sportProfile?.sportCategory ?? "",
+    targetDate: sourceClient.onboarding?.goals?.targetDate ?? sourceClient.planning.eventDate ?? "",
+    trainingDaysPerWeek: sourceClient.onboarding?.trainingAvailability?.daysPerWeek ? String(sourceClient.onboarding.trainingAvailability.daysPerWeek) : "",
     status: sourceClient.status ?? ""
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -2425,8 +2652,60 @@ function ClientDetailsView({
 
   const handleSave = () => {
     const parsedAge = Number(draft.age);
+    const parsedDaysPerWeek = Number(draft.trainingDaysPerWeek);
+    const parsedSessionDuration = Number(draft.sessionDurationMinutes);
     const cleanEventName = draft.eventName.trim();
     const cleanEventDate = draft.eventDate.trim();
+    const onboarding: ClientOnboarding = {
+      baselineTests: {
+        bodyComposition: draft.baselineBodyComposition.trim(),
+        enduranceTests: draft.baselineEnduranceTests.trim(),
+        mobilityTests: draft.baselineMobilityTests.trim(),
+        otherTests: draft.baselineOtherTests.trim(),
+        strengthTests: draft.baselineStrengthTests.trim()
+      },
+      communication: {
+        feedbackFrequency: draft.feedbackFrequency as NonNullable<ClientOnboarding["communication"]>["feedbackFrequency"],
+        notes: draft.communicationNotes.trim(),
+        preferredContact: draft.preferredContact as NonNullable<ClientOnboarding["communication"]>["preferredContact"]
+      },
+      completed: draft.completed,
+      completedAt: draft.completed ? (client.onboarding?.completedAt ?? new Date().toISOString()) : undefined,
+      equipmentAccess: {
+        availableEquipment: splitOnboardingList(draft.equipmentList),
+        equipmentNotes: draft.equipmentNotes.trim(),
+        gymAccess: draft.gymAccess,
+        homeTraining: draft.homeTraining
+      },
+      goals: {
+        mainGoal: draft.mainGoal.trim(),
+        notes: draft.eventNotes.trim(),
+        priority: draft.priority as NonNullable<ClientOnboarding["goals"]>["priority"],
+        secondaryGoal: draft.secondaryGoal.trim(),
+        targetDate: draft.targetDate
+      },
+      limitations: {
+        contraindications: draft.contraindications.trim(),
+        injuries: draft.onboardingInjuries.trim(),
+        medicalNotes: draft.medicalNotes.trim(),
+        movementLimitations: draft.movementLimitations.trim(),
+        painAreas: splitOnboardingList(draft.painAreas)
+      },
+      sportProfile: {
+        competitiveLevel: draft.competitiveLevel as NonNullable<ClientOnboarding["sportProfile"]>["competitiveLevel"],
+        nextCompetitionDate: draft.nextCompetitionDate,
+        nextCompetitionName: draft.nextCompetitionName.trim(),
+        primarySport: draft.modality.trim(),
+        secondarySports: splitOnboardingList(draft.secondarySports),
+        sportCategory: draft.sportCategory as NonNullable<ClientOnboarding["sportProfile"]>["sportCategory"]
+      },
+      trainingAvailability: {
+        daysPerWeek: Number.isFinite(parsedDaysPerWeek) && parsedDaysPerWeek > 0 ? parsedDaysPerWeek : undefined,
+        preferredTrainingDays: splitOnboardingList(draft.preferredTrainingDays),
+        scheduleNotes: draft.scheduleNotes.trim(),
+        sessionDurationMinutes: Number.isFinite(parsedSessionDuration) && parsedSessionDuration > 0 ? parsedSessionDuration : undefined
+      }
+    };
     const nextEvent = cleanEventName
       ? `${cleanEventName}${cleanEventDate ? ` - ${cleanEventDate}` : ""}`
       : client.nextEvent;
@@ -2442,12 +2721,14 @@ function ClientDetailsView({
       modality: draft.modality.trim() || "Sin especificar",
       name: draft.name.trim() || client.name,
       nextEvent,
+      onboarding,
       planning: {
         ...client.planning,
         eventDate: cleanEventDate,
         eventName: cleanEventName,
         eventNotes: draft.eventNotes.trim(),
-        primaryGoal: draft.primaryGoal.trim() || "Sin especificar"
+        primaryGoal: draft.primaryGoal.trim() || draft.mainGoal.trim() || "Sin especificar",
+        secondaryGoal: draft.secondaryGoal.trim() || client.planning.secondaryGoal
       },
       sex: draft.sex as ClientSex,
       sport: draft.modality.trim() || client.sport,
@@ -2590,6 +2871,10 @@ function ClientDetailsView({
         </div>
       </section>
 
+      <div className="mt-5">
+        <OnboardingSummaryCard client={client} />
+      </div>
+
       {isEditing ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
           <section className="rounded-md border border-line bg-panel/35 p-4">
@@ -2626,6 +2911,231 @@ function ClientDetailsView({
               <label className="text-sm font-semibold text-ink/70 md:col-span-2">
                 Estado
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("status", event.target.value)} value={draft.status} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-ink">Ficha inicial</h3>
+                <p className="mt-1 text-sm text-ink/55">Completa solo lo necesario para planificar mejor.</p>
+              </div>
+              <label className="flex w-fit items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
+                <input
+                  checked={draft.completed}
+                  onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, completed: event.target.checked }))}
+                  type="checkbox"
+                />
+                Marcar completa
+              </label>
+            </div>
+            <p className="mt-3 rounded-md border border-line bg-white p-3 text-xs font-semibold text-ink/55">
+              Registra solo información necesaria para la planificación. Los datos se guardan localmente en este navegador.
+            </p>
+            {draft.sex === "female" ? (
+              <p className="mt-2 rounded-md border border-line bg-white p-3 text-xs font-semibold text-ink/55">
+                El seguimiento del ciclo menstrual se activa desde la cuenta deportista y es opcional.
+              </p>
+            ) : null}
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Deporte y contexto</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Deporte principal
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("modality", event.target.value)} value={draft.modality} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Categoría deportiva
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("sportCategory", event.target.value)} value={draft.sportCategory}>
+                  <option value="">Sin especificar</option>
+                  <option value="strength">Fuerza</option>
+                  <option value="endurance">Resistencia</option>
+                  <option value="mixed">Mixto</option>
+                  <option value="team">Equipo</option>
+                  <option value="combat">Combate</option>
+                  <option value="other">Otro</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Nivel competitivo
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("competitiveLevel", event.target.value)} value={draft.competitiveLevel}>
+                  <option value="">Sin especificar</option>
+                  <option value="beginner">Principiante</option>
+                  <option value="intermediate">Intermedio</option>
+                  <option value="advanced">Avanzado</option>
+                  <option value="competitive">Competitivo</option>
+                  <option value="elite">Élite</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Deportes secundarios
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("secondarySports", event.target.value)} placeholder="Separados por coma" value={draft.secondarySports} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Próxima competición / test
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("nextCompetitionName", event.target.value)} value={draft.nextCompetitionName} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Fecha
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("nextCompetitionDate", event.target.value)} type="date" value={draft.nextCompetitionDate} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Disponibilidad semanal</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Días por semana
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" inputMode="numeric" onChange={(event) => updateDraft("trainingDaysPerWeek", event.target.value)} type="text" value={draft.trainingDaysPerWeek} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Duración por sesión
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" inputMode="numeric" onChange={(event) => updateDraft("sessionDurationMinutes", event.target.value)} placeholder="Minutos" type="text" value={draft.sessionDurationMinutes} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Días preferidos
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("preferredTrainingDays", event.target.value)} placeholder="Ej. lunes, miércoles, viernes" value={draft.preferredTrainingDays} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Notas de horario
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("scheduleNotes", event.target.value)} value={draft.scheduleNotes} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Objetivos</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Objetivo principal
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("mainGoal", event.target.value)} value={draft.mainGoal} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Objetivo secundario
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("secondaryGoal", event.target.value)} value={draft.secondaryGoal} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Prioridad
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("priority", event.target.value)} value={draft.priority}>
+                  <option value="">Sin especificar</option>
+                  <option value="performance">Rendimiento</option>
+                  <option value="health">Salud</option>
+                  <option value="body_composition">Composición corporal</option>
+                  <option value="return_to_play">Return to play</option>
+                  <option value="general_fitness">Fitness general</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Fecha objetivo
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("targetDate", event.target.value)} type="date" value={draft.targetDate} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Lesiones / limitaciones</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Lesiones o antecedentes relevantes
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("onboardingInjuries", event.target.value)} value={draft.onboardingInjuries} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Zonas de dolor
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("painAreas", event.target.value)} placeholder="Separadas por coma" value={draft.painAreas} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Limitaciones de movimiento
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("movementLimitations", event.target.value)} value={draft.movementLimitations} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Notas médicas
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("medicalNotes", event.target.value)} value={draft.medicalNotes} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Contraindicaciones
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("contraindications", event.target.value)} value={draft.contraindications} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Material disponible</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
+                <input checked={draft.gymAccess} onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, gymAccess: event.target.checked }))} type="checkbox" />
+                Acceso a gimnasio
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
+                <input checked={draft.homeTraining} onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, homeTraining: event.target.checked }))} type="checkbox" />
+                Entrenamiento en casa
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Material disponible
+                <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("equipmentList", event.target.value)} placeholder="Separado por coma" value={draft.equipmentList} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Notas de material
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("equipmentNotes", event.target.value)} value={draft.equipmentNotes} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Tests iniciales</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Fuerza
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("baselineStrengthTests", event.target.value)} value={draft.baselineStrengthTests} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Resistencia
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("baselineEnduranceTests", event.target.value)} value={draft.baselineEnduranceTests} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Movilidad
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("baselineMobilityTests", event.target.value)} value={draft.baselineMobilityTests} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Composición corporal
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("baselineBodyComposition", event.target.value)} value={draft.baselineBodyComposition} />
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Otros tests
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("baselineOtherTests", event.target.value)} value={draft.baselineOtherTests} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Comunicación</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-ink/70">
+                Contacto preferido
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("preferredContact", event.target.value)} value={draft.preferredContact}>
+                  <option value="">Sin especificar</option>
+                  <option value="app">App</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">Email</option>
+                  <option value="in_person">Presencial</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Frecuencia de feedback
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("feedbackFrequency", event.target.value)} value={draft.feedbackFrequency}>
+                  <option value="">Sin especificar</option>
+                  <option value="daily">Diario</option>
+                  <option value="weekly">Semanal</option>
+                  <option value="after_session">Después de sesión</option>
+                  <option value="only_when_needed">Solo cuando haga falta</option>
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                Notas de comunicación
+                <textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("communicationNotes", event.target.value)} value={draft.communicationNotes} />
               </label>
             </div>
           </section>
@@ -6566,6 +7076,9 @@ function CoachTrainingPlanner({
                 </div>
                 <div className="mt-4">
                   <MenstrualCoachContextCard client={activeSessionClient} compact />
+                </div>
+                <div className="mt-4">
+                  <OnboardingSummaryCard client={activeSessionClient} compact title="Contexto del cliente" />
                 </div>
               </section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
