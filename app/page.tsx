@@ -720,6 +720,9 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   isDemo?: boolean;
   menstrualTracking?: MenstrualTracking;
   onboarding?: ClientOnboarding;
+  performanceTests?: {
+    entries: PerformanceTestEntry[];
+  };
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -731,6 +734,27 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   sessionRecords: ClientSessionRecord[];
 };
 type ClientAssessment = CoachClient["assessments"][number];
+
+type PerformanceTestCategory =
+  | "strength"
+  | "endurance"
+  | "cycling"
+  | "running"
+  | "swimming"
+  | "jump"
+  | "mobility"
+  | "body_composition"
+  | "other";
+
+type PerformanceTestEntry = {
+  category: PerformanceTestCategory;
+  date: string;
+  id: string;
+  notes?: string;
+  testName: string;
+  unit?: string;
+  value: string;
+};
 
 type ClientOnboarding = {
   baselineTests?: {
@@ -790,6 +814,42 @@ const clientSexLabels: Record<ClientSex, string> = {
   prefer_not_to_say: "Prefiero no decirlo"
 };
 
+const performanceTestCategoryLabels: Record<PerformanceTestCategory, string> = {
+  body_composition: "Composición corporal",
+  cycling: "Ciclismo",
+  endurance: "Resistencia",
+  jump: "Saltos",
+  mobility: "Movilidad",
+  other: "Otros",
+  running: "Carrera",
+  strength: "Fuerza",
+  swimming: "Natación"
+};
+
+const performanceTestSuggestions: Record<PerformanceTestCategory, string[]> = {
+  body_composition: ["peso", "perímetro cintura", "perímetro cadera", "pliegues", "porcentaje graso si lo aporta un dispositivo"],
+  cycling: ["FTP", "MAP", "Test 20 min", "Potencia 5 min", "Potencia 1 min", "FC reposo", "FC máxima"],
+  endurance: ["test personalizado"],
+  jump: ["CMJ", "SJ", "Drop jump", "RSI", "Salto horizontal"],
+  mobility: ["dorsiflexión tobillo", "flexión hombro", "movilidad cadera", "sit and reach"],
+  other: ["test personalizado"],
+  running: ["VAM", "Cooper 12 min", "Test 6 min", "1000 m", "3000 m", "5 km", "FC reposo", "FC máxima"],
+  strength: ["1RM estimado", "3RM", "5RM", "Peso corporal", "Dominadas máximas", "Push-ups máximas"],
+  swimming: ["CSS", "400 m", "200 m", "100 m", "Ritmo /100 m"]
+};
+
+const performanceTestCategoryOrder: PerformanceTestCategory[] = [
+  "strength",
+  "endurance",
+  "running",
+  "cycling",
+  "swimming",
+  "jump",
+  "mobility",
+  "body_composition",
+  "other"
+];
+
 function getClientSexLabel(sex?: ClientSex) {
   return sex ? clientSexLabels[sex] : "Sin especificar";
 }
@@ -840,6 +900,33 @@ function getOnboardingCompletion(client: Pick<CoachClient, "availableEquipment" 
     isComplete: filledCount >= 4,
     label: filledCount >= 4 ? "Completa" : "Pendiente"
   };
+}
+
+function formatPerformanceTestValue(entry: PerformanceTestEntry) {
+  return [entry.value, entry.unit].filter(Boolean).join(" ");
+}
+
+function getSortedPerformanceTests(client?: CoachClient | null) {
+  return [...(client?.performanceTests?.entries ?? [])].sort((a, b) => {
+    const timeA = new Date(a.date).getTime();
+    const timeB = new Date(b.date).getTime();
+    return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+  });
+}
+
+function getRecentPerformanceTestReferences(client?: CoachClient | null, sessionType?: CoachSessionType, sport?: ResistanceSport) {
+  const entries = getSortedPerformanceTests(client);
+  const sportCategories: PerformanceTestCategory[] =
+    sport === "running" ? ["running", "endurance"] :
+    sport === "cycling" ? ["cycling", "endurance"] :
+    sport === "swimming" ? ["swimming", "endurance"] :
+    ["endurance", "running", "cycling", "swimming"];
+  const preferredCategories: PerformanceTestCategory[] =
+    sessionType === "Fuerza" ? ["strength", "jump", "body_composition"] :
+    sessionType === "Cardio" ? [...sportCategories, "body_composition"] :
+    ["strength", "jump", ...sportCategories, "body_composition"];
+
+  return entries.filter((entry) => preferredCategories.includes(entry.category)).slice(0, 5);
 }
 
 function OnboardingSummaryCard({ client, compact = false, title = "Ficha inicial" }: { client: CoachClient; compact?: boolean; title?: string }) {
@@ -2626,12 +2713,30 @@ function ClientDetailsView({
     accessEndDate: client.accessEndDate ?? "",
     accessStartDate: client.accessStartDate ?? ""
   });
+  const [performanceTestDraft, setPerformanceTestDraft] = useState({
+    category: "strength" as PerformanceTestCategory,
+    customTestName: "",
+    date: new Date().toISOString().slice(0, 10),
+    notes: "",
+    suggestedTestName: performanceTestSuggestions.strength[0] ?? "",
+    unit: "",
+    value: ""
+  });
 
   useEffect(() => {
     setDraft(createDetailsDraft(client));
     setAccessDraft({
       accessEndDate: client.accessEndDate ?? "",
       accessStartDate: client.accessStartDate ?? ""
+    });
+    setPerformanceTestDraft({
+      category: "strength",
+      customTestName: "",
+      date: new Date().toISOString().slice(0, 10),
+      notes: "",
+      suggestedTestName: performanceTestSuggestions.strength[0] ?? "",
+      unit: "",
+      value: ""
     });
     setIsEditing(false);
   }, [client]);
@@ -2643,6 +2748,61 @@ function ClientDetailsView({
 
   const updateDraft = (field: keyof typeof draft, value: string) => {
     setDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
+  };
+  const updatePerformanceTestDraft = (field: keyof typeof performanceTestDraft, value: string) => {
+    setPerformanceTestDraft((currentDraft) => {
+      if (field === "category") {
+        const category = value as PerformanceTestCategory;
+        return {
+          ...currentDraft,
+          category,
+          customTestName: "",
+          suggestedTestName: performanceTestSuggestions[category][0] ?? ""
+        };
+      }
+
+      return { ...currentDraft, [field]: value };
+    });
+  };
+
+  const handleAddPerformanceTest = () => {
+    const testName = performanceTestDraft.customTestName.trim() || performanceTestDraft.suggestedTestName.trim();
+    const value = performanceTestDraft.value.trim();
+    if (!testName || !value) return;
+
+    const entry: PerformanceTestEntry = {
+      category: performanceTestDraft.category,
+      date: performanceTestDraft.date || new Date().toISOString().slice(0, 10),
+      id: `performance-test-${Date.now()}`,
+      notes: performanceTestDraft.notes.trim() || undefined,
+      testName,
+      unit: performanceTestDraft.unit.trim() || undefined,
+      value
+    };
+
+    onUpdateClient({
+      ...client,
+      performanceTests: {
+        entries: [entry, ...(client.performanceTests?.entries ?? [])]
+      }
+    });
+    setPerformanceTestDraft((currentDraft) => ({
+      ...currentDraft,
+      customTestName: "",
+      date: new Date().toISOString().slice(0, 10),
+      notes: "",
+      unit: "",
+      value: ""
+    }));
+  };
+
+  const handleDeletePerformanceTest = (entryId: string) => {
+    onUpdateClient({
+      ...client,
+      performanceTests: {
+        entries: (client.performanceTests?.entries ?? []).filter((entry) => entry.id !== entryId)
+      }
+    });
   };
 
   const handleCancel = () => {
@@ -2753,6 +2913,7 @@ function ClientDetailsView({
   };
   const accessInfo = getClientAccessInfo(client);
   const accessProgress = getAccessProgress(client.accessStartDate, client.accessEndDate);
+  const performanceTestEntries = getSortedPerformanceTests(client);
 
   const detailSections = [
     {
@@ -2874,6 +3035,131 @@ function ClientDetailsView({
       <div className="mt-5">
         <OnboardingSummaryCard client={client} />
       </div>
+
+      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Tests y valores de referencia</h3>
+            <p className="mt-1 text-sm text-ink/55">Guarda referencias iniciales por deporte o contexto sin calcular zonas ni cargas automáticamente.</p>
+          </div>
+          <span className="w-fit rounded-md border border-line bg-panel/50 px-2 py-1 text-xs font-semibold text-ink/50">
+            {performanceTestEntries.length} registros
+          </span>
+        </div>
+        <p className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+          Registra solo datos necesarios para la planificación. Algunos valores pueden ser sensibles.
+        </p>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[0.8fr_1fr_0.8fr_0.7fr]">
+          <label className="text-sm font-semibold text-ink/70">
+            Categoría
+            <select
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("category", event.target.value)}
+              value={performanceTestDraft.category}
+            >
+              {performanceTestCategoryOrder.map((category) => (
+                <option key={category} value={category}>{performanceTestCategoryLabels[category]}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-semibold text-ink/70">
+            Test sugerido
+            <select
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("suggestedTestName", event.target.value)}
+              value={performanceTestDraft.suggestedTestName}
+            >
+              {performanceTestSuggestions[performanceTestDraft.category].map((testName) => (
+                <option key={testName} value={testName}>{testName}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-semibold text-ink/70">
+            Fecha
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("date", event.target.value)}
+              type="date"
+              value={performanceTestDraft.date}
+            />
+          </label>
+          <label className="text-sm font-semibold text-ink/70">
+            Unidad
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("unit", event.target.value)}
+              placeholder="kg, W, cm..."
+              value={performanceTestDraft.unit}
+            />
+          </label>
+          <label className="text-sm font-semibold text-ink/70 lg:col-span-2">
+            Test personalizado
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("customTestName", event.target.value)}
+              placeholder="Opcional: sobrescribe el test sugerido"
+              value={performanceTestDraft.customTestName}
+            />
+          </label>
+          <label className="text-sm font-semibold text-ink/70">
+            Valor
+            <input
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("value", event.target.value)}
+              placeholder="120 kg, 4:20 min/km..."
+              value={performanceTestDraft.value}
+            />
+          </label>
+          <button
+            className="mt-6 h-10 rounded-md bg-ink px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!(performanceTestDraft.customTestName.trim() || performanceTestDraft.suggestedTestName.trim()) || !performanceTestDraft.value.trim()}
+            onClick={handleAddPerformanceTest}
+            type="button"
+          >
+            Guardar test
+          </button>
+          <label className="text-sm font-semibold text-ink/70 lg:col-span-4">
+            Notas
+            <textarea
+              className="mt-1 min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+              onChange={(event) => updatePerformanceTestDraft("notes", event.target.value)}
+              placeholder="Contexto del test, protocolo, material o condiciones."
+              value={performanceTestDraft.notes}
+            />
+          </label>
+        </div>
+
+        {performanceTestEntries.length > 0 ? (
+          <div className="mt-4 grid gap-2">
+            {performanceTestEntries.map((entry) => (
+              <article className="rounded-md border border-line bg-panel/35 p-3" key={entry.id}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">{entry.testName}</p>
+                    <p className="mt-1 text-sm text-moss">{formatPerformanceTestValue(entry)}</p>
+                    <p className="mt-1 text-xs font-medium text-ink/45">
+                      {formatDisplayDate(entry.date)} · {performanceTestCategoryLabels[entry.category]}
+                    </p>
+                    {entry.notes ? <p className="mt-2 text-sm text-ink/60">{entry.notes}</p> : null}
+                  </div>
+                  <button
+                    className="w-fit rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                    onClick={() => handleDeletePerformanceTest(entry.id)}
+                    type="button"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 px-4 py-4 text-sm font-semibold text-ink/50">
+            Añadir test de referencia.
+          </p>
+        )}
+      </section>
 
       {isEditing ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
@@ -3247,6 +3533,7 @@ function ClientDetailsView({
 
 function ClientProgressView({ client }: { client?: CoachClient | null }) {
   const assessments = client?.assessments ?? [];
+  const performanceTestEntries = getSortedPerformanceTests(client);
   const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
   const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "Antropometría");
   const enduranceTests = assessments.filter((assessment) => assessment.type === "Resistencia");
@@ -3270,9 +3557,11 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
           <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
           <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
           <ClientInfoCard label="Adherencia" value={adherence !== null ? `${adherence}%` : "Sin datos todavía"} />
-          <ClientInfoCard label="Tests registrados" value={`${assessments.length}`} />
+          <ClientInfoCard label="Tests registrados" value={`${assessments.length + performanceTestEntries.length}`} />
         </div>
       </section>
+
+      <PerformanceTestsProgressSection entries={performanceTestEntries} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ClientProgressCard description="Marcas máximas y pruebas de fuerza disponibles." title="Fuerza" items={strengthTests} />
@@ -3301,6 +3590,62 @@ function ClientProgressCard({ description, items, title }: { description?: strin
         </div>
       ) : (
         <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+      )}
+    </section>
+  );
+}
+
+function PerformanceTestsProgressSection({ entries }: { entries: PerformanceTestEntry[] }) {
+  const groupedByCategory = performanceTestCategoryOrder
+    .map((category) => ({
+      category,
+      entries: entries.filter((entry) => entry.category === category)
+    }))
+    .filter((group) => group.entries.length > 0);
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <h3 className="font-semibold text-ink">Tests de rendimiento</h3>
+      <p className="mt-1 text-sm text-ink/55">Valores de referencia guardados por deporte o contexto. No se calculan mejoras automáticas.</p>
+      {groupedByCategory.length > 0 ? (
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {groupedByCategory.map((group) => {
+            const byTestName = group.entries.reduce<Record<string, PerformanceTestEntry[]>>((accumulator, entry) => {
+              accumulator[entry.testName] = [...(accumulator[entry.testName] ?? []), entry];
+              return accumulator;
+            }, {});
+
+            return (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={group.category}>
+                <h4 className="font-semibold text-ink">{performanceTestCategoryLabels[group.category]}</h4>
+                <div className="mt-3 grid gap-2">
+                  {Object.entries(byTestName).map(([testName, testEntries]) => {
+                    const sortedEntries = [...testEntries].sort((a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0));
+                    const latest = sortedEntries[0];
+                    const first = sortedEntries[sortedEntries.length - 1];
+
+                    return (
+                      <div className="rounded-md border border-line bg-white p-3" key={testName}>
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <p className="text-sm font-semibold text-ink">{testName}</p>
+                          <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(latest.date)}</span>
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-moss">{formatPerformanceTestValue(latest)}</p>
+                        {sortedEntries.length > 1 ? (
+                          <p className="mt-1 text-xs font-medium text-ink/50">
+                            Primer valor: {formatPerformanceTestValue(first)} · Último valor: {formatPerformanceTestValue(latest)} · {sortedEntries.length} registros
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin tests de rendimiento todavía.</p>
       )}
     </section>
   );
@@ -6505,6 +6850,7 @@ function CoachTrainingPlanner({
   const selectedResistanceMethod = getResistanceMethodById(selectedResistanceMethodId);
   const resistanceSportProfiles = getSportZoneProfiles();
   const selectedResistanceZoneGuide = getResistanceZoneGuide(selectedResistanceSport, targetResistanceZoneId);
+  const recentPerformanceTestReferences = getRecentPerformanceTestReferences(activeSessionClient, sessionType, selectedResistanceSport);
   const normalizedTemplateSearch = templateSearchTerm.trim().toLowerCase();
   const filterTemplate = (template: SessionTemplate) => {
     const matchesCategory = templateCategoryFilter === "Todas" || template.category === templateCategoryFilter;
@@ -7326,6 +7672,18 @@ function CoachTrainingPlanner({
                 <div className="mt-4">
                   <OnboardingSummaryCard client={activeSessionClient} compact title="Contexto del cliente" />
                 </div>
+                {recentPerformanceTestReferences.length > 0 ? (
+                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                    <p className="text-xs font-semibold uppercase text-ink/45">Tests recientes</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {recentPerformanceTestReferences.map((entry) => (
+                        <span className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={entry.id}>
+                          {entry.testName}: {formatPerformanceTestValue(entry)} · {formatDisplayDate(entry.date)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
