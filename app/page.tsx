@@ -465,6 +465,7 @@ export default function ClientsPage() {
               <CoachTrainingPlanner
                 client={scopedClient}
                 clients={clients}
+                onGoClients={() => setActiveSheet("clients")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
                     currentClients.map((listedClient) =>
@@ -6793,6 +6794,7 @@ function CoachTrainingPlanner({
   client,
   clients,
   onConsumeTargetTrainingSession,
+  onGoClients,
   onUpdateClient,
   sessionTemplates,
   setSessionTemplates,
@@ -6801,13 +6803,14 @@ function CoachTrainingPlanner({
   client?: CoachClient | null;
   clients: CoachClient[];
   onConsumeTargetTrainingSession: () => void;
+  onGoClients: () => void;
   onUpdateClient: (updatedClient: CoachClient) => void;
   sessionTemplates: SessionTemplate[];
   setSessionTemplates: React.Dispatch<React.SetStateAction<SessionTemplate[]>>;
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [activeSessionPanel, setActiveSessionPanel] = useState<CoachSessionPanel>("history");
-  const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? clients[0]?.id ?? "");
+  const [selectedSessionClientId, setSelectedSessionClientId] = useState(client?.id ?? "");
   const activeSessionClient =
     client ?? clients.find((listedClient) => listedClient.id === selectedSessionClientId) ?? null;
   const activePlanningWeek = activeSessionClient ? getPlanningWeekNumber(activeSessionClient.planning.currentWeek) : 0;
@@ -6903,6 +6906,9 @@ function CoachTrainingPlanner({
     setSelectedBlockWeek(activePlanningWeek);
   }, [activePlanningWeek, activeSessionClient?.id]);
   useEffect(() => {
+    if (client?.id) setSelectedSessionClientId(client.id);
+  }, [client?.id]);
+  useEffect(() => {
     if (activeSessionClient && targetTrainingSession?.clientId === activeSessionClient.id) {
       setActiveSessionPanel("history");
     }
@@ -6927,12 +6933,36 @@ function CoachTrainingPlanner({
 
   if (!activeSessionClient) {
     return (
-      <section className="mt-6 rounded-md border border-dashed border-line bg-white p-6 text-center shadow-soft">
-        <h2 className="text-lg font-semibold text-ink">No hay clientes disponibles.</h2>
-        <p className="mt-2 text-sm text-ink/55">
-          Crea un cliente o carga datos demo para planificar sesiones.
-        </p>
-      </section>
+      <div className="mt-5 xl:mt-6">
+        <section className="rounded-md border border-line bg-white p-6 text-center shadow-soft">
+          <p className="text-xs font-semibold uppercase text-ink/45">Sesiones</p>
+          <h2 className="mt-2 text-xl font-semibold text-ink">Selecciona un deportista</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-ink/60">
+            Elige un deportista para revisar sus sesiones anteriores o planificar una nueva sesión.
+          </p>
+          {clients.length > 0 ? (
+            <div className="mx-auto mt-5 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]">
+              <select
+                className="h-11 rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setSelectedSessionClientId(event.target.value)}
+                value={selectedSessionClientId}
+              >
+                <option value="">Selecciona deportista</option>
+                {clients.map((listedClient) => (
+                  <option key={listedClient.id} value={listedClient.id}>{listedClient.name}</option>
+                ))}
+              </select>
+              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
+                Ir a Clientes
+              </button>
+            </div>
+          ) : (
+            <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
+              Ir a Clientes
+            </button>
+          )}
+        </section>
+      </div>
     );
   }
 
@@ -7610,18 +7640,16 @@ function CoachTrainingPlanner({
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <button
-          className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel"
-          onClick={() => {
-            setActiveSessionPanel("planner");
-            setShowPlannerModal(true);
-          }}
-          type="button"
-        >
-          Planificar sesión
-        </button>
-      </div>
+      <button
+        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-md bg-ink px-4 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-ink/90"
+        onClick={() => {
+          setActiveSessionPanel("planner");
+          setShowPlannerModal(true);
+        }}
+        type="button"
+      >
+        Planificar sesión
+      </button>
 
       <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5 xl:mt-6">
         {activeSessionPanel === "planner" && showPlannerModal ? (
@@ -8517,21 +8545,6 @@ function hasResistancePerformedData(session: ReviewSessionRecord) {
   );
 }
 
-function formatTrainingBlock(session: ReviewSessionRecord, client: CoachClient) {
-  return displayValue(session.block ?? session.mesocycle ?? client.planning.currentBlock);
-}
-
-function formatWeekAndSession(session: ReviewSessionRecord, client: CoachClient) {
-  const week = session.weekLabel ?? session.week ?? client.planning.currentWeek;
-  const sessionNumber = session.sessionNumber;
-
-  if (hasDisplayValue(week) && hasDisplayValue(sessionNumber)) {
-    return `${week} · Sesión ${sessionNumber}`;
-  }
-
-  return displayValue(week);
-}
-
 function getReviewExercises(session: ReviewSessionRecord) {
   const plannedExercises = session.plannedExercises ?? session.exercises ?? [];
   const performedExercises = session.performedExercises ?? [];
@@ -8945,8 +8958,6 @@ function SessionHistoryPanel({
               ? calculateSessionExternalLoad({ completed: true, performedExercises, plannedExercises }, exerciseLibrary)
               : null;
             const srpe = getSessionSrpe(session);
-            const duration = session.actualDurationMinutes ?? session.duration;
-            const rpe = session.finalRpe ?? session.rpe;
             const notes = session.finalNotes ?? session.notes;
             const sessionDeviation = calculateSessionDeviation(session);
             const resistanceMethod = getResistanceMethodById(session.resistanceMethodId);
@@ -8998,9 +9009,18 @@ function SessionHistoryPanel({
                 ? ["Distancia", `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}`]
                 : null
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1]))) : [];
+            const compactSummaryItems = [
+              ["Deportista", client.name],
+              ["sRPE", srpe !== null ? `${srpe} UA` : "Pendiente"],
+              plannedExternalLoad !== null || performedExternalLoad !== null
+                ? ["Carga planificada → real", `${plannedExternalLoad !== null ? `${Math.round(plannedExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"} → ${performedExternalLoad !== null ? `${Math.round(performedExternalLoad).toLocaleString("es-ES")} kg` : "Sin registro"}`]
+                : null,
+              ["Estado", status],
+              ["Cumplimiento", sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "No aplica"]
+            ].filter((item): item is [string, string] => Boolean(item));
 
             return (
-              <article className="rounded-md border border-line bg-white p-4 shadow-soft" key={sessionKey}>
+              <article className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -9014,35 +9034,26 @@ function SessionHistoryPanel({
                         </span>
                       ) : null}
                     </div>
-                    <h3 className="mt-2 text-lg font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h3>
-                    <p className="mt-1 text-sm text-ink/65">{displayValue(session.summary, "Sin resumen especificado")}</p>
+                    <h3 className="mt-1 text-base font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-ink/65">{displayValue(session.summary, "Sin resumen especificado")}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
-                      Ejercicios: {exerciseCount > 0 ? exerciseCount : "Sin datos"}
-                    </span>
-                    <span className="rounded-md bg-panel/70 px-3 py-2 text-xs font-semibold text-ink/65">
+                  <div className="flex flex-wrap gap-2 xl:justify-end">
+                    {exerciseCount > 0 ? (
+                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
+                        Ejercicios: {exerciseCount}
+                      </span>
+                    ) : null}
+                    <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
                       sRPE: {srpe !== null ? `${srpe} UA` : "Pendiente"}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                  <ClientInfoCard label={"Deportista"} value={client.name} />
-                  <ClientInfoCard label={"Duraci\u00f3n real"} value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                  <ClientInfoCard label={"RPE final"} value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
-                  <ClientInfoCard label={"sRPE"} value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
-                  <ClientInfoCard
-                    label={"Carga planificada \u2192 real"}
-                    value={`${plannedExternalLoad !== null ? `${Math.round(plannedExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"} \u2192 ${performedExternalLoad !== null ? `${Math.round(performedExternalLoad).toLocaleString("es-ES")} kg` : "Sin registro"}`}
-                  />
-                </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <ClientInfoCard label={"Bloque / mesociclo"} value={formatTrainingBlock(session, client)} />
-                  <ClientInfoCard label={"Semana y sesi\u00f3n"} value={formatWeekAndSession(session, client)} />
-                  <ClientInfoCard label={"Estado"} value={status} />
-                  <ClientInfoCard label={"Cumplimiento"} value={sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "No aplica"} />
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {compactSummaryItems.map(([label, value]) => (
+                    <ClientInfoCard key={label} label={label} value={value} />
+                  ))}
                 </div>
                 {hasDisplayValue(notes) ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
