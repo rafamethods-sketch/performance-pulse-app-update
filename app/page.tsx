@@ -6080,16 +6080,26 @@ type PlannedStrengthExerciseDraft = {
   targetVelocity?: string;
 };
 type SessionTemplateExercise = PlannedStrengthExerciseDraft;
+type SessionTemplateCategory = "Fuerza" | "Potencia" | "Resistencia" | "Mixto" | "Recuperación";
 type SessionTemplate = {
+  cardioPlanDraft?: CardioPlanDraft;
+  category?: SessionTemplateCategory;
   createdAt: string;
   description: string;
+  durationApprox?: string;
   enduranceMethod?: EnduranceIntensityMethod;
   id: string;
+  isSystem?: boolean;
   name: string;
+  objective?: string;
+  resistanceMethodId?: string;
+  resistanceSport?: ResistanceSport;
   sessionType: CoachSessionType;
   strengthMethod?: StrengthIntensityMethod;
   strengthExercises: SessionTemplateExercise[];
   summary: string;
+  targetResistanceZoneId?: PlannedResistanceZoneId;
+  targetRpe?: string;
 };
 type CoachSessionQuantifier = {
   fields: string[];
@@ -6241,6 +6251,194 @@ function buildResistanceMethodTemplateNotes(method: ResistanceMethod, sport?: Re
   ].filter(Boolean).join("\n");
 }
 
+function createSystemTemplateExercise(
+  exerciseId: string,
+  block: StrengthSessionBlock,
+  prescription: Partial<Pick<PlannedStrengthExerciseDraft, "intensityMethod" | "load" | "observation" | "percent1RM" | "reps" | "rest" | "selectedEquipment" | "sets" | "targetRir" | "targetRpe" | "targetVelocity">> = {}
+): SessionTemplateExercise {
+  const exercise = getExerciseById(exerciseId);
+
+  return {
+    block,
+    exerciseId,
+    exerciseSearch: exercise?.name ?? "",
+    id: `system-template-exercise-${exerciseId}-${block}`,
+    intensityMethod: prescription.intensityMethod ?? "rir",
+    load: prescription.load ?? "",
+    observation: prescription.observation ?? "",
+    percent1RM: prescription.percent1RM ?? "",
+    reps: prescription.reps ?? "",
+    rest: prescription.rest ?? "",
+    selectedEquipment: prescription.selectedEquipment ?? "",
+    selectedVariantId: "",
+    selectedVariantName: "",
+    sets: prescription.sets ?? "",
+    targetRir: prescription.targetRir ?? "",
+    targetRpe: prescription.targetRpe ?? "",
+    targetVelocity: prescription.targetVelocity ?? ""
+  };
+}
+
+const systemSessionTemplates: SessionTemplate[] = [
+  {
+    category: "Fuerza",
+    createdAt: "system",
+    description: "Sentadilla, bisagra, unilateral y core para tren inferior.",
+    durationApprox: "60-75 min",
+    id: "system-strength-lower-body",
+    isSystem: true,
+    name: "Fuerza tren inferior",
+    objective: "Construir fuerza de tren inferior con estructura simple y editable.",
+    sessionType: "Fuerza",
+    strengthMethod: "rir",
+    strengthExercises: [
+      createSystemTemplateExercise("squat-vertical-force-strength-5", "main", { reps: "5", rest: "03:00", selectedEquipment: "Barra", sets: "4", targetRir: "2" }),
+      createSystemTemplateExercise("hinge-horizontal-force-strength-4", "main", { reps: "6", rest: "02:30", selectedEquipment: "Barra", sets: "3", targetRir: "2" }),
+      createSystemTemplateExercise("lunge-unilateral-force-strength-2", "auxiliary", { reps: "8", rest: "02:00", sets: "3", targetRir: "3" }),
+      createSystemTemplateExercise("core-trunk-control-anti-flexion-extension-3", "auxiliary", { reps: "30-45 s", rest: "01:00", sets: "3", targetRir: "3" })
+    ],
+    summary: "Fuerza tren inferior"
+  },
+  {
+    category: "Fuerza",
+    createdAt: "system",
+    description: "Empuje, tracción, hombro/espalda y core.",
+    durationApprox: "55-70 min",
+    id: "system-strength-upper-body",
+    isSystem: true,
+    name: "Fuerza tren superior",
+    objective: "Organizar una sesión básica de fuerza de tren superior.",
+    sessionType: "Fuerza",
+    strengthMethod: "rir",
+    strengthExercises: [
+      createSystemTemplateExercise("push-upper-body-press-strength-3", "main", { reps: "5", rest: "03:00", selectedEquipment: "Barra", sets: "4", targetRir: "2" }),
+      createSystemTemplateExercise("pull-upper-body-pull-hypertrophy-4", "main", { reps: "8", rest: "02:00", selectedEquipment: "Polea", sets: "4", targetRir: "2" }),
+      createSystemTemplateExercise("upper-body-accessories-shoulders-4", "auxiliary", { reps: "12", rest: "01:30", selectedEquipment: "Polea", sets: "3", targetRir: "3" }),
+      createSystemTemplateExercise("core-trunk-control-anti-rotation-1", "auxiliary", { reps: "10/lado", rest: "01:00", selectedEquipment: "Banda elástica", sets: "3", targetRir: "3" })
+    ],
+    summary: "Fuerza tren superior"
+  },
+  {
+    category: "Potencia",
+    createdAt: "system",
+    description: "Aterrizaje, salto reactivo, derivado olímpico y core.",
+    durationApprox: "45-60 min",
+    id: "system-power-plyometrics",
+    isSystem: true,
+    name: "Potencia + pliometría",
+    objective: "Preparar una sesión sencilla de potencia y reactividad.",
+    sessionType: "Fuerza",
+    strengthMethod: "rpe",
+    strengthExercises: [
+      createSystemTemplateExercise("squat-vertical-force-plyometrics-2", "activation", { intensityMethod: "rpe", reps: "3", rest: "01:30", sets: "3", targetRpe: "6" }),
+      createSystemTemplateExercise("squat-vertical-force-plyometrics-4", "main", { intensityMethod: "rpe", reps: "6", rest: "02:00", sets: "4", targetRpe: "7" }),
+      createSystemTemplateExercise("olympic-derivatives-power-1", "main", { intensityMethod: "rpe", reps: "3", rest: "02:30", selectedEquipment: "Barra", sets: "4", targetRpe: "7" }),
+      createSystemTemplateExercise("core-trunk-control-anti-rotation-1", "auxiliary", { intensityMethod: "rpe", reps: "8/lado", rest: "01:00", sets: "3", targetRpe: "6" })
+    ],
+    summary: "Potencia + pliometría"
+  },
+  {
+    cardioPlanDraft: { notes: "Continuo extensivo editable.", sport: "run", targetDistanceMeters: "", targetDurationMinutes: "45", targetRpeMax: "4", targetRpeMin: "2", targetZone: "" },
+    category: "Resistencia",
+    createdAt: "system",
+    description: "Cardio continuo suave en R1.",
+    durationApprox: "40-60 min",
+    enduranceMethod: "zones",
+    id: "system-endurance-ce-r1",
+    isSystem: true,
+    name: "Continuo extensivo R1",
+    objective: "Planificar una sesión continua extensiva editable.",
+    resistanceMethodId: "ce",
+    resistanceSport: "running",
+    sessionType: "Cardio",
+    strengthExercises: [],
+    summary: "CE · Continuo extensivo R1",
+    targetResistanceZoneId: "R1",
+    targetRpe: "3"
+  },
+  {
+    cardioPlanDraft: { notes: "Intervalos medios editables.", sport: "run", targetDistanceMeters: "", targetDurationMinutes: "45", targetRpeMax: "8", targetRpeMin: "6", targetZone: "" },
+    category: "Resistencia",
+    createdAt: "system",
+    description: "Estructura base para intervalos medios.",
+    durationApprox: "40-55 min",
+    enduranceMethod: "zones",
+    id: "system-endurance-iem",
+    isSystem: true,
+    name: "Intervalos medios",
+    objective: "Cargar una base de intervalos medios y ajustar detalles.",
+    resistanceMethodId: "iem",
+    resistanceSport: "running",
+    sessionType: "Cardio",
+    strengthExercises: [],
+    summary: "IEM · Intervalos medios",
+    targetResistanceZoneId: "R3",
+    targetRpe: "7"
+  },
+  {
+    cardioPlanDraft: { notes: "Resistencia suave tras fuerza.", sport: "run", targetDistanceMeters: "", targetDurationMinutes: "20", targetRpeMax: "4", targetRpeMin: "2", targetZone: "" },
+    category: "Mixto",
+    createdAt: "system",
+    description: "Fuerza breve y resistencia suave.",
+    durationApprox: "55-70 min",
+    enduranceMethod: "zones",
+    id: "system-mixed-strength-easy-endurance",
+    isSystem: true,
+    name: "Fuerza + resistencia suave",
+    objective: "Combinar fuerza básica con cardio suave editable.",
+    resistanceMethodId: "ce",
+    resistanceSport: "running",
+    sessionType: "Mixta",
+    strengthMethod: "rir",
+    strengthExercises: [
+      createSystemTemplateExercise("squat-vertical-force-strength-2", "main", { reps: "6", rest: "02:00", sets: "3", targetRir: "3" }),
+      createSystemTemplateExercise("push-upper-body-press-strength-2", "main", { reps: "8", rest: "01:30", sets: "3", targetRir: "3" }),
+      createSystemTemplateExercise("core-trunk-control-anti-rotation-1", "auxiliary", { reps: "10/lado", rest: "01:00", sets: "2", targetRir: "3" })
+    ],
+    summary: "Fuerza + resistencia suave",
+    targetResistanceZoneId: "R1",
+    targetRpe: "4"
+  },
+  {
+    category: "Recuperación",
+    createdAt: "system",
+    description: "Movilidad suave y core de baja carga.",
+    durationApprox: "30-45 min",
+    id: "system-recovery-mobility-core",
+    isSystem: true,
+    name: "Movilidad + core",
+    objective: "Dar estructura a una sesión suave de movilidad y control.",
+    sessionType: "Fuerza",
+    strengthMethod: "rpe",
+    strengthExercises: [
+      createSystemTemplateExercise("mobility-movement-prep-neck-spine-2", "activation", { intensityMethod: "rpe", reps: "6-8", rest: "00:45", sets: "2", targetRpe: "3" }),
+      createSystemTemplateExercise("mobility-movement-prep-upper-body-3", "activation", { intensityMethod: "rpe", reps: "8", rest: "00:45", sets: "2", targetRpe: "3" }),
+      createSystemTemplateExercise("core-trunk-control-anti-flexion-extension-1", "main", { intensityMethod: "rpe", reps: "8/lado", rest: "01:00", sets: "2", targetRpe: "4" })
+    ],
+    summary: "Movilidad + core"
+  },
+  {
+    category: "Recuperación",
+    createdAt: "system",
+    description: "Sesión suave para volver a mover y tolerar carga baja.",
+    durationApprox: "35-50 min",
+    id: "system-recovery-soft-reconditioning",
+    isSystem: true,
+    name: "Readaptación suave",
+    objective: "Plantilla ligera y editable para retomar movimiento.",
+    sessionType: "Fuerza",
+    strengthMethod: "rpe",
+    strengthExercises: [
+      createSystemTemplateExercise("mobility-movement-prep-upper-body-1", "activation", { intensityMethod: "rpe", reps: "5/lado", rest: "00:45", sets: "2", targetRpe: "3" }),
+      createSystemTemplateExercise("squat-vertical-force-strength-1", "main", { intensityMethod: "rpe", reps: "8", rest: "01:30", sets: "3", targetRpe: "4" }),
+      createSystemTemplateExercise("core-trunk-control-anti-lateral-flexion-1", "auxiliary", { intensityMethod: "rpe", reps: "20 s/lado", rest: "01:00", sets: "2", targetRpe: "4" })
+    ],
+    summary: "Readaptación suave"
+  }
+];
+
+const sessionTemplateCategories: Array<"Todas" | SessionTemplateCategory> = ["Todas", "Fuerza", "Potencia", "Resistencia", "Mixto", "Recuperación"];
+
 function getPlanningWeekNumber(currentWeek: string) {
   const match = currentWeek.match(/\d+/);
   return match ? Number(match[0]) : 1;
@@ -6298,12 +6496,26 @@ function CoachTrainingPlanner({
     main: false
   });
   const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<"Todas" | SessionTemplateCategory>("Todas");
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const [templateSearchTerm, setTemplateSearchTerm] = useState("");
   const completeResistanceMethods = getCompleteResistanceMethods();
   const selectedResistanceMethod = getResistanceMethodById(selectedResistanceMethodId);
   const resistanceSportProfiles = getSportZoneProfiles();
   const selectedResistanceZoneGuide = getResistanceZoneGuide(selectedResistanceSport, targetResistanceZoneId);
+  const normalizedTemplateSearch = templateSearchTerm.trim().toLowerCase();
+  const filterTemplate = (template: SessionTemplate) => {
+    const matchesCategory = templateCategoryFilter === "Todas" || template.category === templateCategoryFilter;
+    const searchable = [template.name, template.description, template.summary, template.objective, template.category, template.sessionType]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return matchesCategory && (!normalizedTemplateSearch || searchable.includes(normalizedTemplateSearch));
+  };
+  const visibleSystemTemplates = systemSessionTemplates.filter(filterTemplate);
+  const visibleCustomTemplates = sessionTemplates.filter(filterTemplate);
   const plannedTonnage = strengthExercises.reduce(
     (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
     0
@@ -6570,27 +6782,59 @@ function CoachTrainingPlanner({
 
     setSessionTemplates((currentTemplates) => [
       {
+        cardioPlanDraft: sessionType !== "Fuerza" ? cardioPlanDraft : undefined,
+        category: sessionType === "Cardio" ? "Resistencia" : sessionType === "Mixta" ? "Mixto" : "Fuerza",
         createdAt: new Date().toISOString(),
         description: templateDescription.trim(),
+        durationApprox: cardioPlanDraft.targetDurationMinutes ? `${cardioPlanDraft.targetDurationMinutes} min` : undefined,
         enduranceMethod: sessionEnduranceMethod,
         id: `template-${Date.now()}`,
         name: templateName.trim(),
+        objective: sessionSummary.trim(),
+        resistanceMethodId: selectedResistanceMethodId || undefined,
+        resistanceSport: sessionType !== "Fuerza" ? selectedResistanceSport : undefined,
         sessionType,
         strengthMethod: sessionStrengthMethod,
         strengthExercises: plannedTemplateExercises,
         summary: sessionSummary.trim(),
+        targetResistanceZoneId: sessionType !== "Fuerza" ? targetResistanceZoneId || undefined : undefined,
+        targetRpe: sessionTargetRpe,
       },
       ...currentTemplates
     ]);
     resetTemplateForm();
   };
   const loadSessionTemplate = (template: SessionTemplate) => {
-    if (strengthExercises.length > 0 && !window.confirm("Esto reemplazará los ejercicios actuales. ¿Continuar?")) return;
+    const hasCardioContent = Boolean(
+      selectedResistanceMethodId ||
+      targetResistanceZoneId ||
+      sessionTargetRpe ||
+      Object.values(cardioPlanDraft).some((value) => String(value).trim())
+    );
+    const hasCurrentContent =
+      strengthExercises.length > 0 ||
+      hasCardioContent ||
+      Boolean(sessionSummary.trim() && sessionSummary !== plannedSession.title);
+
+    if (hasCurrentContent && !window.confirm("Esto reemplazará el contenido actual de la sesión. ¿Quieres continuar?")) return;
 
     setSessionType(template.sessionType);
     setSessionStrengthMethod(template.strengthMethod ?? "rir");
     setSessionEnduranceMethod(template.enduranceMethod ?? "zones");
     setSessionSummary(template.summary);
+    setSelectedResistanceMethodId(template.resistanceMethodId ?? "");
+    setSelectedResistanceSport(template.resistanceSport ?? "generic");
+    setTargetResistanceZoneId(template.targetResistanceZoneId ?? "");
+    setSessionTargetRpe(template.targetRpe ?? "");
+    setCardioPlanDraft(template.cardioPlanDraft ?? {
+      notes: "",
+      sport: "run",
+      targetDistanceMeters: "",
+      targetDurationMinutes: "",
+      targetRpeMax: "",
+      targetRpeMin: "",
+      targetZone: ""
+    });
     setStrengthExercises(
       template.strengthExercises.map((exercise, index) => ({
         ...exercise,
@@ -6607,6 +6851,8 @@ function CoachTrainingPlanner({
         targetVelocity: exercise.targetVelocity ?? ""
       }))
     );
+    setShowTemplateLibrary(false);
+    setSessionSendMessage("Plantilla cargada. Revisa y ajusta antes de enviar.");
   };
   const deleteSessionTemplate = (templateId: string) => {
     setSessionTemplates((currentTemplates) => currentTemplates.filter((template) => template.id !== templateId));
@@ -7187,17 +7433,129 @@ function CoachTrainingPlanner({
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h3 className="font-semibold text-ink">Plantillas guardadas</h3>
-              <p className="mt-1 text-sm text-ink/55">Guarda y reutiliza estructuras planificadas sin asociarlas a un cliente.</p>
+              <h3 className="font-semibold text-ink">Plantillas de sesión</h3>
+              <p className="mt-1 text-sm text-ink/55">Carga una plantilla del sistema o reutiliza una plantilla propia.</p>
             </div>
-            <button
-              className="inline-flex w-fit items-center justify-center rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-              onClick={() => setShowTemplateForm((current) => !current)}
-              type="button"
-            >
-              Guardar como plantilla
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="inline-flex w-fit items-center justify-center rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+                onClick={() => setShowTemplateLibrary((current) => !current)}
+                type="button"
+              >
+                Usar plantilla
+              </button>
+              <button
+                className="inline-flex w-fit items-center justify-center rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                onClick={() => setShowTemplateForm((current) => !current)}
+                type="button"
+              >
+                Guardar como plantilla
+              </button>
+            </div>
           </div>
+
+          {showTemplateLibrary ? (
+            <div className="mt-4 rounded-md border border-line bg-white p-4">
+              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                <input
+                  className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss"
+                  onChange={(event) => setTemplateSearchTerm(event.target.value)}
+                  placeholder="Buscar plantilla"
+                  value={templateSearchTerm}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {sessionTemplateCategories.map((category) => (
+                    <button
+                      className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                        templateCategoryFilter === category
+                          ? "border-ink bg-ink text-white"
+                          : "border-line bg-panel/50 text-ink/60"
+                      }`}
+                      key={category}
+                      onClick={() => setTemplateCategoryFilter(category)}
+                      type="button"
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Plantillas del sistema</p>
+                  {visibleSystemTemplates.length > 0 ? (
+                    <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {visibleSystemTemplates.map((template) => (
+                        <article className="rounded-md border border-line bg-panel/35 p-4" key={template.id}>
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-semibold text-ink">{template.name}</p>
+                            <span className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold uppercase text-ink/45">Sistema</span>
+                          </div>
+                          <p className="mt-1 text-sm text-ink/60">{template.description}</p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
+                            <span className="rounded-md border border-line bg-white px-2 py-1">{template.category}</span>
+                            <span className="rounded-md border border-line bg-white px-2 py-1">{template.sessionType}</span>
+                            {template.durationApprox ? <span className="rounded-md border border-line bg-white px-2 py-1">{template.durationApprox}</span> : null}
+                          </div>
+                          {template.objective ? <p className="mt-3 text-xs font-medium text-ink/50">{template.objective}</p> : null}
+                          <button
+                            className="mt-4 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+                            onClick={() => loadSessionTemplate(template)}
+                            type="button"
+                          >
+                            Cargar
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 rounded-md border border-dashed border-line bg-panel/35 px-4 py-3 text-sm font-medium text-ink/45">No hay plantillas del sistema con ese filtro.</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase text-ink/45">Mis plantillas guardadas</p>
+                  {visibleCustomTemplates.length > 0 ? (
+                    <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {visibleCustomTemplates.map((template) => (
+                        <article className="rounded-md border border-line bg-white p-4" key={template.id}>
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-semibold text-ink">{template.name}</p>
+                            <span className="rounded-md border border-line bg-panel/50 px-2 py-1 text-[11px] font-semibold uppercase text-ink/45">Propia</span>
+                          </div>
+                          {template.description ? (
+                            <p className="mt-1 text-sm text-ink/60">{template.description}</p>
+                          ) : null}
+                          <p className="mt-2 text-xs font-semibold text-moss">
+                            {template.sessionType} · {template.strengthExercises.length} ejercicios
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+                              onClick={() => loadSessionTemplate(template)}
+                              type="button"
+                            >
+                              Cargar
+                            </button>
+                            <button
+                              className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                              onClick={() => deleteSessionTemplate(template.id)}
+                              type="button"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 rounded-md border border-dashed border-line bg-panel/35 px-4 py-3 text-sm font-medium text-ink/45">Todavía no hay plantillas propias con ese filtro.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {showTemplateForm ? (
             <div className="mt-4 rounded-md border border-line bg-white p-4">
@@ -7212,7 +7570,7 @@ function CoachTrainingPlanner({
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-ink/75">
-                  Descripcion breve
+                  Descripción breve
                   <input
                     className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
                     onChange={(event) => setTemplateDescription(event.target.value)}
@@ -7239,42 +7597,6 @@ function CoachTrainingPlanner({
               </div>
             </div>
           ) : null}
-
-          {sessionTemplates.length > 0 ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sessionTemplates.map((template) => (
-                <article className="rounded-md border border-line bg-white p-4" key={template.id}>
-                  <p className="font-semibold text-ink">{template.name}</p>
-                  {template.description ? (
-                    <p className="mt-1 text-sm text-ink/60">{template.description}</p>
-                  ) : null}
-                  <p className="mt-2 text-xs font-semibold text-moss">
-                    {template.sessionType} - {template.strengthExercises.length} ejercicios
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
-                      onClick={() => loadSessionTemplate(template)}
-                      type="button"
-                    >
-                      Cargar
-                    </button>
-                    <button
-                      className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
-                      onClick={() => deleteSessionTemplate(template.id)}
-                      type="button"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
-              Todavia no hay plantillas guardadas.
-            </div>
-          )}
         </section>
 
         {sessionType === "Fuerza" ? (
