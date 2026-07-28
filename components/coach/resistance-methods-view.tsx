@@ -15,6 +15,7 @@ import {
 } from "@/lib/resistance-zones";
 
 type ExerciseLibraryMode = "strength" | "resistance";
+type ResistanceLibrarySection = "zones" | "methods";
 type ResistanceMethodFilter = "all" | "continuous" | "fractional" | "taper";
 
 type ResistanceMethodsViewProps = {
@@ -27,6 +28,11 @@ const resistanceMethodFilters: Array<{ label: string; value: ResistanceMethodFil
   { label: "Continuos", value: "continuous" },
   { label: "Fraccionados", value: "fractional" },
   { label: "Puesta a punto", value: "taper" }
+];
+
+const resistanceLibrarySections: Array<{ label: string; value: ResistanceLibrarySection }> = [
+  { label: "Zonas de entrenamiento", value: "zones" },
+  { label: "Métodos de entrenamiento", value: "methods" }
 ];
 
 const sportZoneProfiles = getSportZoneProfiles();
@@ -75,6 +81,41 @@ function getResistanceMeta(method: ResistanceMethod) {
   return [method.family, method.group, method.subgroup].filter(Boolean).join(" · ");
 }
 
+function hasUsefulResistanceValue(value?: string | null) {
+  if (!value) return false;
+  const normalizedValue = value.trim().toLowerCase();
+  return Boolean(normalizedValue && normalizedValue !== "-" && normalizedValue !== "no aplica" && normalizedValue !== "n/a");
+}
+
+function isSingleBlockContinuousMethod(method: ResistanceMethod) {
+  return method.family === "Métodos continuos" || method.repetitions.trim() === "1";
+}
+
+function getResistanceDetailFields(method: ResistanceMethod) {
+  const fields: Array<[string, string | undefined]> = [
+    ["Tiempo total de sesión", method.sessionDuration],
+    ["Nº repeticiones", method.repetitions]
+  ];
+  const singleBlock = isSingleBlockContinuousMethod(method);
+  const sameDuration = method.repetitionDuration.trim().toLowerCase() === method.sessionDuration.trim().toLowerCase();
+
+  if (hasUsefulResistanceValue(method.repetitionDuration) && !(singleBlock && sameDuration)) {
+    fields.push(["Duración repeticiones", method.repetitionDuration]);
+  }
+  if (hasUsefulResistanceValue(method.recoveryBetweenRepetitions)) {
+    fields.push(["Recuperación entre repeticiones", method.recoveryBetweenRepetitions]);
+  }
+  if (hasUsefulResistanceValue(method.series) && !(singleBlock && method.series.trim() === "1")) {
+    fields.push(["Nº series", method.series]);
+  }
+  if (hasUsefulResistanceValue(method.recoveryBetweenSeries)) {
+    fields.push(["Recuperación entre series", method.recoveryBetweenSeries]);
+  }
+  fields.push(["Intensidad", method.intensity], ["Fuente", method.source]);
+
+  return fields.filter((field): field is [string, string] => hasUsefulResistanceValue(field[1]));
+}
+
 function ResistanceInfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-line bg-panel/35 px-3 py-2">
@@ -111,6 +152,7 @@ function getZoneMetrics(zoneItem: ResistanceZone) {
 }
 
 export function ResistanceMethodsView({ libraryMode, setLibraryMode }: ResistanceMethodsViewProps) {
+  const [activeResistanceSection, setActiveResistanceSection] = useState<ResistanceLibrarySection>("zones");
   const [resistanceFilter, setResistanceFilter] = useState<ResistanceMethodFilter>("all");
   const [resistanceSearch, setResistanceSearch] = useState("");
   const [selectedResistanceMethod, setSelectedResistanceMethod] = useState<ResistanceMethod | null>(null);
@@ -150,35 +192,23 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-          <label className="flex h-11 items-center gap-2 rounded-md border border-line bg-panel/35 px-3 text-sm text-ink">
-            <Search className="text-ink/40" size={16} />
-            <input
-              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/35"
-              onChange={(event) => setResistanceSearch(event.target.value)}
-              placeholder="Buscar por método, intensidad, ejemplos o efectos"
-              value={resistanceSearch}
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {resistanceMethodFilters.map((filter) => (
-              <button
-                className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                  resistanceFilter === filter.value
-                    ? "border-ink bg-ink text-white"
-                    : "border-line bg-white text-ink/65 hover:bg-panel"
-                }`}
-                key={filter.value}
-                onClick={() => setResistanceFilter(filter.value)}
-                type="button"
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+        <div className="mt-5 grid grid-cols-2 gap-1 rounded-md border border-line bg-panel/35 p-1">
+          {resistanceLibrarySections.map((section) => (
+            <button
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                activeResistanceSection === section.value ? "bg-ink text-white" : "text-ink/65 hover:bg-white"
+              }`}
+              key={section.value}
+              onClick={() => setActiveResistanceSection(section.value)}
+              type="button"
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
       </section>
 
+      {activeResistanceSection === "zones" ? (
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -255,11 +285,41 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
           })}
         </div>
       </section>
+      ) : null}
 
+      {activeResistanceSection === "methods" ? (
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div>
           <h3 className="text-lg font-semibold text-ink">Métodos de entrenamiento</h3>
           <p className="mt-1 text-sm text-ink/55">Selecciona un método para ver sus parámetros, ejemplos y efectos.</p>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <label className="flex h-11 items-center gap-2 rounded-md border border-line bg-panel/35 px-3 text-sm text-ink">
+            <Search className="text-ink/40" size={16} />
+            <input
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/35"
+              onChange={(event) => setResistanceSearch(event.target.value)}
+              placeholder="Buscar por método, intensidad, ejemplos o efectos"
+              value={resistanceSearch}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {resistanceMethodFilters.map((filter) => (
+              <button
+                className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                  resistanceFilter === filter.value
+                    ? "border-ink bg-ink text-white"
+                    : "border-line bg-white text-ink/65 hover:bg-panel"
+                }`}
+                key={filter.value}
+                onClick={() => setResistanceFilter(filter.value)}
+                type="button"
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {filteredResistanceMethods.length > 0 ? (
@@ -310,6 +370,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
           </div>
         )}
       </section>
+      ) : null}
 
       {selectedResistanceMethod ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -336,17 +397,8 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
             ) : (
               <>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {[
-                    ["Tiempo total de sesión", selectedResistanceMethod.sessionDuration],
-                    ["Nº repeticiones", selectedResistanceMethod.repetitions],
-                    ["Duración repeticiones", selectedResistanceMethod.repetitionDuration],
-                    ["Recuperación entre repeticiones", selectedResistanceMethod.recoveryBetweenRepetitions],
-                    ["Nº series", selectedResistanceMethod.series],
-                    ["Recuperación entre series", selectedResistanceMethod.recoveryBetweenSeries],
-                    ["Intensidad", selectedResistanceMethod.intensity],
-                    ["Fuente", selectedResistanceMethod.source]
-                  ].map(([label, value]) => (
-                    <ResistanceInfoCard key={label} label={label} value={value || "Sin datos"} />
+                  {getResistanceDetailFields(selectedResistanceMethod).map(([label, value]) => (
+                    <ResistanceInfoCard key={label} label={label} value={value} />
                   ))}
                 </div>
 

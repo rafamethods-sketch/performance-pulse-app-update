@@ -750,7 +750,7 @@ function getTodayDateOnly() {
 function formatAccessDate(dateKey?: string | null) {
   const date = parseAccessDate(dateKey);
   if (!date) return "";
-  return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
 }
 
 function getClientAccessInfo(client?: Pick<CoachClient, "accessEndDate"> | null): {
@@ -2672,7 +2672,7 @@ function ClientProgressCard({ description, items, title }: { description?: strin
             <article className="rounded-md border border-line bg-panel/35 p-3" key={`${item.date}-${item.name}-${index}`}>
               <p className="text-sm font-semibold text-ink">{item.name}</p>
               <p className="mt-1 text-sm text-moss">{item.result}</p>
-              <p className="mt-1 text-xs text-ink/45">{item.date}</p>
+              <p className="mt-1 text-xs text-ink/45">{formatDisplayDate(item.date)}</p>
             </article>
           ))}
         </div>
@@ -2764,7 +2764,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
                     <div className="flex h-28 w-full items-end rounded bg-white">
                       <div className="w-full rounded bg-moss" style={{ height: `${height}%` }} />
                     </div>
-                    <span className="truncate text-[10px] font-semibold text-ink/45">{session.date}</span>
+                    <span className="truncate text-[10px] font-semibold text-ink/45">{formatDisplayDate(session.date)}</span>
                   </div>
                 );
               })}
@@ -2799,7 +2799,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
           <div className="mt-3 grid gap-2">
             {discomfortRecords.slice(0, 3).map((session, index) => (
               <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
-                <p className="text-sm font-semibold text-ink">{session.date}</p>
+                <p className="text-sm font-semibold text-ink">{formatDisplayDate(session.date)}</p>
                 <p className="mt-1 text-sm text-ink/60">{session.discomfort?.notes || "Molestia registrada sin notas."}</p>
               </article>
             ))}
@@ -5113,7 +5113,7 @@ function AssessmentsView({
                 <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
                 <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
                 <p className="mt-1 text-sm font-semibold text-ink/70">{assessment.result}</p>
-                <p className="mt-2 text-xs text-ink/45">{assessment.date}</p>
+                <p className="mt-2 text-xs text-ink/45">{formatDisplayDate(assessment.date)}</p>
                 {assessment.notes ? (
                   <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{assessment.notes}</p>
                 ) : null}
@@ -7127,6 +7127,33 @@ function displayValue(value: unknown, fallback = "Sin especificar") {
   return hasDisplayValue(value) ? `${value}` : fallback;
 }
 
+function formatDisplayDate(value?: string | null, fallback = "Sin fecha") {
+  if (!value) return fallback;
+  const rawValue = value.trim();
+  const isoDateMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDateMatch) return `${isoDateMatch[3]}-${isoDateMatch[2]}-${isoDateMatch[1]}`;
+
+  const slashDateMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashDateMatch) {
+    return `${slashDateMatch[1].padStart(2, "0")}-${slashDateMatch[2].padStart(2, "0")}-${slashDateMatch[3]}`;
+  }
+
+  return rawValue || fallback;
+}
+
+function formatDisplayTime(value?: string | null) {
+  if (!value) return "";
+  const rawValue = value.trim();
+  const timeMatch = rawValue.match(/T?(\d{2}):(\d{2})/);
+  return timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : "";
+}
+
+function formatDisplayDateTime(value?: string | null, fallback = "Sin fecha") {
+  const date = formatDisplayDate(value, fallback);
+  const time = formatDisplayTime(value);
+  return time ? `${date} · ${time}` : date;
+}
+
 function getCardioConnectionLabel(status?: CardioConnectionStatus["status"]) {
   if (status === "connected") return "Conectado";
   if (status === "pending") return "Pendiente";
@@ -7135,8 +7162,7 @@ function getCardioConnectionLabel(status?: CardioConnectionStatus["status"]) {
 
 function formatCardioSyncDate(value?: string) {
   if (!value) return "Sin sincronizar";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-ES");
+  return formatDisplayDateTime(value);
 }
 
 function formatDurationSeconds(seconds: number | null) {
@@ -7630,13 +7656,44 @@ function SessionHistoryPanel({
             const groupedRows = getGroupedReviewRows(detailRows);
             const hasRealRegister = performedExercises.length > 0 || status === "Completada";
             const canReviewSession = reviewStatus === "reviewed" || reviewStatus === "pending";
+            const showStrengthReview = exerciseCount > 0;
+            const cardioZoneDistribution = formatCardioZones(session.cardioResult?.timeInZones);
+            const resistanceInfoItems = [
+              hasDisplayValue(resistanceDuration) ? ["Duración real", `${resistanceDuration} min`] : null,
+              parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? ["Distancia real", formatResistanceDistance(session.cardioResult?.distanceMeters)] : null,
+              hasDisplayValue(session.finalRpe) ? ["RPE final", `${session.finalRpe}/10`] : null,
+              resistanceZoneGuide.zone || hasDisplayValue(session.resistanceSport) ? ["Deporte", resistanceZoneGuide.profile.name] : null,
+              resistanceZoneGuide.zone || session.cardioPlan?.targetZone ? ["Zona objetivo", resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? ""] : null,
+              resistanceMethod ? ["Método", getResistanceMethodLabel(resistanceMethod)] : null,
+              session.cardioResult?.intervalsCompleted ? ["Repeticiones / intervalos", session.cardioResult.intervalsCompleted] : null,
+              session.cardioResult?.intensityCompleted ? ["Intensidad realizada", session.cardioResult.intensityCompleted] : null,
+              session.cardioResult?.recoveryCompleted ? ["Recuperación realizada", session.cardioResult.recoveryCompleted] : null
+            ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
+            const cardioDeviationItems = cardioDeviation ? [
+              session.cardioPlan?.targetDurationMinutes || session.cardioResult?.durationMinutes
+                ? ["Duración planificada vs real", `${session.cardioPlan?.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Plan sin especificar"} / ${session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Real sin registrar"}`]
+                : null,
+              cardioDeviation.durationCompletionPct !== null
+                ? ["Cumplimiento de duración", `${Math.round(cardioDeviation.durationCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.durationStatus)}`]
+                : null,
+              session.cardioPlan?.targetZone ? ["Zona objetivo", session.cardioPlan.targetZone.toUpperCase()] : null,
+              cardioDeviation.targetZonePct !== null ? ["Tiempo en zona", `${Math.round(cardioDeviation.targetZonePct)}% · ${cardioDeviation.zoneStatusLabel}`] : null,
+              (cardioDeviation.timeBelowTargetZoneSeconds ?? 0) > 0 ? ["Por debajo de zona", formatDurationSeconds(cardioDeviation.timeBelowTargetZoneSeconds ?? 0)] : null,
+              (cardioDeviation.timeAboveTargetZoneSeconds ?? 0) > 0 ? ["Por encima de zona", formatDurationSeconds(cardioDeviation.timeAboveTargetZoneSeconds ?? 0)] : null,
+              session.cardioResult?.perceivedRpe && (session.cardioPlan?.targetRpeMin || session.cardioPlan?.targetRpeMax)
+                ? ["RPE objetivo vs real", `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"} / real ${session.cardioResult.perceivedRpe} · ${cardioDeviation.rpeLabel}`]
+                : null,
+              cardioDeviation.distanceCompletionPct !== null
+                ? ["Distancia", `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}`]
+                : null
+            ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1]))) : [];
 
             return (
               <article className="rounded-md border border-line bg-white p-4 shadow-soft" key={sessionKey}>
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-ink/55">{displayValue(session.date)}</p>
+                      <p className="text-sm font-semibold text-ink/55">{formatDisplayDate(session.date)}</p>
                       <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
                         {status}
                       </span>
@@ -7674,7 +7731,7 @@ function SessionHistoryPanel({
                   <ClientInfoCard label={"Bloque / mesociclo"} value={formatTrainingBlock(session, client)} />
                   <ClientInfoCard label={"Semana y sesi\u00f3n"} value={formatWeekAndSession(session, client)} />
                   <ClientInfoCard label={"Estado"} value={status} />
-                  <ClientInfoCard label={"Cumplimiento"} value={sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "Sin datos suficientes"} />
+                  <ClientInfoCard label={"Cumplimiento"} value={sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "No aplica"} />
                 </div>
                 {hasDisplayValue(notes) ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
@@ -7710,7 +7767,7 @@ function SessionHistoryPanel({
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Detalle de sesi{"\u00f3"}n</p>
                           <h4 className="mt-1 text-xl font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h4>
-                          <p className="mt-1 text-sm text-ink/55">{displayValue(session.date)} {"\u00b7"} {client.name}</p>
+                          <p className="mt-1 text-sm text-ink/55">{formatDisplayDate(session.date)} {"\u00b7"} {client.name}</p>
                         </div>
                         <button
                           aria-label="Cerrar detalle"
@@ -7721,6 +7778,7 @@ function SessionHistoryPanel({
                           ×
                         </button>
                       </div>
+                  {showStrengthReview ? (
                   <div className="rounded-md border border-line bg-panel/25 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -7789,13 +7847,10 @@ function SessionHistoryPanel({
                           </section>
                         ))}
                       </div>
-                    ) : (
-                      <p className="mt-4 text-sm font-semibold text-ink/50">Sin ejercicios registrados.</p>
-                    )}
-
-                    {sessionDeviation.exerciseSummaries.length === 0 ? (
-                      <p className="mt-4 text-sm font-semibold text-ink/50">Sin datos suficientes.</p>
                     ) : null}
+
+                  </div>
+                  ) : null}
 
                     {session.discomfort?.hasDiscomfort ? (
                       <div className="mt-4 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
@@ -7811,46 +7866,17 @@ function SessionHistoryPanel({
                     {hasResistanceData ? (
                       <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                         <h5 className="font-semibold text-ink">Realizado resistencia</h5>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <ClientInfoCard
-                            label="Duración real"
-                            value={hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}
-                          />
-                          <ClientInfoCard label="Distancia real" value={formatResistanceDistance(session.cardioResult?.distanceMeters)} />
-                          <ClientInfoCard label="RPE final" value={hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"} />
-                          <ClientInfoCard label="Deporte" value={resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"} />
-                          <ClientInfoCard label="Zona objetivo" value={resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"} />
-                          <ClientInfoCard label="Método" value={resistanceMethod ? getResistanceMethodLabel(resistanceMethod) : "Sin método asignado"} />
-                          {session.cardioResult?.intervalsCompleted ? (
-                            <ClientInfoCard label="Repeticiones / intervalos" value={session.cardioResult.intervalsCompleted} />
-                          ) : null}
-                          {session.cardioResult?.intensityCompleted ? (
-                            <ClientInfoCard label="Intensidad realizada" value={session.cardioResult.intensityCompleted} />
-                          ) : null}
-                          {session.cardioResult?.recoveryCompleted ? (
-                            <ClientInfoCard label="Recuperación realizada" value={session.cardioResult.recoveryCompleted} />
-                          ) : null}
-                        </div>
+                        {resistanceInfoItems.length > 0 ? (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {resistanceInfoItems.map(([label, value]) => (
+                              <ClientInfoCard key={label} label={label} value={value} />
+                            ))}
+                          </div>
+                        ) : null}
                         {session.cardioResult?.notes ? (
                           <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/70">
                             {session.cardioResult.notes}
                           </p>
-                        ) : null}
-                        {resistanceZoneGuide.zone ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {resistanceZoneGuide.metrics.length > 0 ? resistanceZoneGuide.metrics.map((metric) => (
-                              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={metric}>
-                                {metric}
-                              </span>
-                            )) : (
-                              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
-                                Sin porcentajes añadidos todavía.
-                              </span>
-                            )}
-                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
-                              {resistanceZoneGuide.profile.mainReferenceMetric}
-                            </span>
-                          </div>
                         ) : null}
                       </section>
                     ) : null}
@@ -7866,44 +7892,18 @@ function SessionHistoryPanel({
                             {cardioDeviation.reading}
                           </span>
                         </div>
-                        {resistanceMethod ? (
-                          <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70">
-                            Método de resistencia: {getResistanceMethodLabel(resistanceMethod)}
-                          </p>
+                        {cardioDeviationItems.length > 0 ? (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {cardioDeviationItems.map(([label, value]) => (
+                              <ClientInfoCard key={label} label={label} value={value} />
+                            ))}
+                          </div>
                         ) : null}
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <ClientInfoCard
-                            label={"Duraci\u00f3n"}
-                            value={`${session.cardioPlan?.targetDurationMinutes ? `${session.cardioPlan.targetDurationMinutes} min` : "Plan sin especificar"} / ${session.cardioResult?.durationMinutes ? `${session.cardioResult.durationMinutes} min` : "Real sin registrar"}`}
-                          />
-                          <ClientInfoCard
-                            label={"Cumplimiento duraci\u00f3n"}
-                            value={cardioDeviation.durationCompletionPct !== null ? `${Math.round(cardioDeviation.durationCompletionPct)}% \u00b7 ${getCardioCompletionLabel(cardioDeviation.durationStatus)}` : "Sin datos suficientes"}
-                          />
-                          <ClientInfoCard
-                            label="Zona objetivo"
-                            value={session.cardioPlan?.targetZone ? session.cardioPlan.targetZone.toUpperCase() : "Sin especificar"}
-                          />
-                          <ClientInfoCard
-                            label="Tiempo en zona"
-                            value={cardioDeviation.targetZonePct !== null ? `${Math.round(cardioDeviation.targetZonePct)}% \u00b7 ${cardioDeviation.zoneStatusLabel}` : "Sin datos de zonas suficientes"}
-                          />
-                          <ClientInfoCard label="Por debajo de zona" value={formatDurationSeconds(cardioDeviation.timeBelowTargetZoneSeconds)} />
-                          <ClientInfoCard label="Por encima de zona" value={formatDurationSeconds(cardioDeviation.timeAboveTargetZoneSeconds)} />
-                          <ClientInfoCard
-                            label="RPE cardio"
-                            value={session.cardioResult?.perceivedRpe ? `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"} / real ${session.cardioResult.perceivedRpe} \u00b7 ${cardioDeviation.rpeLabel}` : "Sin RPE de cardio"}
-                          />
-                          <ClientInfoCard
-                            label="Distancia"
-                            value={cardioDeviation.distanceCompletionPct !== null ? `${Math.round(cardioDeviation.distanceCompletionPct)}% \u00b7 ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}` : "Sin datos suficientes"}
-                          />
-                        </div>
-                        {formatCardioZones(session.cardioResult?.timeInZones).length > 0 ? (
+                        {cardioZoneDistribution.length > 0 ? (
                           <div className="mt-3 rounded-md border border-line bg-white p-3">
                             <p className="text-xs font-semibold uppercase text-ink/45">{"Distribuci\u00f3n Z1-Z5"}</p>
                             <div className="mt-2 flex flex-wrap gap-2">
-                              {formatCardioZones(session.cardioResult?.timeInZones).map((zone) => (
+                              {cardioZoneDistribution.map((zone) => (
                                 <span className="rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65" key={zone.label}>
                                   {zone.label}: {formatDurationSeconds(zone.seconds)}
                                 </span>
@@ -7921,7 +7921,7 @@ function SessionHistoryPanel({
                             <h5 className="font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
                             {session.reviewedAt ? (
                               <p className="mt-1 text-xs font-medium text-ink/50">
-                                Revisada: {new Date(session.reviewedAt).toLocaleString("es-ES")}
+                                Revisada: {formatDisplayDateTime(session.reviewedAt)}
                               </p>
                             ) : null}
                             {reviewStatus === "reviewed" ? (
@@ -7940,7 +7940,6 @@ function SessionHistoryPanel({
                         </div>
                       </section>
                     ) : null}
-                  </div>
                     </div>
                   </div>
                 ) : null}
@@ -8415,7 +8414,7 @@ function PastSessionsList({
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-xs font-medium text-clay">{session.date} - {session.type}</p>
+                    <p className="text-xs font-medium text-clay">{formatDisplayDate(session.date)} - {session.type}</p>
                     <h3 className="mt-1 font-semibold text-ink">{session.title}</h3>
                     <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
                   </div>

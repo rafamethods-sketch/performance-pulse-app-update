@@ -44,11 +44,7 @@ function formatDateShort(value?: string | null) {
   const date = parseDateValue(value);
   if (!date) return value ?? "Sin fecha";
 
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  }).format(date);
+  return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
 }
 
 type WeeklyCalendarSession = {
@@ -129,7 +125,7 @@ function getCalendarTypeConfig(session: Pick<WeeklyCalendarSession, "eventKind" 
   const label = `${session.type} ${session.summary} ${session.eventKind ?? ""}`.toLowerCase();
 
   if (label.includes("lesi")) {
-    return { Icon: AlertTriangle, className: "border-coral/25 bg-coral/10 text-coral", label: "Lesión" };
+    return { Icon: AlertTriangle, className: "border-coral/30 bg-coral/10 text-coral", label: "Lesión" };
   }
   if (label.includes("foto")) {
     return { Icon: Camera, className: "border-line bg-panel/60 text-ink/55", label: "Foto" };
@@ -147,22 +143,22 @@ function getCalendarTypeConfig(session: Pick<WeeklyCalendarSession, "eventKind" 
     return { Icon: Ruler, className: "border-violet/40 bg-violet text-ink", label: "Antropometría" };
   }
   if (label.includes("salto") || label.includes("jump")) {
-    return { Icon: TrendingUp, className: "border-moss/25 bg-mint text-moss", label: "Test salto" };
+    return { Icon: TrendingUp, className: "border-violet/40 bg-violet/20 text-ink", label: "Test salto" };
   }
   if (label.includes("test") && (label.includes("resistencia") || label.includes("aerob") || label.includes("cardio"))) {
-    return { Icon: Activity, className: "border-steel/25 bg-sky text-steel", label: "Test resistencia" };
+    return { Icon: Activity, className: "border-cyan-300/50 bg-cyan-100 text-cyan-800", label: "Test resistencia" };
   }
   if (label.includes("test")) {
-    return { Icon: Gauge, className: "border-clay/25 bg-wheat text-clay", label: "Test fuerza" };
+    return { Icon: Gauge, className: "border-amber-300/60 bg-amber-100 text-amber-800", label: "Test fuerza" };
   }
   if (label.includes("concurrent") || label.includes("mixto")) {
-    return { Icon: Repeat2, className: "border-clay/25 bg-wheat text-clay", label: "Concurrente" };
+    return { Icon: Repeat2, className: "border-orange-300/60 bg-orange-100 text-orange-800", label: "Concurrente" };
   }
   if (label.includes("resistencia") || label.includes("cardio") || label.includes("aerob") || label.includes("umbral")) {
     return { Icon: Zap, className: "border-steel/25 bg-sky text-steel", label: "Resistencia" };
   }
   if (label.includes("fuerza") || label.includes("strength")) {
-    return { Icon: Dumbbell, className: "border-coral/25 bg-coral/10 text-coral", label: "Fuerza" };
+    return { Icon: Dumbbell, className: "border-indigo-300/50 bg-indigo-100 text-indigo-800", label: "Fuerza" };
   }
 
   return { Icon: Target, className: "border-line bg-white text-ink/70", label: "Sesión" };
@@ -252,14 +248,14 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
   const weekEnd = weekDates[6];
   const weekRangeLabel = `Semana del ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(selectedWeekStart)} al ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(weekEnd)}`;
   const sessionLegendItems = [
-    { Icon: Dumbbell, className: "border-coral/25 bg-coral/10 text-coral", label: "Fuerza" },
+    { Icon: Dumbbell, className: "border-indigo-300/50 bg-indigo-100 text-indigo-800", label: "Fuerza" },
     { Icon: Zap, className: "border-steel/25 bg-sky text-steel", label: "Resistencia" },
     { Icon: Repeat2, className: "border-clay/25 bg-wheat text-clay", label: "Concurrente" }
   ];
   const eventLegendItems = [
-    { Icon: Gauge, className: "border-clay/25 bg-wheat text-clay", label: "Test fuerza" },
-    { Icon: Activity, className: "border-steel/25 bg-sky text-steel", label: "Test resistencia" },
-    { Icon: TrendingUp, className: "border-moss/25 bg-mint text-moss", label: "Test salto" },
+    { Icon: Gauge, className: "border-amber-300/60 bg-amber-100 text-amber-800", label: "Test fuerza" },
+    { Icon: Activity, className: "border-cyan-300/50 bg-cyan-100 text-cyan-800", label: "Test resistencia" },
+    { Icon: TrendingUp, className: "border-violet/40 bg-violet/20 text-ink", label: "Test salto" },
     { Icon: Flag, className: "border-clay/25 bg-wheat text-clay", label: "Competición" },
     { Icon: AlertTriangle, className: "border-coral/25 bg-coral/10 text-coral", label: "Lesión" },
     { Icon: FileText, className: "border-line bg-panel/60 text-ink/55", label: "Nota" },
