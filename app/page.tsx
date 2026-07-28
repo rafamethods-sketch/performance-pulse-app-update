@@ -101,6 +101,14 @@ import {
   type ResistanceSport,
   type ResistanceZone
 } from "@/lib/resistance-zones";
+import {
+  estimateMenstrualPhase,
+  getCycleTrainingContext,
+  getLatestMenstrualEntry,
+  getMenstrualSymptomSummary,
+  type ClientSex,
+  type MenstrualTracking
+} from "@/lib/menstrual-cycle";
 import { supabase } from "@/lib/supabase";
 import {
   athleteAdherence,
@@ -710,6 +718,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
   isDemo?: boolean;
+  menstrualTracking?: MenstrualTracking;
   planning: BaseCoachClient["planning"] & {
     blocks?: EditablePlanningBlock[];
     eventDate?: string;
@@ -717,9 +726,100 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
     eventNotes?: string;
     method?: PlanningMethod;
   };
+  sex?: ClientSex;
   sessionRecords: ClientSessionRecord[];
 };
 type ClientAssessment = CoachClient["assessments"][number];
+
+const clientSexLabels: Record<ClientSex, string> = {
+  female: "Mujer",
+  male: "Hombre",
+  other: "Otro",
+  prefer_not_to_say: "Prefiero no decirlo"
+};
+
+function getClientSexLabel(sex?: ClientSex) {
+  return sex ? clientSexLabels[sex] : "Sin especificar";
+}
+
+function getSharedMenstrualContext(client?: CoachClient | null) {
+  const tracking = client?.menstrualTracking;
+  if (!client || client.sex !== "female" || !tracking?.enabled) return null;
+
+  if (tracking.shareWithCoach !== true) {
+    return {
+      isShared: false,
+      text: "Seguimiento del ciclo activado por la deportista, no compartido con entrenador."
+    };
+  }
+
+  const phase = estimateMenstrualPhase({
+    averageBleedingDays: tracking.averageBleedingDays,
+    averageCycleLength: tracking.averageCycleLength,
+    date: getRelativeDateKey(0),
+    lastPeriodStartDate: tracking.lastPeriodStartDate
+  });
+  const latestEntry = getLatestMenstrualEntry(tracking.entries);
+  const symptoms = getMenstrualSymptomSummary(latestEntry).slice(0, 4);
+  const symptomText = symptoms.length > 0
+    ? symptoms.map((symptom) => `${symptom.label.toLowerCase()} ${symptom.level === 1 ? "leve" : symptom.level === 2 ? "moderado" : "alto"}`).join(", ")
+    : "Sin síntomas recientes registrados";
+  const guidance = getCycleTrainingContext(latestEntry);
+
+  return {
+    guidance,
+    isShared: true,
+    latestEntry,
+    phase,
+    symptomText,
+    tracking
+  };
+}
+
+function MenstrualCoachContextCard({ client, compact = false }: { client?: CoachClient | null; compact?: boolean }) {
+  const context = getSharedMenstrualContext(client);
+  if (!context) return null;
+
+  if (!context.isShared) {
+    return (
+      <section className={`rounded-md border border-line bg-panel/35 ${compact ? "p-3" : "p-4"}`}>
+        <h3 className="font-semibold text-ink">Contexto ciclo menstrual</h3>
+        <p className="mt-2 text-sm text-ink/60">{context.text}</p>
+      </section>
+    );
+  }
+
+  if (!context.phase) return null;
+
+  return (
+    <section className={`rounded-md border border-line border-l-4 border-l-violet bg-panel/35 ${compact ? "p-3" : "p-4"}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Contexto ciclo menstrual</h3>
+          <p className="mt-1 text-sm text-ink/65">
+            Fase estimada: {context.phase.label}
+            {context.phase.cycleDay ? ` · día ${context.phase.cycleDay} del ciclo` : ""}
+          </p>
+        </div>
+        <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+          {context.phase.confidence === "estimated" ? "Estimación orientativa" : "Sin estimación"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm text-ink/65">Síntomas recientes: {context.symptomText}.</p>
+      {context.latestEntry?.notes ? (
+        <p className="mt-2 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
+          Nota deportista: “{context.latestEntry.notes}”
+        </p>
+      ) : null}
+      <p className="mt-3 text-xs font-medium text-ink/50">
+        {context.guidance} Usar como contexto. Individualiza según síntomas, recuperación y respuesta de la deportista.
+      </p>
+      {context.tracking?.cycleRegularity === "irregular" ? (
+        <p className="mt-2 text-xs font-medium text-ink/45">Ciclo marcado como irregular: la fase puede ser menos precisa.</p>
+      ) : null}
+    </section>
+  );
+}
 
 function isDemoClient(client: Pick<CoachClient, "id"> & { isDemo?: boolean }) {
   return client.id === "demo-client" || client.id.startsWith("demo-") || client.isDemo === true;
@@ -2290,6 +2390,7 @@ function ClientDetailsView({
     modality: sourceClient.modality ?? sourceClient.sport ?? "",
     name: sourceClient.name ?? "",
     primaryGoal: sourceClient.planning.primaryGoal ?? "",
+    sex: sourceClient.sex ?? "prefer_not_to_say",
     status: sourceClient.status ?? ""
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -2348,6 +2449,7 @@ function ClientDetailsView({
         eventNotes: draft.eventNotes.trim(),
         primaryGoal: draft.primaryGoal.trim() || "Sin especificar"
       },
+      sex: draft.sex as ClientSex,
       sport: draft.modality.trim() || client.sport,
       status: draft.status.trim() || "Sin especificar"
     });
@@ -2377,6 +2479,7 @@ function ClientDetailsView({
         ["Nombre", displayValue(client.name)],
         ["Edad", `${displayValue(client.age)} años`],
         ["Disciplina / deporte", displayValue(client.modality || client.sport)],
+        ["Sexo", getClientSexLabel(client.sex)],
         ["Contexto", displayValue(client.goalType)],
         ["Estado", displayValue(client.status)]
       ],
@@ -2511,6 +2614,15 @@ function ClientDetailsView({
                   <option>Salud</option>
                 </select>
               </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Sexo
+                <select className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("sex", event.target.value)} value={draft.sex}>
+                  <option value="female">Mujer</option>
+                  <option value="male">Hombre</option>
+                  <option value="other">Otro</option>
+                  <option value="prefer_not_to_say">Prefiero no decirlo</option>
+                </select>
+              </label>
               <label className="text-sm font-semibold text-ink/70 md:col-span-2">
                 Estado
                 <input className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => updateDraft("status", event.target.value)} value={draft.status} />
@@ -2587,6 +2699,7 @@ function ClientDetailsView({
               </div>
             </article>
           ))}
+          <MenstrualCoachContextCard client={client} />
           <article className="rounded-md border border-line bg-panel/35 p-4">
             <h3 className="font-semibold text-ink">Conexiones</h3>
             <div className="mt-4 rounded-md border border-line bg-white p-4">
@@ -2721,6 +2834,8 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
         <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
         <p className="mt-1 text-sm text-ink/55">Vista inicial con datos disponibles de wellness, sesiones y molestias recientes.</p>
       </section>
+
+      <MenstrualCoachContextCard client={client} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <ClientInfoCard label="Preparación reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavía"} />
@@ -6448,6 +6563,9 @@ function CoachTrainingPlanner({
                   />
                   <ClientInfoCard label="Tipo de sesión" value={sessionType} />
                   <ClientInfoCard label="Objetivo / resumen" value={sessionSummary.trim() || "Sin resumen"} />
+                </div>
+                <div className="mt-4">
+                  <MenstrualCoachContextCard client={activeSessionClient} compact />
                 </div>
               </section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

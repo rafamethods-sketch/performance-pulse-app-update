@@ -6,6 +6,16 @@ import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
+import {
+  estimateMenstrualPhase,
+  getMenstrualSymptomSummary,
+  menstrualBleedingLabels,
+  type ClientSex,
+  type MenstrualBleedingLevel,
+  type MenstrualCycleEntry,
+  type MenstrualSymptomKey,
+  type MenstrualTracking
+} from "@/lib/menstrual-cycle";
 
 type ResistanceCardioResult = CardioResult & {
   intensityCompleted?: string;
@@ -110,7 +120,9 @@ type AthleteSessionRecord = {
 
 type AthleteClient = {
   id: string;
+  menstrualTracking?: MenstrualTracking;
   name: string;
+  sex?: ClientSex;
   sessionRecords: AthleteSessionRecord[];
 };
 
@@ -157,6 +169,25 @@ const discomfortPhases = [
   "Después del ejercicio",
   "Después de la sesión"
 ];
+
+const menstrualSymptomFields: Array<{ key: MenstrualSymptomKey; label: string }> = [
+  { key: "cramps", label: "Dolor menstrual" },
+  { key: "fatigue", label: "Fatiga" },
+  { key: "lowBackPain", label: "Dolor lumbar" },
+  { key: "headache", label: "Dolor de cabeza" },
+  { key: "bloating", label: "Hinchazón" },
+  { key: "moodChanges", label: "Cambios de ánimo" },
+  { key: "poorSleep", label: "Sueño peor" },
+  { key: "cravings", label: "Antojos / hambre" },
+  { key: "digestiveDiscomfort", label: "Molestias digestivas" },
+  { key: "lowMotivation", label: "Motivación baja" },
+  { key: "perceivedPerformanceDrop", label: "Rendimiento percibido bajo" }
+];
+
+const emptyMenstrualSymptoms = menstrualSymptomFields.reduce<Partial<Record<MenstrualSymptomKey, number>>>((current, field) => {
+  current[field.key] = 0;
+  return current;
+}, {});
 
 const athleteExerciseBlocks: Array<{ key: AthleteExerciseBlockKey; label: string }> = [
   { key: "activation", label: "ACTIVACIÓN" },
@@ -473,6 +504,26 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       z5: ""
     } as Record<CardioZone, string>
   });
+  const [menstrualConfigDraft, setMenstrualConfigDraft] = useState({
+    averageBleedingDays: "",
+    averageCycleLength: "",
+    cycleRegularity: "unknown" as NonNullable<MenstrualTracking["cycleRegularity"]>,
+    enabled: false,
+    hormonalContraception: "prefer_not_to_say" as NonNullable<MenstrualTracking["hormonalContraception"]>,
+    lastPeriodStartDate: "",
+    shareWithCoach: false
+  });
+  const [menstrualEntryDraft, setMenstrualEntryDraft] = useState<{
+    bleeding: MenstrualBleedingLevel;
+    notes: string;
+    symptoms: Partial<Record<MenstrualSymptomKey, number>>;
+  }>({
+    bleeding: "none",
+    notes: "",
+    symptoms: { ...emptyMenstrualSymptoms }
+  });
+  const [menstrualMessage, setMenstrualMessage] = useState("");
+  const [showMenstrualDetails, setShowMenstrualDetails] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
     ? actualDurationMinutes * finalRpe
@@ -542,8 +593,26 @@ export function AthleteTodayView<TClient extends AthleteClient>({
         z5: ""
       }
     });
+    const tracking = client?.menstrualTracking;
+    const todayEntry = tracking?.entries?.find((entry) => entry.date === todayKey);
+    setMenstrualConfigDraft({
+      averageBleedingDays: tracking?.averageBleedingDays ? String(tracking.averageBleedingDays) : "",
+      averageCycleLength: tracking?.averageCycleLength ? String(tracking.averageCycleLength) : "",
+      cycleRegularity: tracking?.cycleRegularity ?? "unknown",
+      enabled: tracking?.enabled ?? false,
+      hormonalContraception: tracking?.hormonalContraception ?? "prefer_not_to_say",
+      lastPeriodStartDate: tracking?.lastPeriodStartDate ?? "",
+      shareWithCoach: tracking?.shareWithCoach ?? false
+    });
+    setMenstrualEntryDraft({
+      bleeding: todayEntry?.bleeding ?? "none",
+      notes: todayEntry?.notes ?? "",
+      symptoms: { ...emptyMenstrualSymptoms, ...(todayEntry?.symptoms ?? {}) }
+    });
+    setMenstrualMessage("");
+    setShowMenstrualDetails(false);
     setValidationMessage("");
-  }, [session]);
+  }, [client?.menstrualTracking, session, todayKey]);
 
   useEffect(() => {
     if (!showSessionPreview && !showWellnessModal) return;
@@ -667,22 +736,262 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setValidationMessage("");
   }
 
+  function saveMenstrualTracking() {
+    if (!client || client.sex !== "female") return;
+
+    const currentTracking = client.menstrualTracking;
+    const nextEntry: MenstrualCycleEntry = {
+      bleeding: menstrualEntryDraft.bleeding,
+      date: todayKey,
+      id: currentTracking?.entries?.find((entry) => entry.date === todayKey)?.id ?? `cycle-${Date.now()}`,
+      notes: menstrualEntryDraft.notes.trim() || undefined,
+      symptoms: menstrualEntryDraft.symptoms
+    };
+    const nextEntries = [
+      nextEntry,
+      ...(currentTracking?.entries ?? []).filter((entry) => entry.date !== todayKey)
+    ].sort((a, b) => b.date.localeCompare(a.date));
+    const nextTracking: MenstrualTracking = {
+      ...currentTracking,
+      averageBleedingDays: menstrualConfigDraft.averageBleedingDays ? Number(menstrualConfigDraft.averageBleedingDays) : undefined,
+      averageCycleLength: menstrualConfigDraft.averageCycleLength ? Number(menstrualConfigDraft.averageCycleLength) : undefined,
+      cycleRegularity: menstrualConfigDraft.cycleRegularity,
+      enabled: menstrualConfigDraft.enabled,
+      entries: nextEntries,
+      hormonalContraception: menstrualConfigDraft.hormonalContraception,
+      lastPeriodStartDate: menstrualConfigDraft.lastPeriodStartDate || undefined,
+      shareWithCoach: menstrualConfigDraft.shareWithCoach
+    };
+
+    onUpdateClient({
+      ...client,
+      menstrualTracking: nextTracking
+    } as TClient);
+    setMenstrualMessage("Registro de ciclo guardado.");
+  }
+
   if (!client) {
     return (
       <AthleteEmptyState message="No hay deportista seleccionado." />
     );
   }
 
+  const menstrualPhase = estimateMenstrualPhase({
+    averageBleedingDays: menstrualConfigDraft.averageBleedingDays,
+    averageCycleLength: menstrualConfigDraft.averageCycleLength,
+    date: todayKey,
+    lastPeriodStartDate: menstrualConfigDraft.lastPeriodStartDate
+  });
+  const menstrualSymptoms = getMenstrualSymptomSummary({
+    date: todayKey,
+    id: "draft",
+    symptoms: menstrualEntryDraft.symptoms
+  });
+  const menstrualTrackingBlock = client.sex === "female" ? (
+    <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-ink">Ciclo menstrual</h3>
+          <p className="mt-1 text-sm text-ink/60">
+            Registro opcional para adaptar la planificación según ciclo, síntomas y recuperación. No sustituye asesoramiento médico.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <label className="flex w-fit items-center gap-2 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/70">
+            <input
+              checked={menstrualConfigDraft.enabled}
+              onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, enabled: event.target.checked }))}
+              type="checkbox"
+            />
+            Activar seguimiento
+          </label>
+          {menstrualConfigDraft.enabled ? (
+            <button
+              className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+              onClick={() => setShowMenstrualDetails((current) => !current)}
+              type="button"
+            >
+              {showMenstrualDetails ? "Cerrar registro" : "Registrar / editar"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+        Esta información es sensible y opcional. Puedes dejar de compartirla con tu entrenador en cualquier momento.
+      </p>
+      {menstrualConfigDraft.enabled ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <ClientInfoCard
+            label="Fase estimada"
+            value={`${menstrualPhase.label}${menstrualPhase.cycleDay ? ` · día ${menstrualPhase.cycleDay}` : ""}`}
+          />
+          <ClientInfoCard label="Sangrado hoy" value={menstrualBleedingLabels[menstrualEntryDraft.bleeding]} />
+          <ClientInfoCard
+            label="Síntomas"
+            value={menstrualSymptoms.length > 0 ? `${menstrualSymptoms.length} registrados` : "Sin síntomas"}
+          />
+        </div>
+      ) : null}
+
+      {menstrualConfigDraft.enabled && showMenstrualDetails ? (
+        <div className="mt-4 grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Fecha de inicio de última menstruación
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, lastPeriodStartDate: event.target.value }))}
+                type="date"
+                value={menstrualConfigDraft.lastPeriodStartDate}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Duración media del ciclo
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                inputMode="numeric"
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, averageCycleLength: event.target.value }))}
+                placeholder="28"
+                type="text"
+                value={menstrualConfigDraft.averageCycleLength}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Duración media del sangrado
+              <input
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                inputMode="numeric"
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, averageBleedingDays: event.target.value }))}
+                placeholder="5"
+                type="text"
+                value={menstrualConfigDraft.averageBleedingDays}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Regularidad del ciclo
+              <select
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, cycleRegularity: event.target.value as NonNullable<MenstrualTracking["cycleRegularity"]> }))}
+                value={menstrualConfigDraft.cycleRegularity}
+              >
+                <option value="regular">Regular</option>
+                <option value="irregular">Irregular</option>
+                <option value="unknown">No lo sé</option>
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium text-ink/75">
+              Anticonceptivos hormonales
+              <select
+                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, hormonalContraception: event.target.value as NonNullable<MenstrualTracking["hormonalContraception"]> }))}
+                value={menstrualConfigDraft.hormonalContraception}
+              >
+                <option value="yes">Sí</option>
+                <option value="no">No</option>
+                <option value="prefer_not_to_say">Prefiero no decirlo</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 rounded-md border border-line bg-panel/35 px-3 py-3 text-sm font-semibold text-ink/70">
+              <input
+                checked={menstrualConfigDraft.shareWithCoach}
+                onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, shareWithCoach: event.target.checked }))}
+                type="checkbox"
+              />
+              Compartir esta información con mi entrenador
+            </label>
+          </div>
+
+          <div className="rounded-md border border-line bg-panel/35 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-ink">Registro diario</p>
+                <p className="mt-1 text-sm text-ink/55">
+                  Fase estimada: {menstrualPhase.label}
+                  {menstrualPhase.cycleDay ? ` · día ${menstrualPhase.cycleDay}` : ""}
+                </p>
+              </div>
+              <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
+                {menstrualPhase.confidence === "estimated" ? "Orientativo" : "Sin estimación"}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Sangrado
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setMenstrualEntryDraft((current) => ({ ...current, bleeding: event.target.value as MenstrualBleedingLevel }))}
+                  value={menstrualEntryDraft.bleeding}
+                >
+                  {Object.entries(menstrualBleedingLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="rounded-md border border-line bg-white px-3 py-2">
+                <p className="text-xs font-semibold uppercase text-ink/45">Síntomas activos</p>
+                <p className="mt-1 text-sm font-semibold text-ink">
+                  {menstrualSymptoms.length > 0 ? menstrualSymptoms.map((symptom) => `${symptom.label} ${symptom.level}/3`).join(" · ") : "Sin síntomas registrados"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {menstrualSymptomFields.map((field) => (
+                <label className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink/75" key={field.key}>
+                  <span>{field.label}</span>
+                  <select
+                    className="h-9 rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink outline-none"
+                    onChange={(event) =>
+                      setMenstrualEntryDraft((current) => ({
+                        ...current,
+                        symptoms: { ...current.symptoms, [field.key]: Number(event.target.value) }
+                      }))
+                    }
+                    value={menstrualEntryDraft.symptoms[field.key] ?? 0}
+                  >
+                    <option value={0}>0</option>
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                  </select>
+                </label>
+              ))}
+            </div>
+            <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
+              Notas
+              <textarea
+                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                onChange={(event) => setMenstrualEntryDraft((current) => ({ ...current, notes: event.target.value }))}
+                placeholder="Sensaciones, molestias, recuperación, contexto..."
+                value={menstrualEntryDraft.notes}
+              />
+            </label>
+            <button
+              className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              onClick={saveMenstrualTracking}
+              type="button"
+            >
+              Guardar registro de hoy
+            </button>
+            {menstrualMessage ? <p className="mt-2 text-sm font-semibold text-moss">{menstrualMessage}</p> : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  ) : null;
+
   if (!session) {
     return (
-      <AthleteEmptyState
-        clientName={client.name}
-        message="No tienes ninguna sesión asignada para hoy."
-        onShowCalendar={onShowCalendar}
-        onShowHistory={onShowHistory}
-        onShowPlanning={onShowPlanning}
-        onShowWeeklyLoad={onShowWeeklyLoad}
-      />
+      <div className="mx-auto mt-5 max-w-3xl space-y-5">
+        <AthleteEmptyState
+          clientName={client.name}
+          message="No tienes ninguna sesión asignada para hoy."
+          onShowCalendar={onShowCalendar}
+          onShowHistory={onShowHistory}
+          onShowPlanning={onShowPlanning}
+          onShowWeeklyLoad={onShowWeeklyLoad}
+        />
+        {menstrualTrackingBlock}
+      </div>
     );
   }
 
@@ -738,6 +1047,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           </div>
         ) : null}
       </section>
+
+      {menstrualTrackingBlock}
 
       {sessionAlreadySent ? (
         <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-center shadow-soft">

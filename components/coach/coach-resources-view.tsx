@@ -375,6 +375,9 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
             <p className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
               Restaurar un backup reemplazará los datos locales actuales de la app en este navegador.
             </p>
+            <p className="mt-2 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+              El backup puede incluir datos sensibles como bienestar, molestias o ciclo menstrual.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <button
