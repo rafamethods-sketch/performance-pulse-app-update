@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   CalendarDays,
   ClipboardList,
   Dumbbell,
@@ -17,6 +18,7 @@ export type GoalType = "health" | "performance";
 export type SheetId =
   | "today"
   | "clients"
+  | "analytics"
   | "training"
   | "assessments"
   | "calendar"
@@ -53,6 +55,7 @@ type NavItem = {
 export const navItems: NavItem[] = [
   { id: "today", label: "Hoy", icon: Activity },
   { id: "clients", label: "Clientes", icon: Users },
+  { id: "analytics", label: "Analítica", icon: BarChart3 },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "training", label: "Sesiones", icon: ClipboardList },
   { id: "planning", label: "Planificación", icon: FileClock },
@@ -66,7 +69,7 @@ export const navItems: NavItem[] = [
   { id: "decision", label: "Dashboard general", icon: Activity }
 ];
 
-export const coachMainNavIds: SheetId[] = ["today", "clients", "calendar", "training", "progressions", "resources", "messages"];
+export const coachMainNavIds: SheetId[] = ["today", "clients", "analytics", "calendar", "training", "progressions", "resources", "messages"];
 export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning"];
 
 export const coachStats = [
