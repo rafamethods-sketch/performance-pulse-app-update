@@ -154,9 +154,9 @@ function MuscleFigure({
   zones: ZoneShape[];
 }) {
   return (
-    <div className="rounded-md border border-line bg-panel/55 p-3 shadow-soft">
+    <div className="min-w-0 rounded-md border border-line bg-panel/55 p-2 shadow-soft sm:p-3">
       <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">{title}</p>
-      <svg aria-label={`Mapa muscular ${title.toLowerCase()}`} className="mx-auto h-auto w-full max-w-[260px]" role="img" viewBox="0 0 220 404">
+      <svg aria-label={`Mapa muscular ${title.toLowerCase()}`} className="mx-auto h-auto w-full max-w-[220px] sm:max-w-[260px]" role="img" viewBox="0 0 220 404">
         <g opacity="0.42">
           <path className="text-ink/20" d="M80 67 C89 52 99 47 110 47 C121 47 131 52 140 67 L158 167 C160 188 153 211 140 225 L130 393 L91 393 L80 225 C67 211 60 188 62 167Z" fill="none" stroke="currentColor" strokeWidth="2" />
           <path className="text-ink/15" d="M67 83 C46 94 36 126 31 182 C29 204 33 225 43 244" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="8" />
@@ -177,9 +177,9 @@ export function BodyFatigueMap({ muscles }: BodyFatigueMapProps) {
   const musclesByKey = new Map(muscles.map((muscle) => [muscle.key, muscle]));
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(320px,1fr)_minmax(280px,0.82fr)] xl:items-start">
-      <div className="rounded-md border border-line bg-panel/35 p-4">
-        <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(320px,1fr)_minmax(280px,0.82fr)] xl:items-start">
+      <div className="min-w-0 rounded-md border border-line bg-panel/35 p-2 sm:p-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4">
           <MuscleFigure musclesByKey={musclesByKey} title="Frontal" zones={frontZones} />
           <MuscleFigure musclesByKey={musclesByKey} title="Posterior" zones={backZones} />
         </div>

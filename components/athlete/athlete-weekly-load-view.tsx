@@ -384,8 +384,8 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   }
 
   return (
-    <section className="mt-5 grid gap-5">
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+    <section className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5">
+      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Carga semanal</h2>
@@ -395,7 +395,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             {loadIndex.label}
           </span>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
           <ClientInfoCard label="sRPE semanal" value={`${totalSrpe} UA`} />
           <ClientInfoCard label="Tonelaje total" value={`${Math.round(totalTonnage).toLocaleString("es-ES")} kg`} />
           <ClientInfoCard label="Sesiones de fuerza" value={`${strengthSessions.length}`} />
@@ -417,7 +417,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
         </div>
       </article>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <h3 className="font-semibold text-ink">Sesiones de la semana</h3>
         <div className="mt-4 grid gap-3">
           {weeklySessions.map((session, index) => {
@@ -442,7 +442,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
       </article>
 
       <section className="grid gap-4">
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
           <h3 className="font-semibold text-ink">Series semanales por patrón de movimiento</h3>
           <p className="mt-1 text-sm text-ink/60">Estimación según ejercicios registrados esta semana.</p>
           {hasPatternSetData ? (
@@ -477,7 +477,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
           )}
         </article>
 
-        <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+        <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
           <h3 className="font-semibold text-ink">Mapa de fatiga muscular</h3>
           <p className="mt-1 text-sm text-ink/60">Estimación visual según ejercicios realizados, series, repeticiones, RPE e implicación muscular.</p>
           {muscleFatigue.hasData ? (
@@ -497,7 +497,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
         </article>
       </section>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Cardio / resistencia</h3>
@@ -532,7 +532,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
         )}
       </article>
 
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Distribución semanal por zonas de resistencia</h3>

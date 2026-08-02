@@ -368,14 +368,14 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
   }
 
   return (
-    <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+    <section className="mt-4 rounded-md border border-line bg-white p-3 shadow-soft sm:mt-5 sm:p-5">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-ink">Historial</h2>
         <p className="text-sm text-ink/60">Sesiones completadas y enviadas al entrenador.</p>
       </div>
 
       {sessions.length > 0 ? (
-        <div className="mt-5 grid gap-3">
+        <div className="mt-4 grid gap-3 sm:mt-5">
           {sessions.map((session, index) => {
             const sessionKey = getSessionHistoryKey(session, index);
             const isOpen = openSessionKey === sessionKey;
@@ -399,7 +399,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
 
             return (
-              <article className="rounded-md border border-line bg-panel/35 p-4" key={sessionKey}>
+              <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase text-ink/45">{displayValue(session.date, "Sin fecha")}</p>
@@ -410,13 +410,13 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     {getAthleteSessionReviewLabel(session)}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2">
                   <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
                   <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
                   <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
                 </div>
                 <button
-                  className="mt-4 rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+                  className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
                   onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
                   type="button"
                 >
@@ -424,7 +424,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                 </button>
 
                 {isOpen ? (
-                  <div className="mt-4 grid gap-3 rounded-md border border-line bg-white p-4">
+                  <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-line bg-white p-3 sm:p-4">
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <ClientInfoCard label="Sueño" value={formatPositiveWellnessValue(session.wellness, "sleep")} />
                       <ClientInfoCard label="Energía" value={formatPositiveWellnessValue(session.wellness, "energy")} />

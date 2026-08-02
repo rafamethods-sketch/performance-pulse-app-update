@@ -788,7 +788,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     symptoms: menstrualEntryDraft.symptoms
   });
   const menstrualTrackingBlock = client.sex === "female" ? (
-    <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+    <section className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-ink">Ciclo menstrual</h3>
@@ -796,8 +796,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
             Registro opcional para adaptar la planificación según ciclo, síntomas y recuperación. No sustituye asesoramiento médico.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="flex w-fit items-center gap-2 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/70">
+        <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+          <label className="flex min-h-11 w-full items-center gap-2 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/70 sm:w-fit">
             <input
               checked={menstrualConfigDraft.enabled}
               onChange={(event) => setMenstrualConfigDraft((current) => ({ ...current, enabled: event.target.checked }))}
@@ -807,7 +807,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           </label>
           {menstrualConfigDraft.enabled ? (
             <button
-              className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+              className="min-h-11 w-full rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white sm:w-auto"
               onClick={() => setShowMenstrualDetails((current) => !current)}
               type="button"
             >
@@ -816,7 +816,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           ) : null}
         </div>
       </div>
-      <p className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+      <p className="mt-3 text-xs font-medium leading-relaxed text-ink/55">
         Esta información es sensible y opcional. Puedes dejar de compartirla con tu entrenador en cualquier momento.
       </p>
       {menstrualConfigDraft.enabled ? (
@@ -966,7 +966,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
               />
             </label>
             <button
-              className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              className="mt-3 min-h-11 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white sm:w-auto"
               onClick={saveMenstrualTracking}
               type="button"
             >
@@ -1003,8 +1003,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       : "Pendiente";
 
   return (
-    <div className="mx-auto mt-5 max-w-3xl space-y-5">
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+    <div className="mx-auto mt-4 max-w-3xl space-y-4 sm:mt-5 sm:space-y-5">
+      <section className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-ink">Sesión de hoy</h2>
@@ -1014,7 +1014,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
             {sessionStatusLabel}
           </span>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3">
           <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
           <ClientInfoCard
             label="Semana y sesión"
@@ -1023,26 +1023,26 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           <ClientInfoCard label="Tipo" value={session.type} />
           <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
         </div>
-        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+        <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 sm:mt-4 sm:p-4">
           <p className="text-xs font-semibold uppercase text-ink/50">Resumen / objetivo</p>
           <p className="mt-2 text-sm font-medium text-ink">{session.summary}</p>
         </div>
         {!sessionAlreadySent ? (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <button
-              className="h-11 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-panel"
+              className="h-12 w-full rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-panel"
               onClick={() => setShowSessionPreview(true)}
               type="button"
             >
-              Visualizar
+              Ver sesión
             </button>
             <button
-              className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
+              className="h-12 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
               disabled={wellnessConfirmed}
               onClick={startSession}
               type="button"
             >
-              {wellnessConfirmed ? "Sesión iniciada" : "Comenzar"}
+              {wellnessConfirmed ? "Sesión iniciada" : "Comenzar sesión"}
             </button>
           </div>
         ) : null}
@@ -1075,11 +1075,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                   <p className="mt-1 text-sm text-ink/60">Pulsa Comenzar para confirmar tu wellness previo antes de registrar la sesión.</p>
                 </div>
                 <button
-                  className="h-10 w-fit rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90"
+                  className="h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 sm:w-auto"
                   onClick={startSession}
                   type="button"
                 >
-                  Comenzar
+                  Comenzar sesión
                 </button>
               </div>
             )}
@@ -1265,7 +1265,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                 <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                     <p className="text-sm font-semibold text-ink">Tiempo en zonas</p>
                     <p className="mt-1 text-xs text-ink/50">Introduce minutos por zona solo si los tienes. Se guardan internamente en segundos.</p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
                       {cardioZoneFields.map((zone) => (
                         <label className="space-y-1 text-xs font-semibold text-ink/60" key={zone.key}>
                           {zone.label}
@@ -1454,12 +1454,12 @@ function AthleteSessionPreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
       <section
-        className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        className="max-h-[94dvh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-xl border border-line bg-white p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:max-h-[88vh] sm:rounded-md sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1470,7 +1470,7 @@ function AthleteSessionPreviewModal({
           </div>
           <button
             aria-label="Cerrar resumen"
-            className="rounded-md border border-line bg-panel/45 px-3 py-1 text-sm font-semibold text-ink/60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-line bg-panel/45 text-base font-semibold text-ink/60"
             onClick={onClose}
             type="button"
           >
@@ -1478,7 +1478,7 @@ function AthleteSessionPreviewModal({
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
           <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
           <ClientInfoCard label="Semana y sesión" value={`${session.weekLabel || session.week || "Sin asignar"}${session.sessionNumber ? ` · Sesión ${session.sessionNumber}` : ""}`} />
           <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
@@ -1567,12 +1567,12 @@ function AthleteWellnessModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
       <section
-        className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+        className="max-h-[94dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-xl border border-line bg-white p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:max-h-[88vh] sm:rounded-md sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1582,7 +1582,7 @@ function AthleteWellnessModal({
           </div>
           <button
             aria-label="Cerrar wellness"
-            className="rounded-md border border-line bg-panel/45 px-3 py-1 text-sm font-semibold text-ink/60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-line bg-panel/45 text-base font-semibold text-ink/60"
             onClick={onClose}
             type="button"
           >
@@ -1595,13 +1595,13 @@ function AthleteWellnessModal({
         </div>
         <div className="mt-4 grid gap-3">
           {athleteWellnessFields.map((field) => (
-            <div className="rounded-md border border-line bg-panel/35 p-3" key={field.key}>
+            <div className="rounded-md border border-line bg-panel/35 p-2.5 sm:p-3" key={field.key}>
               <p className="text-sm font-medium text-ink">{field.label}</p>
               <div className="mt-2 grid grid-cols-5 gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
                     aria-pressed={getPositiveWellnessValue(wellness, field.key) === value}
-                    className={`h-10 rounded-md border text-sm font-semibold ${getPositiveWellnessValue(wellness, field.key) === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
+                    className={`h-12 rounded-md border text-base font-semibold ${getPositiveWellnessValue(wellness, field.key) === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
                     key={`${field.key}-${value}`}
                     onClick={() => setWellness((current) => ({ ...current, [field.key]: value }))}
                     type="button"
@@ -1616,7 +1616,7 @@ function AthleteWellnessModal({
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-ink/65">Readiness del día: {readinessScore ?? "Pendiente"} / 5</p>
           <button
-            className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+            className="h-12 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
             disabled={!wellnessComplete}
             onClick={onConfirm}
             type="button"
@@ -1645,35 +1645,35 @@ function AthleteEmptyState({
   onShowWeeklyLoad?: () => void;
 }) {
   return (
-    <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
+    <div className="mt-5 rounded-md border border-dashed border-line bg-white p-5 text-center shadow-soft sm:p-8">
       <h2 className="text-lg font-semibold text-ink">Sesión de hoy</h2>
       {clientName ? <p className="mt-1 text-sm font-medium text-ink/70">{clientName}</p> : null}
       <p className="mt-3 text-sm text-ink/60">{message}</p>
       {onShowCalendar && onShowHistory && onShowPlanning && onShowWeeklyLoad ? (
         <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
           <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            className="min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
             onClick={onShowCalendar}
             type="button"
           >
             Ver calendario
           </button>
           <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            className="min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
             onClick={onShowWeeklyLoad}
             type="button"
           >
             Ver carga semanal
           </button>
           <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+            className="min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
             onClick={onShowHistory}
             type="button"
           >
             Ver historial
           </button>
           <button
-            className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/90"
+            className="min-h-11 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/90 sm:w-auto"
             onClick={onShowPlanning}
             type="button"
           >
@@ -1855,7 +1855,7 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
   }
 
   return (
-    <article className="rounded-md border border-line bg-panel/35 p-4">
+    <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4">
       <p className="font-semibold text-ink">{exerciseName}</p>
       <p className="mt-1 text-xs text-ink/55">Bloque: {exercise.block || exercise.section || "Principal"}</p>
       {materialVariant ? (
@@ -1873,7 +1873,7 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-ink">Series registradas</p>
           <button
-            className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-panel"
+            className="min-h-11 w-full rounded-md border border-line bg-panel/60 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-fit"
             onClick={addSetDetail}
             type="button"
           >
@@ -1883,7 +1883,7 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
         {setDetails.length > 0 ? (
           <div className="mt-3 grid gap-2">
             {setDetails.map((detail, setIndex) => (
-              <div className="rounded-md border border-line bg-panel/35 p-2" key={detail.setNumber}>
+              <div className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={detail.setNumber}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-ink/65">Serie {detail.setNumber}</p>
                   <button
@@ -1895,7 +1895,7 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
                     Eliminar
                   </button>
                 </div>
-                <div className={`grid gap-2 ${intensityField ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+                <div className={`grid min-w-0 grid-cols-2 gap-2 ${intensityField ? "sm:grid-cols-3" : ""}`}>
                   <AthleteExerciseInput
                     dataField={`${exerciseKey}-${setIndex}-reps`}
                     inputMode="numeric"
@@ -1914,6 +1914,7 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
                   />
                   {intensityField ? (
                     <AthleteExerciseInput
+                      className="col-span-2 sm:col-span-1"
                       dataField={`${exerciseKey}-${setIndex}-intensity`}
                       inputMode="decimal"
                       label={intensityMethod === "velocity" ? "Velocidad m/s" : intensityLabel}
@@ -1944,7 +1945,8 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
   );
 }
 
-function AthleteExerciseInput({ dataField, inputMode = "decimal", label, onChange, onKeyDown, value }: {
+function AthleteExerciseInput({ className = "", dataField, inputMode = "decimal", label, onChange, onKeyDown, value }: {
+  className?: string;
   dataField?: string;
   inputMode?: "decimal" | "numeric";
   label: string;
@@ -1953,10 +1955,10 @@ function AthleteExerciseInput({ dataField, inputMode = "decimal", label, onChang
   value?: number | string | null;
 }) {
   return (
-    <label className="space-y-1 text-xs font-medium text-ink/65">
+    <label className={`min-w-0 space-y-1 text-xs font-medium text-ink/65 ${className}`}>
       {label}
       <input
-        className="h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
+        className="h-12 min-w-0 w-full rounded-md border border-line bg-white px-3 text-base text-ink outline-none focus:border-moss"
         data-athlete-set-field={dataField}
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
