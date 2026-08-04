@@ -99,6 +99,8 @@ type AthleteSessionDiscomfort = {
 
 type AthleteSessionRecord = {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: "up" | "down" | null;
+  athleteQuickFeedbackNote?: string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
   cardioResult?: ResistanceCardioResult;
@@ -492,6 +494,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     main: false
   });
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
+  const [athleteQuickFeedback, setAthleteQuickFeedback] = useState<"up" | "down" | null>(null);
+  const [athleteQuickFeedbackNote, setAthleteQuickFeedbackNote] = useState("");
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
   const [discomfortAnswer, setDiscomfortAnswer] = useState<"" | "no" | "yes">("");
@@ -581,6 +585,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       main: false
     });
     setActualDurationMinutes(0);
+    setAthleteQuickFeedback(null);
+    setAthleteQuickFeedbackNote("");
     setFinalRpe(0);
     setAthleteSessionNotes("");
     setDiscomfortAnswer("");
@@ -722,6 +728,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     const updatedSession: AthleteSessionRecord = {
       ...session,
       actualDurationMinutes,
+      athleteQuickFeedback,
+      athleteQuickFeedbackNote: athleteQuickFeedbackNote.trim() || undefined,
       cardioResult: isResistanceSession
         ? buildCardioResultFromDraft({
             ...cardioResultDraft,
@@ -1408,6 +1416,42 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       </label>
                     </div>
                   ) : null}
+                </div>
+                <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+                  <p className="text-sm font-semibold text-ink">¿Cómo te ha sentado la sesión?</p>
+                  <p className="mt-1 text-xs text-ink/50">
+                    Opcional. Esto ayuda a tu entrenador a ajustar la planificación.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {([
+                      ["up", "👍 Bien"],
+                      ["down", "👎 Mal"]
+                    ] as const).map(([value, label]) => (
+                      <button
+                        aria-pressed={athleteQuickFeedback === value}
+                        className={`rounded-md border px-4 py-2 text-sm font-semibold ${
+                          athleteQuickFeedback === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"
+                        }`}
+                        onClick={() => setAthleteQuickFeedback((current) => current === value ? null : value)}
+                        type="button"
+                        key={value}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
+                    Comentario breve
+                    <textarea
+                      className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => setAthleteQuickFeedbackNote(event.target.value)}
+                      placeholder="Opcional: qué fue bien o qué no sentó tan bien."
+                      value={athleteQuickFeedbackNote}
+                    />
+                  </label>
+                  <p className="mt-2 text-xs text-ink/45">
+                    Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
+                  </p>
                 </div>
                 <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
                   Notas generales

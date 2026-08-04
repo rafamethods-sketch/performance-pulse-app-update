@@ -71,6 +71,8 @@ type ReviewSessionExercise = {
 
 type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: "up" | "down" | null;
+  athleteQuickFeedbackNote?: string | null;
   cardioPlan?: CardioPlan;
   cardioResult?: ResistanceCardioResult;
   completed?: boolean;
@@ -362,6 +364,12 @@ function getHistoryBadgeClass(label: string) {
   return "bg-blue-50 text-blue-700";
 }
 
+function getAthleteQuickFeedbackLabel(value?: "up" | "down" | null) {
+  if (value === "up") return "👍 Sesión valorada positivamente";
+  if (value === "down") return "👎 Sesión valorada negativamente";
+  return "";
+}
+
 function AthleteEmptyState({ clientName, message }: { clientName?: string; message: string }) {
   return (
     <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
@@ -416,6 +424,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             }));
             const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
             const sentTechniqueVideos = performedExercises.filter((exercise) => hasDisplayValue(exercise.techniqueVideoUrl));
+            const quickFeedbackLabel = getAthleteQuickFeedbackLabel(session.athleteQuickFeedback);
 
             return (
               <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={sessionKey}>
@@ -439,6 +448,11 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     Vídeo de técnica enviado
                   </p>
                 ) : null}
+                {quickFeedbackLabel ? (
+                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+                    {quickFeedbackLabel}
+                  </p>
+                ) : null}
                 <button
                   className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
                   onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
@@ -460,6 +474,13 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       <p className="font-semibold text-ink">Notas del deportista</p>
                       <p className="mt-1">{notes || "Sin notas registradas"}</p>
                     </div>
+                    {quickFeedbackLabel ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <p className="font-semibold text-ink">Feedback rápido</p>
+                        <p className="mt-1">{quickFeedbackLabel}</p>
+                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                      </div>
+                    ) : null}
                     {resistanceMethod ? (
                       <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
                         <p className="font-semibold text-ink">Método de resistencia</p>

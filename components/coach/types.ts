@@ -19,6 +19,7 @@ export type CoachSessionRecordForViews = {
   srpe?: number | string | null;
   status?: string | null;
   summary: string;
+  time?: string | null;
   type: string;
 };
 

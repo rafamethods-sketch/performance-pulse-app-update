@@ -323,6 +323,88 @@ export default function ClientsPage() {
     openClientSheet(clientId, "training");
   }
 
+  function getPlannedSessionCopy(session: ClientSessionRecord) {
+    const legacyExercises = (session as ClientSessionRecord & { exercises?: ConnectedSessionExercise[] }).exercises ?? [];
+    const sourceExercises = (session.plannedExercises?.length ? session.plannedExercises : legacyExercises) ?? [];
+
+    return sourceExercises.map((exercise) => ({
+      ...exercise,
+      actualRest: undefined,
+      athleteNotes: undefined,
+      exerciseRpe: undefined,
+      performedRpe: undefined,
+      setDetails: undefined,
+      techniqueReview: undefined,
+      techniqueVideoNote: undefined,
+      techniqueVideoUrl: undefined,
+      techniqueVideoView: undefined
+    }));
+  }
+
+  function duplicateCalendarSession(clientId: string, sessionIndex: number, newDate: string, newTime?: string) {
+    setClients((currentClients) =>
+      currentClients.map((listedClient) => {
+        if (listedClient.id !== clientId) return listedClient;
+        const sourceSession = listedClient.sessionRecords?.[sessionIndex];
+        if (!sourceSession) return listedClient;
+        const duplicatedSession: ClientSessionRecord = {
+          ...sourceSession,
+          actualDurationMinutes: undefined,
+          athleteQuickFeedback: null,
+          athleteQuickFeedbackNote: undefined,
+          cardioResult: undefined,
+          completed: false,
+          date: newDate,
+          discomfort: undefined,
+          duration: undefined,
+          finalNotes: undefined,
+          finalRpe: undefined,
+          id: `session-${Date.now()}`,
+          linkedCardioActivityId: undefined,
+          notes: undefined,
+          performedExercises: [],
+          plannedExercises: getPlannedSessionCopy(sourceSession),
+          reviewedAt: undefined,
+          reviewNotes: undefined,
+          reviewStatus: undefined,
+          rpe: undefined,
+          sRPE: undefined,
+          srpe: undefined,
+          status: "Planificada",
+          time: newTime || sourceSession.time || undefined,
+          wellness: undefined,
+          wellnessConfirmedAt: undefined
+        };
+
+        return {
+          ...listedClient,
+          sessionRecords: [duplicatedSession, ...(listedClient.sessionRecords ?? [])]
+        };
+      })
+    );
+  }
+
+  function moveCalendarSession(clientId: string, sessionIndex: number, newDate: string, newTime?: string) {
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              sessionRecords: (listedClient.sessionRecords ?? []).map((session, index) =>
+                index === sessionIndex
+                  ? {
+                      ...session,
+                      date: newDate,
+                      time: newTime || session.time || undefined
+                    }
+                  : session
+              )
+            }
+          : listedClient
+      )
+    );
+  }
+
   return (
     <main className="theme-shell min-h-screen lg:flex" data-theme={themePreference}>
       <Sidebar
@@ -516,6 +598,8 @@ export default function ClientsPage() {
               <CalendarView
                 client={null}
                 clients={clients}
+                onDuplicateSession={duplicateCalendarSession}
+                onMoveSession={moveCalendarSession}
                 onOpenTrainingSession={openTrainingSession}
               />
             ) : (
@@ -710,6 +794,8 @@ type ConnectedSessionExercise = SessionExerciseInput & {
 };
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: "up" | "down" | null;
+  athleteQuickFeedbackNote?: string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
   cardioResult?: ResistanceCardioResult;
@@ -730,12 +816,14 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
   sessionNumber?: number | string | null;
+  srpe?: number | string | null;
   sRPE?: number | string | null;
   status?: string | null;
   strengthMethod?: StrengthIntensityMethod;
   summary: string;
   targetResistanceZoneId?: ResistanceZone["id"];
   targetRpe?: number | string | null;
+  time?: string | null;
   type: string;
   week?: number | string | null;
   weekLabel?: string | null;
@@ -9335,6 +9423,8 @@ type SessionReviewStatus = "pending" | "reviewed";
 
 type ReviewSessionRecord = ClientSessionRecord & {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: "up" | "down" | null;
+  athleteQuickFeedbackNote?: string | null;
   block?: string | null;
   cardioPlan?: CardioPlan;
   cardioResult?: ResistanceCardioResult;
@@ -9360,6 +9450,12 @@ type ReviewSessionRecord = ClientSessionRecord & {
 
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && `${value}`.trim() !== "";
+}
+
+function getAthleteQuickFeedbackLabel(value?: "up" | "down" | null) {
+  if (value === "up") return "👍 Feedback positivo";
+  if (value === "down") return "👎 Feedback negativo";
+  return "";
 }
 
 function getBandSummaryLabel(entry?: { bandColor?: string | null; bandResistance?: string | null }) {
@@ -9896,6 +9992,7 @@ function SessionHistoryPanel({
             const cardioDeviation = session.cardioPlan || session.cardioResult
               ? analyzeCardioDeviation(session.cardioPlan, session.cardioResult)
               : null;
+            const athleteQuickFeedbackLabel = getAthleteQuickFeedbackLabel(session.athleteQuickFeedback);
             const hasResistanceData = hasResistancePerformedData(session);
             const resistanceDuration = session.cardioResult?.durationMinutes ?? session.actualDurationMinutes;
             const suggestedReviewNotes = [
@@ -9997,6 +10094,12 @@ function SessionHistoryPanel({
                 {resistanceMethod ? (
                   <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
                     <span className="font-semibold text-ink">Método de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
+                  </p>
+                ) : null}
+
+                {athleteQuickFeedbackLabel ? (
+                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+                    {athleteQuickFeedbackLabel}
                   </p>
                 ) : null}
 
@@ -10117,6 +10220,17 @@ function SessionHistoryPanel({
                         {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
                         {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
                       </div>
+                    ) : null}
+
+                    {athleteQuickFeedbackLabel ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <h5 className="font-semibold text-ink">Feedback rápido del deportista</h5>
+                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
+                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                        <p className="mt-2 text-xs text-ink/45">
+                          Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
+                        </p>
+                      </section>
                     ) : null}
 
                     {hasResistanceData ? (

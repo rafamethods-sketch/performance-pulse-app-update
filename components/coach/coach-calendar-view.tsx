@@ -59,9 +59,12 @@ type WeeklyCalendarSession = {
   sessionNumber?: string;
   status: "Planificada" | "Completada" | "Pendiente" | "Pendiente de revisar";
   summary: string;
+  time?: string | null;
   type: string;
   week?: string;
 };
+
+type CalendarSessionAction = "duplicate" | "move";
 
 function addCalendarDays(date: Date, days: number) {
   const nextDate = new Date(date);
@@ -193,6 +196,7 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
         sessionIndex,
         status: getWeeklySessionStatus(session),
         summary: session.summary,
+        time: session.time,
         type: session.type,
         week: listedClient.planning.currentWeek
       } satisfies WeeklyCalendarSession];
@@ -228,12 +232,17 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
 type CalendarViewProps = {
   client?: CoachClientForViews | null;
   clients: CoachClientForViews[];
+  onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, onDuplicateSession, onMoveSession, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
+  const [sessionAction, setSessionAction] = useState<CalendarSessionAction | null>(null);
+  const [actionDate, setActionDate] = useState("");
+  const [actionTime, setActionTime] = useState("");
   const baseWeekStart = getWeekStartDate(new Date());
   const selectedWeekStart = addCalendarDays(baseWeekStart, weekOffset * 7);
   const weekDates = Array.from({ length: 7 }, (_, index) => addCalendarDays(selectedWeekStart, index));
@@ -274,6 +283,42 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
     }
 
     onOpenTrainingSession(session.clientId, { clientId: session.clientId });
+  }
+
+  function openSessionAction(action: CalendarSessionAction, session: WeeklyCalendarSession) {
+    setSelectedSession(session);
+    setSessionAction(action);
+    setActionDate(getDateKey(session.date));
+    setActionTime(session.time ?? "");
+  }
+
+  function closeSessionAction() {
+    setSessionAction(null);
+    setActionDate("");
+    setActionTime("");
+  }
+
+  function submitSessionAction() {
+    if (!selectedSession || selectedSession.sessionIndex === undefined || !actionDate) return;
+
+    if (sessionAction === "duplicate") {
+      onDuplicateSession(selectedSession.clientId, selectedSession.sessionIndex, actionDate, actionTime);
+      closeSessionAction();
+      return;
+    }
+
+    if (sessionAction === "move") {
+      const isCompleted = selectedSession.status === "Completada" || selectedSession.status === "Pendiente de revisar";
+      if (isCompleted && !window.confirm("Esta sesión ya está completada. ¿Seguro que quieres moverla?")) return;
+      onMoveSession(selectedSession.clientId, selectedSession.sessionIndex, actionDate, actionTime);
+      setSelectedSession({
+        ...selectedSession,
+        date: parseDateValue(actionDate) ?? selectedSession.date,
+        sessionDate: actionDate,
+        time: actionTime || undefined
+      });
+      closeSessionAction();
+    }
   }
 
   return (
@@ -395,6 +440,16 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
               <button className={primaryButtonClass} onClick={() => openCalendarSession(selectedSession)} type="button">
                 Ver sesión
               </button>
+              {selectedSession.sessionIndex !== undefined ? (
+                <>
+                  <button className={secondaryButtonClass} onClick={() => openSessionAction("duplicate", selectedSession)} type="button">
+                    Duplicar sesión
+                  </button>
+                  <button className={secondaryButtonClass} onClick={() => openSessionAction("move", selectedSession)} type="button">
+                    Mover sesión
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -404,6 +459,74 @@ export function CalendarView({ client, clients, onOpenTrainingSession }: Calenda
             <ClientInfoCard label="RPE objetivo" value={selectedSession.rpeTarget ?? "Sin especificar"} />
           </div>
         </section>
+      ) : null}
+
+      {sessionAction && selectedSession ? (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm"
+          onClick={closeSessionAction}
+          role="dialog"
+        >
+          <section
+            className="w-full max-w-lg rounded-md border border-line bg-white p-5 shadow-soft"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-moss">
+                  {sessionAction === "duplicate" ? "Duplicar sesión" : "Mover sesión"}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-ink">{selectedSession.summary}</h3>
+                <p className="mt-1 text-sm text-ink/55">{selectedSession.clientName}</p>
+              </div>
+              <button
+                aria-label="Cerrar"
+                className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink"
+                onClick={closeSessionAction}
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <ClientInfoCard label="Fecha actual" value={formatDateShort(getDateKey(selectedSession.date))} />
+              <label className="space-y-2 text-sm font-semibold text-ink/70">
+                Nueva fecha
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setActionDate(event.target.value)}
+                  type="date"
+                  value={actionDate}
+                />
+              </label>
+              {selectedSession.time || actionTime ? (
+                <label className="space-y-2 text-sm font-semibold text-ink/70">
+                  Nueva hora
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setActionTime(event.target.value)}
+                    type="time"
+                    value={actionTime}
+                  />
+                </label>
+              ) : null}
+            </div>
+            {sessionAction === "duplicate" ? (
+              <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/60">
+                Se duplicará solo la planificación. No se copiarán registros realizados, vídeos enviados ni revisiones.
+              </p>
+            ) : null}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button className={secondaryButtonClass} onClick={closeSessionAction} type="button">
+                Cancelar
+              </button>
+              <button className={primaryButtonClass} disabled={!actionDate} onClick={submitSessionAction} type="button">
+                {sessionAction === "duplicate" ? "Duplicar" : "Mover"}
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </section>
   );
