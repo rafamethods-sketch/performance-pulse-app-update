@@ -497,7 +497,18 @@ export default function ClientsPage() {
               }
             />
           ) : activeSheet === "clientProgress" ? (
-            role === "coach" ? <ClientProgressView client={scopedClient} /> : <DecisionDashboardView />
+            role === "coach" ? (
+              <ClientProgressView
+                client={scopedClient}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
+              />
+            ) : <DecisionDashboardView />
           ) : activeSheet === "clientWellness" ? (
             role === "coach" ? <ClientWellnessView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "calendar" ? (
@@ -3938,7 +3949,74 @@ function ClientDetailsView({
   );
 }
 
-function ClientProgressView({ client }: { client?: CoachClient | null }) {
+type TechniqueVideoHistoryItem = {
+  exerciseId?: string | null;
+  exerciseIndex: number;
+  exerciseName: string;
+  finalRpe?: number | string | null;
+  id: string;
+  review: TechniqueReview;
+  sessionDate: string;
+  sessionId?: string;
+  sessionIndex: number;
+  sessionType?: string | null;
+  srpe?: number | string | null;
+  techniqueVideoNote?: string | null;
+  techniqueVideoUrl: string;
+  techniqueVideoView?: TechniqueVideoView | null;
+};
+
+function getTechniqueVideoHistoryItems(client?: CoachClient | null): TechniqueVideoHistoryItem[] {
+  const items: TechniqueVideoHistoryItem[] = [];
+
+  (client?.sessionRecords ?? []).forEach((session, sessionIndex) => {
+    (session.performedExercises ?? []).forEach((exercise, exerciseIndex) => {
+        const techniqueVideoUrl = `${exercise.techniqueVideoUrl ?? ""}`.trim();
+        if (!techniqueVideoUrl) return;
+        const exerciseName =
+          exercise.exerciseName ||
+          (exercise as ConnectedSessionExercise & { name?: string | null }).name ||
+          getExerciseById(exercise.exerciseId || "")?.name ||
+          "Ejercicio sin especificar";
+        const legacySessionSrpe = (session as ClientSessionRecord & { srpe?: number | string | null }).srpe;
+
+        items.push({
+          exerciseId: exercise.exerciseId,
+          exerciseIndex,
+          exerciseName,
+          finalRpe: session.finalRpe,
+          id: `${session.id ?? session.date}-${sessionIndex}-${exercise.id ?? exerciseIndex}`,
+          review: exercise.techniqueReview ?? { compensationTags: [], markedAsReference: false, status: "not_reviewed" },
+          sessionDate: session.date,
+          sessionId: session.id,
+          sessionIndex,
+          sessionType: session.type,
+          srpe: session.sRPE ?? legacySessionSrpe,
+          techniqueVideoNote: exercise.techniqueVideoNote,
+          techniqueVideoUrl,
+          techniqueVideoView: exercise.techniqueVideoView
+        });
+      });
+  });
+
+  return items.sort((a, b) => (parseAccessDate(b.sessionDate)?.getTime() ?? 0) - (parseAccessDate(a.sessionDate)?.getTime() ?? 0));
+}
+
+function getTechniqueVideoStatusLabel(status?: TechniqueReviewStatus) {
+  return techniqueReviewStatusLabels[status ?? "not_reviewed"];
+}
+
+function getTechniqueVideoDownloadLabel(url: string) {
+  return isDirectVideoFileUrl(url) ? "Descargar vídeo" : "Abrir / descargar";
+}
+
+function ClientProgressView({
+  client,
+  onUpdateClient
+}: {
+  client?: CoachClient | null;
+  onUpdateClient: (updatedClient: CoachClient) => void;
+}) {
   const assessments = client?.assessments ?? [];
   const performanceTestEntries = getSortedPerformanceTests(client);
   const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
@@ -3948,6 +4026,7 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
   const completedSessions = (client?.sessionRecords ?? []).filter((session) => session.completed || session.status === "Completada");
   const plannedSessions = client?.sessionRecords?.length ?? 0;
   const adherence = plannedSessions > 0 ? Math.round((completedSessions.length / plannedSessions) * 100) : null;
+  const techniqueVideos = getTechniqueVideoHistoryItems(client);
 
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
 
@@ -3970,6 +4049,12 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
 
       <PerformanceTestsProgressSection entries={performanceTestEntries} />
 
+      <TechniqueVideoHistorySection
+        client={client}
+        onUpdateClient={onUpdateClient}
+        videos={techniqueVideos}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <ClientProgressCard description="Marcas máximas y pruebas de fuerza disponibles." title="Fuerza" items={strengthTests} />
         <ClientProgressCard description="Tests de resistencia y evolución aeróbica registrada." title="Resistencia" items={enduranceTests} />
@@ -3977,6 +4062,318 @@ function ClientProgressView({ client }: { client?: CoachClient | null }) {
         <ClientProgressCard description="Otros tests registrados sin categoría específica." title="Otros tests" items={otherTests} />
       </div>
     </div>
+  );
+}
+
+function TechniqueVideoHistorySection({
+  client,
+  onUpdateClient,
+  videos
+}: {
+  client: CoachClient;
+  onUpdateClient: (updatedClient: CoachClient) => void;
+  videos: TechniqueVideoHistoryItem[];
+}) {
+  const [exerciseFilter, setExerciseFilter] = useState("all");
+  const [referenceFilter, setReferenceFilter] = useState<"all" | "references">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | TechniqueReviewStatus>("all");
+  const [viewFilter, setViewFilter] = useState<"all" | TechniqueVideoView>("all");
+  const [compareVideoAId, setCompareVideoAId] = useState("");
+  const [compareVideoBId, setCompareVideoBId] = useState("");
+  const exerciseOptions = Array.from(new Set(videos.map((video) => video.exerciseName))).sort((a, b) => a.localeCompare(b, "es"));
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredVideos = videos.filter((video) => {
+    const tags = video.review.compensationTags ?? [];
+    const searchable = [video.exerciseName, video.techniqueVideoNote, video.review.coachFeedback, ...tags]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesExercise = exerciseFilter === "all" || video.exerciseName === exerciseFilter;
+    const matchesView = viewFilter === "all" || video.techniqueVideoView === viewFilter;
+    const matchesStatus = statusFilter === "all" || (video.review.status ?? "not_reviewed") === statusFilter;
+    const matchesReference = referenceFilter === "all" || video.review.markedAsReference === true;
+    const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
+    return matchesExercise && matchesView && matchesStatus && matchesReference && matchesSearch;
+  });
+  const referenceCount = videos.filter((video) => video.review.markedAsReference).length;
+  const pendingCount = videos.filter((video) => (video.review.status ?? "not_reviewed") === "not_reviewed").length;
+  const relevantCompensationCount = videos.filter((video) =>
+    video.review.status === "moderate_compensation" || video.review.status === "high_compensation"
+  ).length;
+  const compareVideoA = filteredVideos.find((video) => video.id === compareVideoAId) ?? null;
+  const compareVideoB = filteredVideos.find((video) => video.id === compareVideoBId) ?? null;
+
+  function toggleReference(video: TechniqueVideoHistoryItem) {
+    onUpdateClient({
+      ...client,
+      sessionRecords: (client.sessionRecords ?? []).map((session, sessionIndex) => {
+        if (sessionIndex !== video.sessionIndex) return session;
+        return {
+          ...session,
+          performedExercises: (session.performedExercises ?? []).map((exercise, exerciseIndex) => {
+            if (exerciseIndex !== video.exerciseIndex) return exercise;
+            return {
+              ...exercise,
+              techniqueReview: {
+                ...(exercise.techniqueReview ?? {}),
+                compensationTags: exercise.techniqueReview?.compensationTags ?? [],
+                markedAsReference: !video.review.markedAsReference,
+                status: exercise.techniqueReview?.status ?? "not_reviewed"
+              }
+            };
+          })
+        };
+      })
+    });
+  }
+
+  function renderVideoActions(video: TechniqueVideoHistoryItem) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <a
+          className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink"
+          href={video.techniqueVideoUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Abrir vídeo
+        </a>
+        <a
+          className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+          download
+          href={video.techniqueVideoUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {getTechniqueVideoDownloadLabel(video.techniqueVideoUrl)}
+        </a>
+      </div>
+    );
+  }
+
+  function renderComparisonCard(video: TechniqueVideoHistoryItem | null, label: string) {
+    if (!video) {
+      return (
+        <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-semibold text-ink/45">
+          Selecciona {label}.
+        </div>
+      );
+    }
+    const tags = video.review.compensationTags ?? [];
+    return (
+      <article className="rounded-md border border-line bg-white p-4">
+        <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+        <h4 className="mt-1 font-semibold text-ink">{video.exerciseName}</h4>
+        <p className="mt-1 text-sm text-ink/60">
+          {formatDisplayDate(video.sessionDate)} · {techniqueVideoViewLabels[video.techniqueVideoView ?? "other"]} · {getTechniqueVideoStatusLabel(video.review.status)}
+        </p>
+        {tags.length > 0 ? (
+          <p className="mt-2 text-xs font-semibold text-ink/55">{tags.join(" · ")}</p>
+        ) : null}
+        {video.review.coachFeedback ? (
+          <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{video.review.coachFeedback}</p>
+        ) : null}
+        <div className="mt-3">{renderVideoActions(video)}</div>
+      </article>
+    );
+  }
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Técnica y vídeos</h3>
+          <p className="mt-1 text-sm text-ink/55">
+            Historial de enlaces de vídeo enviados por el deportista para revisión técnica.
+          </p>
+        </div>
+        <p className="max-w-xl text-xs font-medium text-ink/45">
+          Estos vídeos son enlaces compartidos por el deportista para revisión técnica. Descarga o guarda vídeos solo si tienes permiso del deportista.
+        </p>
+      </div>
+
+      {videos.length === 0 ? (
+        <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+          Aún no hay vídeos técnicos enviados por este deportista.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <ClientInfoCard label="Vídeos enviados" value={`${videos.length}`} />
+            <ClientInfoCard label="Marcados como referencia" value={`${referenceCount}`} />
+            <ClientInfoCard label="Pendientes de revisar" value={`${pendingCount}`} />
+            <ClientInfoCard label="Compensaciones moderadas/altas" value={`${relevantCompensationCount}`} />
+          </div>
+
+          <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Ejercicio
+              <select
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setExerciseFilter(event.target.value)}
+                value={exerciseFilter}
+              >
+                <option value="all">Todos</option>
+                {exerciseOptions.map((exerciseName) => (
+                  <option key={exerciseName} value={exerciseName}>{exerciseName}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Vista
+              <select
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setViewFilter(event.target.value as "all" | TechniqueVideoView)}
+                value={viewFilter}
+              >
+                <option value="all">Todas</option>
+                {Object.entries(techniqueVideoViewLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Estado
+              <select
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setStatusFilter(event.target.value as "all" | TechniqueReviewStatus)}
+                value={statusFilter}
+              >
+                <option value="all">Todos</option>
+                {Object.entries(techniqueReviewStatusLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Referencia
+              <select
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setReferenceFilter(event.target.value as "all" | "references")}
+                value={referenceFilter}
+              >
+                <option value="all">Todos</option>
+                <option value="references">Solo referencias</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Buscar
+              <input
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Ejercicio o etiqueta"
+                type="search"
+                value={searchTerm}
+              />
+            </label>
+          </div>
+
+          <section className="rounded-md border border-line bg-panel/35 p-4">
+            <h4 className="font-semibold text-ink">Comparar técnica</h4>
+            <p className="mt-1 text-sm text-ink/55">
+              Comparación manual: usa los vídeos para explicar técnica, compensaciones y evolución.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-xs font-semibold text-ink/55">
+                Vídeo A
+                <select
+                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                  onChange={(event) => setCompareVideoAId(event.target.value)}
+                  value={compareVideoAId}
+                >
+                  <option value="">Seleccionar</option>
+                  {filteredVideos.map((video) => (
+                    <option key={`a-${video.id}`} value={video.id}>
+                      {formatDisplayDate(video.sessionDate)} · {video.exerciseName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs font-semibold text-ink/55">
+                Vídeo B
+                <select
+                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                  onChange={(event) => setCompareVideoBId(event.target.value)}
+                  value={compareVideoBId}
+                >
+                  <option value="">Seleccionar</option>
+                  {filteredVideos.map((video) => (
+                    <option key={`b-${video.id}`} value={video.id}>
+                      {formatDisplayDate(video.sessionDate)} · {video.exerciseName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {compareVideoA && compareVideoB && compareVideoA.exerciseName !== compareVideoB.exerciseName ? (
+              <p className="mt-3 rounded-md border border-line bg-wheat px-3 py-2 text-sm font-semibold text-ink/70">
+                Para comparar técnica, lo ideal es seleccionar vídeos del mismo ejercicio.
+              </p>
+            ) : null}
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              {renderComparisonCard(compareVideoA, "Vídeo A")}
+              {renderComparisonCard(compareVideoB, "Vídeo B")}
+            </div>
+          </section>
+
+          <div className="grid gap-3">
+            {filteredVideos.length > 0 ? filteredVideos.map((video) => {
+              const tags = video.review.compensationTags ?? [];
+              return (
+                <article className="rounded-md border border-line bg-panel/35 p-4" key={video.id}>
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-ink/45">{formatDisplayDate(video.sessionDate)}</p>
+                      <h4 className="mt-1 font-semibold text-ink">{video.exerciseName}</h4>
+                      <p className="mt-1 text-sm text-ink/60">
+                        {techniqueVideoViewLabels[video.techniqueVideoView ?? "other"]} · {getTechniqueVideoStatusLabel(video.review.status)}
+                        {video.review.markedAsReference ? " · Referencia" : ""}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-ink/45">
+                        {[video.sessionType, video.srpe ? `sRPE ${video.srpe} UA` : "", video.finalRpe ? `RPE final ${video.finalRpe}` : ""].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink"
+                        onClick={() => toggleReference(video)}
+                        type="button"
+                      >
+                        {video.review.markedAsReference ? "Quitar referencia" : "Marcar referencia"}
+                      </button>
+                      {renderVideoActions(video)}
+                    </div>
+                  </div>
+                  {tags.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {tags.map((tag) => (
+                        <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={tag}>{tag}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {video.techniqueVideoNote ? (
+                    <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
+                      <span className="font-semibold text-ink">Nota del deportista:</span> {video.techniqueVideoNote}
+                    </p>
+                  ) : null}
+                  {video.review.coachFeedback ? (
+                    <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
+                      <span className="font-semibold text-ink">Feedback del entrenador:</span> {video.review.coachFeedback}
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-ink/45">La descarga depende de los permisos del enlace.</p>
+                </article>
+              );
+            }) : (
+              <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+                No hay vídeos que coincidan con los filtros.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
