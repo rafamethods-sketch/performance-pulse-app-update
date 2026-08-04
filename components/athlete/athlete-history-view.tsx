@@ -57,9 +57,19 @@ type ReviewSessionExercise = {
   }>;
   targetRir?: number | string | null;
   techniqueReview?: {
+    checklist?: Array<{
+      id: string;
+      label: string;
+      note?: string;
+      severity?: "low" | "moderate" | "high";
+      side?: "left" | "right" | "both" | "not_applicable";
+      status: "ok" | "watch" | "issue";
+    }>;
     coachFeedback?: string;
     compensationTags?: string[];
+    globalScore?: "good" | "acceptable" | "needs_work" | "high_priority";
     markedAsReference?: boolean;
+    planningDecision?: "keep_progression" | "repeat_exercise" | "regress" | "reduce_load" | "change_exercise" | "mobility_or_control_focus" | "";
     status?: "not_reviewed" | "ok" | "minor_compensation" | "moderate_compensation" | "high_compensation";
   };
   techniqueVideoNote?: string | null;
@@ -115,6 +125,22 @@ const techniqueVideoViewLabels = {
   side: "Lateral"
 } as const;
 
+const techniqueGlobalScoreLabels = {
+  acceptable: "Aceptable",
+  good: "Bien",
+  high_priority: "Prioridad alta",
+  needs_work: "Necesita trabajo"
+} as const;
+
+const athleteTechniquePlanningDecisionLabels = {
+  change_exercise: "Tu entrenador valorará cambiar el ejercicio.",
+  keep_progression: "Puedes mantener la progresión indicada por tu entrenador.",
+  mobility_or_control_focus: "Tu entrenador quiere reforzar movilidad o control.",
+  reduce_load: "Tu entrenador valorará reducir la carga.",
+  regress: "Tu entrenador valorará una versión más sencilla.",
+  repeat_exercise: "Tu entrenador quiere repetir este ejercicio."
+} as const;
+
 type AthleteHistoryClient = {
   name: string;
   sessionRecords?: ReviewSessionRecord[];
@@ -126,6 +152,12 @@ function hasDisplayValue(value: unknown) {
 
 function displayValue(value: unknown, fallback = "Sin especificar") {
   return hasDisplayValue(value) ? `${value}` : fallback;
+}
+
+function getTechniqueReviewMainItems(review?: ReviewSessionExercise["techniqueReview"]) {
+  return (review?.checklist ?? [])
+    .filter((item) => item.status === "issue" || item.status === "watch")
+    .slice(0, 3);
 }
 
 function parsePositiveNumber(value: unknown) {
@@ -607,10 +639,32 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                                 >
                                   Abrir vídeo
                                 </a>
-                                {performed.techniqueReview?.coachFeedback ? (
-                                  <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2">
-                                    <span className="font-semibold text-ink">Feedback técnico:</span> {performed.techniqueReview.coachFeedback}
-                                  </p>
+                                {(performed.techniqueReview?.coachFeedback || performed.techniqueReview?.globalScore || performed.techniqueReview?.planningDecision || getTechniqueReviewMainItems(performed.techniqueReview).length > 0) ? (
+                                  <div className="mt-3 rounded-md border border-line bg-panel/35 p-3">
+                                    <p className="font-semibold text-ink">Revisión manual del entrenador.</p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {performed.techniqueReview?.globalScore ? (
+                                        <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">
+                                          Valoración: {techniqueGlobalScoreLabels[performed.techniqueReview.globalScore]}
+                                        </span>
+                                      ) : null}
+                                      {performed.techniqueReview?.planningDecision ? (
+                                        <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">
+                                          {athleteTechniquePlanningDecisionLabels[performed.techniqueReview.planningDecision]}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    {performed.techniqueReview?.coachFeedback ? (
+                                      <p className="mt-3 text-sm text-ink/70">{performed.techniqueReview.coachFeedback}</p>
+                                    ) : null}
+                                    {getTechniqueReviewMainItems(performed.techniqueReview).length > 0 ? (
+                                      <div className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
+                                        {getTechniqueReviewMainItems(performed.techniqueReview).map((item) => (
+                                          <p key={item.id}>Punto a revisar: {item.label}</p>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 ) : null}
                               </div>
                             ) : null}

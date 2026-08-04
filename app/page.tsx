@@ -797,11 +797,35 @@ type ClientWellness = {
 };
 type TechniqueVideoView = "front" | "side" | "back" | "other";
 type TechniqueReviewStatus = "not_reviewed" | "ok" | "minor_compensation" | "moderate_compensation" | "high_compensation";
+type TechniqueAssessmentStatus = "ok" | "watch" | "issue";
+type TechniqueAssessmentSide = "left" | "right" | "both" | "not_applicable";
+type TechniqueAssessmentSeverity = "low" | "moderate" | "high";
+type TechniqueGlobalScore = "good" | "acceptable" | "needs_work" | "high_priority";
+type TechniquePlanningDecision =
+  | "keep_progression"
+  | "repeat_exercise"
+  | "regress"
+  | "reduce_load"
+  | "change_exercise"
+  | "mobility_or_control_focus"
+  | "";
+
+type TechniqueAssessmentItem = {
+  id: string;
+  label: string;
+  note?: string;
+  severity?: TechniqueAssessmentSeverity;
+  side?: TechniqueAssessmentSide;
+  status: TechniqueAssessmentStatus;
+};
 
 type TechniqueReview = {
+  checklist?: TechniqueAssessmentItem[];
   coachFeedback?: string;
   compensationTags?: string[];
+  globalScore?: TechniqueGlobalScore;
   markedAsReference?: boolean;
+  planningDecision?: TechniquePlanningDecision;
   status?: TechniqueReviewStatus;
 };
 
@@ -4084,6 +4108,7 @@ type TechniqueVideoHistoryItem = {
   exerciseId?: string | null;
   exerciseIndex: number;
   exerciseName: string;
+  exercisePattern?: string | null;
   finalRpe?: number | string | null;
   id: string;
   review: TechniqueReview;
@@ -4109,12 +4134,14 @@ function getTechniqueVideoHistoryItems(client?: CoachClient | null): TechniqueVi
           (exercise as ConnectedSessionExercise & { name?: string | null }).name ||
           getExerciseById(exercise.exerciseId || "")?.name ||
           "Ejercicio sin especificar";
+        const exercisePattern = getExerciseById(exercise.exerciseId || "")?.pattern ?? null;
         const legacySessionSrpe = (session as ClientSessionRecord & { srpe?: number | string | null }).srpe;
 
         items.push({
           exerciseId: exercise.exerciseId,
           exerciseIndex,
           exerciseName,
+          exercisePattern,
           finalRpe: session.finalRpe,
           id: `${session.id ?? session.date}-${sessionIndex}-${exercise.id ?? exerciseIndex}`,
           review: exercise.techniqueReview ?? { compensationTags: [], markedAsReference: false, status: "not_reviewed" },
@@ -4206,6 +4233,7 @@ function TechniqueVideoHistorySection({
   videos: TechniqueVideoHistoryItem[];
 }) {
   const [exerciseFilter, setExerciseFilter] = useState("all");
+  const [checklistFilter, setChecklistFilter] = useState<"all" | "issues" | "high_priority">("all");
   const [referenceFilter, setReferenceFilter] = useState<"all" | "references">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | TechniqueReviewStatus>("all");
@@ -4216,7 +4244,18 @@ function TechniqueVideoHistorySection({
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredVideos = videos.filter((video) => {
     const tags = video.review.compensationTags ?? [];
-    const searchable = [video.exerciseName, video.techniqueVideoNote, video.review.coachFeedback, ...tags]
+    const summary = getTechniqueReviewSummary(video.review);
+    const checklistLabels = (video.review.checklist ?? []).map((item) => `${item.label} ${item.note ?? ""}`);
+    const searchable = [
+      video.exerciseName,
+      video.exercisePattern,
+      video.techniqueVideoNote,
+      video.review.coachFeedback,
+      getTechniquePlanningDecisionLabel(video.review.planningDecision),
+      video.review.globalScore ? techniqueGlobalScoreLabels[video.review.globalScore] : "",
+      ...tags,
+      ...checklistLabels
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -4224,14 +4263,19 @@ function TechniqueVideoHistorySection({
     const matchesView = viewFilter === "all" || video.techniqueVideoView === viewFilter;
     const matchesStatus = statusFilter === "all" || (video.review.status ?? "not_reviewed") === statusFilter;
     const matchesReference = referenceFilter === "all" || video.review.markedAsReference === true;
+    const matchesChecklist =
+      checklistFilter === "all" ||
+      (checklistFilter === "issues" && summary.issueCount > 0) ||
+      (checklistFilter === "high_priority" && video.review.globalScore === "high_priority");
     const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
-    return matchesExercise && matchesView && matchesStatus && matchesReference && matchesSearch;
+    return matchesExercise && matchesView && matchesStatus && matchesReference && matchesChecklist && matchesSearch;
   });
   const referenceCount = videos.filter((video) => video.review.markedAsReference).length;
   const pendingCount = videos.filter((video) => (video.review.status ?? "not_reviewed") === "not_reviewed").length;
   const relevantCompensationCount = videos.filter((video) =>
     video.review.status === "moderate_compensation" || video.review.status === "high_compensation"
   ).length;
+  const checklistIssueCount = videos.filter((video) => getTechniqueReviewSummary(video.review).issueCount > 0).length;
   const compareVideoA = filteredVideos.find((video) => video.id === compareVideoAId) ?? null;
   const compareVideoB = filteredVideos.find((video) => video.id === compareVideoBId) ?? null;
 
@@ -4292,6 +4336,8 @@ function TechniqueVideoHistorySection({
       );
     }
     const tags = video.review.compensationTags ?? [];
+    const summary = getTechniqueReviewSummary(video.review);
+    const planningDecisionLabel = getTechniquePlanningDecisionLabel(video.review.planningDecision);
     return (
       <article className="rounded-md border border-line bg-white p-4">
         <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
@@ -4299,6 +4345,24 @@ function TechniqueVideoHistorySection({
         <p className="mt-1 text-sm text-ink/60">
           {formatDisplayDate(video.sessionDate)} · {techniqueVideoViewLabels[video.techniqueVideoView ?? "other"]} · {getTechniqueVideoStatusLabel(video.review.status)}
         </p>
+        <div className="mt-3 grid gap-2 rounded-md border border-line bg-panel/35 p-3 text-sm">
+          <p className="font-semibold text-ink">
+            Valoración: {video.review.globalScore ? techniqueGlobalScoreLabels[video.review.globalScore] : "Sin valoración global"}
+          </p>
+          {planningDecisionLabel ? <p className="text-ink/65">Decisión: {planningDecisionLabel}</p> : null}
+          <p className="text-xs font-semibold text-ink/50">
+            {summary.issueCount} problemas · {summary.watchCount} a vigilar
+          </p>
+          {summary.mainItems.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {summary.mainItems.map((item) => (
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={item.id}>
+                  {item.label}: {techniqueAssessmentStatusLabels[item.status]}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
         {tags.length > 0 ? (
           <p className="mt-2 text-xs font-semibold text-ink/55">{tags.join(" · ")}</p>
         ) : null}
@@ -4330,14 +4394,15 @@ function TechniqueVideoHistorySection({
         </p>
       ) : (
         <div className="mt-4 grid gap-4">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             <ClientInfoCard label="Vídeos enviados" value={`${videos.length}`} />
             <ClientInfoCard label="Marcados como referencia" value={`${referenceCount}`} />
             <ClientInfoCard label="Pendientes de revisar" value={`${pendingCount}`} />
             <ClientInfoCard label="Compensaciones moderadas/altas" value={`${relevantCompensationCount}`} />
+            <ClientInfoCard label="Con problemas marcados" value={`${checklistIssueCount}`} />
           </div>
 
-          <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2 xl:grid-cols-6">
             <label className="space-y-1 text-xs font-semibold text-ink/55">
               Ejercicio
               <select
@@ -4386,6 +4451,18 @@ function TechniqueVideoHistorySection({
               >
                 <option value="all">Todos</option>
                 <option value="references">Solo referencias</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-semibold text-ink/55">
+              Checklist
+              <select
+                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                onChange={(event) => setChecklistFilter(event.target.value as "all" | "issues" | "high_priority")}
+                value={checklistFilter}
+              >
+                <option value="all">Todos</option>
+                <option value="issues">Solo con problemas</option>
+                <option value="high_priority">Prioridad alta</option>
               </select>
             </label>
             <label className="space-y-1 text-xs font-semibold text-ink/55">
@@ -4451,6 +4528,8 @@ function TechniqueVideoHistorySection({
           <div className="grid gap-3">
             {filteredVideos.length > 0 ? filteredVideos.map((video) => {
               const tags = video.review.compensationTags ?? [];
+              const summary = getTechniqueReviewSummary(video.review);
+              const planningDecisionLabel = getTechniquePlanningDecisionLabel(video.review.planningDecision);
               return (
                 <article className="rounded-md border border-line bg-panel/35 p-4" key={video.id}>
                   <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -4476,6 +4555,41 @@ function TechniqueVideoHistorySection({
                       {renderVideoActions(video)}
                     </div>
                   </div>
+                  {(video.review.globalScore || planningDecisionLabel || summary.issueCount > 0 || summary.watchCount > 0) ? (
+                    <div className="mt-3 grid gap-2 rounded-md border border-line bg-white p-3 text-sm">
+                      <div className="flex flex-wrap gap-2">
+                        {video.review.globalScore ? (
+                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                            Valoración: {techniqueGlobalScoreLabels[video.review.globalScore]}
+                          </span>
+                        ) : null}
+                        {planningDecisionLabel ? (
+                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                            Decisión: {planningDecisionLabel}
+                          </span>
+                        ) : null}
+                        {summary.issueCount > 0 ? (
+                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                            {summary.issueCount} problemas
+                          </span>
+                        ) : null}
+                        {summary.watchCount > 0 ? (
+                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                            {summary.watchCount} a vigilar
+                          </span>
+                        ) : null}
+                      </div>
+                      {summary.mainItems.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {summary.mainItems.map((item) => (
+                            <span className="rounded-md border border-line bg-panel/35 px-2 py-1 text-xs font-semibold text-ink/60" key={item.id}>
+                              {item.label}: {techniqueAssessmentStatusLabels[item.status]}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {tags.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {tags.map((tag) => (
@@ -7542,6 +7656,153 @@ const techniqueCompensationTags = [
   "Otro"
 ];
 
+const techniqueAssessmentStatusLabels: Record<TechniqueAssessmentStatus, string> = {
+  issue: "Problema",
+  ok: "Correcto",
+  watch: "Vigilar"
+};
+
+const techniqueAssessmentSideLabels: Record<TechniqueAssessmentSide, string> = {
+  both: "Ambos",
+  left: "Izquierda",
+  not_applicable: "No aplica",
+  right: "Derecha"
+};
+
+const techniqueAssessmentSeverityLabels: Record<TechniqueAssessmentSeverity, string> = {
+  high: "Alta",
+  low: "Leve",
+  moderate: "Moderada"
+};
+
+const techniqueGlobalScoreLabels: Record<TechniqueGlobalScore, string> = {
+  acceptable: "Aceptable",
+  good: "Bien",
+  high_priority: "Prioridad alta",
+  needs_work: "Necesita trabajo"
+};
+
+const techniquePlanningDecisionLabels: Record<Exclude<TechniquePlanningDecision, "">, string> = {
+  change_exercise: "Cambiar ejercicio",
+  keep_progression: "Mantener progresión",
+  mobility_or_control_focus: "Enfocar movilidad/control",
+  reduce_load: "Reducir carga",
+  regress: "Regresar ejercicio",
+  repeat_exercise: "Repetir ejercicio"
+};
+
+const techniqueAssessmentPresets: Record<string, string[]> = {
+  "Core / Trunk Control": [
+    "Control lumbar",
+    "Control pélvico",
+    "Respiración / brace",
+    "Compensación cervical",
+    "Simetría",
+    "Pérdida de posición"
+  ],
+  "Hinge / Horizontal Force": [
+    "Bisagra de cadera clara",
+    "Columna neutra",
+    "Barra/carga cerca del cuerpo",
+    "Tensión dorsal",
+    "Control de pelvis",
+    "Simetría derecha/izquierda",
+    "Control excéntrico"
+  ],
+  "Lunge / Unilateral Force": [
+    "Alineación rodilla-pie",
+    "Estabilidad pélvica",
+    "Control frontal de rodilla",
+    "Control excéntrico",
+    "Rango adecuado",
+    "Simetría derecha/izquierda",
+    "Estabilidad del pie"
+  ],
+  "Olympic derivatives": [
+    "Posición de salida",
+    "Extensión potente de cadera",
+    "Trayectoria de la barra",
+    "Recepción estable",
+    "Timing",
+    "Control del tronco"
+  ],
+  "Plyometrics / Jumps": [
+    "Aterrizaje estable",
+    "Valgo dinámico",
+    "Rigidez adecuada",
+    "Control de tronco",
+    "Simetría derecha/izquierda",
+    "Contacto reactivo si aplica"
+  ],
+  "Pull / Upper Body Pull": [
+    "Control escapular",
+    "Rango adecuado",
+    "Compensación cervical",
+    "Compensación lumbar",
+    "Simetría derecha/izquierda",
+    "Control excéntrico"
+  ],
+  "Push / Upper Body Press": [
+    "Control escapular",
+    "Rango adecuado",
+    "Trayectoria estable",
+    "Compensación lumbar",
+    "Simetría derecha/izquierda",
+    "Control excéntrico"
+  ],
+  "Squat / Vertical Force": [
+    "Alineación rodilla-pie",
+    "Profundidad adecuada",
+    "Control de pelvis",
+    "Columna neutra",
+    "Talones apoyados",
+    "Simetría derecha/izquierda",
+    "Control excéntrico"
+  ]
+};
+
+const fallbackTechniqueAssessmentPreset = [
+  "Rango adecuado",
+  "Control técnico",
+  "Simetría",
+  "Compensaciones visibles",
+  "Dolor o molestia reportada",
+  "Observaciones del entrenador"
+];
+
+function getTechniqueAssessmentPreset(pattern?: string | null): TechniqueAssessmentItem[] {
+  const labels = techniqueAssessmentPresets[pattern ?? ""] ?? fallbackTechniqueAssessmentPreset;
+  const idPrefix = (pattern ?? "fallback")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return labels.map((label, index) => ({
+    id: `${idPrefix}-${index + 1}`,
+    label,
+    severity: "low",
+    side: "not_applicable",
+    status: "ok"
+  }));
+}
+
+function getTechniqueReviewSummary(review?: TechniqueReview | null) {
+  const checklist = review?.checklist ?? [];
+  const issueItems = checklist.filter((item) => item.status === "issue");
+  const watchItems = checklist.filter((item) => item.status === "watch");
+
+  return {
+    issueCount: issueItems.length,
+    mainItems: [...issueItems, ...watchItems].slice(0, 3),
+    watchCount: watchItems.length
+  };
+}
+
+function getTechniquePlanningDecisionLabel(decision?: TechniquePlanningDecision | null) {
+  if (!decision) return "";
+  return techniquePlanningDecisionLabels[decision] ?? "";
+}
+
 function isDirectVideoFileUrl(url?: string | null) {
   return Boolean(url?.trim().match(/\.(mp4|mov|webm|m4v)(\?.*)?$/i));
 }
@@ -9959,6 +10220,35 @@ function SessionHistoryPanel({
     updateTechniqueReviewDraft(reviewKey, { compensationTags: nextTags });
   }
 
+  function getTechniqueExercisePattern(exercise: ReviewSessionExercise) {
+    return getExerciseById(exercise.exerciseId ?? "")?.pattern ?? null;
+  }
+
+  function loadTechniqueChecklistPreset(reviewKey: string, exercise: ReviewSessionExercise) {
+    const currentDraft = getTechniqueReviewDraft(reviewKey, exercise);
+    updateTechniqueReviewDraft(reviewKey, {
+      ...currentDraft,
+      checklist: getTechniqueAssessmentPreset(getTechniqueExercisePattern(exercise))
+    });
+  }
+
+  function updateTechniqueChecklistItem(
+    reviewKey: string,
+    exercise: ReviewSessionExercise,
+    itemId: string,
+    updates: Partial<TechniqueAssessmentItem>
+  ) {
+    const currentDraft = getTechniqueReviewDraft(reviewKey, exercise);
+    const currentChecklist = currentDraft.checklist?.length
+      ? currentDraft.checklist
+      : getTechniqueAssessmentPreset(getTechniqueExercisePattern(exercise));
+
+    updateTechniqueReviewDraft(reviewKey, {
+      ...currentDraft,
+      checklist: currentChecklist.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
+    });
+  }
+
   useEffect(() => {
     if (targetTrainingSession?.clientId !== client.id) return;
 
@@ -10346,6 +10636,8 @@ function SessionHistoryPanel({
                             const reviewDraft = getTechniqueReviewDraft(reviewKey, exercise);
                             const videoUrl = `${exercise.techniqueVideoUrl ?? ""}`;
                             const directFile = isDirectVideoFileUrl(videoUrl);
+                            const exercisePattern = getTechniqueExercisePattern(exercise);
+                            const checklist = reviewDraft.checklist ?? [];
 
                             return (
                               <article className="rounded-md border border-line bg-white p-3" key={reviewKey}>
@@ -10384,6 +10676,116 @@ function SessionHistoryPanel({
                                 </p>
 
                                 <div className="mt-4 grid gap-3">
+                                  <section className="rounded-md border border-line bg-panel/35 p-3">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <h6 className="font-semibold text-ink">Evaluación técnica</h6>
+                                        <p className="mt-1 text-xs text-ink/45">
+                                          Evaluación manual del entrenador basada en el vídeo enviado. No es un diagnóstico médico ni un análisis automático.
+                                        </p>
+                                        <p className="mt-1 text-xs font-semibold text-ink/50">
+                                          Patrón sugerido: {exercisePattern ?? "Otros / fallback"}
+                                        </p>
+                                      </div>
+                                      <button
+                                        className="w-fit rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink"
+                                        onClick={() => loadTechniqueChecklistPreset(reviewKey, exercise)}
+                                        type="button"
+                                      >
+                                        Cargar checklist sugerido
+                                      </button>
+                                    </div>
+
+                                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                      <label className="space-y-1 text-xs font-semibold text-ink/55">
+                                        Valoración global
+                                        <select
+                                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                                          onChange={(event) => updateTechniqueReviewDraft(reviewKey, {
+                                            ...getTechniqueReviewDraft(reviewKey, exercise),
+                                            globalScore: event.target.value ? event.target.value as TechniqueGlobalScore : undefined
+                                          })}
+                                          value={reviewDraft.globalScore ?? ""}
+                                        >
+                                          <option value="">Sin valoración</option>
+                                          {Object.entries(techniqueGlobalScoreLabels).map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                      <label className="space-y-1 text-xs font-semibold text-ink/55">
+                                        Decisión para planificación
+                                        <select
+                                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                                          onChange={(event) => updateTechniqueReviewDraft(reviewKey, {
+                                            ...getTechniqueReviewDraft(reviewKey, exercise),
+                                            planningDecision: event.target.value as TechniquePlanningDecision
+                                          })}
+                                          value={reviewDraft.planningDecision ?? ""}
+                                        >
+                                          <option value="">Sin decisión</option>
+                                          {Object.entries(techniquePlanningDecisionLabels).map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </div>
+
+                                    {checklist.length > 0 ? (
+                                      <div className="mt-3 grid gap-2">
+                                        {checklist.map((item) => (
+                                          <div className="rounded-md border border-line bg-white p-3" key={item.id}>
+                                            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                                              <p className="text-sm font-semibold text-ink">{item.label}</p>
+                                              <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[520px]">
+                                                <select
+                                                  aria-label={`Estado ${item.label}`}
+                                                  className="h-9 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                                                  onChange={(event) => updateTechniqueChecklistItem(reviewKey, exercise, item.id, { status: event.target.value as TechniqueAssessmentStatus })}
+                                                  value={item.status}
+                                                >
+                                                  {Object.entries(techniqueAssessmentStatusLabels).map(([value, label]) => (
+                                                    <option key={value} value={value}>{label}</option>
+                                                  ))}
+                                                </select>
+                                                <select
+                                                  aria-label={`Lado ${item.label}`}
+                                                  className="h-9 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                                                  onChange={(event) => updateTechniqueChecklistItem(reviewKey, exercise, item.id, { side: event.target.value as TechniqueAssessmentSide })}
+                                                  value={item.side ?? "not_applicable"}
+                                                >
+                                                  {Object.entries(techniqueAssessmentSideLabels).map(([value, label]) => (
+                                                    <option key={value} value={value}>{label}</option>
+                                                  ))}
+                                                </select>
+                                                <select
+                                                  aria-label={`Severidad ${item.label}`}
+                                                  className="h-9 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                                                  onChange={(event) => updateTechniqueChecklistItem(reviewKey, exercise, item.id, { severity: event.target.value as TechniqueAssessmentSeverity })}
+                                                  value={item.severity ?? "low"}
+                                                >
+                                                  {Object.entries(techniqueAssessmentSeverityLabels).map(([value, label]) => (
+                                                    <option key={value} value={value}>{label}</option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                            </div>
+                                            <input
+                                              className="mt-2 h-9 w-full rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss"
+                                              onChange={(event) => updateTechniqueChecklistItem(reviewKey, exercise, item.id, { note: event.target.value })}
+                                              placeholder="Nota breve opcional"
+                                              type="text"
+                                              value={item.note ?? ""}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="mt-3 rounded-md border border-dashed border-line bg-white p-3 text-sm font-semibold text-ink/50">
+                                        Carga el checklist sugerido para revisar este vídeo de forma estructurada.
+                                      </p>
+                                    )}
+                                  </section>
                                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                                     Estado de revisión técnica
                                     <select
