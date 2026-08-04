@@ -56,6 +56,17 @@ type ReviewSessionExercise = {
     setNumber: number;
   }>;
   targetRir?: number | string | null;
+  techniqueReview?: {
+    coachFeedback?: string;
+    compensationTags?: string[];
+    markedAsReference?: boolean;
+    status?: "not_reviewed" | "ok" | "minor_compensation" | "moderate_compensation" | "high_compensation";
+  };
+  techniqueVideoNote?: string | null;
+  techniqueVideoUrl?: string | null;
+  techniqueVideoView?: "front" | "side" | "back" | "other" | null;
+  videoNote?: string | null;
+  videoUrl?: string | null;
 };
 
 type ReviewSessionRecord = {
@@ -94,6 +105,13 @@ type ReviewSessionRecord = {
   type: string;
   wellness?: AthleteWellness;
 };
+
+const techniqueVideoViewLabels = {
+  back: "Posterior",
+  front: "Frontal",
+  other: "Otra",
+  side: "Lateral"
+} as const;
 
 type AthleteHistoryClient = {
   name: string;
@@ -397,6 +415,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               planned: plannedExercises[exerciseIndex]
             }));
             const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
+            const sentTechniqueVideos = performedExercises.filter((exercise) => hasDisplayValue(exercise.techniqueVideoUrl));
 
             return (
               <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={sessionKey}>
@@ -415,6 +434,11 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                   <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
                   <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
                 </div>
+                {sentTechniqueVideos.length > 0 ? (
+                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+                    Vídeo de técnica enviado
+                  </p>
+                ) : null}
                 <button
                   className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
                   onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
@@ -548,6 +572,26 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                                 <span className="font-semibold text-ink">Detalle por serie: </span>
                                 {getSetDetailsReps(performed).join(" / ")} reps
                               </p>
+                            ) : null}
+                            {performed?.techniqueVideoUrl ? (
+                              <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
+                                <p className="font-semibold text-ink">Vídeo de técnica enviado</p>
+                                <p className="mt-1">Vista: {techniqueVideoViewLabels[performed.techniqueVideoView ?? "other"]}</p>
+                                {performed.techniqueVideoNote ? <p className="mt-1">Nota: {performed.techniqueVideoNote}</p> : null}
+                                <a
+                                  className="mt-2 inline-flex min-h-9 items-center rounded-md border border-line bg-panel/60 px-3 py-1.5 text-xs font-semibold text-ink"
+                                  href={performed.techniqueVideoUrl}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  Abrir vídeo
+                                </a>
+                                {performed.techniqueReview?.coachFeedback ? (
+                                  <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+                                    <span className="font-semibold text-ink">Feedback técnico:</span> {performed.techniqueReview.coachFeedback}
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
                           </article>
                         ))}

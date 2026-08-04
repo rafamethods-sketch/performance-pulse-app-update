@@ -657,6 +657,16 @@ type ClientWellness = {
   soreness: number;
   stress: number;
 };
+type TechniqueVideoView = "front" | "side" | "back" | "other";
+type TechniqueReviewStatus = "not_reviewed" | "ok" | "minor_compensation" | "moderate_compensation" | "high_compensation";
+
+type TechniqueReview = {
+  coachFeedback?: string;
+  compensationTags?: string[];
+  markedAsReference?: boolean;
+  status?: TechniqueReviewStatus;
+};
+
 type ConnectedSessionExercise = SessionExerciseInput & {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
@@ -680,6 +690,12 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   setDetails?: Array<{ reps?: number | string | null; setNumber: number }>;
   targetVelocity?: string | null;
   targetRir?: number | string | null;
+  techniqueReview?: TechniqueReview;
+  techniqueVideoNote?: string | null;
+  techniqueVideoUrl?: string | null;
+  techniqueVideoView?: TechniqueVideoView | null;
+  videoNote?: string | null;
+  videoUrl?: string | null;
 };
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
   actualDurationMinutes?: number | string | null;
@@ -6814,6 +6830,8 @@ type PlannedStrengthExerciseDraft = {
   targetRir: string;
   targetRpe: string;
   targetVelocity?: string;
+  videoNote?: string;
+  videoUrl?: string;
 };
 type SessionTemplateExercise = PlannedStrengthExerciseDraft;
 type SessionTemplateCategory = "Fuerza" | "Potencia" | "Resistencia" | "Mixto" | "Recuperación";
@@ -6966,6 +6984,38 @@ function getResistanceZoneGuide(sport?: ResistanceSport, zoneId?: string | null)
   const profile = getSportZoneProfile(sport ?? "generic");
   const zone = profile.zones.find((item) => item.id === zoneId) ?? null;
   return { metrics: getResistanceZoneMetrics(zone), profile, zone };
+}
+
+const techniqueVideoViewLabels: Record<TechniqueVideoView, string> = {
+  back: "Posterior",
+  front: "Frontal",
+  other: "Otra",
+  side: "Lateral"
+};
+
+const techniqueReviewStatusLabels: Record<TechniqueReviewStatus, string> = {
+  high_compensation: "Compensación alta",
+  minor_compensation: "Compensación leve",
+  moderate_compensation: "Compensación moderada",
+  not_reviewed: "Sin revisar",
+  ok: "Técnica correcta"
+};
+
+const techniqueCompensationTags = [
+  "Valgo dinámico",
+  "Asimetría derecha/izquierda",
+  "Pérdida de rango",
+  "Pérdida de control excéntrico",
+  "Flexión lumbar",
+  "Compensación lumbar",
+  "Elevación de hombro",
+  "Inestabilidad pélvica",
+  "Técnica correcta",
+  "Otro"
+];
+
+function isDirectVideoFileUrl(url?: string | null) {
+  return Boolean(url?.trim().match(/\.(mp4|mov|webm|m4v)(\?.*)?$/i));
 }
 
 function buildResistanceMethodTemplateNotes(method: ResistanceMethod, sport?: ResistanceSport, zoneId?: string) {
@@ -7394,7 +7444,9 @@ function CoachTrainingPlanner({
         sets: "",
         targetRir: "",
         targetRpe: "",
-        targetVelocity: ""
+        targetVelocity: "",
+        videoNote: "",
+        videoUrl: ""
       }
     ]);
   };
@@ -7448,6 +7500,29 @@ function CoachTrainingPlanner({
       )
     });
   };
+  const updateSessionTechniqueReview = (
+    sessionIndex: number,
+    exerciseIndex: number,
+    review: TechniqueReview
+  ) => {
+    onUpdateClient({
+      ...activeSessionClient,
+      sessionRecords: (activeSessionClient.sessionRecords ?? []).map((session, index) => {
+        if (index !== sessionIndex) return session;
+        return {
+          ...session,
+          performedExercises: (session.performedExercises ?? []).map((exercise, performedIndex) =>
+            performedIndex === exerciseIndex
+              ? {
+                  ...exercise,
+                  techniqueReview: review
+                }
+              : exercise
+          )
+        };
+      })
+    });
+  };
   const plannedTemplateExercises = strengthExercises.map((exercise) => ({
     bandColor: exercise.bandColor || undefined,
     bandResistance: exercise.bandResistance || undefined,
@@ -7467,7 +7542,9 @@ function CoachTrainingPlanner({
     sets: exercise.sets,
     targetRir: exercise.targetRir,
     targetRpe: exercise.targetRpe,
-    targetVelocity: exercise.targetVelocity || undefined
+    targetVelocity: exercise.targetVelocity || undefined,
+    videoNote: exercise.videoNote || undefined,
+    videoUrl: exercise.videoUrl || undefined
   }));
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
@@ -7504,6 +7581,8 @@ function CoachTrainingPlanner({
       plannedRpe: exercise.targetRpe,
       plannedSets: exercise.sets,
       targetVelocity: exercise.targetVelocity,
+      videoNote: exercise.videoNote || undefined,
+      videoUrl: exercise.videoUrl || undefined,
       selectedEquipment: exercise.selectedEquipment || undefined,
       selectedVariantId: exercise.selectedVariantId || undefined,
       selectedVariantName: exercise.selectedVariantName || undefined,
@@ -7614,7 +7693,9 @@ function CoachTrainingPlanner({
         selectedVariantName: exercise.selectedVariantName ?? "",
         targetRir: exercise.targetRir ?? "",
         targetRpe: exercise.targetRpe ?? "",
-        targetVelocity: exercise.targetVelocity ?? ""
+        targetVelocity: exercise.targetVelocity ?? "",
+        videoNote: exercise.videoNote ?? "",
+        videoUrl: exercise.videoUrl ?? ""
       }))
     );
     setShowTemplateLibrary(false);
@@ -7769,6 +7850,31 @@ function CoachTrainingPlanner({
                     value={exercise.observation}
                   />
                 </label>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Enlace vídeo técnico
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { videoUrl: event.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                    value={exercise.videoUrl ?? ""}
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  Clave técnica para el deportista
+                  <input
+                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateStrengthExercise(exercise.id, { videoNote: event.target.value })}
+                    placeholder="Mantén columna neutra y controla la fase excéntrica."
+                    type="text"
+                    value={exercise.videoNote ?? ""}
+                  />
+                </label>
+                <p className="text-xs font-medium text-ink/45 md:col-span-2">
+                  Los vídeos se guardan como enlaces. La app no sube archivos ni analiza automáticamente el movimiento.
+                </p>
               </div>
               {selectedLibraryExercise && (equipmentOptions.length > 0 || selectedLibraryExercise.variants?.length) ? (
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -8731,6 +8837,11 @@ function CoachTrainingPlanner({
                               <p className="font-semibold text-ink">{summary.main}</p>
                               {summary.variant ? <p className="mt-1 text-xs font-medium text-ink/55">{summary.variant}</p> : null}
                               {exercise.selectedEquipment ? <p className="mt-1 text-xs font-medium text-ink/55">Material: {exercise.selectedEquipment}</p> : null}
+                              {exercise.videoUrl || exercise.videoNote ? (
+                                <p className="mt-1 text-xs font-medium text-ink/55">
+                                  {[exercise.videoUrl ? "Vídeo técnico" : "", exercise.videoNote ? `Clave: ${exercise.videoNote}` : ""].filter(Boolean).join(" · ")}
+                                </p>
+                              ) : null}
                             </div>
                           );
                         })}
@@ -8771,6 +8882,7 @@ function CoachTrainingPlanner({
               setActiveSessionPanel("planner");
               setShowPlannerModal(true);
             }}
+            onUpdateTechniqueReview={updateSessionTechniqueReview}
             targetTrainingSession={targetTrainingSession}
           />
         ) : (
@@ -8814,6 +8926,12 @@ type ReviewSessionExercise = SessionExerciseInput & {
   targetRir?: number | string | null;
   targetRpe?: number | string | null;
   targetVelocity?: number | string | null;
+  techniqueReview?: TechniqueReview;
+  techniqueVideoNote?: string | null;
+  techniqueVideoUrl?: string | null;
+  techniqueVideoView?: TechniqueVideoView | null;
+  videoNote?: string | null;
+  videoUrl?: string | null;
 };
 
 type SessionReviewStatus = "pending" | "reviewed";
@@ -9242,18 +9360,21 @@ function SessionHistoryPanel({
   onConsumeTargetTrainingSession,
   onMarkSessionReviewed,
   onPlanNewSession,
+  onUpdateTechniqueReview,
   targetTrainingSession
 }: {
   client: CoachClient;
   onConsumeTargetTrainingSession: () => void;
   onMarkSessionReviewed: (sessionIndex: number, reviewNotes?: string) => void;
   onPlanNewSession: () => void;
+  onUpdateTechniqueReview: (sessionIndex: number, exerciseIndex: number, review: TechniqueReview) => void;
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [selectedExerciseDetail, setSelectedExerciseDetail] = useState<ReviewExerciseDetail | null>(null);
   const [reviewFeedbackModal, setReviewFeedbackModal] = useState<ReviewFeedbackModal | null>(null);
+  const [techniqueReviewDrafts, setTechniqueReviewDrafts] = useState<Record<string, TechniqueReview>>({});
   const sessions = useMemo(
     () => (client.sessionRecords ?? []) as ReviewSessionRecord[],
     [client.sessionRecords]
@@ -9277,6 +9398,29 @@ function SessionHistoryPanel({
   function saveReview(sessionIndex: number, sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
     onMarkSessionReviewed(sessionIndex, getReviewDraft(sessionKey, session, suggestedReviewNotes));
     setReviewFeedbackModal(null);
+  }
+
+  function getTechniqueReviewDraft(reviewKey: string, exercise: ReviewSessionExercise): TechniqueReview {
+    return techniqueReviewDrafts[reviewKey] ?? exercise.techniqueReview ?? { compensationTags: [], markedAsReference: false, status: "not_reviewed" };
+  }
+
+  function updateTechniqueReviewDraft(reviewKey: string, updates: TechniqueReview) {
+    setTechniqueReviewDrafts((current) => ({
+      ...current,
+      [reviewKey]: {
+        ...(current[reviewKey] ?? { compensationTags: [], markedAsReference: false, status: "not_reviewed" }),
+        ...updates
+      }
+    }));
+  }
+
+  function toggleTechniqueReviewTag(reviewKey: string, exercise: ReviewSessionExercise, tag: string) {
+    const currentDraft = getTechniqueReviewDraft(reviewKey, exercise);
+    const currentTags = currentDraft.compensationTags ?? [];
+    const nextTags = currentTags.includes(tag)
+      ? currentTags.filter((currentTag) => currentTag !== tag)
+      : [...currentTags, tag];
+    updateTechniqueReviewDraft(reviewKey, { compensationTags: nextTags });
   }
 
   useEffect(() => {
@@ -9366,6 +9510,9 @@ function SessionHistoryPanel({
               planned: plannedExercises[index]
             }));
             const groupedRows = getGroupedReviewRows(detailRows);
+            const techniqueVideoRows = performedExercises
+              .map((exercise, index) => ({ exercise, index }))
+              .filter(({ exercise }) => hasDisplayValue(exercise.techniqueVideoUrl));
             const hasRealRegister = performedExercises.length > 0 || status === "Completada";
             const canReviewSession = reviewStatus === "reviewed" || reviewStatus === "pending";
             const showStrengthReview = exerciseCount > 0;
@@ -9623,6 +9770,127 @@ function SessionHistoryPanel({
                             </div>
                           </div>
                         ) : null}
+                      </section>
+                    ) : null}
+
+                    {techniqueVideoRows.length > 0 ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h5 className="font-semibold text-ink">Vídeos de técnica enviados</h5>
+                            <p className="mt-1 text-sm text-ink/55">
+                              Revisión manual del entrenador. La app no detecta compensaciones automáticamente.
+                            </p>
+                          </div>
+                          <p className="text-xs font-medium text-ink/45">
+                            Descarga o guarda vídeos solo si tienes permiso del deportista.
+                          </p>
+                        </div>
+                        <div className="mt-3 grid gap-3">
+                          {techniqueVideoRows.map(({ exercise, index }) => {
+                            const reviewKey = `${sessionKey}-${index}-technique`;
+                            const reviewDraft = getTechniqueReviewDraft(reviewKey, exercise);
+                            const videoUrl = `${exercise.techniqueVideoUrl ?? ""}`;
+                            const directFile = isDirectVideoFileUrl(videoUrl);
+
+                            return (
+                              <article className="rounded-md border border-line bg-white p-3" key={reviewKey}>
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                  <div>
+                                    <p className="font-semibold text-ink">{getExerciseLabel(exercise)}</p>
+                                    <p className="mt-1 text-sm text-ink/60">
+                                      Vista: {techniqueVideoViewLabels[exercise.techniqueVideoView ?? "other"]}
+                                    </p>
+                                    {exercise.techniqueVideoNote ? (
+                                      <p className="mt-1 text-sm text-ink/60">Nota del deportista: {exercise.techniqueVideoNote}</p>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <a
+                                      className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink"
+                                      href={videoUrl}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      Abrir vídeo
+                                    </a>
+                                    <a
+                                      className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                                      download
+                                      href={videoUrl}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      {directFile ? "Descargar vídeo" : "Abrir / descargar"}
+                                    </a>
+                                  </div>
+                                </div>
+                                <p className="mt-2 text-xs text-ink/45">
+                                  La descarga depende de los permisos del enlace. Si no se descarga, ábrelo y guárdalo desde la plataforma.
+                                </p>
+
+                                <div className="mt-4 grid gap-3">
+                                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                                    Estado de revisión técnica
+                                    <select
+                                      className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                                      onChange={(event) => updateTechniqueReviewDraft(reviewKey, { ...getTechniqueReviewDraft(reviewKey, exercise), status: event.target.value as TechniqueReviewStatus })}
+                                      value={reviewDraft.status ?? "not_reviewed"}
+                                    >
+                                      {Object.entries(techniqueReviewStatusLabels).map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <div>
+                                    <p className="text-xs font-semibold text-ink/55">Etiquetas manuales</p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {techniqueCompensationTags.map((tag) => {
+                                        const selected = reviewDraft.compensationTags?.includes(tag);
+                                        return (
+                                          <button
+                                            className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                                              selected ? "border-ink bg-ink text-white" : "border-line bg-panel/60 text-ink/65"
+                                            }`}
+                                            key={tag}
+                                            onClick={() => toggleTechniqueReviewTag(reviewKey, exercise, tag)}
+                                            type="button"
+                                          >
+                                            {tag}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <label className="space-y-1 text-xs font-semibold text-ink/55">
+                                    Feedback técnico
+                                    <textarea
+                                      className="min-h-20 w-full rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink outline-none focus:border-moss"
+                                      onChange={(event) => updateTechniqueReviewDraft(reviewKey, { ...getTechniqueReviewDraft(reviewKey, exercise), coachFeedback: event.target.value })}
+                                      placeholder="Feedback manual sobre técnica, control o compensaciones observadas."
+                                      value={reviewDraft.coachFeedback ?? ""}
+                                    />
+                                  </label>
+                                  <label className="flex items-center gap-2 text-sm font-semibold text-ink/65">
+                                    <input
+                                      checked={Boolean(reviewDraft.markedAsReference)}
+                                      onChange={(event) => updateTechniqueReviewDraft(reviewKey, { ...getTechniqueReviewDraft(reviewKey, exercise), markedAsReference: event.target.checked })}
+                                      type="checkbox"
+                                    />
+                                    Marcar como vídeo de referencia
+                                  </label>
+                                  <button
+                                    className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                                    onClick={() => onUpdateTechniqueReview(sessionIndex, index, reviewDraft)}
+                                    type="button"
+                                  >
+                                    Guardar revisión técnica
+                                  </button>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
                       </section>
                     ) : null}
 

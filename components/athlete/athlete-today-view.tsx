@@ -24,6 +24,8 @@ type ResistanceCardioResult = CardioResult & {
   recoveryCompleted?: string;
 };
 
+type AthleteTechniqueVideoView = "front" | "side" | "back" | "other";
+
 type AthleteWellness = {
   calm?: number;
   energy?: number;
@@ -78,6 +80,11 @@ type AthleteExercise = {
   targetVelocity?: number | string | null;
   targetRir?: number | string | null;
   targetRpe?: number | string | null;
+  techniqueVideoNote?: string | null;
+  techniqueVideoUrl?: string | null;
+  techniqueVideoView?: AthleteTechniqueVideoView | null;
+  videoNote?: string | null;
+  videoUrl?: string | null;
 };
 
 type AthleteSessionDiscomfort = {
@@ -194,6 +201,13 @@ const athleteExerciseBlocks: Array<{ key: AthleteExerciseBlockKey; label: string
   { key: "main", label: "BLOQUE PRINCIPAL" },
   { key: "auxiliary", label: "BLOQUE AUXILIAR / OPCIONAL" }
 ];
+
+const athleteTechniqueVideoViewLabels: Record<AthleteTechniqueVideoView, string> = {
+  back: "Posterior",
+  front: "Frontal",
+  other: "Otra",
+  side: "Lateral"
+};
 
 const cardioZoneFields: Array<{ key: CardioZone; label: string }> = [
   { key: "z1", label: "Z1" },
@@ -1537,6 +1551,23 @@ function AthleteSessionPreviewModal({
                           <p className="mt-2 text-sm font-medium text-ink/65">{prescription.join(" · ")}</p>
                         ) : null}
                         {exercise.observation ? <p className="mt-2 text-xs text-ink/50">{exercise.observation}</p> : null}
+                        {(exercise.videoUrl || exercise.videoNote) ? (
+                          <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs text-ink/60">
+                            {exercise.videoNote ? (
+                              <p><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p>
+                            ) : null}
+                            {exercise.videoUrl ? (
+                              <a
+                                className="mt-2 inline-flex min-h-9 items-center rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink"
+                                href={exercise.videoUrl}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                Ver vídeo técnico
+                              </a>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </article>
                     );
                   })}
@@ -1869,6 +1900,28 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
         </div>
       ) : null}
       {exercise.observation ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
+      {(exercise.videoUrl || exercise.videoNote) ? (
+        <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-semibold text-ink">Vídeo técnico</p>
+              {exercise.videoNote ? (
+                <p className="mt-1"><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p>
+              ) : null}
+            </div>
+            {exercise.videoUrl ? (
+              <a
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-panel/60 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+                href={exercise.videoUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Ver vídeo técnico
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-4 rounded-md border border-line bg-white p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-ink">Series registradas</p>
@@ -1941,6 +1994,46 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
           value={exercise.athleteNotes ?? ""}
         />
       </label>
+      <div className="mt-3 rounded-md border border-line bg-white p-3">
+        <p className="text-sm font-semibold text-ink">Vídeo de técnica</p>
+        <p className="mt-1 text-xs text-ink/50">
+          Comparte solo vídeos que quieras que revise tu entrenador. Usa enlaces privados o no listados si contienen información personal.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-xs font-medium text-ink/65 sm:col-span-2">
+            Enlace al vídeo
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss"
+              onChange={(event) => onUpdate(index, { techniqueVideoUrl: event.target.value, techniqueVideoView: exercise.techniqueVideoView ?? "side" })}
+              placeholder="Pega aquí un enlace privado o no listado a tu vídeo."
+              type="url"
+              value={exercise.techniqueVideoUrl ?? ""}
+            />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-ink/65">
+            Vista del vídeo
+            <select
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss"
+              onChange={(event) => onUpdate(index, { techniqueVideoView: event.target.value as AthleteTechniqueVideoView })}
+              value={exercise.techniqueVideoView ?? "side"}
+            >
+              {Object.entries(athleteTechniqueVideoViewLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-medium text-ink/65">
+            Nota del deportista
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-sm text-ink outline-none focus:border-moss"
+              onChange={(event) => onUpdate(index, { techniqueVideoNote: event.target.value })}
+              placeholder="Opcional"
+              type="text"
+              value={exercise.techniqueVideoNote ?? ""}
+            />
+          </label>
+        </div>
+      </div>
     </article>
   );
 }
