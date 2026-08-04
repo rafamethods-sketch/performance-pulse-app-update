@@ -64,7 +64,17 @@ type WeeklyCalendarSession = {
   week?: string;
 };
 
-type CalendarSessionAction = "duplicate" | "move";
+type CalendarSessionAction = "duplicate" | "move" | "recurring";
+
+const recurringWeekdayOptions = [
+  { label: "Lunes", value: 0 },
+  { label: "Martes", value: 1 },
+  { label: "Miércoles", value: 2 },
+  { label: "Jueves", value: 3 },
+  { label: "Viernes", value: 4 },
+  { label: "Sábado", value: 5 },
+  { label: "Domingo", value: 6 }
+];
 
 function addCalendarDays(date: Date, days: number) {
   const nextDate = new Date(date);
@@ -82,6 +92,14 @@ function getWeekStartDate(date: Date) {
 
 function getDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getCalendarWeekdayIndex(date: Date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function getWeekdayLabel(date: Date) {
+  return recurringWeekdayOptions[getCalendarWeekdayIndex(date)]?.label ?? "";
 }
 
 function hasDisplayValue(value: unknown) {
@@ -232,17 +250,22 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
 type CalendarViewProps = {
   client?: CoachClientForViews | null;
   clients: CoachClientForViews[];
+  onCreateRecurringSessions: (clientId: string, sessionIndex: number, dates: string[], time?: string) => number;
   onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, onDuplicateSession, onMoveSession, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, onCreateRecurringSessions, onDuplicateSession, onMoveSession, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const [sessionAction, setSessionAction] = useState<CalendarSessionAction | null>(null);
   const [actionDate, setActionDate] = useState("");
   const [actionTime, setActionTime] = useState("");
+  const [recurringEndDate, setRecurringEndDate] = useState("");
+  const [recurringMessage, setRecurringMessage] = useState("");
+  const [recurringWeekdays, setRecurringWeekdays] = useState<number[]>([]);
+  const [recurringWeeks, setRecurringWeeks] = useState("4");
   const baseWeekStart = getWeekStartDate(new Date());
   const selectedWeekStart = addCalendarDays(baseWeekStart, weekOffset * 7);
   const weekDates = Array.from({ length: 7 }, (_, index) => addCalendarDays(selectedWeekStart, index));
@@ -271,6 +294,7 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
     { Icon: Camera, className: "border-line bg-panel/60 text-ink/55", label: "Foto" },
     { Icon: Paperclip, className: "border-line bg-panel/60 text-ink/55", label: "Archivo" }
   ];
+  const recurringDates = getRecurringDates();
 
   function openCalendarSession(session: WeeklyCalendarSession) {
     if (session.sessionIndex !== undefined || session.sessionDate) {
@@ -290,12 +314,52 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
     setSessionAction(action);
     setActionDate(getDateKey(session.date));
     setActionTime(session.time ?? "");
+    setRecurringEndDate("");
+    setRecurringMessage("");
+    setRecurringWeekdays([getCalendarWeekdayIndex(session.date)]);
+    setRecurringWeeks("4");
   }
 
   function closeSessionAction() {
     setSessionAction(null);
     setActionDate("");
     setActionTime("");
+    setRecurringEndDate("");
+    setRecurringMessage("");
+    setRecurringWeekdays([]);
+    setRecurringWeeks("4");
+  }
+
+  function getRecurringDates() {
+    if (sessionAction !== "recurring") return [];
+    const startDate = parseDateValue(actionDate);
+    if (!startDate || recurringWeekdays.length === 0) return [];
+
+    const weekCount = Math.max(1, Number.parseInt(recurringWeeks, 10) || 1);
+    const explicitEndDate = parseDateValue(recurringEndDate);
+    const endDate = explicitEndDate ?? addCalendarDays(startDate, (weekCount * 7) - 1);
+    const dates: Date[] = [];
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    while (cursor <= endDate) {
+      if (recurringWeekdays.includes(getCalendarWeekdayIndex(cursor))) {
+        dates.push(new Date(cursor));
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return dates;
+  }
+
+  function toggleRecurringWeekday(weekday: number) {
+    setRecurringWeekdays((current) =>
+      current.includes(weekday)
+        ? current.filter((value) => value !== weekday)
+        : [...current, weekday].sort((a, b) => a - b)
+    );
+    setRecurringMessage("");
   }
 
   function submitSessionAction() {
@@ -304,6 +368,21 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
     if (sessionAction === "duplicate") {
       onDuplicateSession(selectedSession.clientId, selectedSession.sessionIndex, actionDate, actionTime);
       closeSessionAction();
+      return;
+    }
+
+    if (sessionAction === "recurring") {
+      const dates = recurringDates.map(getDateKey);
+      if (dates.length === 0) {
+        setRecurringMessage("Selecciona al menos un día y un rango válido.");
+        return;
+      }
+      const createdCount = onCreateRecurringSessions(selectedSession.clientId, selectedSession.sessionIndex, dates, actionTime);
+      setRecurringMessage(
+        createdCount > 0
+          ? `Se han creado ${createdCount} sesiones recurrentes.`
+          : "No se han creado sesiones recurrentes."
+      );
       return;
     }
 
@@ -448,6 +527,9 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
                   <button className={secondaryButtonClass} onClick={() => openSessionAction("move", selectedSession)} type="button">
                     Mover sesión
                   </button>
+                  <button className={secondaryButtonClass} onClick={() => openSessionAction("recurring", selectedSession)} type="button">
+                    Crear recurrencia
+                  </button>
                 </>
               ) : null}
             </div>
@@ -475,7 +557,7 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-moss">
-                  {sessionAction === "duplicate" ? "Duplicar sesión" : "Mover sesión"}
+                  {sessionAction === "duplicate" ? "Duplicar sesión" : sessionAction === "move" ? "Mover sesión" : "Crear recurrencia"}
                 </p>
                 <h3 className="mt-1 text-lg font-semibold text-ink">{selectedSession.summary}</h3>
                 <p className="mt-1 text-sm text-ink/55">{selectedSession.clientName}</p>
@@ -489,40 +571,147 @@ export function CalendarView({ client, clients, onDuplicateSession, onMoveSessio
                 Cerrar
               </button>
             </div>
-            <div className="mt-4 grid gap-3">
-              <ClientInfoCard label="Fecha actual" value={formatDateShort(getDateKey(selectedSession.date))} />
-              <label className="space-y-2 text-sm font-semibold text-ink/70">
-                Nueva fecha
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setActionDate(event.target.value)}
-                  type="date"
-                  value={actionDate}
-                />
-              </label>
-              {selectedSession.time || actionTime ? (
+            {sessionAction === "recurring" ? (
+              <div className="mt-4 grid gap-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ClientInfoCard label="Fecha de inicio" value={formatDateShort(actionDate)} />
+                  <ClientInfoCard label="Frecuencia" value="Semanal" />
+                </div>
                 <label className="space-y-2 text-sm font-semibold text-ink/70">
-                  Nueva hora
+                  Fecha de inicio
                   <input
                     className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                    onChange={(event) => setActionTime(event.target.value)}
-                    type="time"
-                    value={actionTime}
+                    onChange={(event) => {
+                      setActionDate(event.target.value);
+                      setRecurringMessage("");
+                    }}
+                    type="date"
+                    value={actionDate}
                   />
                 </label>
-              ) : null}
-            </div>
-            {sessionAction === "duplicate" ? (
-              <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/60">
-                Se duplicará solo la planificación. No se copiarán registros realizados, vídeos enviados ni revisiones.
+                <div>
+                  <p className="text-sm font-semibold text-ink/70">Días de la semana</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {recurringWeekdayOptions.map((weekday) => (
+                      <button
+                        aria-pressed={recurringWeekdays.includes(weekday.value)}
+                        className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+                          recurringWeekdays.includes(weekday.value) ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"
+                        }`}
+                        key={weekday.value}
+                        onClick={() => toggleRecurringWeekday(weekday.value)}
+                        type="button"
+                      >
+                        {weekday.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2 text-sm font-semibold text-ink/70">
+                    Número de semanas
+                    <input
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      inputMode="numeric"
+                      onChange={(event) => {
+                        setRecurringWeeks(event.target.value);
+                        setRecurringMessage("");
+                      }}
+                      type="text"
+                      value={recurringWeeks}
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm font-semibold text-ink/70">
+                    O fecha final
+                    <input
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => {
+                        setRecurringEndDate(event.target.value);
+                        setRecurringMessage("");
+                      }}
+                      type="date"
+                      value={recurringEndDate}
+                    />
+                  </label>
+                </div>
+                {selectedSession.time || actionTime ? (
+                  <label className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+                    <input
+                      checked={Boolean(actionTime)}
+                      onChange={(event) => setActionTime(event.target.checked ? selectedSession.time ?? "" : "")}
+                      type="checkbox"
+                    />
+                    Mantener misma hora{selectedSession.time ? ` (${selectedSession.time})` : ""}
+                  </label>
+                ) : null}
+                <div className="rounded-md border border-line bg-panel/35 p-3">
+                  <p className="text-sm font-semibold text-ink">
+                    Se crearán {recurringDates.length} sesiones para {selectedSession.clientName}
+                    {recurringDates.length > 0 ? ` entre ${formatDateShort(getDateKey(recurringDates[0]))} y ${formatDateShort(getDateKey(recurringDates[recurringDates.length - 1]))}.` : "."}
+                  </p>
+                  {recurringDates.length > 0 ? (
+                    <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto">
+                      {recurringDates.map((date) => (
+                        <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2 text-sm" key={getDateKey(date)}>
+                          <span className="font-semibold text-ink">{formatDateShort(getDateKey(date))}</span>
+                          <span className="text-ink/55">{getWeekdayLabel(date)}</span>
+                          <span className="truncate text-ink/65">{selectedSession.summary || selectedSession.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-ink/50">Selecciona días y rango para ver el resumen.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mt-4 grid gap-3">
+                  <ClientInfoCard label="Fecha actual" value={formatDateShort(getDateKey(selectedSession.date))} />
+                  <label className="space-y-2 text-sm font-semibold text-ink/70">
+                    Nueva fecha
+                    <input
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => setActionDate(event.target.value)}
+                      type="date"
+                      value={actionDate}
+                    />
+                  </label>
+                  {selectedSession.time || actionTime ? (
+                    <label className="space-y-2 text-sm font-semibold text-ink/70">
+                      Nueva hora
+                      <input
+                        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                        onChange={(event) => setActionTime(event.target.value)}
+                        type="time"
+                        value={actionTime}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                {sessionAction === "duplicate" ? (
+                  <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/60">
+                    Se duplicará solo la planificación. No se copiarán registros realizados, vídeos enviados ni revisiones.
+                  </p>
+                ) : null}
+              </>
+            )}
+            {recurringMessage ? (
+              <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/65">
+                {recurringMessage}
               </p>
             ) : null}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button className={secondaryButtonClass} onClick={closeSessionAction} type="button">
                 Cancelar
               </button>
-              <button className={primaryButtonClass} disabled={!actionDate} onClick={submitSessionAction} type="button">
-                {sessionAction === "duplicate" ? "Duplicar" : "Mover"}
+              <button
+                className={primaryButtonClass}
+                disabled={!actionDate || (sessionAction === "recurring" && recurringDates.length === 0)}
+                onClick={submitSessionAction}
+                type="button"
+              >
+                {sessionAction === "duplicate" ? "Duplicar" : sessionAction === "move" ? "Mover" : "Crear sesiones"}
               </button>
             </div>
           </section>

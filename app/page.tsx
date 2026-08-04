@@ -341,40 +341,44 @@ export default function ClientsPage() {
     }));
   }
 
+  function createPlannedSessionCopy(sourceSession: ClientSessionRecord, date: string, time?: string, idSuffix = `${Date.now()}`): ClientSessionRecord {
+    return {
+      ...sourceSession,
+      actualDurationMinutes: undefined,
+      athleteQuickFeedback: null,
+      athleteQuickFeedbackNote: undefined,
+      cardioResult: undefined,
+      completed: false,
+      date,
+      discomfort: undefined,
+      duration: undefined,
+      finalNotes: undefined,
+      finalRpe: undefined,
+      id: `session-${idSuffix}`,
+      linkedCardioActivityId: undefined,
+      notes: undefined,
+      performedExercises: [],
+      plannedExercises: getPlannedSessionCopy(sourceSession),
+      reviewedAt: undefined,
+      reviewNotes: undefined,
+      reviewStatus: undefined,
+      rpe: undefined,
+      sRPE: undefined,
+      srpe: undefined,
+      status: "Planificada",
+      time: time || sourceSession.time || undefined,
+      wellness: undefined,
+      wellnessConfirmedAt: undefined
+    };
+  }
+
   function duplicateCalendarSession(clientId: string, sessionIndex: number, newDate: string, newTime?: string) {
     setClients((currentClients) =>
       currentClients.map((listedClient) => {
         if (listedClient.id !== clientId) return listedClient;
         const sourceSession = listedClient.sessionRecords?.[sessionIndex];
         if (!sourceSession) return listedClient;
-        const duplicatedSession: ClientSessionRecord = {
-          ...sourceSession,
-          actualDurationMinutes: undefined,
-          athleteQuickFeedback: null,
-          athleteQuickFeedbackNote: undefined,
-          cardioResult: undefined,
-          completed: false,
-          date: newDate,
-          discomfort: undefined,
-          duration: undefined,
-          finalNotes: undefined,
-          finalRpe: undefined,
-          id: `session-${Date.now()}`,
-          linkedCardioActivityId: undefined,
-          notes: undefined,
-          performedExercises: [],
-          plannedExercises: getPlannedSessionCopy(sourceSession),
-          reviewedAt: undefined,
-          reviewNotes: undefined,
-          reviewStatus: undefined,
-          rpe: undefined,
-          sRPE: undefined,
-          srpe: undefined,
-          status: "Planificada",
-          time: newTime || sourceSession.time || undefined,
-          wellness: undefined,
-          wellnessConfirmedAt: undefined
-        };
+        const duplicatedSession = createPlannedSessionCopy(sourceSession, newDate, newTime);
 
         return {
           ...listedClient,
@@ -403,6 +407,44 @@ export default function ClientsPage() {
           : listedClient
       )
     );
+  }
+
+  function createRecurringCalendarSessions(clientId: string, sessionIndex: number, dates: string[], time?: string) {
+    const clientForCheck = clients.find((listedClient) => listedClient.id === clientId);
+    const sourceSession = clientForCheck?.sessionRecords?.[sessionIndex];
+    if (!clientForCheck || !sourceSession || dates.length === 0) return 0;
+
+    const duplicateCount = dates.filter((date) =>
+      (clientForCheck.sessionRecords ?? []).some((session) =>
+        session.date === date &&
+        session.summary === sourceSession.summary &&
+        session.type === sourceSession.type
+      )
+    ).length;
+
+    if (
+      duplicateCount > 0 &&
+      !window.confirm("Ya existe una sesión parecida en alguna fecha seleccionada. ¿Quieres crearla igualmente?")
+    ) {
+      return 0;
+    }
+
+    const createdSessions = dates.map((date, index) =>
+      createPlannedSessionCopy(sourceSession, date, time, `${Date.now()}-${index}`)
+    );
+
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              sessionRecords: [...createdSessions, ...(listedClient.sessionRecords ?? [])]
+            }
+          : listedClient
+      )
+    );
+
+    return createdSessions.length;
   }
 
   return (
@@ -598,6 +640,7 @@ export default function ClientsPage() {
               <CalendarView
                 client={null}
                 clients={clients}
+                onCreateRecurringSessions={createRecurringCalendarSessions}
                 onDuplicateSession={duplicateCalendarSession}
                 onMoveSession={moveCalendarSession}
                 onOpenTrainingSession={openTrainingSession}
