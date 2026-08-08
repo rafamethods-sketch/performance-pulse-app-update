@@ -7016,6 +7016,55 @@ type CoachThreadMessage = {
   timestamp: string;
 };
 
+type CoachQuickMessageTemplate = {
+  category: "General" | "Técnica" | "Seguimiento" | "Recuperación" | "Recordatorio";
+  text: string;
+  title: string;
+};
+
+const coachQuickMessageTemplates: CoachQuickMessageTemplate[] = [
+  {
+    category: "General",
+    text: "Buen trabajo en la sesión de hoy. Mantén esta línea y revisamos sensaciones en la próxima.",
+    title: "Buen trabajo"
+  },
+  {
+    category: "Seguimiento",
+    text: "Cuando puedas, completa el bienestar previo para ajustar mejor la planificación.",
+    title: "Completa wellness"
+  },
+  {
+    category: "Técnica",
+    text: "Te he dejado feedback técnico en la sesión. Revísalo antes del próximo entrenamiento.",
+    title: "Revisa feedback técnico"
+  },
+  {
+    category: "Técnica",
+    text: "Cuando hagas el ejercicio principal, si puedes, sube un enlace de vídeo para revisar la técnica.",
+    title: "Sube vídeo de técnica"
+  },
+  {
+    category: "Seguimiento",
+    text: "He visto tus sensaciones y ajustaremos la carga en la próxima sesión.",
+    title: "Ajustamos carga"
+  },
+  {
+    category: "Recuperación",
+    text: "Prioriza descanso, hidratación y recuperación antes de la próxima sesión.",
+    title: "Recuperación"
+  },
+  {
+    category: "Recordatorio",
+    text: "Recuerda registrar la sesión cuando la completes para poder revisar carga y sensaciones.",
+    title: "Sesión pendiente"
+  },
+  {
+    category: "Recordatorio",
+    text: "Si notas molestias durante la sesión, reduce intensidad y déjalo indicado en el registro.",
+    title: "Molestias"
+  }
+];
+
 function MessagesView({ client, clients }: { client?: CoachClient | null; clients: CoachClient[] }) {
   const [selectedThreadId, setSelectedThreadId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -7112,6 +7161,15 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
     if (!selectedThread) return;
     saveCoachMessage(selectedThread, messageDraft);
     setMessageDraft("");
+  }
+
+  function applyQuickMessageTemplate(template: CoachQuickMessageTemplate) {
+    if (messageDraft.trim() && typeof window !== "undefined") {
+      const shouldReplace = window.confirm("Esto reemplazará el mensaje actual. ¿Quieres continuar?");
+      if (!shouldReplace) return;
+    }
+
+    setMessageDraft(template.text);
   }
 
   function saveNewNote() {
@@ -7226,6 +7284,32 @@ function MessagesView({ client, clients }: { client?: CoachClient | null; client
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Plantillas rápidas</h3>
+                  <p className="text-xs text-ink/50">Insertan texto en el mensaje. Puedes editarlo antes de enviar.</p>
+                </div>
+                <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/50">
+                  Sistema
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {coachQuickMessageTemplates.map((template) => (
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-2 text-left text-xs font-semibold text-ink/70 transition hover:bg-panel"
+                    key={template.title}
+                    onClick={() => applyQuickMessageTemplate(template)}
+                    title={template.text}
+                    type="button"
+                  >
+                    <span className="block text-ink">{template.title}</span>
+                    <span className="mt-0.5 block text-[11px] text-ink/45">{template.category}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
