@@ -840,6 +840,18 @@ type TechniqueReview = {
   status?: TechniqueReviewStatus;
 };
 
+type CoachPrivateNoteCategory = "training" | "injury" | "communication" | "technical" | "admin" | "other";
+
+type CoachPrivateNote = {
+  category?: CoachPrivateNoteCategory;
+  createdAt: string;
+  id: string;
+  pinned?: boolean;
+  text: string;
+  title?: string;
+  updatedAt?: string;
+};
+
 type ConnectedSessionExercise = SessionExerciseInput & {
   actualRest?: number | string | null;
   athleteNotes?: string | null;
@@ -916,6 +928,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   business?: ClientBusinessData;
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
+  coachPrivateNotes?: CoachPrivateNote[];
   isDemo?: boolean;
   menstrualTracking?: MenstrualTracking;
   onboarding?: ClientOnboarding;
@@ -945,6 +958,24 @@ type ClientBusinessData = {
   status?: ClientBusinessStatus;
   statusChangedAt?: string;
 };
+
+const coachPrivateNoteCategoryLabels: Record<CoachPrivateNoteCategory, string> = {
+  admin: "Gestión",
+  communication: "Comunicación",
+  injury: "Molestias / lesión",
+  other: "Otro",
+  technical: "Técnica",
+  training: "Entrenamiento"
+};
+
+const coachPrivateNoteCategoryOptions: Array<{ label: string; value: CoachPrivateNoteCategory }> = [
+  { label: "Entrenamiento", value: "training" },
+  { label: "Molestias / lesión", value: "injury" },
+  { label: "Comunicación", value: "communication" },
+  { label: "Técnica", value: "technical" },
+  { label: "Gestión", value: "admin" },
+  { label: "Otro", value: "other" }
+];
 
 type PerformanceTestCategory =
   | "strength"
@@ -2925,6 +2956,7 @@ type AttentionSectionId =
   | "discomfort"
   | "lowReadiness"
   | "expiringAccess"
+  | "pinnedPrivateNotes"
   | "pendingOnboarding"
   | "staleTests";
 
@@ -2983,6 +3015,11 @@ const attentionSectionLabels: Record<AttentionSectionId, { description: string; 
     description: "Fichas iniciales pendientes o incompletas.",
     filter: "management",
     title: "Fichas iniciales pendientes"
+  },
+  pinnedPrivateNotes: {
+    description: "Clientes con notas privadas fijadas para tener presentes.",
+    filter: "management",
+    title: "Notas internas fijadas"
   },
   pendingSessions: {
     description: "Sesiones completadas que todavía necesitan revisión.",
@@ -3182,6 +3219,21 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
           title: client.name
         });
       }
+    }
+
+    const pinnedNotes = (client.coachPrivateNotes ?? []).filter((note) => note.pinned && note.text.trim());
+    if (pinnedNotes.length > 0) {
+      items.push({
+        action: "details",
+        badge: `${pinnedNotes.length} fijadas`,
+        clientId: client.id,
+        clientName: client.name,
+        detail: pinnedNotes.slice(0, 2).map((note) => note.title || note.text).join(" · "),
+        id: `pinned-private-notes-${client.id}`,
+        meta: "Solo entrenador",
+        section: "pinnedPrivateNotes",
+        title: client.name
+      });
     }
 
     const onboardingCompletion = getOnboardingCompletion(client);
@@ -3668,6 +3720,16 @@ function ClientDetailsView({
     unit: "",
     value: ""
   });
+  const [privateNoteDraft, setPrivateNoteDraft] = useState<{
+    category: CoachPrivateNoteCategory;
+    text: string;
+    title: string;
+  }>({
+    category: "training",
+    text: "",
+    title: ""
+  });
+  const [editingPrivateNoteId, setEditingPrivateNoteId] = useState<string | null>(null);
   const [businessDraft, setBusinessDraft] = useState({
     acquisitionSource: getClientAcquisitionSource(client),
     acquisitionSourceDetail: client.business?.acquisitionSourceDetail ?? "",
@@ -3700,6 +3762,12 @@ function ClientDetailsView({
       unit: "",
       value: ""
     });
+    setPrivateNoteDraft({
+      category: "training",
+      text: "",
+      title: ""
+    });
+    setEditingPrivateNoteId(null);
     setIsEditing(false);
   }, [client]);
 
@@ -3764,6 +3832,85 @@ function ClientDetailsView({
       performanceTests: {
         entries: (client.performanceTests?.entries ?? []).filter((entry) => entry.id !== entryId)
       }
+    });
+  };
+
+  const sortedPrivateNotes = [...(client.coachPrivateNotes ?? [])].sort((left, right) => {
+    if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
+    return new Date(right.updatedAt ?? right.createdAt).getTime() - new Date(left.updatedAt ?? left.createdAt).getTime();
+  });
+
+  const resetPrivateNoteDraft = () => {
+    setPrivateNoteDraft({ category: "training", text: "", title: "" });
+    setEditingPrivateNoteId(null);
+  };
+
+  const handleSavePrivateNote = () => {
+    const text = privateNoteDraft.text.trim();
+    if (!text) return;
+
+    const now = new Date().toISOString();
+    const currentNotes = client.coachPrivateNotes ?? [];
+    const nextNotes = editingPrivateNoteId
+      ? currentNotes.map((note) =>
+          note.id === editingPrivateNoteId
+            ? {
+                ...note,
+                category: privateNoteDraft.category,
+                text,
+                title: privateNoteDraft.title.trim() || undefined,
+                updatedAt: now
+              }
+            : note
+        )
+      : [
+          {
+            category: privateNoteDraft.category,
+            createdAt: now,
+            id: `coach-private-note-${Date.now()}`,
+            text,
+            title: privateNoteDraft.title.trim() || undefined
+          },
+          ...currentNotes
+        ];
+
+    onUpdateClient({
+      ...client,
+      coachPrivateNotes: nextNotes
+    });
+    resetPrivateNoteDraft();
+  };
+
+  const handleEditPrivateNote = (note: CoachPrivateNote) => {
+    setEditingPrivateNoteId(note.id);
+    setPrivateNoteDraft({
+      category: note.category ?? "other",
+      text: note.text,
+      title: note.title ?? ""
+    });
+  };
+
+  const handleDeletePrivateNote = (noteId: string) => {
+    if (typeof window !== "undefined" && !window.confirm("¿Eliminar esta nota interna?")) return;
+    onUpdateClient({
+      ...client,
+      coachPrivateNotes: (client.coachPrivateNotes ?? []).filter((note) => note.id !== noteId)
+    });
+    if (editingPrivateNoteId === noteId) resetPrivateNoteDraft();
+  };
+
+  const handleTogglePrivateNotePin = (noteId: string) => {
+    onUpdateClient({
+      ...client,
+      coachPrivateNotes: (client.coachPrivateNotes ?? []).map((note) =>
+        note.id === noteId
+          ? {
+              ...note,
+              pinned: !note.pinned,
+              updatedAt: new Date().toISOString()
+            }
+          : note
+      )
     });
   };
 
@@ -4025,6 +4172,123 @@ function ClientDetailsView({
       <div className="mt-5">
         <OnboardingSummaryCard client={client} />
       </div>
+
+      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Notas internas</h3>
+            <p className="mt-1 text-sm text-ink/55">Solo visibles para el entrenador.</p>
+          </div>
+          <span className="w-fit rounded-md border border-line bg-panel/50 px-2 py-1 text-xs font-semibold text-ink/50">
+            Nota privada. No visible para el deportista.
+          </span>
+        </div>
+
+        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+          <div className="grid gap-3 lg:grid-cols-[0.9fr_0.7fr]">
+            <label className="text-sm font-semibold text-ink/70">
+              Título
+              <input
+                className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+                onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, title: event.target.value }))}
+                placeholder="Opcional"
+                value={privateNoteDraft.title}
+              />
+            </label>
+            <label className="text-sm font-semibold text-ink/70">
+              Categoría
+              <select
+                className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+                onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, category: event.target.value as CoachPrivateNoteCategory }))}
+                value={privateNoteDraft.category}
+              >
+                {coachPrivateNoteCategoryOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-ink/70 lg:col-span-2">
+              Nota
+              <textarea
+                className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+                onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, text: event.target.value }))}
+                placeholder="Recordatorio, decisión pendiente, punto técnico o idea para la próxima sesión."
+                value={privateNoteDraft.text}
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!privateNoteDraft.text.trim()}
+              onClick={handleSavePrivateNote}
+              type="button"
+            >
+              {editingPrivateNoteId ? "Guardar nota" : "Añadir nota"}
+            </button>
+            {editingPrivateNoteId ? (
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetPrivateNoteDraft} type="button">
+                Cancelar edición
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {sortedPrivateNotes.length > 0 ? (
+          <div className="mt-4 grid gap-3">
+            {sortedPrivateNotes.map((note) => (
+              <article className={`rounded-md border border-line bg-panel/35 p-4 ${note.pinned ? "border-l-4 border-l-moss" : ""}`} key={note.id}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">
+                        {coachPrivateNoteCategoryLabels[note.category ?? "other"]}
+                      </span>
+                      {note.pinned ? (
+                        <span className="rounded-md border border-moss/30 bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                          Fijada
+                        </span>
+                      ) : null}
+                    </div>
+                    {note.title ? <h4 className="mt-3 font-semibold text-ink">{note.title}</h4> : null}
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-ink/70">{note.text}</p>
+                    <p className="mt-2 text-xs font-medium text-ink/45">
+                      {note.updatedAt ? `Actualizada ${formatDisplayDate(note.updatedAt)}` : `Creada ${formatDisplayDate(note.createdAt)}`}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <button
+                      className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70"
+                      onClick={() => handleTogglePrivateNotePin(note.id)}
+                      type="button"
+                    >
+                      {note.pinned ? "Desfijar" : "Fijar"}
+                    </button>
+                    <button
+                      className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70"
+                      onClick={() => handleEditPrivateNote(note)}
+                      type="button"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+                      onClick={() => handleDeletePrivateNote(note.id)}
+                      type="button"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 px-4 py-4 text-sm font-semibold text-ink/50">
+            Aún no hay notas internas para este cliente.
+          </p>
+        )}
+      </section>
 
       <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -8651,6 +8915,9 @@ function CoachTrainingPlanner({
   const resistanceSportProfiles = getSportZoneProfiles();
   const selectedResistanceZoneGuide = getResistanceZoneGuide(selectedResistanceSport, targetResistanceZoneId);
   const recentPerformanceTestReferences = getRecentPerformanceTestReferences(activeSessionClient, sessionType, selectedResistanceSport);
+  const pinnedPlanningPrivateNotes = (activeSessionClient?.coachPrivateNotes ?? [])
+    .filter((note) => note.pinned && note.text.trim())
+    .slice(0, 3);
   const normalizedTemplateSearch = templateSearchTerm.trim().toLowerCase();
   const filterTemplate = (template: SessionTemplate) => {
     const matchesCategory = templateCategoryFilter === "Todas" || template.category === templateCategoryFilter;
@@ -9553,6 +9820,24 @@ function CoachTrainingPlanner({
                 <div className="mt-4">
                   <OnboardingSummaryCard client={activeSessionClient} compact title="Contexto del cliente" />
                 </div>
+                {pinnedPlanningPrivateNotes.length > 0 ? (
+                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold uppercase text-ink/45">Notas internas fijadas</p>
+                      <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/50">
+                        Solo entrenador
+                      </span>
+                    </div>
+                    <ul className="mt-2 space-y-2 text-sm text-ink/70">
+                      {pinnedPlanningPrivateNotes.map((note) => (
+                        <li className="rounded-md border border-line bg-white px-3 py-2" key={note.id}>
+                          {note.title ? <span className="font-semibold text-ink">{note.title}: </span> : null}
+                          {note.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {recentPerformanceTestReferences.length > 0 ? (
                   <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                     <p className="text-xs font-semibold uppercase text-ink/45">Tests recientes</p>
