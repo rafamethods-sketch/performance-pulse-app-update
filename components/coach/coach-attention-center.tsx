@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import { getExerciseById } from "@/lib/exercises";
+import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
 
 type AttentionFilter = "all" | "sessions" | "technique" | "feedback" | "wellness" | "management";
 type AttentionPeriod = 7 | 14 | 30 | 90;
@@ -14,6 +15,7 @@ type AttentionSectionId =
   | "discomfort"
   | "lowReadiness"
   | "expiringAccess"
+  | "intakeQuestionnaire"
   | "pinnedPrivateNotes"
   | "pendingOnboarding"
   | "staleTests";
@@ -106,6 +108,7 @@ type CoachClient = {
   coachPrivateNotes?: Array<{ pinned?: boolean; text: string; title?: string }>;
   id: string;
   injuries?: string | null;
+  intakeQuestionnaire?: IntakeQuestionnaire;
   modality?: string | null;
   name: string;
   nextEvent?: string | null;
@@ -161,6 +164,11 @@ const attentionSectionLabels: Record<AttentionSectionId, { description: string; 
     description: "Revisiones manuales marcadas con prioridad alta o compensación alta.",
     filter: "technique",
     title: "Técnica con prioridad alta"
+  },
+  intakeQuestionnaire: {
+    description: "Cuestionarios de ingreso pendientes o actualizados por el deportista.",
+    filter: "management",
+    title: "Cuestionarios de ingreso"
   },
   lowReadiness: {
     description: "Registros recientes de wellness/readiness bajos.",
@@ -437,6 +445,33 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 
   clients.forEach((client) => {
     const sessionRecords = client.sessionRecords ?? [];
+    const intakeQuestionnaire = client.intakeQuestionnaire;
+
+    if (intakeQuestionnaire?.required === true && intakeQuestionnaire.completed !== true) {
+      items.push({
+        action: "details",
+        badge: "Pendiente",
+        clientId: client.id,
+        clientName: client.name,
+        date: intakeQuestionnaire.updatedAt,
+        detail: "El deportista todavía no ha completado el cuestionario obligatorio.",
+        id: `intake-pending-${client.id}`,
+        section: "intakeQuestionnaire",
+        title: "Cuestionario de ingreso pendiente"
+      });
+    } else if (intakeQuestionnaire?.completed === true && intakeQuestionnaire.needsCoachReview === true) {
+      items.push({
+        action: "details",
+        badge: "Actualizado",
+        clientId: client.id,
+        clientName: client.name,
+        date: intakeQuestionnaire.updatedAt ?? intakeQuestionnaire.completedAt,
+        detail: "El deportista ha enviado o actualizado el cuestionario.",
+        id: `intake-updated-${client.id}`,
+        section: "intakeQuestionnaire",
+        title: "Cuestionario de ingreso actualizado"
+      });
+    }
 
     sessionRecords.forEach((session, sessionIndex) => {
       const sessionInPeriod = isWithinLastDays(session.date, period);

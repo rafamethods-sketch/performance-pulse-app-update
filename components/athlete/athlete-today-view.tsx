@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
+import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
+import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
 import {
@@ -129,6 +131,7 @@ type AthleteSessionRecord = {
 
 type AthleteClient = {
   id: string;
+  intakeQuestionnaire?: IntakeQuestionnaire;
   menstrualTracking?: MenstrualTracking;
   name: string;
   sex?: ClientSex;
@@ -487,6 +490,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [wellnessConfirmed, setWellnessConfirmed] = useState(false);
   const [showSessionPreview, setShowSessionPreview] = useState(false);
   const [showWellnessModal, setShowWellnessModal] = useState(false);
+  const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
   const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
     activation: false,
@@ -1000,6 +1004,31 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       ) : null}
     </section>
   ) : null;
+  const intakeEditBlock = client.intakeQuestionnaire?.completed ? (
+    <section className="rounded-md border border-line bg-white p-4 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Información inicial</h3>
+          <p className="mt-1 text-sm text-ink/55">Puedes actualizar tu cuestionario si cambia tu contexto, objetivos o limitaciones.</p>
+        </div>
+        <button
+          className="w-fit rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
+          onClick={() => setShowIntakeEditor((current) => !current)}
+          type="button"
+        >
+          {showIntakeEditor ? "Cerrar cuestionario" : "Editar cuestionario de ingreso"}
+        </button>
+      </div>
+      {showIntakeEditor ? (
+        <AthleteIntakeQuestionnaire
+          client={client}
+          mode="edit"
+          onCancel={() => setShowIntakeEditor(false)}
+          onUpdateClient={onUpdateClient}
+        />
+      ) : null}
+    </section>
+  ) : null;
 
   if (!session) {
     return (
@@ -1012,6 +1041,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           onShowPlanning={onShowPlanning}
           onShowWeeklyLoad={onShowWeeklyLoad}
         />
+        {intakeEditBlock}
         {menstrualTrackingBlock}
       </div>
     );
@@ -1026,6 +1056,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
   return (
     <div className="mx-auto mt-4 max-w-3xl space-y-4 sm:mt-5 sm:space-y-5">
+      {intakeEditBlock}
       <section className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

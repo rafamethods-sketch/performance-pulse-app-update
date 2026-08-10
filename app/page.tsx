@@ -19,6 +19,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
 import { AthleteCalendarView } from "@/components/athlete/athlete-calendar-view";
 import { AthleteHistoryView } from "@/components/athlete/athlete-history-view";
+import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthletePlanningView } from "@/components/athlete/athlete-planning-view";
 import { AthleteTodayView } from "@/components/athlete/athlete-today-view";
 import { AthleteWeeklyLoadView } from "@/components/athlete/athlete-weekly-load-view";
@@ -109,6 +110,13 @@ import {
   type ClientSex,
   type MenstrualTracking
 } from "@/lib/menstrual-cycle";
+import {
+  buildInitialIntakeQuestionnaire,
+  getIntakeStatusLabel,
+  getIntakeSummaryRows,
+  isIntakeRequiredAndIncomplete,
+  type IntakeQuestionnaire
+} from "@/lib/intake-questionnaire";
 import { supabase } from "@/lib/supabase";
 import {
   coachClients,
@@ -290,6 +298,7 @@ export default function ClientsPage() {
   const scopedClient =
     clients.find((client) => client.id === scopedClientId) ?? null;
   const athleteClient = selectedClient ?? clients[0] ?? null;
+  const athleteNeedsIntake = role === "athlete" && isIntakeRequiredAndIncomplete(athleteClient?.intakeQuestionnaire);
 
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
@@ -512,7 +521,18 @@ export default function ClientsPage() {
             />
           ) : null}
 
-          {activeSheet === "today" ? (
+          {role === "athlete" && athleteClient && athleteNeedsIntake ? (
+            <AthleteIntakeQuestionnaire
+              client={athleteClient}
+              onUpdateClient={(updatedClient) =>
+                setClients((currentClients) =>
+                  currentClients.map((listedClient) =>
+                    listedClient.id === updatedClient.id ? updatedClient : listedClient
+                  )
+                )
+              }
+            />
+          ) : activeSheet === "today" ? (
             role === "coach" ? (
               <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
             ) : getClientAccessInfo(athleteClient).status === "expired" ? (
@@ -921,6 +941,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
   coachPrivateNotes?: CoachPrivateNote[];
+  intakeQuestionnaire?: IntakeQuestionnaire;
   isDemo?: boolean;
   menstrualTracking?: MenstrualTracking;
   onboarding?: ClientOnboarding;
@@ -2253,6 +2274,7 @@ function CoachClientsView({
       history: "Pendiente de completar.",
       hooper: { sleep: 0, fatigue: 0, stress: 0, soreness: 0, mood: 0 },
       id,
+      intakeQuestionnaire: buildInitialIntakeQuestionnaire(),
       injuries: newClientDraft.injuries.trim() || "Pendiente de completar.",
       lastActivity: "Sin sesiones registradas",
       level: "Pendiente",
@@ -3322,6 +3344,49 @@ function ClientDetailsView({
   const accessInfo = getClientAccessInfo(client);
   const accessProgress = getAccessProgress(client.accessStartDate, client.accessEndDate);
   const performanceTestEntries = getSortedPerformanceTests(client);
+  const intakeStatus = getIntakeStatusLabel(client.intakeQuestionnaire);
+  const intakeSummaryRows = getIntakeSummaryRows(client.intakeQuestionnaire);
+
+  const updateIntakeQuestionnaire = (intakeQuestionnaire: IntakeQuestionnaire) => {
+    onUpdateClient({
+      ...client,
+      intakeQuestionnaire
+    });
+  };
+
+  const handleMarkIntakeReviewed = () => {
+    if (!client.intakeQuestionnaire) return;
+    updateIntakeQuestionnaire({
+      ...client.intakeQuestionnaire,
+      lastReviewedAt: new Date().toISOString(),
+      needsCoachReview: false
+    });
+  };
+
+  const handleMarkIntakePending = () => {
+    const currentIntake = client.intakeQuestionnaire ?? buildInitialIntakeQuestionnaire();
+    updateIntakeQuestionnaire({
+      ...currentIntake,
+      completed: false,
+      needsCoachReview: true,
+      required: true,
+      updatedAt: new Date().toISOString()
+    });
+  };
+
+  const handleMarkIntakeCompleted = () => {
+    const now = new Date().toISOString();
+    const currentIntake = client.intakeQuestionnaire ?? buildInitialIntakeQuestionnaire();
+    updateIntakeQuestionnaire({
+      ...currentIntake,
+      completed: true,
+      completedAt: currentIntake.completedAt ?? now,
+      lastReviewedAt: now,
+      needsCoachReview: false,
+      required: true,
+      updatedAt: currentIntake.updatedAt ?? now
+    });
+  };
 
   const detailSections = [
     {
@@ -3454,6 +3519,63 @@ function ClientDetailsView({
       <div className="mt-5">
         <OnboardingSummaryCard client={client} />
       </div>
+
+      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Cuestionario de ingreso</h3>
+            <p className="mt-1 text-sm text-ink/55">Formulario obligatorio para nuevos deportistas antes de acceder a la cuenta.</p>
+          </div>
+          <span className="w-fit rounded-md border border-line bg-panel/50 px-2.5 py-1 text-xs font-semibold text-ink/60">
+            {intakeStatus}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <ClientInfoCard label="Completado" value={client.intakeQuestionnaire?.completedAt ? formatDisplayDateTime(client.intakeQuestionnaire.completedAt) : "Sin completar"} />
+          <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
+          <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
+        </div>
+        {client.intakeQuestionnaire?.completed ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {intakeSummaryRows.map(([label, value]) => (
+              <article className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+                <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm font-semibold text-ink/60">
+            El deportista todavía no ha completado el cuestionario de ingreso.
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {client.intakeQuestionnaire?.completed ? (
+            <button
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              onClick={handleMarkIntakeReviewed}
+              type="button"
+            >
+              Marcar como revisado
+            </button>
+          ) : (
+            <button
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              onClick={handleMarkIntakeCompleted}
+              type="button"
+            >
+              Marcar como completado
+            </button>
+          )}
+          <button
+            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70"
+            onClick={handleMarkIntakePending}
+            type="button"
+          >
+            Marcar como pendiente
+          </button>
+        </div>
+      </section>
 
       <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
