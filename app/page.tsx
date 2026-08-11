@@ -478,7 +478,7 @@ export default function ClientsPage() {
                   : activeSheet === "analytics"
                     ? "Analítica"
                   : activeSheet === "training"
-                    ? role === "coach" ? "Sesiones" : "Historial"
+                    ? role === "coach" ? "Entrenamiento" : "Historial"
                   : activeSheet === "assessments"
                     ? "Tests"
                   : activeSheet === "calendar"
@@ -494,13 +494,13 @@ export default function ClientsPage() {
                   : activeSheet === "planning"
                     ? "Planificación"
                   : activeSheet === "progressions"
-                    ? "Ejercicios"
+                    ? "Biblioteca"
                   : activeSheet === "resources"
                     ? "Recursos"
                   : activeSheet === "routines"
                     ? "Rutinas"
                   : activeSheet === "messages"
-                    ? "Mensajes"
+                    ? role === "coach" ? "Comunicación" : "Mensajes"
                     : "Dashboard"}
               </h1>
             </div>

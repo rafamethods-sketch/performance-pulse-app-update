@@ -60,11 +60,11 @@ export const navItems: NavItem[] = [
   { id: "attention", label: "Asuntos pendientes", icon: ClipboardCheck },
   { id: "analytics", label: "Analítica", icon: BarChart3 },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
-  { id: "training", label: "Sesiones", icon: ClipboardList },
+  { id: "training", label: "Entrenamiento", icon: ClipboardList },
   { id: "planning", label: "Planificación", icon: FileClock },
-  { id: "progressions", label: "Ejercicios", icon: Library },
+  { id: "progressions", label: "Biblioteca", icon: Library },
   { id: "resources", label: "Recursos", icon: FolderOpen },
-  { id: "messages", label: "Mensajes", icon: MessageSquareText },
+  { id: "messages", label: "Comunicación", icon: MessageSquareText },
   { id: "weeklyLoad", label: "Metricas", icon: LineChart },
   { id: "assessments", label: "Tests", icon: LineChart },
   { id: "fatigue", label: "Fatiga", icon: Activity },
@@ -72,7 +72,7 @@ export const navItems: NavItem[] = [
   { id: "decision", label: "Dashboard general", icon: Activity }
 ];
 
-export const coachMainNavIds: SheetId[] = ["attention", "clients", "training", "calendar", "messages", "analytics", "progressions", "resources"];
+export const coachMainNavIds: SheetId[] = ["attention", "clients", "training", "calendar", "progressions", "messages", "analytics", "resources"];
 export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning"];
 
 export const coachStats = [
