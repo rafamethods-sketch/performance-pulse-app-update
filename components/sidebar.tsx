@@ -13,7 +13,7 @@ export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollaps
   const visibleNavItems = navItems
     .filter((item) => role === "coach" ? coachMainNavIds.includes(item.id as SheetId) : athleteMainNavIds.includes(item.id as SheetId))
     .sort((left, right) => {
-      if (role === "coach") return 0;
+      if (role === "coach") return coachMainNavIds.indexOf(left.id as SheetId) - coachMainNavIds.indexOf(right.id as SheetId);
       return athleteMainNavIds.indexOf(left.id as SheetId) - athleteMainNavIds.indexOf(right.id as SheetId);
     });
 

@@ -147,7 +147,7 @@ const themeStorageKey = "coach_theme_preference";
 
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
-  const [activeSheet, setActiveSheet] = useState<SheetId>("today");
+  const [activeSheet, setActiveSheet] = useState<SheetId>("attention");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
   const [clients, setClients] = useState<CoachClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -172,7 +172,7 @@ export default function ClientsPage() {
       const email = data.session?.user.email ?? null;
       if (email) {
         setRole("coach");
-        setActiveSheet("today");
+        setActiveSheet("attention");
       }
     });
 
@@ -180,7 +180,7 @@ export default function ClientsPage() {
       const email = session?.user.email ?? null;
       if (email) {
         setRole("coach");
-        setActiveSheet("today");
+        setActiveSheet("attention");
       } else {
         setRole(null);
       }
@@ -278,7 +278,7 @@ export default function ClientsPage() {
 
   function handleLogin(nextRole: UserRole) {
     setRole(nextRole);
-    setActiveSheet("today");
+    setActiveSheet(nextRole === "coach" ? "attention" : "today");
   }
 
   if (!role) {
@@ -474,7 +474,7 @@ export default function ClientsPage() {
                       ? `Información - ${selectedClient?.name ?? "cliente"}`
                       : "Clientes"
                   : activeSheet === "attention"
-                    ? "Pendientes"
+                    ? "Asuntos pendientes"
                   : activeSheet === "analytics"
                     ? "Analítica"
                   : activeSheet === "training"
