@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
@@ -54,10 +55,12 @@ import {
 import {
   bodyRegionLabels,
   bodyRegions,
+  exercisePatterns,
   exerciseLibrary,
   getExerciseById,
   getExercisePatternsByBodyRegion,
   getExercisesByPattern,
+  patternBodyRegions,
   searchExercises,
   type BodyRegion,
   type ExerciseDefinition,
@@ -94,6 +97,7 @@ import { calculateSessionDeviation, type SessionDiscomfort } from "@/lib/session
 import {
   getCompleteResistanceMethods,
   getResistanceMethodById,
+  resistanceMethods,
   type ResistanceMethod
 } from "@/lib/resistance-methods";
 import {
@@ -5954,48 +5958,289 @@ const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string>
 };
 
 type ExerciseLibraryMode = "strength" | "resistance";
+type GuidedLibraryMode = ExerciseLibraryMode | "advanced";
+
+const strengthAdaptations = [
+  "Fuerza máxima",
+  "Hipertrofia funcional",
+  "Potencia",
+  "Fuerza excéntrica",
+  "Work capacity",
+  "Control técnico",
+  "Structural balance",
+  "Readaptación / baja carga"
+];
+
+const resistanceGuidedSports: Array<{ label: string; value: ResistanceSport }> = [
+  { label: "General", value: "generic" },
+  { label: "Running", value: "running" },
+  { label: "Cycling", value: "cycling" },
+  { label: "Swimming", value: "swimming" }
+];
+
+const resistanceAdaptations = [
+  "Recuperación",
+  "Base aeróbica",
+  "Capacidad aeróbica",
+  "Potencia aeróbica",
+  "Umbral",
+  "Capacidad anaeróbica",
+  "Potencia anaeróbica",
+  "Puesta a punto"
+];
+
+function getRelatedResistanceMethods(adaptation: string) {
+  const normalizedAdaptation = adaptation.toLowerCase();
+
+  return resistanceMethods.filter((method) => {
+    const haystack = [
+      method.family,
+      method.group,
+      method.subgroup,
+      method.name,
+      method.intensity,
+      method.trainingEffects.join(" ")
+    ].join(" ").toLowerCase();
+
+    if (normalizedAdaptation.includes("recuperación")) return haystack.includes("recuper") || method.zones.includes("R0") || method.zones.includes("R1");
+    if (normalizedAdaptation.includes("base")) return method.zones.includes("R1") || method.zones.includes("R1+");
+    if (normalizedAdaptation.includes("capacidad aeróbica")) return method.zones.includes("R2") || haystack.includes("aeróbic");
+    if (normalizedAdaptation.includes("potencia aeróbica")) return method.zones.includes("R3") || method.zones.includes("R3+");
+    if (normalizedAdaptation.includes("umbral")) return haystack.includes("umbral") || method.zones.includes("R3");
+    if (normalizedAdaptation.includes("capacidad anaeróbica")) return method.zones.includes("R4") || method.zones.includes("R5");
+    if (normalizedAdaptation.includes("potencia anaeróbica")) return method.zones.includes("R5") || method.zones.includes("R6");
+    if (normalizedAdaptation.includes("puesta")) return method.family === "Métodos puesta a punto";
+
+    return false;
+  });
+}
+
+function GuidedSelectionButton({
+  active,
+  children,
+  description,
+  onClick
+}: {
+  active: boolean;
+  children: ReactNode;
+  description?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`rounded-md border p-4 text-left transition ${
+        active
+          ? "border-moss bg-mint text-moss shadow-soft"
+          : "border-line bg-white text-ink hover:border-moss/40 hover:bg-panel/45"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="text-sm font-semibold">{children}</span>
+      {description ? <span className="mt-2 block text-sm leading-5 opacity-70">{description}</span> : null}
+    </button>
+  );
+}
 
 function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [libraryMode, setLibraryMode] = useState<ExerciseLibraryMode>("strength");
+  const [libraryMode, setLibraryMode] = useState<GuidedLibraryMode>("strength");
+  const [advancedLibrarySection, setAdvancedLibrarySection] = useState<ExerciseLibraryMode>("strength");
+  const [advancedExerciseSearch, setAdvancedExerciseSearch] = useState("");
+  const [advancedBodyRegionFilter, setAdvancedBodyRegionFilter] = useState<BodyRegion | "all">("all");
+  const [advancedPatternFilter, setAdvancedPatternFilter] = useState<ExercisePattern | "all">("all");
+  const [advancedEquipmentFilter, setAdvancedEquipmentFilter] = useState("all");
+  const [selectedAdvancedExerciseId, setSelectedAdvancedExerciseId] = useState("");
   const [activeBodyRegion, setActiveBodyRegion] = useState<BodyRegion>("lower_body");
   const availablePatterns = getExercisePatternsByBodyRegion(activeBodyRegion);
   const [activePattern, setActivePattern] = useState<ExercisePattern>(availablePatterns[0]);
+  const [selectedStrengthAdaptation, setSelectedStrengthAdaptation] = useState(strengthAdaptations[0]);
+  const [selectedResistanceSport, setSelectedResistanceSport] = useState<ResistanceSport>("generic");
+  const [selectedResistanceAdaptation, setSelectedResistanceAdaptation] = useState(resistanceAdaptations[0]);
   const patternExercises = getExercisesByPattern(activePattern);
   const familyGroups = getExerciseFamilyGroups(patternExercises);
   const [selectedFamilyKey, setSelectedFamilyKey] = useState("");
-  const selectedFamilyGroup =
-    familyGroups.find((group) => group.key === selectedFamilyKey) ?? familyGroups[0];
+  const selectedFamilyGroup = familyGroups.find((group) => group.key === selectedFamilyKey) ?? familyGroups[0];
   const [selectedExerciseId, setSelectedExerciseId] = useState("");
   const selectedExercise =
     selectedFamilyGroup?.exercises.find((exercise) => exercise.id === selectedExerciseId) ??
     selectedFamilyGroup?.exercises[0];
-  const fatigueEntries = selectedExercise
-    ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
-    : [];
-  const activationEvidence = getExerciseActivationEvidence(selectedExercise);
-  const activationMusclesByRole = getActivationMusclesByRole(activationEvidence);
+  const selectedResistanceProfile = getSportZoneProfile(selectedResistanceSport);
+  const relatedResistanceMethods = getRelatedResistanceMethods(selectedResistanceAdaptation);
+  const advancedEquipmentOptions = useMemo(
+    () => Array.from(new Set(exerciseLibrary.flatMap((exercise) => exercise.equipment))).sort((a, b) => a.localeCompare(b)),
+    []
+  );
+  const advancedStrengthExercises = useMemo(() => {
+    const query = advancedExerciseSearch.trim().toLowerCase();
+
+    return exerciseLibrary.filter((exercise) => {
+      const matchesSearch = !query || [
+        exercise.name,
+        exercise.pattern,
+        exercise.block,
+        exercise.technicalDescription,
+        exercise.equipment.join(" ")
+      ].join(" ").toLowerCase().includes(query);
+      const matchesBodyRegion = advancedBodyRegionFilter === "all" || exercise.bodyRegion === advancedBodyRegionFilter;
+      const matchesPattern = advancedPatternFilter === "all" || exercise.pattern === advancedPatternFilter;
+      const matchesEquipment = advancedEquipmentFilter === "all" || exercise.equipment.includes(advancedEquipmentFilter);
+
+      return matchesSearch && matchesBodyRegion && matchesPattern && matchesEquipment;
+    });
+  }, [advancedBodyRegionFilter, advancedEquipmentFilter, advancedExerciseSearch, advancedPatternFilter]);
+  const selectedAdvancedExercise =
+    advancedStrengthExercises.find((exercise) => exercise.id === selectedAdvancedExerciseId) ??
+    advancedStrengthExercises[0];
+
+  const handleStrengthPatternChange = (pattern: ExercisePattern) => {
+    setActivePattern(pattern);
+    setActiveBodyRegion(patternBodyRegions[pattern]);
+    setSelectedFamilyKey("");
+    setSelectedExerciseId("");
+  };
+
+  const libraryModeCards = (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Biblioteca guiada</h2>
+          <p className="mt-1 text-sm text-ink/55">Elige primero el tipo de trabajo y después afina por categoría y adaptación.</p>
+        </div>
+        {client ? <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">{client.name}</span> : null}
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <GuidedSelectionButton
+          active={libraryMode === "strength"}
+          description="Explora ejercicios según patrón de movimiento y adaptación buscada."
+          onClick={() => setLibraryMode("strength")}
+        >
+          Fuerza
+        </GuidedSelectionButton>
+        <GuidedSelectionButton
+          active={libraryMode === "resistance"}
+          description="Explora métodos según deporte, zona y adaptación fisiológica."
+          onClick={() => setLibraryMode("resistance")}
+        >
+          Resistencia
+        </GuidedSelectionButton>
+        <GuidedSelectionButton
+          active={libraryMode === "advanced"}
+          description="Mantiene los filtros y el catálogo detallado anterior."
+          onClick={() => setLibraryMode("advanced")}
+        >
+          Búsqueda avanzada
+        </GuidedSelectionButton>
+      </div>
+    </section>
+  );
 
   if (libraryMode === "resistance") {
-    return <ResistanceMethodsView libraryMode={libraryMode} setLibraryMode={setLibraryMode} />;
+    return (
+      <div className="mt-6 space-y-6">
+        {libraryModeCards}
+        <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+          <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+            <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Resistencia / {resistanceGuidedSports.find((sport) => sport.value === selectedResistanceSport)?.label} / {selectedResistanceAdaptation}</p>
+            <h3 className="mt-2 text-lg font-semibold text-ink">Guía de métodos de resistencia</h3>
+            <p className="mt-2 text-sm leading-6 text-ink/60">
+              La relación con adaptaciones usa zonas, familia y efectos ya presentes en el documento fuente. No se añaden métodos ni zonas nuevas.
+            </p>
+
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-ink">Deporte</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {resistanceGuidedSports.map((sport) => (
+                  <GuidedSelectionButton active={selectedResistanceSport === sport.value} key={sport.value} onClick={() => setSelectedResistanceSport(sport.value)}>
+                    {sport.label}
+                  </GuidedSelectionButton>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-ink">Adaptación buscada</p>
+              <div className="mt-3 grid gap-2">
+                {resistanceAdaptations.map((adaptation) => (
+                  <GuidedSelectionButton active={selectedResistanceAdaptation === adaptation} key={adaptation} onClick={() => setSelectedResistanceAdaptation(adaptation)}>
+                    {adaptation}
+                  </GuidedSelectionButton>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-ink">Métodos relacionados</h3>
+                <p className="mt-1 text-sm text-ink/55">{selectedResistanceProfile.name}</p>
+              </div>
+              <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{relatedResistanceMethods.length} métodos</span>
+            </div>
+
+            <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+              <p className="text-xs font-semibold uppercase text-ink/45">Zonas disponibles</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedResistanceProfile.zones.map((zone) => (
+                  <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65" key={zone.id}>{zone.shortLabel}</span>
+                ))}
+              </div>
+            </div>
+
+            {relatedResistanceMethods.length > 0 ? (
+              <div className="mt-4 grid gap-3">
+                {relatedResistanceMethods.map((method) => (
+                  <article className="rounded-md border border-line bg-panel/35 p-4" key={method.id}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-moss">{method.method}</p>
+                        <h4 className="mt-1 font-semibold text-ink">{method.name}</h4>
+                        <p className="mt-1 text-sm text-ink/55">{[method.family, method.group, method.subgroup].filter(Boolean).join(" · ")}</p>
+                      </div>
+                      <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${method.status === "complete" ? "bg-mint text-moss" : "border border-line bg-white text-ink/55"}`}>
+                        {method.status === "complete" ? "Completo" : "Pendiente"}
+                      </span>
+                    </div>
+                    {method.intensity ? <p className="mt-3 whitespace-pre-line text-sm font-semibold text-ink/70">{method.intensity}</p> : null}
+                    {method.sessionDuration ? <p className="mt-2 text-sm text-ink/55">Duración/formato: {method.sessionDuration}</p> : null}
+                    {method.trainingEffects.length > 0 ? <p className="mt-2 text-sm text-ink/55">Efectos: {method.trainingEffects.slice(0, 2).join(" · ")}</p> : null}
+                    {method.status === "pending" ? <p className="mt-2 rounded-md bg-white px-3 py-2 text-sm text-ink/55">Pendiente de completar en el documento base.</p> : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-semibold text-ink/55">
+                No hay métodos específicos asociados todavía a esta adaptación con los datos actuales.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Biblioteca por familias</h2>
-            <div className="mt-3 flex w-fit rounded-md border border-line bg-panel/35 p-1">
+  if (libraryMode === "advanced") {
+    return (
+      <div className="mt-6 space-y-6">
+        {libraryModeCards}
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Búsqueda avanzada</p>
+              <h3 className="mt-2 text-lg font-semibold text-ink">Encuentra ejercicios o métodos concretos</h3>
+              <p className="mt-1 text-sm text-ink/55">Explorar guía la decisión por adaptación; búsqueda avanzada ayuda a localizar contenido específico.</p>
+            </div>
+            <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
               {([
                 ["strength", "Fuerza"],
                 ["resistance", "Resistencia"]
-              ] as const).map(([mode, label]) => (
+              ] as const).map(([section, label]) => (
                 <button
                   className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
-                    libraryMode === mode ? "bg-ink text-white" : "text-ink/65 hover:bg-white"
+                    advancedLibrarySection === section ? "bg-ink text-white" : "text-ink/65 hover:bg-white"
                   }`}
-                  key={mode}
-                  onClick={() => setLibraryMode(mode)}
+                  key={section}
+                  onClick={() => setAdvancedLibrarySection(section)}
                   type="button"
                 >
                   {label}
@@ -6003,270 +6248,306 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               ))}
             </div>
           </div>
-          {client ? (
-            <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
-              {client.name}
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-5 grid gap-4">
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Región corporal
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => {
-                const nextRegion = event.target.value as BodyRegion;
-                const nextPattern = getExercisePatternsByBodyRegion(nextRegion)[0];
-                setActiveBodyRegion(nextRegion);
-                setActivePattern(nextPattern);
-                setSelectedFamilyKey("");
-                setSelectedExerciseId("");
-              }}
-              value={activeBodyRegion}
-            >
-              {bodyRegions.map((region) => (
-                <option key={region} value={region}>
-                  {bodyRegionLabels[region]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Patrón
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => {
-                setActivePattern(event.target.value as ExercisePattern);
-                setSelectedFamilyKey("");
-                setSelectedExerciseId("");
-              }}
-              value={activePattern}
-            >
-              {availablePatterns.map((pattern) => (
-                <option key={pattern}>{pattern}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Bloque
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => {
-                setSelectedFamilyKey(event.target.value);
-                setSelectedExerciseId("");
-              }}
-              value={selectedFamilyGroup?.key ?? ""}
-            >
-              {familyGroups.map((group) => (
-                <option key={group.key} value={group.key}>{group.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Ejercicio
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-              onChange={(event) => setSelectedExerciseId(event.target.value)}
-              value={selectedExercise?.id ?? ""}
-            >
-              {selectedFamilyGroup?.exercises.map((exercise) => (
-                <option key={exercise.id} value={exercise.id}>
-                  {exercise.rank}. {exercise.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </section>
+        </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-        {selectedExercise ? (
-          <div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">{selectedExercise.name}</h2>
-                <p className="mt-1 text-sm text-ink/55">
-                  {bodyRegionLabels[selectedExercise.bodyRegion]} - {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
-                </p>
-              </div>
-              <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">
-                {selectedExercise.equipment.join(" / ")}
-              </span>
-            </div>
-
-            <div className="mt-5 rounded-md bg-panel/45 p-4">
-              <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
-              <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
-            </div>
-
-            {selectedExercise.variants?.length ? (
-              <div className="mt-4 rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">Variantes</h3>
-                <div className="mt-3 grid gap-3">
-                  {selectedExercise.variants.map((variant) => (
-                    <article className="rounded-md bg-panel/45 p-3" key={variant.id}>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h4 className="text-sm font-semibold text-ink">{variant.name}</h4>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">
-                              {exerciseVariantTypeLabels[variant.type]}
-                            </span>
-                            {variant.difficulty ? (
-                              <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                                {exerciseVariantDifficultyLabels[variant.difficulty]}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        {variant.equipment?.length ? (
-                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">
-                            {variant.equipment.join(" / ")}
-                          </span>
-                        ) : null}
-                      </div>
-                      {variant.description ? (
-                        <p className="mt-3 text-sm leading-6 text-ink/70">{variant.description}</p>
-                      ) : null}
-                      {variant.coachingNotes ? (
-                        <p className="mt-2 rounded-md bg-white px-3 py-2 text-sm text-ink/65">
-                          {variant.coachingNotes}
-                        </p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">Errores a evitar</h3>
-                <div className="mt-3 grid gap-2">
-                  {selectedExercise.errorsToAvoid.map((error) => (
-                    <p className="rounded-md bg-panel/55 px-3 py-2 text-sm text-ink/70" key={error}>
-                      {error}
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-md border border-line p-4">
-                <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
-                <div className="mt-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
-                  <p className="mt-1 text-sm text-ink/70">
-                    {selectedExercise.primaryMuscles.join(", ") || "Pendiente de completar"}
-                  </p>
-                </div>
-                <div className="mt-3">
-                  <p className="text-xs font-semibold uppercase text-ink/45">Secundarios</p>
-                  <p className="mt-1 text-sm text-ink/70">
-                    {selectedExercise.secondaryMuscles.join(", ") || "Pendiente de completar"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-md border border-line p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
-                  <p className="mt-1 text-xs text-ink/50">
-                    Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.
-                  </p>
-                </div>
-                {activationEvidence ? (
-                  <span className="w-fit rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                    {evidenceStrengthLabels[activationEvidence.evidenceStrength]}
-                  </span>
-                ) : null}
-              </div>
-              {activationEvidence ? (
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
-                  <div className="grid gap-3">
-                    {(["primary", "secondary", "stabilizer"] as const).map((role) => {
-                      const entries = activationMusclesByRole[role];
-
-                      return (
-                        <div className="rounded-md bg-panel/45 p-3" key={role}>
-                          <p className="text-xs font-semibold uppercase text-ink/45">
-                            {activationRoleLabels[role]}
-                          </p>
-                          {entries.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {entries.map((entry) => (
-                                <span
-                                  className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/70"
-                                  key={`${role}-${entry.muscle}`}
-                                  title={entry.note}
-                                >
-                                  {formatFatigueKey(entry.muscle)}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-sm text-ink/45">Sin músculos en este rol.</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="rounded-md bg-panel/45 p-3">
-                    <p className="text-xs font-semibold uppercase text-ink/45">Fuente PubMed</p>
-                    <div className="mt-3 grid gap-2">
-                      {activationEvidence.sources.map((source) => (
-                        <p className="rounded-md border border-line bg-panel/60 px-3 py-2 text-xs leading-5 text-ink/65" key={source.pmid}>
-                          <span className="font-semibold text-ink">PMID {source.pmid}</span> · {source.title}
-                        </p>
-                      ))}
-                    </div>
-                    {activationEvidence.notes ? (
-                      <p className="mt-3 text-sm leading-6 text-ink/60">{activationEvidence.notes}</p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
-                  Sin evidencia PubMed añadida todavía para este ejercicio.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 rounded-md border border-line p-4">
-              <h3 className="text-sm font-semibold text-ink">Mapa de fatiga</h3>
-              {fatigueEntries.length > 0 ? (
-                <div className="mt-3 grid gap-2">
-                  {fatigueEntries.map(([muscle, value]) => (
-                    <div className="grid grid-cols-[130px_1fr_42px] items-center gap-3" key={muscle}>
-                      <span className="text-sm font-medium text-ink/65">{formatFatigueKey(muscle)}</span>
-                      <span className="h-2 overflow-hidden rounded-full bg-panel">
-                        <span
-                          className="block h-full rounded-full bg-gradient-to-r from-moss to-steel"
-                          style={{ width: `${Math.round(value * 100)}%` }}
-                        />
-                      </span>
-                      <span className="text-right text-sm font-semibold text-ink">{value.toFixed(1)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">
-                  Pendiente de completar para este ejercicio.
-                </p>
-              )}
-            </div>
+        {advancedLibrarySection === "resistance" ? (
+          <div className="rounded-md border border-line bg-white p-5 shadow-soft">
+            <ResistanceMethodsView libraryMode="resistance" setLibraryMode={(mode) => setLibraryMode(mode)} />
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/50">
-            Selecciona un ejercicio para ver su ficha.
+          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+            <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+              <h3 className="text-lg font-semibold text-ink">Búsqueda avanzada de fuerza</h3>
+              <p className="mt-1 text-sm text-ink/55">Filtra la biblioteca de ejercicios usando solo los campos existentes.</p>
+
+              <div className="mt-5 grid gap-4">
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Buscar
+                  <input
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setAdvancedExerciseSearch(event.target.value)}
+                    placeholder="Nombre, patrón, bloque, material..."
+                    type="search"
+                    value={advancedExerciseSearch}
+                  />
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Región corporal
+                    <select
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => setAdvancedBodyRegionFilter(event.target.value as BodyRegion | "all")}
+                      value={advancedBodyRegionFilter}
+                    >
+                      <option value="all">Todas</option>
+                      {bodyRegions.map((region) => (
+                        <option key={region} value={region}>{bodyRegionLabels[region]}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Patrón
+                    <select
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => setAdvancedPatternFilter(event.target.value as ExercisePattern | "all")}
+                      value={advancedPatternFilter}
+                    >
+                      <option value="all">Todos</option>
+                      {exercisePatterns.map((pattern) => (
+                        <option key={pattern} value={pattern}>{pattern}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label className="space-y-2 text-sm font-medium text-ink/75">
+                  Material
+                  <select
+                    className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                    onChange={(event) => setAdvancedEquipmentFilter(event.target.value)}
+                    value={advancedEquipmentFilter}
+                  >
+                    <option value="all">Todo el material</option>
+                    {advancedEquipmentOptions.map((equipment) => (
+                      <option key={equipment} value={equipment}>{equipment}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink">Ejercicios encontrados</p>
+                  <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">{advancedStrengthExercises.length}</span>
+                </div>
+                {advancedStrengthExercises.length > 0 ? (
+                  <div className="mt-3 grid max-h-[560px] gap-2 overflow-y-auto pr-1">
+                    {advancedStrengthExercises.map((exercise) => (
+                      <button
+                        className={`rounded-md border p-3 text-left transition ${selectedAdvancedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+                        key={exercise.id}
+                        onClick={() => setSelectedAdvancedExerciseId(exercise.id)}
+                        type="button"
+                      >
+                        <span className="block text-sm font-semibold">{exercise.name}</span>
+                        <span className="mt-1 block text-xs opacity-65">{exercise.pattern} · {exercise.block}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-md border border-dashed border-line bg-white p-5 text-sm font-semibold text-ink/50">No hay ejercicios que coincidan con esos filtros.</p>
+                )}
+              </div>
+            </section>
+
+            <ExerciseDetailCard selectedExercise={selectedAdvancedExercise} />
           </div>
         )}
-      </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-6">
+      {libraryModeCards}
+      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Fuerza / {activePattern} / {selectedStrengthAdaptation}</p>
+          <h3 className="mt-2 text-lg font-semibold text-ink">Guía de ejercicios de fuerza</h3>
+          <p className="mt-2 text-sm leading-6 text-ink/60">
+            La adaptación seleccionada orienta la búsqueda; la selección final depende de la prescripción de series, repeticiones, carga, tempo y descanso.
+          </p>
+
+          <div className="mt-5">
+            <p className="text-sm font-semibold text-ink">Patrón de movimiento</p>
+            <div className="mt-3 grid gap-2">
+              {exercisePatterns.map((pattern) => (
+                <GuidedSelectionButton active={activePattern === pattern} description={`${getExercisesByPattern(pattern).length} ejercicios disponibles`} key={pattern} onClick={() => handleStrengthPatternChange(pattern)}>
+                  {pattern}
+                </GuidedSelectionButton>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-sm font-semibold text-ink">Adaptación buscada</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {strengthAdaptations.map((adaptation) => (
+                <GuidedSelectionButton active={selectedStrengthAdaptation === adaptation} key={adaptation} onClick={() => setSelectedStrengthAdaptation(adaptation)}>
+                  {adaptation}
+                </GuidedSelectionButton>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+            <p className="text-sm font-semibold text-ink">Ejercicios disponibles</p>
+            <div className="mt-3 grid max-h-[520px] gap-2 overflow-y-auto pr-1">
+              {patternExercises.map((exercise) => (
+                <button
+                  className={`rounded-md border p-3 text-left transition ${selectedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+                  key={exercise.id}
+                  onClick={() => {
+                    setSelectedFamilyKey(`${exercise.pattern}__${exercise.block}`);
+                    setSelectedExerciseId(exercise.id);
+                  }}
+                  type="button"
+                >
+                  <span className="block text-sm font-semibold">{exercise.name}</span>
+                  <span className="mt-1 block text-xs opacity-65">{exercise.block} · {bodyRegionLabels[exercise.bodyRegion]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <ExerciseDetailCard selectedExercise={selectedExercise} />
+      </div>
     </div>
   );
 }
 
+function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseDefinition }) {
+  const fatigueEntries = selectedExercise
+    ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
+    : [];
+  const activationEvidence = getExerciseActivationEvidence(selectedExercise);
+  const activationMusclesByRole = getActivationMusclesByRole(activationEvidence);
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      {selectedExercise ? (
+        <div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">{selectedExercise.name}</h2>
+              <p className="mt-1 text-sm text-ink/55">
+                {bodyRegionLabels[selectedExercise.bodyRegion]} - {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
+              </p>
+            </div>
+            <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">{selectedExercise.equipment.join(" / ")}</span>
+          </div>
+
+          <div className="mt-5 rounded-md bg-panel/45 p-4">
+            <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
+            <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
+          </div>
+
+          {selectedExercise.variants?.length ? (
+            <div className="mt-4 rounded-md border border-line p-4">
+              <h3 className="text-sm font-semibold text-ink">Variantes</h3>
+              <div className="mt-3 grid gap-3">
+                {selectedExercise.variants.map((variant) => (
+                  <article className="rounded-md bg-panel/45 p-3" key={variant.id}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h4 className="text-sm font-semibold text-ink">{variant.name}</h4>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">{exerciseVariantTypeLabels[variant.type]}</span>
+                          {variant.difficulty ? <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">{exerciseVariantDifficultyLabels[variant.difficulty]}</span> : null}
+                        </div>
+                      </div>
+                      {variant.equipment?.length ? <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">{variant.equipment.join(" / ")}</span> : null}
+                    </div>
+                    {variant.description ? <p className="mt-3 text-sm leading-6 text-ink/70">{variant.description}</p> : null}
+                    {variant.coachingNotes ? <p className="mt-2 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{variant.coachingNotes}</p> : null}
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-md border border-line p-4">
+              <h3 className="text-sm font-semibold text-ink">Errores a evitar</h3>
+              <div className="mt-3 grid gap-2">
+                {selectedExercise.errorsToAvoid.map((error) => <p className="rounded-md bg-panel/55 px-3 py-2 text-sm text-ink/70" key={error}>{error}</p>)}
+              </div>
+            </div>
+
+            <div className="rounded-md border border-line p-4">
+              <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
+                <p className="mt-1 text-sm text-ink/70">{selectedExercise.primaryMuscles.join(", ") || "Pendiente de completar"}</p>
+              </div>
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase text-ink/45">Secundarios</p>
+                <p className="mt-1 text-sm text-ink/70">{selectedExercise.secondaryMuscles.join(", ") || "Pendiente de completar"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-md border border-line p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
+                <p className="mt-1 text-xs text-ink/50">Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.</p>
+              </div>
+              {activationEvidence ? <span className="w-fit rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">{evidenceStrengthLabels[activationEvidence.evidenceStrength]}</span> : null}
+            </div>
+            {activationEvidence ? (
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <div className="grid gap-3">
+                  {(["primary", "secondary", "stabilizer"] as const).map((role) => {
+                    const entries = activationMusclesByRole[role];
+
+                    return (
+                      <div className="rounded-md bg-panel/45 p-3" key={role}>
+                        <p className="text-xs font-semibold uppercase text-ink/45">{activationRoleLabels[role]}</p>
+                        {entries.length ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {entries.map((entry) => (
+                              <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/70" key={`${role}-${entry.muscle}`} title={entry.note}>
+                                {formatFatigueKey(entry.muscle)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : <p className="mt-2 text-sm text-ink/45">Sin músculos en este rol.</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="rounded-md bg-panel/45 p-3">
+                  <p className="text-xs font-semibold uppercase text-ink/45">Fuente PubMed</p>
+                  <div className="mt-3 grid gap-2">
+                    {activationEvidence.sources.map((source) => (
+                      <p className="rounded-md border border-line bg-panel/60 px-3 py-2 text-xs leading-5 text-ink/65" key={source.pmid}>
+                        <span className="font-semibold text-ink">PMID {source.pmid}</span> · {source.title}
+                      </p>
+                    ))}
+                  </div>
+                  {activationEvidence.notes ? <p className="mt-3 text-sm leading-6 text-ink/60">{activationEvidence.notes}</p> : null}
+                </div>
+              </div>
+            ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Sin evidencia PubMed añadida todavía para este ejercicio.</p>}
+          </div>
+
+          <div className="mt-4 rounded-md border border-line p-4">
+            <h3 className="text-sm font-semibold text-ink">Mapa de fatiga</h3>
+            {fatigueEntries.length > 0 ? (
+              <div className="mt-3 grid gap-2">
+                {fatigueEntries.map(([muscle, value]) => (
+                  <div className="grid grid-cols-[130px_1fr_42px] items-center gap-3" key={muscle}>
+                    <span className="text-sm font-medium text-ink/65">{formatFatigueKey(muscle)}</span>
+                    <span className="h-2 overflow-hidden rounded-full bg-panel">
+                      <span className="block h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${Math.round(value * 100)}%` }} />
+                    </span>
+                    <span className="text-right text-sm font-semibold text-ink">{value.toFixed(1)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Pendiente de completar para este ejercicio.</p>}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/50">Selecciona un ejercicio para ver su ficha.</div>
+      )}
+    </section>
+  );
+}
 function formatFatigueKey(key: string) {
   const labels: Record<string, string> = {
     adductors: "Aductores",
