@@ -478,32 +478,6 @@ export default function ClientsPage() {
     return { ok: true, message: "Sesión movida al día seleccionado." };
   }
 
-  function hasCalendarSessionRegisteredData(session: ClientSessionRecord) {
-    const hasTechniqueVideo = (session.performedExercises ?? []).some((exercise) =>
-      hasDisplayValue(exercise.techniqueVideoUrl) || hasDisplayValue(exercise.techniqueVideoNote)
-    );
-
-    return Boolean(
-      session.completed ||
-      session.status === "Completada" ||
-      session.reviewStatus === "reviewed" ||
-      hasDisplayValue(session.actualDurationMinutes) ||
-      hasDisplayValue(session.duration) ||
-      hasDisplayValue(session.finalRpe) ||
-      hasDisplayValue(session.rpe) ||
-      hasDisplayValue(session.sRPE) ||
-      hasDisplayValue(session.srpe) ||
-      hasDisplayValue(session.finalNotes) ||
-      hasDisplayValue(session.notes) ||
-      Boolean(session.athleteQuickFeedback) ||
-      hasDisplayValue(session.athleteQuickFeedbackNote) ||
-      Boolean(session.cardioResult) ||
-      Boolean(session.discomfort) ||
-      (session.performedExercises?.length ?? 0) > 0 ||
-      hasTechniqueVideo
-    );
-  }
-
   function deleteCalendarSession(clientId: string, sessionIndex: number) {
     const clientForDelete = clients.find((listedClient) => listedClient.id === clientId);
     const session = clientForDelete?.sessionRecords?.[sessionIndex];
@@ -882,7 +856,14 @@ export default function ClientsPage() {
           ) : activeSheet === "weeklyLoad" ? (
             role === "coach" ? <WeeklyLoadView client={scopedClient} /> : <AthleteWeeklyLoadView client={athleteClient} />
           ) : activeSheet === "planning" ? (
-            role === "coach" ? <PlanningView client={scopedClient} /> : <AthletePlanningView client={athleteClient} />
+            role === "coach" ? (
+              <PlanningView
+                client={scopedClient}
+                onDeleteSession={deleteCalendarSession}
+                onDuplicateSession={duplicateCalendarSession}
+                onOpenTrainingDraft={openTrainingDraft}
+              />
+            ) : <AthletePlanningView client={athleteClient} />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "resources" ? (
@@ -1138,6 +1119,33 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   wellness?: ClientWellness;
   wellnessConfirmedAt?: string;
 };
+
+function hasCalendarSessionRegisteredData(session: ClientSessionRecord) {
+  const hasTechniqueVideo = (session.performedExercises ?? []).some((exercise) =>
+    hasDisplayValue(exercise.techniqueVideoUrl) || hasDisplayValue(exercise.techniqueVideoNote)
+  );
+
+  return Boolean(
+    session.completed ||
+    session.status === "Completada" ||
+    session.reviewStatus === "reviewed" ||
+    hasDisplayValue(session.actualDurationMinutes) ||
+    hasDisplayValue(session.duration) ||
+    hasDisplayValue(session.finalRpe) ||
+    hasDisplayValue(session.rpe) ||
+    hasDisplayValue(session.sRPE) ||
+    hasDisplayValue(session.srpe) ||
+    hasDisplayValue(session.finalNotes) ||
+    hasDisplayValue(session.notes) ||
+    Boolean(session.athleteQuickFeedback) ||
+    hasDisplayValue(session.athleteQuickFeedbackNote) ||
+    Boolean(session.cardioResult) ||
+    Boolean(session.discomfort) ||
+    (session.performedExercises?.length ?? 0) > 0 ||
+    hasTechniqueVideo
+  );
+}
+
 type CoachCalendarEvent = {
   clientId?: string;
   clientName?: string;
@@ -5664,10 +5672,97 @@ function downloadPlanningCalendarCsv({
   URL.revokeObjectURL(url);
 }
 
+const planningWeekdayLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+type PlanningSessionKind = "strength" | "resistance" | "concurrent" | "activeRecovery" | "test" | "other";
+
+function getPlanningDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addPlanningDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(date.getDate() + days);
+  return nextDate;
+}
+
+function getPlanningWeekStart(date: Date) {
+  const weekStart = new Date(date);
+  const day = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - day);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function parsePlanningSessionDate(value?: string | null) {
+  if (!value) return null;
+  const isoMatch = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const parsed = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const slashMatch = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!slashMatch) return null;
+  const parsed = new Date(Number(slashMatch[3]), Number(slashMatch[2]) - 1, Number(slashMatch[1]));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPlanningWeekIndex(date: Date, firstWeekStart: Date) {
+  const dayMs = 1000 * 60 * 60 * 24;
+  return Math.max(0, Math.floor((getPlanningWeekStart(date).getTime() - firstWeekStart.getTime()) / dayMs / 7));
+}
+
+function getPlanningSessionKind(session: ReviewSessionRecord): PlanningSessionKind {
+  const label = `${session.type ?? ""} ${session.summary ?? ""}`.toLowerCase();
+  if (label.includes("test")) return "test";
+  if (label.includes("concurrent") || label.includes("mixt")) return "concurrent";
+  if (label.includes("descanso") || label.includes("recovery") || label.includes("recuperaci")) return "activeRecovery";
+  if (label.includes("resistencia") || label.includes("cardio") || label.includes("z2") || label.includes("series")) return "resistance";
+  if (label.includes("fuerza") || label.includes("strength")) return "strength";
+  return "other";
+}
+
+function getPlanningSessionKindLabel(kind: PlanningSessionKind) {
+  const labels: Record<PlanningSessionKind, string> = {
+    activeRecovery: "Descanso activo",
+    concurrent: "Concurrente",
+    other: "Otro",
+    resistance: "Resistencia",
+    strength: "Fuerza",
+    test: "Test"
+  };
+  return labels[kind];
+}
+
+function getPlanningSessionKindClass(kind: PlanningSessionKind) {
+  const classes: Record<PlanningSessionKind, string> = {
+    activeRecovery: "border-moss/25 bg-mint text-moss",
+    concurrent: "border-clay/25 bg-wheat text-clay",
+    other: "border-line bg-panel text-ink/60",
+    resistance: "border-steel/25 bg-sky text-steel",
+    strength: "border-indigo-300/50 bg-indigo-100 text-indigo-800",
+    test: "border-violet/40 bg-violet/20 text-ink"
+  };
+  return classes[kind];
+}
+
+function getPlanningSessionMetricLabel(session: ReviewSessionRecord) {
+  const duration = session.cardioPlan?.targetDurationMinutes ?? session.actualDurationMinutes ?? session.duration;
+  if (hasDisplayValue(duration)) return `${duration} min`;
+  if (hasDisplayValue(session.targetRpe)) return `RPE ${session.targetRpe}`;
+  if (hasDisplayValue(session.finalRpe ?? session.rpe)) return `RPE ${session.finalRpe ?? session.rpe}`;
+  return "";
+}
+
 function PlanningView({
-  client
+  client,
+  onDeleteSession,
+  onDuplicateSession,
+  onOpenTrainingDraft
 }: {
   client?: CoachClient | null;
+  onDeleteSession?: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
+  onDuplicateSession?: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onOpenTrainingDraft?: (target: TargetTrainingSession) => void;
 }) {
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
   const [planningPeakDate, setPlanningPeakDate] = useState(client?.planning.eventDate ?? "");
@@ -5675,6 +5770,8 @@ function PlanningView({
   const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(client?.planning.blocks?.[0]?.id ?? null);
+  const [extraPlanningWeeks, setExtraPlanningWeeks] = useState(0);
+  const [planningActionMessage, setPlanningActionMessage] = useState("");
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const roadmapBlocks = planningBlocks.reduce<PlanningRoadmapBlock[]>((items, block) => {
@@ -5693,6 +5790,37 @@ function PlanningView({
     planningEventType,
     planningWeeks
   };
+  const datedPlanningSessions = (client?.sessionRecords ?? [])
+    .map((session, sessionIndex) => ({
+      date: parsePlanningSessionDate(session.date),
+      session: session as ReviewSessionRecord,
+      sessionIndex
+    }))
+    .filter((item): item is { date: Date; session: ReviewSessionRecord; sessionIndex: number } => Boolean(item.date));
+  const firstSessionWeekStart = datedPlanningSessions.length > 0
+    ? getPlanningWeekStart(new Date(Math.min(...datedPlanningSessions.map((item) => item.date.getTime()))))
+    : getPlanningWeekStart(new Date());
+  const latestSessionWeekIndex = datedPlanningSessions.reduce(
+    (latest, item) => Math.max(latest, getPlanningWeekIndex(item.date, firstSessionWeekStart)),
+    0
+  );
+  const basePlanningWeekCount = Math.max(totalWeeks, datedPlanningSessions.length > 0 ? latestSessionWeekIndex + 1 : 4);
+  const visualPlanningWeekCount = basePlanningWeekCount + extraPlanningWeeks;
+  const planningWeekRows = Array.from({ length: visualPlanningWeekCount }, (_, weekIndex) => {
+    const startDate = addPlanningDays(firstSessionWeekStart, weekIndex * 7);
+    const sessions = datedPlanningSessions.filter((item) => getPlanningWeekIndex(item.date, firstSessionWeekStart) === weekIndex);
+    return { endDate: addPlanningDays(startDate, 6), sessions, startDate, weekNumber: weekIndex + 1 };
+  });
+  const planningDistribution = planningWeekRows.map((week) => {
+    const counts = week.sessions.reduce<Record<PlanningSessionKind, number>>((current, item) => {
+      const kind = getPlanningSessionKind(item.session);
+      return { ...current, [kind]: current[kind] + 1 };
+    }, { activeRecovery: 0, concurrent: 0, other: 0, resistance: 0, strength: 0, test: 0 });
+
+    return { ...week, counts, total: Object.values(counts).reduce((sum, count) => sum + count, 0) };
+  });
+  const maxWeeklySessions = Math.max(1, ...planningDistribution.map((week) => week.total));
+  const hasPlanningDistributionData = planningDistribution.some((week) => week.total > 0);
 
   useEffect(() => {
     setPlanningBlocks(client?.planning.blocks ?? []);
@@ -5700,6 +5828,8 @@ function PlanningView({
     setPlanningPeakDate(client?.planning.eventDate ?? "");
     setPlanningMethod(client?.planning.method ?? "");
     setSelectedPlanningBlockId(client?.planning.blocks?.[0]?.id ?? null);
+    setExtraPlanningWeeks(0);
+    setPlanningActionMessage("");
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
@@ -5742,6 +5872,39 @@ function PlanningView({
     });
   }
 
+  function openPlanningSessionDraft(date: Date, weekNumber: number) {
+    if (!client || !onOpenTrainingDraft) return;
+    onOpenTrainingDraft({
+      clientId: client.id,
+      draftSessionSummary: `Semana ${weekNumber}`,
+      sessionDate: getPlanningDateKey(date)
+    });
+  }
+
+  function duplicatePlanningSession(sessionIndex: number, date: Date, time?: string | null) {
+    if (!client || !onDuplicateSession) return;
+    if (!window.confirm("¿Duplicar esta sesión planificada?")) return;
+    onDuplicateSession(client.id, sessionIndex, getPlanningDateKey(date), time ?? undefined);
+    setPlanningActionMessage("Sesión duplicada en la misma fecha.");
+  }
+
+  function deletePlanningSession(sessionIndex: number, session: ReviewSessionRecord) {
+    if (!client || !onDeleteSession) return;
+    if (hasCalendarSessionRegisteredData(session)) {
+      setPlanningActionMessage("No se puede eliminar una sesión con datos registrados.");
+      return;
+    }
+    if (!window.confirm("¿Eliminar esta sesión planificada?")) return;
+    const result = onDeleteSession(client.id, sessionIndex);
+    setPlanningActionMessage(result.message);
+  }
+
+  function removeVisualPlanningWeek() {
+    if (extraPlanningWeeks <= 0) return;
+    setExtraPlanningWeeks((current) => Math.max(0, current - 1));
+    setPlanningActionMessage("Semana visual eliminada.");
+  }
+
   if (!client) {
     return (
       <section className="coach-surface mt-4 rounded-md p-4">
@@ -5754,16 +5917,181 @@ function PlanningView({
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+      <section className="coach-surface rounded-md p-5 xl:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-moss">Cliente</p>
+            <p className="text-xs font-semibold uppercase text-moss">Planificación visual</p>
             <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
-            <p className="mt-1 text-sm text-ink/55">{client.modality} - {client.nextEvent}</p>
+            <p className="mt-1 text-sm text-ink/55">
+              {client.planning.currentBlock || "Bloque sin asignar"} · {client.planning.currentWeek || "Semana sin asignar"}
+            </p>
+            <p className="mt-2 max-w-3xl text-sm text-ink/60">
+              {client.planning.primaryGoal || client.planning.secondaryGoal
+                ? [client.planning.primaryGoal, client.planning.secondaryGoal].filter(Boolean).join(" · ")
+                : "Añade bloques y sesiones para construir una vista semanal más clara."}
+            </p>
           </div>
-          <span className="rounded-md bg-mint px-3 py-1 text-sm font-semibold text-moss">
-            {planningBlocks.length} mesociclos - {totalWeeks} semanas
-          </span>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65 lg:justify-end">
+            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{planningBlocks.length} mesociclos</span>
+            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{totalWeeks} semanas</span>
+            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{getPlanningMethodLabel(planningMethod) || "Sin modelo"}</span>
+            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{planningEventName || client.nextEvent || "Sin evento objetivo"}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="coach-surface rounded-md p-5 xl:col-span-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Distribución semanal</h3>
+            <p className="mt-1 text-sm text-ink/55">Sesiones existentes agrupadas por semana y tipo. No usa cargas ni datos inventados.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            {(["strength", "resistance", "concurrent", "activeRecovery", "test"] as PlanningSessionKind[]).map((kind) => (
+              <span className={`rounded-md border px-2 py-1 ${getPlanningSessionKindClass(kind)}`} key={kind}>
+                {getPlanningSessionKindLabel(kind)}
+              </span>
+            ))}
+          </div>
+        </div>
+        {hasPlanningDistributionData ? (
+          <div className="mt-5 grid gap-3">
+            {planningDistribution.map((week) => (
+              <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-[92px_1fr]" key={`chart-${week.weekNumber}`}>
+                <div>
+                  <p className="text-sm font-semibold text-ink">Semana {week.weekNumber}</p>
+                  <p className="mt-1 text-xs text-ink/45">{week.total} sesiones</p>
+                </div>
+                <div className="flex min-h-8 overflow-hidden rounded-md bg-white">
+                  {(["strength", "resistance", "concurrent", "activeRecovery", "test", "other"] as PlanningSessionKind[])
+                    .filter((kind) => week.counts[kind] > 0)
+                    .map((kind) => (
+                      <div
+                        className={`flex items-center justify-center border-r border-white/70 px-2 text-[11px] font-semibold last:border-r-0 ${getPlanningSessionKindClass(kind)}`}
+                        key={kind}
+                        style={{ width: `${Math.max(12, (week.counts[kind] / maxWeeklySessions) * 100)}%` }}
+                        title={`${getPlanningSessionKindLabel(kind)}: ${week.counts[kind]}`}
+                      >
+                        {getPlanningSessionKindLabel(kind)} {week.counts[kind]}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-semibold text-ink/55">
+            Añade sesiones a la planificación para ver la distribución semanal.
+          </div>
+        )}
+      </section>
+
+      <section className="coach-surface rounded-md p-5 xl:col-span-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Parrilla semanal</h3>
+            <p className="mt-1 text-sm text-ink/55">Semanas como filas, días como columnas y sesiones compactas por celda.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
+              onClick={() => {
+                setExtraPlanningWeeks((current) => current + 1);
+                setPlanningActionMessage("Semana visual añadida.");
+              }}
+              type="button"
+            >
+              Añadir semana
+            </button>
+            <button
+              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={extraPlanningWeeks <= 0}
+              onClick={removeVisualPlanningWeek}
+              type="button"
+            >
+              Borrar semana
+            </button>
+          </div>
+        </div>
+        {planningActionMessage ? <p className="mt-3 text-sm font-semibold text-moss">{planningActionMessage}</p> : null}
+        <div className="mt-5 overflow-x-auto pb-2">
+          <div className="min-w-[980px] space-y-2">
+            <div className="grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45">
+              <span>Semana</span>
+              {planningWeekdayLabels.map((day) => <span key={day}>{day}</span>)}
+            </div>
+            {planningWeekRows.map((week) => (
+              <div className="grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2" key={`week-row-${week.weekNumber}`}>
+                <div className="rounded-md border border-line bg-panel/45 p-2">
+                  <p className="text-sm font-semibold text-ink">Semana {week.weekNumber}</p>
+                  <p className="mt-1 text-[11px] text-ink/45">
+                    {formatDisplayDate(getPlanningDateKey(week.startDate))} · {formatDisplayDate(getPlanningDateKey(week.endDate))}
+                  </p>
+                </div>
+                {planningWeekdayLabels.map((day, dayIndex) => {
+                  const date = addPlanningDays(week.startDate, dayIndex);
+                  const daySessions = week.sessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
+
+                  return (
+                    <div className="min-h-[116px] rounded-md border border-line bg-panel/30 p-2" key={`${week.weekNumber}-${day}`}>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold uppercase text-ink/40">{day.slice(0, 3)}</span>
+                        <button
+                          className="grid size-7 place-items-center rounded-md border border-line bg-white text-sm font-semibold text-ink transition hover:bg-mint"
+                          onClick={() => openPlanningSessionDraft(date, week.weekNumber)}
+                          title="Añadir sesión"
+                          type="button"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {daySessions.length > 0 ? daySessions.map(({ session, sessionIndex }) => {
+                          const kind = getPlanningSessionKind(session);
+                          const metricLabel = getPlanningSessionMetricLabel(session);
+                          const locked = hasCalendarSessionRegisteredData(session);
+
+                          return (
+                            <article className={`rounded-md border px-2 py-1.5 ${getPlanningSessionKindClass(kind)}`} key={`${sessionIndex}-${session.summary}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-semibold">{getPlanningSessionKindLabel(kind)}</p>
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] opacity-80">{session.summary || "Sesión sin resumen"}</p>
+                                  {metricLabel ? <p className="mt-1 text-[11px] font-semibold opacity-75">{metricLabel}</p> : null}
+                                </div>
+                                <span className="rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-semibold">
+                                  {getSessionStatus(session)}
+                                </span>
+                              </div>
+                              <div className="mt-2 flex gap-1">
+                                <button
+                                  className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
+                                  onClick={() => duplicatePlanningSession(sessionIndex, date, session.time)}
+                                  type="button"
+                                >
+                                  Copiar
+                                </button>
+                                <button
+                                  className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
+                                  onClick={() => deletePlanningSession(sessionIndex, session)}
+                                  title={locked ? "No se puede eliminar una sesión con datos registrados." : "Eliminar sesión"}
+                                  type="button"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        }) : (
+                          <p className="text-[11px] font-semibold text-ink/35">Sin sesiones</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
