@@ -1,5 +1,7 @@
 export type TargetTrainingSession = {
-  clientId: string;
+  clientId?: string;
+  draftSessionSummary?: string;
+  draftSessionType?: string;
   sessionDate?: string;
   sessionIndex?: number;
 };

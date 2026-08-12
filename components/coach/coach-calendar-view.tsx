@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -65,6 +65,26 @@ type WeeklyCalendarSession = {
 };
 
 type CalendarSessionAction = "duplicate" | "move" | "recurring";
+type CalendarDraftKind = "session" | "event";
+type CalendarPaletteItem = {
+  Icon: typeof Dumbbell;
+  className: string;
+  draftType: string;
+  kind: CalendarDraftKind;
+  label: string;
+  planSessionType?: "Fuerza" | "Cardio" | "Mixta";
+};
+
+type CalendarDraftSelection = {
+  className: string;
+  date: Date;
+  draftType: string;
+  kind: CalendarDraftKind;
+  label: string;
+  planSessionType?: "Fuerza" | "Cardio" | "Mixta";
+};
+
+const calendarDragDataType = "application/rac-calendar-palette";
 
 const recurringWeekdayOptions = [
   { label: "Lunes", value: 0 },
@@ -253,12 +273,15 @@ type CalendarViewProps = {
   onCreateRecurringSessions: (clientId: string, sessionIndex: number, dates: string[], time?: string) => number;
   onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onOpenTrainingDraft: (target: TargetTrainingSession) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, onCreateRecurringSessions, onDuplicateSession, onMoveSession, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, onCreateRecurringSessions, onDuplicateSession, onMoveSession, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<CalendarDraftSelection | null>(null);
+  const [draggedOverDateKey, setDraggedOverDateKey] = useState<string | null>(null);
   const [sessionAction, setSessionAction] = useState<CalendarSessionAction | null>(null);
   const [actionDate, setActionDate] = useState("");
   const [actionTime, setActionTime] = useState("");
@@ -294,6 +317,20 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
     { Icon: Camera, className: "border-line bg-panel/60 text-ink/55", label: "Foto" },
     { Icon: Paperclip, className: "border-line bg-panel/60 text-ink/55", label: "Archivo" }
   ];
+  const draggableSessionItems: CalendarPaletteItem[] = [
+    ...sessionLegendItems.map((item) => ({
+      ...item,
+      draftType: item.label === "Fuerza" ? "strength" : item.label === "Resistencia" ? "resistance" : "concurrent",
+      kind: "session" as const,
+      planSessionType: item.label === "Fuerza" ? "Fuerza" as const : item.label === "Resistencia" ? "Cardio" as const : "Mixta" as const
+    })),
+    { Icon: Activity, className: "border-moss/25 bg-mint text-moss", draftType: "active_recovery", kind: "session", label: "Descanso activo", planSessionType: "Cardio" }
+  ];
+  const draggableEventItems: CalendarPaletteItem[] = eventLegendItems.map((item) => ({
+    ...item,
+    draftType: item.label.toLowerCase().replace(/\s+/g, "_"),
+    kind: "event" as const
+  }));
   const recurringDates = getRecurringDates();
 
   function openCalendarSession(session: WeeklyCalendarSession) {
@@ -311,6 +348,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
 
   function openSessionAction(action: CalendarSessionAction, session: WeeklyCalendarSession) {
     setSelectedSession(session);
+    setSelectedDraft(null);
     setSessionAction(action);
     setActionDate(getDateKey(session.date));
     setActionTime(session.time ?? "");
@@ -318,6 +356,51 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
     setRecurringMessage("");
     setRecurringWeekdays([getCalendarWeekdayIndex(session.date)]);
     setRecurringWeeks("4");
+  }
+
+  function handlePaletteDragStart(event: DragEvent<HTMLElement>, item: CalendarPaletteItem) {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData(calendarDragDataType, JSON.stringify({
+      className: item.className,
+      draftType: item.draftType,
+      kind: item.kind,
+      label: item.label,
+      planSessionType: item.planSessionType
+    }));
+  }
+
+  function handleDayDragOver(event: DragEvent<HTMLElement>, date: Date) {
+    if (!event.dataTransfer.types.includes(calendarDragDataType)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDraggedOverDateKey(getDateKey(date));
+  }
+
+  function handleDayDrop(event: DragEvent<HTMLElement>, date: Date) {
+    const rawItem = event.dataTransfer.getData(calendarDragDataType);
+    if (!rawItem) return;
+
+    event.preventDefault();
+    setDraggedOverDateKey(null);
+
+    try {
+      const item = JSON.parse(rawItem) as Omit<CalendarDraftSelection, "date">;
+      setSelectedSession(null);
+      setSelectedDraft({ ...item, date });
+    } catch {
+      setSelectedDraft(null);
+    }
+  }
+
+  function openDraftPlanning() {
+    if (!selectedDraft || selectedDraft.kind !== "session") return;
+
+    onOpenTrainingDraft({
+      clientId: client?.id,
+      draftSessionSummary: selectedDraft.label,
+      draftSessionType: selectedDraft.planSessionType,
+      sessionDate: getDateKey(selectedDraft.date)
+    });
   }
 
   function closeSessionAction() {
@@ -447,12 +530,23 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
 
       {weeklySessions.length === 0 ? (
         <div className={`mt-5 ${emptyStateClass}`}>
-          No hay sesiones programadas esta semana.
+          No hay sesiones programadas esta semana. Arrastra una etiqueta sobre un día para preparar un borrador.
         </div>
-      ) : (
-        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-          {sessionsByDay.map(({ date, label, sessions }) => (
-            <section className={dayCardClass} key={getDateKey(date)}>
+      ) : null}
+
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+          {sessionsByDay.map(({ date, label, sessions }) => {
+            const dateKey = getDateKey(date);
+            const dayDraft = selectedDraft && getDateKey(selectedDraft.date) === dateKey ? selectedDraft : null;
+
+            return (
+            <section
+              className={`${dayCardClass} transition ${draggedOverDateKey === dateKey ? "border-moss bg-mint/35 ring-2 ring-moss/20" : ""}`}
+              key={dateKey}
+              onDragLeave={() => setDraggedOverDateKey((current) => current === dateKey ? null : current)}
+              onDragOver={(event) => handleDayDragOver(event, date)}
+              onDrop={(event) => handleDayDrop(event, date)}
+            >
               <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{label}</p>
@@ -476,7 +570,10 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                         aria-label={detail}
                         className={`${compactChipClass} ${typeConfig.className}`}
                         key={`${session.clientId}-${session.summary}-${index}`}
-                        onClick={() => setSelectedSession(session)}
+                        onClick={() => {
+                          setSelectedDraft(null);
+                          setSelectedSession(session);
+                        }}
                         title={detail}
                         type="button"
                       >
@@ -491,18 +588,62 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                     Sin sesiones
                   </p>
                 )}
+                {dayDraft ? (
+                  <button
+                    className={`${compactChipClass} ${dayDraft.className} border-dashed`}
+                    onClick={() => {
+                      setSelectedSession(null);
+                      setSelectedDraft(dayDraft);
+                    }}
+                    type="button"
+                  >
+                    <span className="size-1.5 shrink-0 rounded-full bg-moss" />
+                    <span className="truncate">Borrador · {dayDraft.label}</span>
+                  </button>
+                ) : null}
               </div>
             </section>
-          ))}
-        </div>
-      )}
+            );
+          })}
+      </div>
 
       <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
         <div className="grid gap-3 lg:grid-cols-2">
-          <CalendarLegendGroup items={sessionLegendItems} title="Sesiones" />
-          <CalendarLegendGroup items={eventLegendItems} title="Eventos" />
+          <CalendarLegendGroup items={draggableSessionItems} onDragStart={handlePaletteDragStart} title="Sesiones" />
+          <CalendarLegendGroup items={draggableEventItems} onDragStart={handlePaletteDragStart} title="Eventos" />
         </div>
       </div>
+
+      {selectedDraft ? (
+        <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-moss">Detalle seleccionado</p>
+              <h3 className="mt-1 text-base font-semibold text-ink">{selectedDraft.label}</h3>
+              <p className="mt-1 text-sm text-ink/55">{formatDateShort(getDateKey(selectedDraft.date))} · Borrador</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${selectedDraft.className}`}>
+                Borrador
+              </span>
+              {selectedDraft.kind === "session" ? (
+                <button className={primaryButtonClass} onClick={openDraftPlanning} type="button">
+                  Planificar sesión
+                </button>
+              ) : (
+                <button className={secondaryButtonClass} disabled type="button">
+                  Pendiente de configurar
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ClientInfoCard label={selectedDraft.kind === "session" ? "Tipo de sesión" : "Tipo de evento"} value={selectedDraft.label} />
+            <ClientInfoCard label="Fecha" value={formatDateShort(getDateKey(selectedDraft.date))} />
+            <ClientInfoCard label="Estado" value="Borrador" />
+          </div>
+        </section>
+      ) : null}
 
       {selectedSession ? (
         <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
@@ -723,21 +864,33 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
 
 function CalendarLegendGroup({
   items,
+  onDragStart,
   title
 }: {
-  items: Array<{ Icon: typeof Dumbbell; className: string; label: string }>;
+  items: CalendarPaletteItem[];
+  onDragStart: (event: DragEvent<HTMLElement>, item: CalendarPaletteItem) => void;
   title: string;
 }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase text-ink/45">{title}</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {items.map(({ Icon, className, label }) => (
-          <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${className}`} key={label}>
-            <Icon size={13} />
-            {label}
-          </span>
-        ))}
+        {items.map((item) => {
+          const { Icon, className, label } = item;
+
+          return (
+            <span
+              className={`inline-flex cursor-grab items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold active:cursor-grabbing ${className}`}
+              draggable
+              key={label}
+              onDragStart={(event) => onDragStart(event, item)}
+              title="Arrastra al calendario"
+            >
+              <Icon size={13} />
+              {label}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

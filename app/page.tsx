@@ -356,6 +356,12 @@ export default function ClientsPage() {
     openClientSheet(clientId, "training");
   }
 
+  function openTrainingDraft(target: TargetTrainingSession) {
+    setTargetTrainingSession(target);
+    setScopedClientId(target.clientId ?? "");
+    setActiveSheet("training");
+  }
+
   function getPlannedSessionCopy(session: ClientSessionRecord) {
     const legacyExercises = (session as ClientSessionRecord & { exercises?: ConnectedSessionExercise[] }).exercises ?? [];
     const sourceExercises = (session.plannedExercises?.length ? session.plannedExercises : legacyExercises) ?? [];
@@ -745,6 +751,7 @@ export default function ClientsPage() {
                 onCreateRecurringSessions={createRecurringCalendarSessions}
                 onDuplicateSession={duplicateCalendarSession}
                 onMoveSession={moveCalendarSession}
+                onOpenTrainingDraft={openTrainingDraft}
                 onOpenTrainingSession={openTrainingSession}
               />
             ) : (
@@ -8483,10 +8490,26 @@ function CoachTrainingPlanner({
     if (client?.id) setSelectedSessionClientId(client.id);
   }, [client?.id]);
   useEffect(() => {
-    if (activeSessionClient && targetTrainingSession?.clientId === activeSessionClient.id) {
+    if (!activeSessionClient || !targetTrainingSession) return;
+
+    if (targetTrainingSession.draftSessionType || targetTrainingSession.draftSessionSummary) {
+      if (targetTrainingSession.clientId && targetTrainingSession.clientId !== activeSessionClient.id) return;
+
+      if (targetTrainingSession.sessionDate) setSessionDate(targetTrainingSession.sessionDate);
+      if (["Fuerza", "Cardio", "Mixta"].includes(targetTrainingSession.draftSessionType ?? "")) {
+        setSessionType(targetTrainingSession.draftSessionType as CoachSessionType);
+      }
+      if (targetTrainingSession.draftSessionSummary) setSessionSummary(targetTrainingSession.draftSessionSummary);
+      setActiveSessionPanel("planner");
+      setShowPlannerModal(true);
+      onConsumeTargetTrainingSession();
+      return;
+    }
+
+    if (targetTrainingSession.clientId === activeSessionClient.id) {
       setActiveSessionPanel("history");
     }
-  }, [activeSessionClient, targetTrainingSession]);
+  }, [activeSessionClient, onConsumeTargetTrainingSession, targetTrainingSession]);
   useEffect(() => {
     if (!showSessionSummaryModal) return;
 
