@@ -165,7 +165,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
 
   return (
     <div className="mt-6 space-y-5">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Biblioteca de resistencia</h2>
@@ -209,7 +209,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
       </section>
 
       {activeResistanceSection === "zones" ? (
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-ink">Zonas de entrenamiento</h3>
@@ -236,7 +236,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
             const metrics = getZoneMetrics(zoneItem);
 
             return (
-              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${selectedZoneProfile.sport}-${zoneItem.id}`}>
+              <article className="coach-subtle-card rounded-md p-3.5" key={`${selectedZoneProfile.sport}-${zoneItem.id}`}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase text-ink/45">{zoneItem.shortLabel}</p>
@@ -251,7 +251,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
                 </div>
 
                 <div className="mt-3 grid gap-3 lg:grid-cols-3">
-                  <div className="rounded-md border border-line bg-white p-3">
+                  <div className="coach-subtle-card rounded-md p-3">
                     <p className="text-xs font-semibold uppercase text-ink/45">Porcentajes / RPE</p>
                     {metrics.length > 0 ? (
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -266,12 +266,12 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
                     )}
                   </div>
 
-                  <div className="rounded-md border border-line bg-white p-3">
+                  <div className="coach-subtle-card rounded-md p-3">
                     <p className="text-xs font-semibold uppercase text-ink/45">Foco fisiológico</p>
                     <p className="mt-2 text-sm font-medium text-ink/65">{zoneItem.physiologicalFocus?.join(" · ") || "Sin especificar"}</p>
                   </div>
 
-                  <div className="rounded-md border border-line bg-white p-3">
+                  <div className="coach-subtle-card rounded-md p-3">
                     <p className="text-xs font-semibold uppercase text-ink/45">Métodos relacionados</p>
                     <p className="mt-2 text-sm font-medium text-ink/65">{zoneItem.methodLinks?.join(" · ") || "Sin especificar"}</p>
                   </div>
@@ -288,7 +288,7 @@ export function ResistanceMethodsView({ libraryMode, setLibraryMode }: Resistanc
       ) : null}
 
       {activeResistanceSection === "methods" ? (
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div>
           <h3 className="text-lg font-semibold text-ink">Métodos de entrenamiento</h3>
           <p className="mt-1 text-sm text-ink/55">Selecciona un método para ver sus parámetros, ejemplos y efectos.</p>

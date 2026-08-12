@@ -2211,13 +2211,13 @@ function CoachManagementView({
   ];
 
   return (
-    <div className="mt-6 space-y-5">
+    <div className="mt-5 space-y-4">
       {panel === "list" ? (
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <section className="coach-surface rounded-md p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-moss">Gestión</p>
-              <h2 className="mt-2 text-xl font-semibold text-ink">Centro de gestión de clientes</h2>
+              <h2 className="mt-1 text-xl font-semibold text-ink">Centro de gestión de clientes</h2>
               <p className="mt-1 text-sm text-ink/55">
                 Gestiona deportistas, estado de acceso, cuestionarios, seguimiento y datos principales.
               </p>
@@ -2274,7 +2274,7 @@ function CoachAccessManagementView({ clients }: { clients: CoachClient[] }) {
   });
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">Accesos</h2>
@@ -2566,7 +2566,7 @@ function CoachClientsView({
 
   return (
     <>
-      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface mt-4 rounded-md p-4">
         <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
           <div className="grid gap-3 md:grid-cols-3">
             <ClientStatTile label="Clientes registrados" value={clients.length} />
@@ -2932,7 +2932,7 @@ function CoachClientsView({
         )}
       </section>
 
-      <section className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+      <section className="coach-subtle-card mt-4 rounded-md px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-ink">Datos demo</h2>
@@ -2959,7 +2959,7 @@ function CoachClientsView({
         </div>
       </section>
 
-      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface mt-4 rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Clientes registrados</h2>
@@ -3026,7 +3026,7 @@ function CoachClientsView({
           </div>
         )}
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2.5">
           {filteredClients.map((listedClient) => {
             const accessInfo = getClientAccessInfo(listedClient);
             const onboardingCompletion = getOnboardingCompletion(listedClient);
@@ -3037,12 +3037,12 @@ function CoachClientsView({
 
             return (
               <article
-                className="rounded-md border border-line bg-panel/45 p-4"
+                className="coach-subtle-card rounded-md p-3.5"
                 key={listedClient.id}
               >
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h3 className="mr-1 font-semibold text-ink">{listedClient.name}</h3>
+                    <h3 className="mr-1 text-base font-semibold text-ink">{listedClient.name}</h3>
                     {visibleBadges.map((badge) => (
                       <span
                         className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
@@ -3119,7 +3119,7 @@ function CoachClientsView({
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
+                <div className="mt-2.5 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
                   <span>{listedClient.age} años · {onboardingSummary.primarySport || listedClient.modality || listedClient.sport}</span>
                   <span>Objetivo: {onboardingSummary.mainGoal || listedClient.planning.primaryGoal || "Ficha inicial pendiente"}</span>
                   <span>Disponibilidad: {onboardingSummary.availability || listedClient.availability || "Pendiente"}</span>
@@ -3144,12 +3144,12 @@ function CoachClientsView({
 
 function ClientStatTile({ label, percent, value }: { label: string; percent?: number; value: number }) {
   return (
-    <article className="rounded-md border border-line bg-panel/35 p-4">
-      <p className="text-sm font-semibold text-ink/55">{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-4xl font-semibold text-steel">{value}</p>
+    <article className="coach-metric-card rounded-md px-3.5 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+      <div className="mt-1.5 flex items-end justify-between gap-3">
+        <p className="text-3xl font-semibold text-steel">{value}</p>
         {percent !== undefined && (
-          <span className="rounded-md bg-mint px-2 py-1 text-sm font-semibold text-moss">
+          <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
             {percent}%
           </span>
         )}
@@ -3160,9 +3160,9 @@ function ClientStatTile({ label, percent, value }: { label: string; percent?: nu
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <article className={`rounded-md bg-panel/55 p-4 ${className}`}>
-      <p className="text-sm font-semibold text-ink">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-moss">{value}</p>
+    <article className={`coach-metric-card rounded-md px-3.5 py-3 ${className}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </article>
   );
 }
@@ -3667,7 +3667,7 @@ function ClientDetailsView({
   const intervalsConnection = client.cardioConnections?.find((connection) => connection.provider === "intervals");
 
   return (
-    <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface mt-4 rounded-md p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
@@ -3812,7 +3812,7 @@ function ClientDetailsView({
           </span>
         </div>
 
-        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+        <div className="coach-subtle-card mt-4 rounded-md px-4 py-3">
           <div className="grid gap-3 lg:grid-cols-[0.9fr_0.7fr]">
             <label className="text-sm font-semibold text-ink/70">
               Título
@@ -4566,12 +4566,12 @@ function ClientProgressView({
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h2 className="text-lg font-semibold text-ink">Progreso de {client.name}</h2>
         <p className="mt-1 text-sm text-ink/55">Evolución del deportista a partir de tests, sesiones y datos ya registrados.</p>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h3 className="font-semibold text-ink">Resumen de evolución</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
@@ -4751,7 +4751,7 @@ function TechniqueVideoHistorySection({
   }
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Técnica y vídeos</h3>
@@ -5000,7 +5000,7 @@ function TechniqueVideoHistorySection({
 
 function ClientProgressCard({ description, items, title }: { description?: string; items: ClientAssessment[]; title: string }) {
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">{title}</h3>
       {description ? <p className="mt-1 text-sm text-ink/55">{description}</p> : null}
       {items.length > 0 ? (
@@ -5029,7 +5029,7 @@ function PerformanceTestsProgressSection({ entries }: { entries: PerformanceTest
     .filter((group) => group.entries.length > 0);
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Tests de rendimiento</h3>
       <p className="mt-1 text-sm text-ink/55">Valores de referencia guardados por deporte o contexto. No se calculan mejoras automáticas.</p>
       {groupedByCategory.length > 0 ? (
@@ -5110,7 +5110,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
         <p className="mt-1 text-sm text-ink/55">Vista inicial con datos disponibles de wellness, sesiones y molestias recientes.</p>
       </section>
@@ -5127,7 +5127,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
         <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavía"} />
       </div>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Evolución díaria del bienestar</h3>
@@ -5188,7 +5188,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
         )}
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h3 className="font-semibold text-ink">Notas recientes</h3>
         {discomfortRecords.length > 0 ? (
           <div className="mt-3 grid gap-2">
@@ -5241,7 +5241,7 @@ function DecisionDashboardView() {
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h2 className="text-lg font-semibold text-ink">Acciones sugeridas</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {decisionDashboard.actions.map((action) => (
@@ -5284,7 +5284,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const hasWeeklyTrainingData = weeklySessionCount > 0;
 
   return (
-    <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface mt-4 rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">Carga semanal</h2>
@@ -5606,7 +5606,7 @@ function PlanningView({
 
   if (!client) {
     return (
-      <section className="mt-6 rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface mt-4 rounded-md p-4">
         <p className="text-sm font-semibold text-ink">
           Selecciona primero un cliente desde Clientes para ver su planificación.
         </p>
@@ -5705,7 +5705,7 @@ function PlanningView({
         />
       ) : null}
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
           Metodo de planificación
@@ -5794,7 +5794,7 @@ function PlanningView({
         </PlanningStep>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <PlanningStep step="4" title="Mesociclos editables">
           {planningBlocks.length === 0 ? (
             <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
@@ -6320,7 +6320,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   };
 
   const libraryModeCards = (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-ink">Biblioteca guiada</h2>
@@ -6359,7 +6359,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
       <div className="mt-6 space-y-6">
         {libraryModeCards}
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-          <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <section className="coach-surface rounded-md p-4">
             <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Resistencia / {resistanceGuidedSports.find((sport) => sport.value === selectedResistanceSport)?.label} / {selectedResistanceAdaptation}</p>
             <h3 className="mt-2 text-lg font-semibold text-ink">Guía de métodos de resistencia</h3>
             <p className="mt-2 text-sm leading-6 text-ink/60">
@@ -6389,7 +6389,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
             </div>
           </section>
 
-          <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <section className="coach-surface rounded-md p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-ink">Métodos relacionados</h3>
@@ -6398,7 +6398,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
               <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{relatedResistanceMethods.length} métodos</span>
             </div>
 
-            <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+            <div className="coach-subtle-card mt-4 rounded-md px-4 py-3">
               <p className="text-xs font-semibold uppercase text-ink/45">Zonas disponibles</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedResistanceProfile.zones.map((zone) => (
@@ -6443,7 +6443,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
     return (
       <div className="mt-6 space-y-6">
         {libraryModeCards}
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="coach-surface rounded-md p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Búsqueda avanzada</p>
@@ -6471,12 +6471,12 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         </section>
 
         {advancedLibrarySection === "resistance" ? (
-          <div className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <div className="coach-surface rounded-md p-4">
             <ResistanceMethodsView libraryMode="resistance" setLibraryMode={(mode) => setLibraryMode(mode)} />
           </div>
         ) : (
           <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+            <section className="coach-surface rounded-md p-4">
               <h3 className="text-lg font-semibold text-ink">Búsqueda avanzada de fuerza</h3>
               <p className="mt-1 text-sm text-ink/55">Filtra la biblioteca de ejercicios usando solo los campos existentes.</p>
 
@@ -6573,7 +6573,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
     <div className="mt-6 space-y-6">
       {libraryModeCards}
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="coach-surface rounded-md p-4">
           <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Fuerza / {activePattern} / {selectedStrengthAdaptation}</p>
           <h3 className="mt-2 text-lg font-semibold text-ink">Guía de ejercicios de fuerza</h3>
           <p className="mt-2 text-sm leading-6 text-ink/60">
@@ -6637,7 +6637,7 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
   const activationMusclesByRole = getActivationMusclesByRole(activationEvidence);
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       {selectedExercise ? (
         <div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -7036,7 +7036,7 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h2 className="text-lg font-semibold text-ink">Biblioteca de plantillas</h2>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -7098,7 +7098,7 @@ function RoutinesView({ clients, trainingAvailability }: { clients: CoachClient[
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Editor de rutina</h2>
@@ -7345,7 +7345,7 @@ function AssessmentsView({
 
   return (
     <div className="mt-6 grid gap-6">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">
@@ -7516,7 +7516,7 @@ function FatigueMapView() {
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.8fr]">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Mapa corporal</h2>
@@ -7555,7 +7555,7 @@ function FatigueMapView() {
 
       <aside className="rounded-md border border-line bg-ink p-5 text-white shadow-soft">
         <h2 className="text-lg font-semibold">Decisiones rapidas</h2>
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2.5">
           {highPriority.map((item) => (
             <article className="rounded-md bg-white/10 p-4" key={item.muscle}>
               <div className="flex items-start justify-between gap-3">
@@ -8510,7 +8510,7 @@ function CoachTrainingPlanner({
       <div className="mt-5 xl:mt-6">
         <section className="rounded-md border border-line bg-white p-6 text-center shadow-soft">
           <p className="text-xs font-semibold uppercase text-ink/45">Sesiones</p>
-          <h2 className="mt-2 text-xl font-semibold text-ink">Selecciona un deportista</h2>
+          <h2 className="mt-1 text-xl font-semibold text-ink">Selecciona un deportista</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-ink/60">
             Elige un deportista para revisar sus sesiones anteriores o planificar una nueva sesión.
           </p>

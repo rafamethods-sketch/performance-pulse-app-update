@@ -732,7 +732,7 @@ export function CoachAttentionCenter({
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-ink">Centro de atención</h2>
@@ -791,7 +791,7 @@ export function CoachAttentionCenter({
           const sectionMeta = attentionSectionLabels[section];
 
           return (
-            <section className="rounded-md border border-line bg-white p-5 shadow-soft" key={section}>
+            <section className="coach-surface rounded-md p-4" key={section}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="font-semibold text-ink">{sectionMeta.title}</h3>
@@ -803,7 +803,7 @@ export function CoachAttentionCenter({
               </div>
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 {sectionItems.slice(0, 8).map((item) => (
-                  <article className="rounded-md border border-line bg-panel/35 p-4" key={item.id}>
+                  <article className="coach-subtle-card rounded-md p-3.5" key={item.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase text-ink/45">{item.clientName}</p>

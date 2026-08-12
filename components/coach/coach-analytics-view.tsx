@@ -206,7 +206,7 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-ink/45">Métricas del entrenador</p>
@@ -251,7 +251,7 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="coach-surface rounded-md p-4">
           <h3 className="font-semibold text-ink">Perfil que más crece</h3>
           {hasTrendData ? (
             <div className="mt-4 grid gap-3">
@@ -266,7 +266,7 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
           )}
         </section>
 
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="coach-surface rounded-md p-4">
           <h3 className="font-semibold text-ink">Cómo han conocido tus servicios</h3>
           <div className="mt-4 grid gap-3">
             {sourceDistribution.map((source) => (
@@ -284,7 +284,7 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
         </section>
       </div>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <h3 className="font-semibold text-ink">Movimientos recientes</h3>
         {movementItems.length > 0 ? (
           <div className="mt-4 grid gap-2">

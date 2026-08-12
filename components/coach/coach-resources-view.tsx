@@ -345,7 +345,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
 
   return (
     <div className="mt-6 grid gap-6">
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-ink">Recursos</h2>
@@ -364,7 +364,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Datos locales</p>
@@ -408,7 +408,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
       </section>
 
       {showForm ? (
-        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+        <section className="coach-surface rounded-md p-4">
           <div className="flex flex-col gap-1">
             <h3 className="font-semibold text-ink">{editingResourceId ? "Editar recurso" : "Añadir recurso"}</h3>
             <p className="text-sm text-ink/55">Guarda solo el enlace externo y los datos útiles para encontrarlo después.</p>
@@ -509,7 +509,7 @@ export function CoachResourcesView({ resources, setResources }: CoachResourcesVi
         </section>
       ) : null}
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Biblioteca de recursos</h3>

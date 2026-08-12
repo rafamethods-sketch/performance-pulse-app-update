@@ -644,7 +644,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                     Mantener misma hora{selectedSession.time ? ` (${selectedSession.time})` : ""}
                   </label>
                 ) : null}
-                <div className="rounded-md border border-line bg-panel/35 p-3">
+                <div className="coach-subtle-card rounded-md p-3">
                   <p className="text-sm font-semibold text-ink">
                     Se crearán {recurringDates.length} sesiones para {selectedSession.clientName}
                     {recurringDates.length > 0 ? ` entre ${formatDateShort(getDateKey(recurringDates[0]))} y ${formatDateShort(getDateKey(recurringDates[recurringDates.length - 1]))}.` : "."}

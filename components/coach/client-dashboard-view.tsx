@@ -341,7 +341,7 @@ export function ClientDashboardView({
         <MuscleFatigueDashboardBlock dashboardData={dashboardData} />
       </div>
       <DashboardAlertsBlock alerts={dashboardData.alerts} />
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Indicadores de carga</h3>
@@ -441,7 +441,7 @@ function WeeklyLoadDashboardBlock({
   const maxSrpe = Math.max(1, ...dashboardData.sessionsWithSrpe.map((entry) => entry.srpe));
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Carga semanal</h3>
@@ -484,7 +484,7 @@ function WeeklyLoadDashboardBlock({
 
 function AdherenceDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Adherencia</h3>
       <p className="mt-1 text-sm text-ink/55">Relación entre sesiones previstas y sesiones con registro real.</p>
 
@@ -522,7 +522,7 @@ function HorizontalDashboardBars({
   return (
     <div className="mt-4 grid gap-3">
       {entries.map(([label, value]) => (
-        <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+        <div className="coach-subtle-card rounded-md p-3" key={label}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-ink">{label}</p>
             <span className="text-xs font-semibold text-moss">{Math.round(value).toLocaleString("es-ES")} {suffix}</span>
@@ -543,7 +543,7 @@ function PatternDistributionDashboardBlock({ dashboardData }: { dashboardData: R
     .slice(0, 6);
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Distribución de carga por patrón</h3>
       <p className="mt-1 text-sm text-ink/55">Tonelaje acumulado por patrón de movimiento cuando hay ejercicios con carga.</p>
       <HorizontalDashboardBars
@@ -562,7 +562,7 @@ function MuscleFatigueDashboardBlock({ dashboardData }: { dashboardData: ReturnT
     .slice(0, 5);
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Fatiga muscular / series efectivas</h3>
       <p className="mt-1 text-sm text-ink/55">Top de grupos con más series ponderadas por fatigueMap.</p>
       <HorizontalDashboardBars
@@ -576,7 +576,7 @@ function MuscleFatigueDashboardBlock({ dashboardData }: { dashboardData: ReturnT
 
 function DashboardAlertsBlock({ alerts }: { alerts: string[] }) {
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Alertas o puntos a revisar</h3>
       <p className="mt-1 text-sm text-ink/55">Avisos orientativos para revisar la sesión, la carga o la recuperación.</p>
       {alerts.length > 0 ? (
@@ -606,7 +606,7 @@ function ClientHeader({
   onOpenDetails: () => void;
 }) {
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
@@ -731,7 +731,7 @@ function DashboardDetailPanel({
   const selected = content[section];
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+    <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-moss">Clientes / {client.name} / Dashboard</p>

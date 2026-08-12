@@ -203,7 +203,7 @@ export function CoachMessagesView({
 
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Conversaciones</h2>
           <span className="rounded-md bg-mint px-2 py-1 text-xs font-medium text-moss">
@@ -262,7 +262,7 @@ export function CoachMessagesView({
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-4 shadow-soft">
+      <section className="coach-surface rounded-md p-4">
         {selectedThread ? (
           <>
             <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
