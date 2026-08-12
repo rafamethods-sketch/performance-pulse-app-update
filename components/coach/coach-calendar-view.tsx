@@ -11,6 +11,7 @@ import {
   Gauge,
   Paperclip,
   Repeat2,
+  Trash2,
   Ruler,
   Target,
   TrendingUp,
@@ -77,6 +78,8 @@ type CalendarPaletteItem = {
 
 type CalendarDraftSelection = {
   className: string;
+  clientId?: string;
+  clientName?: string;
   date: Date;
   draftType: string;
   kind: CalendarDraftKind;
@@ -85,6 +88,11 @@ type CalendarDraftSelection = {
 };
 
 const calendarDragDataType = "application/rac-calendar-palette";
+const calendarTrashDataType = "application/rac-calendar-trash";
+
+type CalendarTrashPayload =
+  | { kind: "draft" }
+  | { clientId: string; kind: "session"; sessionIndex?: number; status: WeeklyCalendarSession["status"]; summary: string };
 
 const recurringWeekdayOptions = [
   { label: "Lunes", value: 0 },
@@ -270,18 +278,22 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
 type CalendarViewProps = {
   client?: CoachClientForViews | null;
   clients: CoachClientForViews[];
+  draftClient?: CoachClientForViews | null;
   onCreateRecurringSessions: (clientId: string, sessionIndex: number, dates: string[], time?: string) => number;
   onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onDeleteSession: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onOpenTrainingDraft: (target: TargetTrainingSession) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, onCreateRecurringSessions, onDuplicateSession, onMoveSession, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, draftClient, onCreateRecurringSessions, onDeleteSession, onDuplicateSession, onMoveSession, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<CalendarDraftSelection | null>(null);
   const [draggedOverDateKey, setDraggedOverDateKey] = useState<string | null>(null);
+  const [isTrashActive, setIsTrashActive] = useState(false);
+  const [trashMessage, setTrashMessage] = useState("");
   const [sessionAction, setSessionAction] = useState<CalendarSessionAction | null>(null);
   const [actionDate, setActionDate] = useState("");
   const [actionTime, setActionTime] = useState("");
@@ -294,6 +306,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
   const weekDates = Array.from({ length: 7 }, (_, index) => addCalendarDays(selectedWeekStart, index));
   const weekLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const visibleClients = client ? [client] : clients;
+  const associatedDraftClient = client ?? draftClient ?? null;
   const weeklySessions = buildWeeklyCalendarSessions(visibleClients, weekDates);
   const sessionsByDay = weekDates.map((date) => ({
     date,
@@ -369,6 +382,53 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
     }));
   }
 
+  function handleCalendarItemDragStart(event: DragEvent<HTMLElement>, payload: CalendarTrashPayload) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(calendarTrashDataType, JSON.stringify(payload));
+  }
+
+  function handleTrashDragOver(event: DragEvent<HTMLElement>) {
+    if (!event.dataTransfer.types.includes(calendarTrashDataType)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setIsTrashActive(true);
+  }
+
+  function handleTrashDrop(event: DragEvent<HTMLElement>) {
+    const rawItem = event.dataTransfer.getData(calendarTrashDataType);
+    if (!rawItem) return;
+
+    event.preventDefault();
+    setIsTrashActive(false);
+
+    try {
+      const payload = JSON.parse(rawItem) as CalendarTrashPayload;
+
+      if (payload.kind === "draft") {
+        setSelectedDraft(null);
+        setTrashMessage("Borrador eliminado del calendario.");
+        return;
+      }
+
+      if (payload.sessionIndex === undefined) {
+        setTrashMessage("Esta sesión no se puede eliminar desde la papelera.");
+        return;
+      }
+
+      if (payload.status === "Completada" || payload.status === "Pendiente de revisar") {
+        setTrashMessage("No se puede eliminar desde papelera una sesión con datos registrados.");
+        return;
+      }
+
+      if (!window.confirm("¿Seguro que quieres eliminar esta sesión del calendario?")) return;
+
+      const result = onDeleteSession(payload.clientId, payload.sessionIndex);
+      setTrashMessage(result.message);
+      if (result.ok) setSelectedSession(null);
+    } catch {
+      setTrashMessage("No se ha podido leer el elemento arrastrado.");
+    }
+  }
   function handleDayDragOver(event: DragEvent<HTMLElement>, date: Date) {
     if (!event.dataTransfer.types.includes(calendarDragDataType)) return;
     event.preventDefault();
@@ -386,7 +446,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
     try {
       const item = JSON.parse(rawItem) as Omit<CalendarDraftSelection, "date">;
       setSelectedSession(null);
-      setSelectedDraft({ ...item, date });
+      setSelectedDraft({ ...item, clientId: associatedDraftClient?.id, clientName: associatedDraftClient?.name, date });
     } catch {
       setSelectedDraft(null);
     }
@@ -396,7 +456,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
     if (!selectedDraft || selectedDraft.kind !== "session") return;
 
     onOpenTrainingDraft({
-      clientId: client?.id,
+      clientId: selectedDraft.clientId,
       draftSessionSummary: selectedDraft.label,
       draftSessionType: selectedDraft.planSessionType,
       sessionDate: getDateKey(selectedDraft.date)
@@ -569,7 +629,9 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                       <button
                         aria-label={detail}
                         className={`${compactChipClass} ${typeConfig.className}`}
+                        draggable={session.sessionIndex !== undefined}
                         key={`${session.clientId}-${session.summary}-${index}`}
+                        onDragStart={(event) => handleCalendarItemDragStart(event, { clientId: session.clientId, kind: "session", sessionIndex: session.sessionIndex, status: session.status, summary: session.summary })}
                         onClick={() => {
                           setSelectedDraft(null);
                           setSelectedSession(session);
@@ -591,6 +653,8 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                 {dayDraft ? (
                   <button
                     className={`${compactChipClass} ${dayDraft.className} border-dashed`}
+                    draggable
+                    onDragStart={(event) => handleCalendarItemDragStart(event, { kind: "draft" })}
                     onClick={() => {
                       setSelectedSession(null);
                       setSelectedDraft(dayDraft);
@@ -598,7 +662,7 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
                     type="button"
                   >
                     <span className="size-1.5 shrink-0 rounded-full bg-moss" />
-                    <span className="truncate">Borrador · {dayDraft.label}</span>
+                    <span className="truncate">Borrador · {dayDraft.label}{dayDraft.clientName ? ` · ${dayDraft.clientName}` : ""}</span>
                   </button>
                 ) : null}
               </div>
@@ -613,6 +677,23 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
           <CalendarLegendGroup items={draggableEventItems} onDragStart={handlePaletteDragStart} title="Eventos" />
         </div>
       </div>
+
+
+      <section
+        className={`mt-4 rounded-md border border-dashed p-3 transition ${isTrashActive ? "border-coral bg-coral/10" : "border-line bg-panel/35"}`}
+        onDragLeave={() => setIsTrashActive(false)}
+        onDragOver={handleTrashDragOver}
+        onDrop={handleTrashDrop}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink/65">
+            <Trash2 size={16} />
+            <span>Papelera</span>
+          </div>
+          <p className="text-sm text-ink/55">Arrastra aquí para eliminar borradores o sesiones planificadas sin datos registrados.</p>
+        </div>
+        {trashMessage ? <p className="mt-2 text-sm font-semibold text-ink/65">{trashMessage}</p> : null}
+      </section>
 
       {selectedDraft ? (
         <section className="mt-5 rounded-md border border-line bg-white p-4 shadow-soft">
@@ -637,11 +718,15 @@ export function CalendarView({ client, clients, onCreateRecurringSessions, onDup
               )}
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ClientInfoCard label={selectedDraft.kind === "session" ? "Tipo de sesión" : "Tipo de evento"} value={selectedDraft.label} />
+            <ClientInfoCard label="Deportista" value={selectedDraft.clientName ?? "Sin deportista asignado"} />
             <ClientInfoCard label="Fecha" value={formatDateShort(getDateKey(selectedDraft.date))} />
             <ClientInfoCard label="Estado" value="Borrador" />
           </div>
+          {selectedDraft.kind === "event" && !selectedDraft.clientName ? (
+            <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/60">Selecciona un deportista para configurar este evento.</p>
+          ) : null}
         </section>
       ) : null}
 

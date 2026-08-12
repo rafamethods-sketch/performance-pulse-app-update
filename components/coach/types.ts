@@ -8,13 +8,20 @@ export type TargetTrainingSession = {
 
 export type CoachSessionRecordForViews = {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: "up" | "down" | null;
+  athleteQuickFeedbackNote?: string | null;
+  cardioResult?: unknown;
   completed?: boolean;
   date: string;
+  discomfort?: unknown;
   duration?: number | string | null;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
   notes?: string | null;
-  performedExercises?: unknown[];
+  performedExercises?: Array<{
+    techniqueVideoNote?: string | null;
+    techniqueVideoUrl?: string | null;
+  }>;
   reviewStatus?: "pending" | "reviewed";
   rpe?: number | string | null;
   sRPE?: number | string | null;

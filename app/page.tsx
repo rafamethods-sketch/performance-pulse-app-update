@@ -448,6 +448,55 @@ export default function ClientsPage() {
     );
   }
 
+  function hasCalendarSessionRegisteredData(session: ClientSessionRecord) {
+    const hasTechniqueVideo = (session.performedExercises ?? []).some((exercise) =>
+      hasDisplayValue(exercise.techniqueVideoUrl) || hasDisplayValue(exercise.techniqueVideoNote)
+    );
+
+    return Boolean(
+      session.completed ||
+      session.status === "Completada" ||
+      session.reviewStatus === "reviewed" ||
+      hasDisplayValue(session.actualDurationMinutes) ||
+      hasDisplayValue(session.duration) ||
+      hasDisplayValue(session.finalRpe) ||
+      hasDisplayValue(session.rpe) ||
+      hasDisplayValue(session.sRPE) ||
+      hasDisplayValue(session.srpe) ||
+      hasDisplayValue(session.finalNotes) ||
+      hasDisplayValue(session.notes) ||
+      Boolean(session.athleteQuickFeedback) ||
+      hasDisplayValue(session.athleteQuickFeedbackNote) ||
+      Boolean(session.cardioResult) ||
+      Boolean(session.discomfort) ||
+      (session.performedExercises?.length ?? 0) > 0 ||
+      hasTechniqueVideo
+    );
+  }
+
+  function deleteCalendarSession(clientId: string, sessionIndex: number) {
+    const clientForDelete = clients.find((listedClient) => listedClient.id === clientId);
+    const session = clientForDelete?.sessionRecords?.[sessionIndex];
+    if (!clientForDelete || !session) return { ok: false, message: "No se ha encontrado la sesión." };
+
+    if (hasCalendarSessionRegisteredData(session)) {
+      return { ok: false, message: "No se puede eliminar desde papelera una sesión con datos registrados." };
+    }
+
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              sessionRecords: (listedClient.sessionRecords ?? []).filter((_, index) => index !== sessionIndex)
+            }
+          : listedClient
+      )
+    );
+
+    return { ok: true, message: "Sesión eliminada del calendario." };
+  }
+
   function createRecurringCalendarSessions(clientId: string, sessionIndex: number, dates: string[], time?: string) {
     const clientForCheck = clients.find((listedClient) => listedClient.id === clientId);
     const sourceSession = clientForCheck?.sessionRecords?.[sessionIndex];
@@ -748,7 +797,9 @@ export default function ClientsPage() {
               <CalendarView
                 client={null}
                 clients={clients}
+                draftClient={scopedClient}
                 onCreateRecurringSessions={createRecurringCalendarSessions}
+                onDeleteSession={deleteCalendarSession}
                 onDuplicateSession={duplicateCalendarSession}
                 onMoveSession={moveCalendarSession}
                 onOpenTrainingDraft={openTrainingDraft}
