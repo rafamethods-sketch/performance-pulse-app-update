@@ -5,7 +5,7 @@ import type { TargetTrainingSession } from "@/components/coach/types";
 import { getExerciseById } from "@/lib/exercises";
 import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
 
-type AttentionFilter = "all" | "sessions" | "technique" | "feedback" | "wellness" | "management";
+type AttentionFilter = "all" | "alerts" | "sessions" | "technique" | "wellness" | "management";
 type AttentionPeriod = 7 | 14 | 30 | 90;
 type AttentionSectionId =
   | "pendingSessions"
@@ -139,20 +139,35 @@ type CoachAttentionItem = {
 };
 
 const attentionFilterLabels: Record<AttentionFilter, string> = {
+  alerts: "Avisos",
   all: "Todos",
-  feedback: "Feedback",
   management: "Gestión",
   sessions: "Sesiones",
   technique: "Técnica",
   wellness: "Wellness"
 };
 
+const attentionFilterOrder: AttentionFilter[] = ["all", "alerts", "sessions", "wellness", "technique", "management"];
+
 const attentionPeriodOptions: AttentionPeriod[] = [7, 14, 30, 90];
+const attentionSectionOrder: AttentionSectionId[] = [
+  "discomfort",
+  "negativeFeedback",
+  "pendingSessions",
+  "lowReadiness",
+  "unreviewedVideos",
+  "highPriorityTechnique",
+  "intakeQuestionnaire",
+  "expiringAccess",
+  "pinnedPrivateNotes",
+  "pendingOnboarding",
+  "staleTests"
+];
 
 const attentionSectionLabels: Record<AttentionSectionId, { description: string; filter: AttentionFilter; title: string }> = {
   discomfort: {
     description: "Molestias reportadas dentro del seguimiento deportivo.",
-    filter: "wellness",
+    filter: "alerts",
     title: "Molestias o fatiga a vigilar"
   },
   expiringAccess: {
@@ -177,7 +192,7 @@ const attentionSectionLabels: Record<AttentionSectionId, { description: string; 
   },
   negativeFeedback: {
     description: "Feedback rápido negativo enviado por el deportista.",
-    filter: "feedback",
+    filter: "alerts",
     title: "Feedback negativo reciente"
   },
   pendingOnboarding: {
@@ -222,15 +237,6 @@ const techniquePlanningDecisionLabels: Record<Exclude<TechniquePlanningDecision,
   regress: "Regresar ejercicio",
   repeat_exercise: "Repetir ejercicio"
 };
-
-function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
-  return (
-    <article className={`rounded-md bg-panel/55 p-4 ${className}`}>
-      <p className="text-sm font-semibold text-ink">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-moss">{value}</p>
-    </article>
-  );
-}
 
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && `${value}`.trim() !== "";
@@ -698,14 +704,15 @@ export function CoachAttentionCenter({
   const [period, setPeriod] = useState<AttentionPeriod>(14);
   const items = useMemo(() => buildCoachAttentionItems(clients, period), [clients, period]);
   const visibleItems = items.filter((item) => activeFilter === "all" || getAttentionSectionFilter(item.section) === activeFilter);
-  const visibleSections = (Object.keys(attentionSectionLabels) as AttentionSectionId[])
+  const visibleSections = attentionSectionOrder
     .map((section) => ({
       items: visibleItems.filter((item) => item.section === section),
       section
     }))
     .filter((group) => group.items.length > 0);
-  const counters = {
-    feedback: items.filter((item) => getAttentionSectionFilter(item.section) === "feedback").length,
+  const counters: Record<AttentionFilter, number> = {
+    alerts: items.filter((item) => getAttentionSectionFilter(item.section) === "alerts").length,
+    all: items.length,
     management: items.filter((item) => getAttentionSectionFilter(item.section) === "management").length,
     sessions: items.filter((item) => getAttentionSectionFilter(item.section) === "sessions").length,
     technique: items.filter((item) => getAttentionSectionFilter(item.section) === "technique").length,
@@ -743,26 +750,18 @@ export function CoachAttentionCenter({
           </p>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <ClientInfoCard label="Sesiones" value={`${counters.sessions}`} />
-          <ClientInfoCard label="Técnica" value={`${counters.technique}`} />
-          <ClientInfoCard label="Feedback" value={`${counters.feedback}`} />
-          <ClientInfoCard label="Wellness" value={`${counters.wellness}`} />
-          <ClientInfoCard label="Gestión" value={`${counters.management}`} />
-        </div>
-
         <div className="mt-4 flex flex-col gap-3 rounded-md border border-line bg-panel/35 p-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(attentionFilterLabels) as AttentionFilter[]).map((filter) => (
+          <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
+            {attentionFilterOrder.map((filter) => (
               <button
-                className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                className={`rounded-md border px-3 py-2 text-left text-sm font-semibold transition ${
                   activeFilter === filter ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/65 hover:bg-panel"
                 }`}
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
                 type="button"
               >
-                {attentionFilterLabels[filter]}
+                {attentionFilterLabels[filter]} <span className="text-xs opacity-70">· {counters[filter]}</span>
               </button>
             ))}
           </div>

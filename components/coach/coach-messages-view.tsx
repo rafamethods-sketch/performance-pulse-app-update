@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type CoachMessagesClient = {
   coachNotes?: string;
@@ -85,9 +85,11 @@ export function CoachMessagesView({
   const [messageDraft, setMessageDraft] = useState("");
   const [messageThreads, setMessageThreads] = useState<CoachMessageThread[]>([]);
   const [messagesHydrated, setMessagesHydrated] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [showQuickTemplates, setShowQuickTemplates] = useState(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(8);
   const [showNewNoteModal, setShowNewNoteModal] = useState(false);
   const [newNoteDraft, setNewNoteDraft] = useState("");
-  const [selectedMessageClient, setSelectedMessageClient] = useState(client?.name ?? "Todos");
   const visibleClientIds = new Set(clients.map((listedClient) => listedClient.id));
 
   useEffect(() => {
@@ -111,12 +113,13 @@ export function CoachMessagesView({
     window.localStorage.setItem("coach_message_threads_v1", JSON.stringify(messageThreads));
   }, [messageThreads, messagesHydrated]);
 
-  const sourceClients = client
-    ? [client]
-    : selectedMessageClient === "Todos"
-      ? clients
-      : clients.filter((listedClient) => listedClient.name === selectedMessageClient);
-  const visibleThreads: Array<CoachMessageThread & { status: string; unread: number; lastMessage: string }> = sourceClients.map((listedClient) => {
+  function getMessageTimestampValue(timestamp: string) {
+    if (timestamp === "Sistema" || timestamp === "Nota inicial") return 0;
+    const parsed = new Date(timestamp).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  const visibleThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : clients).map((listedClient) => {
     const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavía.";
     const storedThread = messageThreads.find((thread) => thread.clientId === listedClient.id);
     const fallbackMessages: CoachThreadMessage[] = [
@@ -135,14 +138,37 @@ export function CoachMessagesView({
       clientId: listedClient.id,
       clientName: listedClient.name,
       id: storedThread?.id ?? `thread-${listedClient.id}`,
+      lastTimestamp: getMessageTimestampValue(messages[messages.length - 1]?.timestamp ?? ""),
       lastMessage,
       messages,
       status: listedClient.status,
       unread: messages.filter((message) => message.sender === "athlete" && !message.read).length
     };
-  }).filter((thread) => visibleClientIds.has(thread.clientId));
+  })
+    .filter((thread) => visibleClientIds.has(thread.clientId))
+    .filter((thread) => {
+      const query = messageSearch.trim().toLowerCase();
+      if (!query) return true;
+      return [thread.clientName, thread.lastMessage, ...thread.messages.map((message) => message.text)]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    })
+    .sort((left, right) => {
+      if (left.unread !== right.unread) return right.unread - left.unread;
+      return right.lastTimestamp - left.lastTimestamp;
+    });
   const selectedThread =
     visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0] ?? null;
+  const visibleMessages = useMemo(() => {
+    if (!selectedThread) return [];
+    return selectedThread.messages.slice(Math.max(0, selectedThread.messages.length - visibleMessageCount));
+  }, [selectedThread, visibleMessageCount]);
+  const hasHiddenMessages = Boolean(selectedThread && selectedThread.messages.length > visibleMessages.length);
+
+  useEffect(() => {
+    setVisibleMessageCount(8);
+  }, [selectedThread?.id]);
 
   function saveCoachMessage(thread: CoachMessageThread & { status: string; unread: number; lastMessage: string }, text: string) {
     const trimmedText = text.trim();
@@ -212,22 +238,20 @@ export function CoachMessagesView({
         </div>
         {!client ? (
           <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
-            Filtrar por cliente
-            <select
-              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+            Buscar conversación
+            <input
+              className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none placeholder:text-ink/35 focus:border-moss"
               onChange={(event) => {
-                setSelectedMessageClient(event.target.value);
+                setMessageSearch(event.target.value);
                 setSelectedThreadId("");
               }}
-              value={selectedMessageClient}
-            >
-              <option>Todos</option>
-              {clients.map((listedClient) => (
-                <option key={listedClient.id}>{listedClient.name}</option>
-              ))}
-            </select>
+              placeholder="Buscar conversación..."
+              type="search"
+              value={messageSearch}
+            />
           </label>
         ) : null}
+        <p className="mt-4 text-xs font-semibold uppercase text-ink/45">Conversaciones recientes</p>
         <div className="mt-4 space-y-2">
           {visibleThreads.length > 0 ? (
             visibleThreads.map((thread) => (
@@ -280,7 +304,18 @@ export function CoachMessagesView({
             </div>
 
             <div className="mt-4 space-y-3">
-              {selectedThread.messages.map((message) => (
+              {hasHiddenMessages ? (
+                <div className="flex justify-center">
+                  <button
+                    className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65 transition hover:bg-panel"
+                    onClick={() => setVisibleMessageCount((current) => current + 8)}
+                    type="button"
+                  >
+                    Ver mensajes anteriores
+                  </button>
+                </div>
+              ) : null}
+              {visibleMessages.map((message) => (
                 <div
                   className={`flex ${message.sender === "coach" ? "justify-end" : "justify-start"}`}
                   key={message.id}
@@ -305,12 +340,17 @@ export function CoachMessagesView({
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-ink">Plantillas rápidas</h3>
-                  <p className="text-xs text-ink/50">Insertan texto en el mensaje. Puedes editarlo antes de enviar.</p>
+                  <p className="text-xs text-ink/50">Inserta respuestas habituales cuando las necesites.</p>
                 </div>
-                <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/50">
-                  Sistema
-                </span>
+                <button
+                  className="w-fit rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:bg-panel"
+                  onClick={() => setShowQuickTemplates((current) => !current)}
+                  type="button"
+                >
+                  {showQuickTemplates ? "Ocultar" : "Mostrar"}
+                </button>
               </div>
+              {showQuickTemplates ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {coachQuickMessageTemplates.map((template) => (
                   <button
@@ -325,6 +365,7 @@ export function CoachMessagesView({
                   </button>
                 ))}
               </div>
+              ) : null}
             </div>
 
             <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">

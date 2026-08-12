@@ -2527,10 +2527,6 @@ function CoachClientsView({
     planningBlocks: [] as EditablePlanningBlock[],
     planningMethod: "" as PlanningMethod
   });
-  const healthClients = clients.filter((listedClient) => listedClient.goalType === "Salud").length;
-  const performanceClients = clients.filter((listedClient) => listedClient.goalType === "Rendimiento").length;
-  const healthPercent = clients.length > 0 ? Math.round((healthClients / clients.length) * 100) : 0;
-  const performancePercent = clients.length > 0 ? Math.round((performanceClients / clients.length) * 100) : 0;
   const filteredClients = clients.filter((listedClient) => {
     const matchesGoal = goalFilter === "all" || listedClient.goalType === goalFilter;
     const query = searchTerm.trim().toLowerCase();
@@ -2733,25 +2729,9 @@ function CoachClientsView({
 
   return (
     <>
-      <section className="coach-surface mt-4 rounded-md p-4">
-        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
-          <div className="grid gap-3 md:grid-cols-3">
-            <ClientStatTile label="Clientes registrados" value={clients.length} />
-            <ClientStatTile label="Salud" percent={healthPercent} value={healthClients} />
-            <ClientStatTile label="Rendimiento" percent={performancePercent} value={performanceClients} />
-          </div>
-          <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-gradient-to-br from-steel to-moss px-4 text-sm font-semibold text-white transition hover:opacity-95"
-            onClick={() => setShowNewClientForm((current) => !current)}
-            type="button"
-          >
-            <Plus size={18} />
-            Anadir cliente
-          </button>
-        </div>
-
-        {showNewClientForm && (
-          <div className="mt-5 rounded-md border border-line bg-panel/45 p-4">
+      {showNewClientForm ? (
+        <section className="coach-surface mt-4 rounded-md p-4">
+          <div className="rounded-md border border-line bg-panel/45 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-semibold text-ink">Nuevo cliente</h3>
@@ -3096,8 +3076,8 @@ function CoachClientsView({
               </div>
             </div>
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="coach-subtle-card mt-4 rounded-md px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3132,6 +3112,14 @@ function CoachClientsView({
             <h2 className="text-lg font-semibold text-ink">Clientes registrados</h2>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-gradient-to-br from-steel to-moss px-3 text-sm font-semibold text-white transition hover:opacity-95"
+              onClick={() => setShowNewClientForm((current) => !current)}
+              type="button"
+            >
+              <Plus size={18} />
+              Añadir cliente
+            </button>
             <button
               aria-label="Buscar cliente"
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/70"
@@ -3306,22 +3294,6 @@ function CoachClientsView({
       </section>
 
     </>
-  );
-}
-
-function ClientStatTile({ label, percent, value }: { label: string; percent?: number; value: number }) {
-  return (
-    <article className="coach-metric-card rounded-md px-3.5 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{label}</p>
-      <div className="mt-1.5 flex items-end justify-between gap-3">
-        <p className="text-3xl font-semibold text-steel">{value}</p>
-        {percent !== undefined && (
-          <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
-            {percent}%
-          </span>
-        )}
-      </div>
-    </article>
   );
 }
 
