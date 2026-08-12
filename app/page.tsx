@@ -5,10 +5,12 @@ import {
   BarChart3,
   CalendarDays,
   LogOut,
+  Moon,
   Plus,
   Search,
   Send,
   Settings2,
+  Sun,
   Target,
   Trash2,
   X,
@@ -888,19 +890,38 @@ function ThemeSelector({
   onThemeChange: (theme: ThemePreference) => void;
   themePreference: ThemePreference;
 }) {
+  const themeOptions: Array<{ icon: ReactNode; label: string; value: ThemePreference }> = [
+    { icon: <Sun size={14} />, label: "Claro", value: "light" },
+    { icon: <Moon size={14} />, label: "Oscuro", value: "dark" }
+  ];
+
   return (
-    <label className="flex w-fit items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65 shadow-soft">
-      Apariencia
-      <select
-        aria-label="Apariencia"
-        className="h-8 rounded-md border border-line bg-panel/60 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
-        onChange={(event) => onThemeChange(event.target.value as ThemePreference)}
-        value={themePreference}
-      >
-        <option value="light">Claro</option>
-        <option value="dark">Oscuro</option>
-      </select>
-    </label>
+    <div className="flex w-fit items-center gap-2 rounded-md border border-line bg-white px-2 py-1.5 text-xs font-semibold text-ink/65 shadow-soft">
+      <span className="hidden text-ink/55 sm:inline">Apariencia</span>
+      <div aria-label="Apariencia" className="flex rounded-md border border-line bg-panel/60 p-0.5" role="group">
+        {themeOptions.map((option) => {
+          const isActive = themePreference === option.value;
+
+          return (
+            <button
+              aria-pressed={isActive}
+              className={`flex min-h-8 items-center gap-1.5 rounded px-2.5 text-xs font-semibold transition ${
+                isActive
+                  ? "bg-ink text-white shadow-soft"
+                  : "text-ink/55 hover:bg-white/70 hover:text-ink"
+              }`}
+              key={option.value}
+              onClick={() => onThemeChange(option.value)}
+              title={`Modo ${option.label.toLowerCase()}`}
+              type="button"
+            >
+              {option.icon}
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
