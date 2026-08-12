@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BarChart3,
   CalendarDays,
+  LogOut,
   Plus,
   Search,
   Send,
@@ -318,6 +319,26 @@ export default function ClientsPage() {
     }
   }
 
+  function returnToManagement() {
+    setActiveSheet("management");
+    setManagementSection("clients");
+    setTrainerClientPanel("list");
+    setScopedClientId("");
+  }
+
+  async function handleLogout() {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setRole(null);
+    setActiveSheet("attention");
+    setManagementSection("clients");
+    setTrainerClientPanel("list");
+    setSelectedClientId("");
+    setScopedClientId("");
+    setTargetTrainingSession(null);
+  }
+
   function openClientPanel(clientId: string, panel: Exclude<TrainerClientPanel, "list">) {
     setSelectedClientId(clientId);
     setTrainerClientPanel(panel);
@@ -459,6 +480,33 @@ export default function ClientsPage() {
     return createdSessions.length;
   }
 
+  const activeClientForTitle =
+    scopedClient ??
+    (((activeSheet === "clients" || activeSheet === "management") && trainerClientPanel !== "list") ? selectedClient : null);
+  const pageTitle = (() => {
+    if (activeSheet === "today") return role === "coach" ? "Resumen del día" : "Hoy";
+    if (activeSheet === "clients" || activeSheet === "management") {
+      if (role === "coach" && trainerClientPanel === "dashboard") return `Resumen - ${selectedClient?.name ?? "cliente"}`;
+      if (role === "coach" && trainerClientPanel === "details") return `Información - ${selectedClient?.name ?? "cliente"}`;
+      return "Gestión";
+    }
+    if (activeSheet === "attention") return "Asuntos pendientes";
+    if (activeSheet === "analytics") return "Métricas";
+    if (activeSheet === "training") return role === "coach" && scopedClient ? `Sesiones - ${scopedClient.name}` : role === "coach" ? "Entrenamiento" : "Historial";
+    if (activeSheet === "assessments") return role === "coach" && scopedClient ? `Tests - ${scopedClient.name}` : "Tests";
+    if (activeSheet === "calendar") return "Calendario";
+    if (activeSheet === "clientProgress") return role === "coach" && scopedClient ? `Progreso - ${scopedClient.name}` : "Progreso";
+    if (activeSheet === "clientWellness") return role === "coach" && scopedClient ? `Bienestar - ${scopedClient.name}` : "Bienestar";
+    if (activeSheet === "fatigue") return "Fatiga";
+    if (activeSheet === "weeklyLoad") return role === "coach" ? "Métricas" : "Carga semanal";
+    if (activeSheet === "planning") return role === "coach" && scopedClient ? `Planificación - ${scopedClient.name}` : "Planificación";
+    if (activeSheet === "progressions") return "Biblioteca";
+    if (activeSheet === "resources") return "Recursos";
+    if (activeSheet === "routines") return "Rutinas";
+    if (activeSheet === "messages") return role === "coach" ? "Comunicación" : "Mensajes";
+    return "Dashboard";
+  })();
+
   return (
     <main className="theme-shell min-h-screen lg:flex" data-theme={themePreference}>
       <Sidebar
@@ -475,56 +523,31 @@ export default function ClientsPage() {
         >
           <div className="flex min-w-0 flex-col gap-4 border-b border-line pb-4 sm:pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-ink sm:text-2xl">
-                {activeSheet === "today"
-                  ? role === "coach" ? "Resumen del día" : "Hoy"
-                  : activeSheet === "clients" || activeSheet === "management"
-                  ? role === "coach" && trainerClientPanel === "dashboard"
-                    ? `Resumen - ${selectedClient?.name ?? "cliente"}`
-                    : role === "coach" && trainerClientPanel === "details"
-                      ? `Información - ${selectedClient?.name ?? "cliente"}`
-                      : "Gestión"
-                  : activeSheet === "attention"
-                    ? "Asuntos pendientes"
-                  : activeSheet === "analytics"
-                    ? "Métricas"
-                  : activeSheet === "training"
-                    ? role === "coach" ? "Entrenamiento" : "Historial"
-                  : activeSheet === "assessments"
-                    ? "Tests"
-                  : activeSheet === "calendar"
-                    ? "Calendario"
-                  : activeSheet === "clientProgress"
-                    ? "Progreso"
-                  : activeSheet === "clientWellness"
-                    ? "Bienestar"
-                  : activeSheet === "fatigue"
-                    ? "Fatiga"
-                  : activeSheet === "weeklyLoad"
-                    ? role === "coach" ? "Métricas" : "Carga semanal"
-                  : activeSheet === "planning"
-                    ? "Planificación"
-                  : activeSheet === "progressions"
-                    ? "Biblioteca"
-                  : activeSheet === "resources"
-                    ? "Recursos"
-                  : activeSheet === "routines"
-                    ? "Rutinas"
-                  : activeSheet === "messages"
-                    ? role === "coach" ? "Comunicación" : "Mensajes"
-                    : "Dashboard"}
-              </h1>
+              <h1 className="text-xl font-semibold text-ink sm:text-2xl">{pageTitle}</h1>
             </div>
-            <ThemeSelector
-              onThemeChange={setThemePreference}
-              themePreference={themePreference}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <ThemeSelector
+                onThemeChange={setThemePreference}
+                themePreference={themePreference}
+              />
+              {role === "coach" ? (
+                <button
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink/70 shadow-soft transition hover:text-ink"
+                  onClick={handleLogout}
+                  type="button"
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </button>
+              ) : null}
+            </div>
           </div>
 
-          {role === "coach" && (((activeSheet === "clients" || activeSheet === "management") && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
+          {role === "coach" && activeClientForTitle ? (
             <ActiveClientBar
               activeSheet={activeSheet}
-              client={scopedClient ?? selectedClient!}
+              client={activeClientForTitle}
+              onBack={returnToManagement}
               onOpenClientSheet={openClientSheet}
               onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
               onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
@@ -574,7 +597,7 @@ export default function ClientsPage() {
                 activeSection={managementSection}
                 client={selectedClient}
                 clients={clients}
-                onBack={() => setTrainerClientPanel("list")}
+                onBack={returnToManagement}
                 onLoadDemoData={() => {
                   setClients((currentClients) => [
                     buildDemoClient(),
@@ -618,7 +641,7 @@ export default function ClientsPage() {
               <CoachClientsView
                 client={selectedClient}
                 clients={clients}
-                onBack={() => setTrainerClientPanel("list")}
+                onBack={returnToManagement}
                 onLoadDemoData={() => {
                   setClients((currentClients) => [
                     buildDemoClient(),
@@ -2011,12 +2034,12 @@ function ClientQuickNav({
 }) {
   const links = [
     {
-      active: activeSheet === "clients" && trainerClientPanel === "dashboard",
+      active: (activeSheet === "clients" || activeSheet === "management") && trainerClientPanel === "dashboard",
       label: "Resumen",
       onClick: () => onOpenDashboard(client.id)
     },
     {
-      active: activeSheet === "clients" && trainerClientPanel === "details",
+      active: (activeSheet === "clients" || activeSheet === "management") && trainerClientPanel === "details",
       label: "Información",
       onClick: () => onOpenDetails(client.id)
     },
@@ -2070,6 +2093,7 @@ function ClientQuickNav({
 function ActiveClientBar({
   activeSheet,
   client,
+  onBack,
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
@@ -2077,6 +2101,7 @@ function ActiveClientBar({
 }: {
   activeSheet: SheetId;
   client: CoachClient;
+  onBack: () => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
@@ -2090,14 +2115,19 @@ function ActiveClientBar({
           Activo
         </span>
       </div>
-      <ClientQuickNav
-        activeSheet={activeSheet}
-        client={client}
-        onOpenClientSheet={onOpenClientSheet}
-        onOpenDashboard={onOpenDashboard}
-        onOpenDetails={onOpenDetails}
-        trainerClientPanel={trainerClientPanel}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-moss transition hover:bg-panel" onClick={onBack} type="button">
+          ← Volver a Gestión
+        </button>
+        <ClientQuickNav
+          activeSheet={activeSheet}
+          client={client}
+          onOpenClientSheet={onOpenClientSheet}
+          onOpenDashboard={onOpenDashboard}
+          onOpenDetails={onOpenDetails}
+          trainerClientPanel={trainerClientPanel}
+        />
+      </div>
     </section>
   );
 }
@@ -2522,7 +2552,7 @@ function CoachClientsView({
     return (
       <ClientDetailsView
         client={client}
-        onBack={() => onOpenDashboard(client.id)}
+        onBack={onBack}
         onUpdateClient={(updatedClient) =>
           setClients((currentClients) =>
             currentClients.map((listedClient) =>
@@ -3641,7 +3671,7 @@ function ClientDetailsView({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
-            Volver al dashboard
+            ← Volver a Gestión
           </button>
           <h2 className="text-xl font-semibold text-ink">Ficha inicial</h2>
           <p className="mt-1 text-sm text-ink/60">{client.name}</p>

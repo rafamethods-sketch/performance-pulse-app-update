@@ -610,7 +610,7 @@ function ClientHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
-            Volver a clientes
+            ← Volver a Gestión
           </button>
           <h2 className="text-xl font-semibold text-ink">{client.name}</h2>
           <p className="mt-1 text-sm text-ink/60">
