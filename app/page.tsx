@@ -145,6 +145,7 @@ type TrainingAvailability = {
   daysPerWeek: number;
 };
 type TrainerClientPanel = "list" | "dashboard" | "details";
+type ManagementSection = "clients" | "metrics" | "access";
 type ThemePreference = "light" | "dark";
 
 const themeStorageKey = "coach_theme_preference";
@@ -152,6 +153,7 @@ const themeStorageKey = "coach_theme_preference";
 export default function ClientsPage() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [activeSheet, setActiveSheet] = useState<SheetId>("attention");
+  const [managementSection, setManagementSection] = useState<ManagementSection>("clients");
   const [trainerClientPanel, setTrainerClientPanel] = useState<TrainerClientPanel>("list");
   const [clients, setClients] = useState<CoachClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -307,6 +309,10 @@ export default function ClientsPage() {
   function handleSheetChange(sheet: SheetId) {
     setActiveSheet(sheet);
     setScopedClientId("");
+    if (sheet === "management") {
+      setManagementSection("clients");
+      setTrainerClientPanel("list");
+    }
     if (sheet === "clients") {
       setTrainerClientPanel("list");
     }
@@ -315,7 +321,8 @@ export default function ClientsPage() {
   function openClientPanel(clientId: string, panel: Exclude<TrainerClientPanel, "list">) {
     setSelectedClientId(clientId);
     setTrainerClientPanel(panel);
-    setActiveSheet("clients");
+    setManagementSection("clients");
+    setActiveSheet("management");
   }
 
   function openClientSheet(clientId: string, sheet: SheetId) {
@@ -471,16 +478,16 @@ export default function ClientsPage() {
               <h1 className="text-xl font-semibold text-ink sm:text-2xl">
                 {activeSheet === "today"
                   ? role === "coach" ? "Resumen del día" : "Hoy"
-                  : activeSheet === "clients"
+                  : activeSheet === "clients" || activeSheet === "management"
                   ? role === "coach" && trainerClientPanel === "dashboard"
                     ? `Resumen - ${selectedClient?.name ?? "cliente"}`
                     : role === "coach" && trainerClientPanel === "details"
                       ? `Información - ${selectedClient?.name ?? "cliente"}`
-                      : "Clientes"
+                      : "Gestión"
                   : activeSheet === "attention"
                     ? "Asuntos pendientes"
                   : activeSheet === "analytics"
-                    ? "Analítica"
+                    ? "Métricas"
                   : activeSheet === "training"
                     ? role === "coach" ? "Entrenamiento" : "Historial"
                   : activeSheet === "assessments"
@@ -514,7 +521,7 @@ export default function ClientsPage() {
             />
           </div>
 
-          {role === "coach" && ((activeSheet === "clients" && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
+          {role === "coach" && (((activeSheet === "clients" || activeSheet === "management") && trainerClientPanel !== "list" && selectedClient) || scopedClient) ? (
             <ActiveClientBar
               activeSheet={activeSheet}
               client={scopedClient ?? selectedClient!}
@@ -539,6 +546,51 @@ export default function ClientsPage() {
           ) : activeSheet === "today" ? (
             role === "coach" ? (
               <CoachTodayView clients={clients} onOpenTrainingSession={openTrainingSession} />
+            ) : getClientAccessInfo(athleteClient).status === "expired" ? (
+              <AthleteAccessEndedNotice
+                client={athleteClient}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
+              />
+            ) : (
+              <AthleteTodayView
+                client={athleteClient}
+                onShowCalendar={() => setActiveSheet("calendar")}
+                onShowHistory={() => setActiveSheet("training")}
+                onShowPlanning={() => setActiveSheet("planning")}
+                onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
+              />
+            )
+          ) : activeSheet === "management" ? (
+            role === "coach" ? (
+              <CoachManagementView
+                activeSection={managementSection}
+                client={selectedClient}
+                clients={clients}
+                onBack={() => setTrainerClientPanel("list")}
+                onLoadDemoData={() => {
+                  setClients((currentClients) => [
+                    buildDemoClient(),
+                    ...currentClients.filter((listedClient) => !isDemoClient(listedClient))
+                  ]);
+                }}
+                onOpenClientSheet={openClientSheet}
+                onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
+                onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+                onRemoveDemoData={() => {
+                  setClients((currentClients) => currentClients.filter((listedClient) => !isDemoClient(listedClient)));
+                }}
+                onSectionChange={setManagementSection}
+                panel={trainerClientPanel}
+                setClients={setClients}
+              />
             ) : getClientAccessInfo(athleteClient).status === "expired" ? (
               <AthleteAccessEndedNotice
                 client={athleteClient}
@@ -609,7 +661,7 @@ export default function ClientsPage() {
               <CoachTrainingPlanner
                 client={scopedClient}
                 clients={clients}
-                onGoClients={() => setActiveSheet("clients")}
+                onGoClients={() => setActiveSheet("management")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
                     currentClients.map((listedClient) =>
@@ -2053,12 +2105,12 @@ function ActiveClientBar({
 function SelectClientFirst({ onGoClients }: { onGoClients: () => void }) {
   return (
     <section className="mt-6 rounded-md border border-line bg-white p-6 text-center shadow-soft">
-      <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Clientes.</h2>
+      <h2 className="text-lg font-semibold text-ink">Selecciona primero un cliente desde Gestión / Clientes.</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm text-ink/55">
         Las páginas del entrenador se filtran por deportista para que calendario, sesiones, planificación, mensajes y tests pertenezcan al cliente activo.
       </p>
       <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
-        Ir a Clientes
+        Ir a Gestión
       </button>
     </section>
   );
@@ -2091,6 +2143,144 @@ function AthleteAccessEndedNotice({
           Ver planificación
         </button>
       </div>
+    </section>
+  );
+}
+
+function CoachManagementView({
+  activeSection,
+  client,
+  clients,
+  onBack,
+  onLoadDemoData,
+  onOpenClientSheet,
+  onOpenDashboard,
+  onOpenDetails,
+  onRemoveDemoData,
+  onSectionChange,
+  panel,
+  setClients
+}: {
+  activeSection: ManagementSection;
+  client: CoachClient | null;
+  clients: CoachClient[];
+  onBack: () => void;
+  onLoadDemoData: () => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenDashboard: (clientId: string) => void;
+  onOpenDetails: (clientId: string) => void;
+  onRemoveDemoData: () => void;
+  onSectionChange: (section: ManagementSection) => void;
+  panel: TrainerClientPanel;
+  setClients: React.Dispatch<React.SetStateAction<CoachClient[]>>;
+}) {
+  const tabs: Array<{ id: ManagementSection; label: string }> = [
+    { id: "clients", label: "Clientes" },
+    { id: "metrics", label: "Métricas" },
+    { id: "access", label: "Accesos" }
+  ];
+
+  return (
+    <div className="mt-6 space-y-5">
+      {panel === "list" ? (
+        <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-moss">Gestión</p>
+              <h2 className="mt-2 text-xl font-semibold text-ink">Centro de gestión de clientes</h2>
+              <p className="mt-1 text-sm text-ink/55">
+                Gestiona deportistas, estado de acceso, cuestionarios, seguimiento y datos principales.
+              </p>
+            </div>
+            <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
+              {tabs.map((tab) => (
+                <button
+                  className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                    activeSection === tab.id ? "bg-ink text-white" : "text-ink/65 hover:bg-white"
+                  }`}
+                  key={tab.id}
+                  onClick={() => onSectionChange(tab.id)}
+                  type="button"
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {activeSection === "metrics" && panel === "list" ? (
+        <CoachAnalyticsView clients={clients} />
+      ) : activeSection === "access" && panel === "list" ? (
+        <CoachAccessManagementView clients={clients} />
+      ) : (
+        <CoachClientsView
+          client={client}
+          clients={clients}
+          onBack={onBack}
+          onLoadDemoData={onLoadDemoData}
+          onOpenClientSheet={onOpenClientSheet}
+          onOpenDashboard={onOpenDashboard}
+          onOpenDetails={onOpenDetails}
+          onRemoveDemoData={onRemoveDemoData}
+          panel={panel}
+          setClients={setClients}
+        />
+      )}
+    </div>
+  );
+}
+
+function CoachAccessManagementView({ clients }: { clients: CoachClient[] }) {
+  const sortedClients = [...clients].sort((left, right) => {
+    const leftDate = left.accessEndDate ? new Date(left.accessEndDate).getTime() : Number.POSITIVE_INFINITY;
+    const rightDate = right.accessEndDate ? new Date(right.accessEndDate).getTime() : Number.POSITIVE_INFINITY;
+    return leftDate - rightDate;
+  });
+  const relevantClients = sortedClients.filter((client) => {
+    const accessInfo = getClientAccessInfo(client);
+    return ["expiringSoon", "expired", "none"].includes(accessInfo.status);
+  });
+
+  return (
+    <section className="rounded-md border border-line bg-white p-5 shadow-soft">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Accesos</h2>
+          <p className="mt-1 text-sm text-ink/55">Seguimiento simple de accesos activos, próximos a finalizar o sin fecha registrada.</p>
+        </div>
+        <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+          {relevantClients.length} a revisar
+        </span>
+      </div>
+
+      {relevantClients.length > 0 ? (
+        <div className="mt-5 grid gap-3">
+          {relevantClients.map((client) => {
+            const accessInfo = getClientAccessInfo(client);
+
+            return (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={client.id}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-ink">{client.name}</h3>
+                    <p className="mt-1 text-sm text-ink/55">{client.modality || client.sport || "Sin modalidad"}</p>
+                  </div>
+                  <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
+                    {accessInfo.label}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-ink/65">{accessInfo.text}</p>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm font-semibold text-ink/55">
+          Sin accesos próximos a finalizar, expirados o sin fecha registrada.
+        </p>
+      )}
     </section>
   );
 }
@@ -8307,12 +8497,12 @@ function CoachTrainingPlanner({
                 ))}
               </select>
               <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
-                Ir a Clientes
+                Ir a Gestión
               </button>
             </div>
           ) : (
             <button className="mt-5 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onGoClients} type="button">
-              Ir a Clientes
+              Ir a Gestión
             </button>
           )}
         </section>

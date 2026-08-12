@@ -209,10 +209,10 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
       <section className="rounded-md border border-line bg-white p-5 shadow-soft">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-ink/45">Analítica del entrenador</p>
+            <p className="text-xs font-semibold uppercase text-ink/45">Métricas del entrenador</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">Centro de gestión de clientes</h2>
             <p className="mt-1 max-w-3xl text-sm text-ink/60">
-              Analítica basada en datos locales de tus clientes. No se envía información a servidores.
+              Métricas basadas en datos locales de tus clientes. No se envía información a servidores.
             </p>
           </div>
           <label className="w-full text-sm font-semibold text-ink/70 sm:w-64">

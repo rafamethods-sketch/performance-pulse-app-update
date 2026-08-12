@@ -21,6 +21,7 @@ export type SheetId =
   | "clients"
   | "attention"
   | "analytics"
+  | "management"
   | "training"
   | "assessments"
   | "calendar"
@@ -58,7 +59,8 @@ export const navItems: NavItem[] = [
   { id: "today", label: "Hoy", icon: Activity },
   { id: "clients", label: "Clientes", icon: Users },
   { id: "attention", label: "Asuntos pendientes", icon: ClipboardCheck },
-  { id: "analytics", label: "Analítica", icon: BarChart3 },
+  { id: "analytics", label: "Métricas", icon: BarChart3 },
+  { id: "management", label: "Gestión", icon: Users },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
   { id: "training", label: "Entrenamiento", icon: ClipboardList },
   { id: "planning", label: "Planificación", icon: FileClock },
@@ -72,7 +74,7 @@ export const navItems: NavItem[] = [
   { id: "decision", label: "Dashboard general", icon: Activity }
 ];
 
-export const coachMainNavIds: SheetId[] = ["attention", "clients", "training", "calendar", "progressions", "messages", "analytics", "resources"];
+export const coachMainNavIds: SheetId[] = ["attention", "calendar", "training", "messages", "management", "progressions", "resources"];
 export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning"];
 
 export const coachStats = [
