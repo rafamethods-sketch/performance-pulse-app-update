@@ -10266,8 +10266,15 @@ function getPerformedValue(entry: ReviewSessionExercise | undefined, field: "set
 }
 
 function parseReviewNumber(value: unknown) {
-  const parsed = Number(value);
+  const parsed = Number(`${value ?? ""}`.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatReviewLoad(value: unknown) {
+  if (!hasDisplayValue(value)) return "";
+  const parsed = parseReviewNumber(value);
+  if (parsed !== null) return parsed > 0 ? `${parsed.toLocaleString("es-ES")} kg` : "";
+  return `${value}`;
 }
 
 function getSetDetailsReps(entry?: ReviewSessionExercise) {
@@ -10496,7 +10503,8 @@ function getReviewIntensityLabel(planned?: ReviewSessionExercise, performed?: Re
 
   if (method === "kg" || method === "external_load") {
     const value = source === "planned" ? getPlannedValue(planned, "load") : getPerformedValue(performed, "load");
-    return hasDisplayValue(value) ? `Carga: ${value} kg` : "";
+    const loadLabel = formatReviewLoad(value);
+    return loadLabel ? `Carga: ${loadLabel}` : "";
   }
 
   return "";
@@ -10507,8 +10515,8 @@ function getCompactExerciseLabel(planned?: ReviewSessionExercise, performed?: Re
   if (!entry) return source === "planned" ? "Sin datos planificados" : "Sin registro real";
   const pieces = [
     getCompactSetLabel(entry, source),
-    source === "planned" && hasDisplayValue(getPlannedValue(entry, "load")) ? `${getPlannedValue(entry, "load")} kg` : "",
-    source === "performed" && hasDisplayValue(getPerformedValue(entry, "load")) ? `${getPerformedValue(entry, "load")} kg` : "",
+    source === "planned" ? formatReviewLoad(getPlannedValue(entry, "load")) : "",
+    source === "performed" ? formatReviewLoad(getPerformedValue(entry, "load")) : "",
     getReviewIntensityLabel(planned, performed, source)
   ].filter(Boolean);
 
@@ -10674,12 +10682,6 @@ function SessionHistoryPanel({
             const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
-            const plannedExternalLoad = plannedExercises.length > 0
-              ? calculateSessionExternalLoad({ completed: false, plannedExercises }, exerciseLibrary)
-              : null;
-            const performedExternalLoad = performedExercises.length > 0
-              ? calculateSessionExternalLoad({ completed: true, performedExercises, plannedExercises }, exerciseLibrary)
-              : null;
             const srpe = getSessionSrpe(session);
             const notes = session.finalNotes ?? session.notes;
             const sessionDeviation = calculateSessionDeviation(session);
@@ -10691,6 +10693,9 @@ function SessionHistoryPanel({
             const athleteQuickFeedbackLabel = getAthleteQuickFeedbackLabel(session.athleteQuickFeedback);
             const hasResistanceData = hasResistancePerformedData(session);
             const resistanceDuration = session.cardioResult?.durationMinutes ?? session.actualDurationMinutes;
+            const complianceLabel = sessionDeviation.globalCompletionPct !== null
+              ? `${Math.round(sessionDeviation.globalCompletionPct)}%`
+              : "";
             const suggestedReviewNotes = [
               sessionDeviation.suggestedReviewNotes,
               cardioDeviation ? generateCardioFeedbackSuggestion(cardioDeviation) : ""
@@ -10736,15 +10741,26 @@ function SessionHistoryPanel({
                 ? ["Distancia", `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}`]
                 : null
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1]))) : [];
-            const compactSummaryItems = [
-              ["Deportista", client.name],
-              ["sRPE", srpe !== null ? `${srpe} UA` : "Pendiente"],
-              plannedExternalLoad !== null || performedExternalLoad !== null
-                ? ["Carga planificada → real", `${plannedExternalLoad !== null ? `${Math.round(plannedExternalLoad).toLocaleString("es-ES")} kg` : "Sin datos"} → ${performedExternalLoad !== null ? `${Math.round(performedExternalLoad).toLocaleString("es-ES")} kg` : "Sin registro"}`]
-                : null,
-              ["Estado", status],
-              ["Cumplimiento", sessionDeviation.globalCompletionPct !== null ? `${Math.round(sessionDeviation.globalCompletionPct)}%` : "No aplica"]
-            ].filter((item): item is [string, string] => Boolean(item));
+            const planSummaryItems = [
+              ["Tipo", displayValue(session.type, "Tipo sin especificar")],
+              session.cardioPlan?.targetDurationMinutes ? ["Duración objetivo", `${session.cardioPlan.targetDurationMinutes} min`] : null,
+              session.cardioPlan?.targetRpeMin || session.cardioPlan?.targetRpeMax
+                ? ["RPE objetivo", `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"}`]
+                : hasDisplayValue(session.targetRpe) ? ["RPE objetivo", `${session.targetRpe}`] : null,
+              exerciseCount > 0 ? ["Ejercicios planificados", `${plannedExercises.length}`] : null,
+              resistanceMethod ? ["Método", getResistanceMethodLabel(resistanceMethod)] : null,
+              resistanceZoneGuide.zone || session.cardioPlan?.targetZone
+                ? ["Zona objetivo", resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? ""]
+                : null
+            ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
+            const performedSummaryItems = [
+              hasDisplayValue(session.actualDurationMinutes ?? session.duration) ? ["Duración real", `${session.actualDurationMinutes ?? session.duration} min`] : null,
+              hasDisplayValue(session.finalRpe ?? session.rpe) ? ["RPE final", `${session.finalRpe ?? session.rpe}/10`] : null,
+              srpe !== null ? ["sRPE", `${srpe} UA`] : null,
+              complianceLabel ? ["Cumplimiento", complianceLabel] : null,
+              parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? ["Distancia", formatResistanceDistance(session.cardioResult?.distanceMeters)] : null,
+              athleteQuickFeedbackLabel ? ["Feedback rápido", athleteQuickFeedbackLabel] : null
+            ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
 
             return (
               <article className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-4" key={sessionKey}>
@@ -10758,6 +10774,10 @@ function SessionHistoryPanel({
                       {reviewStatus === "reviewed" ? (
                         <span className="rounded-md border border-line bg-mint px-2 py-1 text-xs font-semibold text-moss">
                           Revisada
+                        </span>
+                      ) : canReviewSession ? (
+                        <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/60">
+                          Sin revisar
                         </span>
                       ) : null}
                     </div>
@@ -10774,25 +10794,24 @@ function SessionHistoryPanel({
                     <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
                       sRPE: {srpe !== null ? `${srpe} UA` : "Pendiente"}
                     </span>
+                    {complianceLabel ? (
+                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
+                        Cumplimiento: {complianceLabel}
+                      </span>
+                    ) : null}
+                    {resistanceMethod ? (
+                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
+                        {getResistanceMethodLabel(resistanceMethod)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                  {compactSummaryItems.map(([label, value]) => (
-                    <ClientInfoCard key={label} label={label} value={value} />
-                  ))}
-                </div>
                 {hasDisplayValue(notes) ? (
-                  <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
+                  <p className="mt-3 line-clamp-2 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
                     <span className="font-semibold text-ink">{"Notas del deportista:"}</span> {notes}
                   </p>
                 ) : null}
-                {resistanceMethod ? (
-                  <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
-                    <span className="font-semibold text-ink">Método de resistencia:</span> {getResistanceMethodLabel(resistanceMethod)}
-                  </p>
-                ) : null}
-
                 {athleteQuickFeedbackLabel ? (
                   <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
                     {athleteQuickFeedbackLabel}
@@ -10833,6 +10852,54 @@ function SessionHistoryPanel({
                           ×
                         </button>
                       </div>
+                      <section className="mb-4 rounded-md border border-line bg-panel/25 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h5 className="font-semibold text-ink">Resumen de sesión</h5>
+                            <p className="mt-1 text-sm text-ink/55">
+                              Vista breve de lo planificado frente a lo registrado.
+                            </p>
+                          </div>
+                          <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
+                            {status}
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                          <div className="rounded-md border border-line bg-white p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Planificado</p>
+                            {planSummaryItems.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {planSummaryItems.map(([label, value]) => (
+                                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={label}>
+                                    {label}: {value}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-sm font-semibold text-ink/50">Sin datos planificados.</p>
+                            )}
+                          </div>
+                          <div className="rounded-md border border-line bg-white p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Realizado</p>
+                            {performedSummaryItems.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {performedSummaryItems.map(([label, value]) => (
+                                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={label}>
+                                    {label}: {value}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-sm font-semibold text-ink/50">Sin registro real todavía.</p>
+                            )}
+                            {hasDisplayValue(notes) ? (
+                              <p className="mt-3 line-clamp-2 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
+                                <span className="font-semibold text-ink">Notas del deportista:</span> {notes}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </section>
                   {showStrengthReview ? (
                   <div className="rounded-md border border-line bg-panel/25 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -10907,28 +10974,6 @@ function SessionHistoryPanel({
                   </div>
                   ) : null}
 
-                    {session.discomfort?.hasDiscomfort ? (
-                      <div className="mt-4 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
-                        <p className="font-semibold text-ink">Molestia reportada</p>
-                        <p className="mt-1">
-                          Zona: {session.discomfort.bodyArea || "Sin especificar"} {"\u00b7"} Fase: {session.discomfort.phase || "Sin especificar"} {"\u00b7"} Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10
-                        </p>
-                        {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
-                        {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
-                      </div>
-                    ) : null}
-
-                    {athleteQuickFeedbackLabel ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <h5 className="font-semibold text-ink">Feedback rápido del deportista</h5>
-                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
-                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
-                        <p className="mt-2 text-xs text-ink/45">
-                          Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
-                        </p>
-                      </section>
-                    ) : null}
-
                     {hasResistanceData ? (
                       <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                         <h5 className="font-semibold text-ink">Realizado resistencia</h5>
@@ -10977,6 +11022,28 @@ function SessionHistoryPanel({
                             </div>
                           </div>
                         ) : null}
+                      </section>
+                    ) : null}
+
+                    {session.discomfort?.hasDiscomfort ? (
+                      <div className="mt-4 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
+                        <p className="font-semibold text-ink">Molestia reportada</p>
+                        <p className="mt-1">
+                          Zona: {session.discomfort.bodyArea || "Sin especificar"} {"\u00b7"} Fase: {session.discomfort.phase || "Sin especificar"} {"\u00b7"} Intensidad: {session.discomfort.intensity ?? "Sin especificar"}/10
+                        </p>
+                        {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}
+                        {session.discomfort.notes ? <p className="mt-1">{session.discomfort.notes}</p> : null}
+                      </div>
+                    ) : null}
+
+                    {athleteQuickFeedbackLabel ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <h5 className="font-semibold text-ink">Feedback rápido del deportista</h5>
+                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
+                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                        <p className="mt-2 text-xs text-ink/45">
+                          Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
+                        </p>
                       </section>
                     ) : null}
 
