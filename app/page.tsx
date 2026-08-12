@@ -10677,6 +10677,58 @@ function getCompactExerciseLabel(planned?: ReviewSessionExercise, performed?: Re
   return pieces.length > 0 ? pieces.join(" \u00b7 ") : source === "planned" ? "Sin datos planificados" : "Sin registro real";
 }
 
+function getSessionHistoryTypeMeta(session: ReviewSessionRecord) {
+  const label = `${session.type ?? ""} ${session.summary ?? ""}`.toLowerCase();
+
+  if (label.includes("concurrent") || label.includes("mixt")) {
+    return { dotClass: "bg-clay", label: "Concurrente" };
+  }
+  if (label.includes("resistencia") || label.includes("cardio") || label.includes("z2") || label.includes("series")) {
+    return { dotClass: "bg-steel", label: "Resistencia" };
+  }
+  if (label.includes("descanso") || label.includes("recovery") || label.includes("recuperaci")) {
+    return { dotClass: "bg-moss", label: "Descanso activo" };
+  }
+  if (label.includes("fuerza") || label.includes("strength")) {
+    return { dotClass: "bg-indigo-500", label: "Fuerza" };
+  }
+
+  return { dotClass: "bg-ink/35", label: "Otro" };
+}
+
+function getSessionHistoryTitle(session: ReviewSessionRecord) {
+  const typeMeta = getSessionHistoryTypeMeta(session);
+  const summary = hasDisplayValue(session.summary) ? `${session.summary}` : "";
+  const normalizedSummary = summary.toLowerCase();
+
+  if (!summary) return typeMeta.label;
+  if (normalizedSummary.includes(typeMeta.label.toLowerCase())) return summary;
+  return `${typeMeta.label} · ${summary}`;
+}
+
+function getPositiveReviewNumber(value: unknown) {
+  const parsed = parseReviewNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function getSessionHistoryLoadChip(plannedExercises: ReviewSessionExercise[], performedExercises: ReviewSessionExercise[], session: ReviewSessionRecord) {
+  const plannedDuration = getPositiveReviewNumber(session.cardioPlan?.targetDurationMinutes);
+  const realDuration = getPositiveReviewNumber(session.cardioResult?.durationMinutes ?? session.actualDurationMinutes ?? session.duration);
+
+  if (plannedDuration !== null && realDuration !== null) {
+    return `Duración ${plannedDuration} → ${realDuration} min`;
+  }
+
+  const plannedLoad = plannedExercises.reduce((total, exercise) => total + (getPositiveReviewNumber(getPlannedValue(exercise, "load")) ?? 0), 0);
+  const realLoad = performedExercises.reduce((total, exercise) => total + (getPositiveReviewNumber(getPerformedValue(exercise, "load")) ?? 0), 0);
+
+  if (plannedLoad > 0 && realLoad > 0) {
+    return `Carga prev. → real ${plannedLoad} → ${realLoad}`;
+  }
+
+  return "";
+}
+
 function SessionHistoryPanel({
   client,
   onConsumeTargetTrainingSession,
@@ -10850,6 +10902,14 @@ function SessionHistoryPanel({
             const complianceLabel = sessionDeviation.globalCompletionPct !== null
               ? `${Math.round(sessionDeviation.globalCompletionPct)}%`
               : "";
+            const typeMeta = getSessionHistoryTypeMeta(session);
+            const compactLoadChip = getSessionHistoryLoadChip(plannedExercises, performedExercises, session);
+            const compactMetaItems = [
+              formatDisplayDate(session.date),
+              displayValue(session.type, ""),
+              session.block || session.mesocycle ? `${session.block ?? session.mesocycle}` : "",
+              session.week || session.weekLabel ? `Semana ${session.week ?? session.weekLabel}` : ""
+            ].filter((item) => hasDisplayValue(item));
             const suggestedReviewNotes = [
               sessionDeviation.suggestedReviewNotes,
               cardioDeviation ? generateCardioFeedbackSuggestion(cardioDeviation) : ""
@@ -10917,68 +10977,77 @@ function SessionHistoryPanel({
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
 
             return (
-              <article className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-4" key={sessionKey}>
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-ink/55">{formatDisplayDate(session.date)}</p>
-                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
-                        {status}
-                      </span>
-                      {reviewStatus === "reviewed" ? (
-                        <span className="rounded-md border border-line bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                          Revisada
+              <article className="coach-surface rounded-md px-3 py-2.5 shadow-soft sm:px-4" key={sessionKey}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 gap-3">
+                    <span className={`mt-1 size-2.5 shrink-0 rounded-full ${typeMeta.dotClass}`} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-sm font-semibold text-ink sm:text-base">{getSessionHistoryTitle(session)}</h3>
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${getStatusBadgeClass(status)}`}>
+                          {status}
                         </span>
-                      ) : canReviewSession ? (
-                        <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/60">
-                          Sin revisar
-                        </span>
+                        {reviewStatus === "reviewed" ? (
+                          <span className="rounded-md border border-line bg-mint px-2 py-0.5 text-[11px] font-semibold text-moss">
+                            Revisada
+                          </span>
+                        ) : canReviewSession ? (
+                          <span className="rounded-md border border-line bg-panel px-2 py-0.5 text-[11px] font-semibold text-ink/60">
+                            Sin revisar
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 truncate text-xs font-semibold text-ink/50">
+                        {compactMetaItems.join(" · ")}
+                      </p>
+                      {hasDisplayValue(notes) ? (
+                        <p className="mt-1 truncate text-xs text-ink/55">
+                          <span className="font-semibold text-ink/65">Nota:</span> {notes}
+                        </p>
                       ) : null}
                     </div>
-                    <h3 className="mt-1 text-base font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-ink/65">{displayValue(session.summary, "Sin resumen especificado")}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 xl:justify-end">
-                    {exerciseCount > 0 ? (
-                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
-                        Ejercicios: {exerciseCount}
+                  <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                    {srpe !== null ? (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                        sRPE {srpe} UA
                       </span>
                     ) : null}
-                    <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
-                      sRPE: {srpe !== null ? `${srpe} UA` : "Pendiente"}
-                    </span>
+                    {hasDisplayValue(session.finalRpe ?? session.rpe) ? (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                        RPE {session.finalRpe ?? session.rpe}/10
+                      </span>
+                    ) : null}
                     {complianceLabel ? (
-                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
-                        Cumplimiento: {complianceLabel}
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                        Cumpl. {complianceLabel}
                       </span>
                     ) : null}
-                    {resistanceMethod ? (
-                      <span className="rounded-md bg-panel/70 px-2.5 py-1.5 text-xs font-semibold text-ink/65">
-                        {getResistanceMethodLabel(resistanceMethod)}
+                    {compactLoadChip ? (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                        {compactLoadChip}
                       </span>
                     ) : null}
+                    {parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                        {formatResistanceDistance(session.cardioResult?.distanceMeters)}
+                      </span>
+                    ) : null}
+                    {athleteQuickFeedbackLabel ? (
+                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/60">
+                        {athleteQuickFeedbackLabel}
+                      </span>
+                    ) : null}
+                    <button
+                      className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mint"
+                      onClick={() => setOpenSessionKey(sessionKey)}
+                      type="button"
+                    >
+                      Ver detalle
+                    </button>
                   </div>
                 </div>
-
-                {hasDisplayValue(notes) ? (
-                  <p className="mt-3 line-clamp-2 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/70">
-                    <span className="font-semibold text-ink">{"Notas del deportista:"}</span> {notes}
-                  </p>
-                ) : null}
-                {athleteQuickFeedbackLabel ? (
-                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
-                    {athleteQuickFeedbackLabel}
-                  </p>
-                ) : null}
-
-                <button
-                  className="mt-4 rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mint"
-                  onClick={() => setOpenSessionKey(sessionKey)}
-                  type="button"
-                >
-                  Ver detalle
-                </button>
 
                 {isOpen ? (
                   <div
