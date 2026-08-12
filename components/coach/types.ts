@@ -32,7 +32,19 @@ export type CoachSessionRecordForViews = {
   type: string;
 };
 
+export type CoachCalendarEventForViews = {
+  clientId?: string;
+  clientName?: string;
+  date: string;
+  id: string;
+  notes?: string;
+  status: "planned" | "active";
+  title: string;
+  type: string;
+};
+
 export type CoachClientForViews = {
+  calendarEvents?: CoachCalendarEventForViews[];
   id: string;
   injuries?: string | null;
   modality?: string | null;

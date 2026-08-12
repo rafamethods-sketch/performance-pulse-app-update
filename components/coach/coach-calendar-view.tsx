@@ -17,7 +17,7 @@ import {
   TrendingUp,
   Zap
 } from "lucide-react";
-import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
+import type { CoachCalendarEventForViews, CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "mt-6 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
 const dayCardClass = "min-h-[156px] rounded-md border border-line bg-panel/35 p-3";
@@ -50,10 +50,12 @@ function formatDateShort(value?: string | null) {
 
 type WeeklyCalendarSession = {
   block?: string;
-  clientId: string;
-  clientName: string;
+  calendarEventId?: string;
+  clientId?: string;
+  clientName?: string;
   date: Date;
   eventKind?: string;
+  itemKind?: "session" | "event";
   rpeTarget?: string;
   sessionDate?: string;
   sessionIndex?: number;
@@ -92,7 +94,11 @@ const calendarTrashDataType = "application/rac-calendar-trash";
 
 type CalendarTrashPayload =
   | { kind: "draft" }
-  | { clientId: string; kind: "session"; sessionIndex?: number; status: WeeklyCalendarSession["status"]; summary: string };
+  | { clientId?: string; eventId?: string; kind: "event"; summary: string }
+  | { clientId?: string; kind: "session"; sessionIndex?: number; status: WeeklyCalendarSession["status"]; summary: string };
+
+const configurableEventLabels = new Set(["Test fuerza", "Test resistencia", "Test salto", "Competición", "Lesión", "Nota"]);
+const pendingEventLabels = new Set(["Foto", "Archivo"]);
 
 const recurringWeekdayOptions = [
   { label: "Lunes", value: 0 },
@@ -238,6 +244,7 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
         clientId: listedClient.id,
         clientName: listedClient.name,
         date,
+        itemKind: "session",
         sessionDate: session.date,
         sessionIndex,
         status: getWeeklySessionStatus(session),
@@ -248,12 +255,31 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
       } satisfies WeeklyCalendarSession];
     })
   );
+  const sessionsFromEvents: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
+    (listedClient.calendarEvents ?? []).flatMap((calendarEvent) => {
+      const date = parseDateValue(calendarEvent.date);
+      if (!date || !weekDateKeys.has(getDateKey(date))) return [];
+
+      return [{
+        calendarEventId: calendarEvent.id,
+        clientId: calendarEvent.clientId ?? listedClient.id,
+        clientName: calendarEvent.clientName ?? listedClient.name,
+        date,
+        eventKind: calendarEvent.type,
+        itemKind: "event",
+        status: "Planificada" as const,
+        summary: calendarEvent.title,
+        type: calendarEvent.type
+      } satisfies WeeklyCalendarSession];
+    })
+  );
   const sessionsFromPlanning: WeeklyCalendarSession[] = clients.flatMap((listedClient) =>
     (listedClient.planning.nextSessions ?? []).map((sessionName, index) => ({
       block: listedClient.planning.currentBlock,
       clientId: listedClient.id,
       clientName: listedClient.name,
       date: weekDates[index % weekDates.length],
+      itemKind: "session" as const,
       rpeTarget: "Sin especificar",
       sessionNumber: `Sesión ${index + 1}`,
       status: "Planificada" as const,
@@ -263,7 +289,7 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
     }))
   );
 
-  return [...sessionsFromRecords, ...sessionsFromPlanning].sort((a, b) => a.date.getTime() - b.date.getTime());
+  return [...sessionsFromRecords, ...sessionsFromEvents, ...sessionsFromPlanning].sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
@@ -279,15 +305,18 @@ type CalendarViewProps = {
   client?: CoachClientForViews | null;
   clients: CoachClientForViews[];
   draftClient?: CoachClientForViews | null;
+  onCreateCalendarEvent: (clientId: string, event: Omit<CoachCalendarEventForViews, "id">) => CoachCalendarEventForViews;
   onCreateRecurringSessions: (clientId: string, sessionIndex: number, dates: string[], time?: string) => number;
+  onDeleteCalendarEvent: (clientId: string, eventId: string) => { ok: boolean; message: string };
   onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onMoveSessionFromCalendar: (clientId: string, sessionIndex: number, newDate: string) => { ok: boolean; message: string };
   onDeleteSession: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onOpenTrainingDraft: (target: TargetTrainingSession) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, draftClient, onCreateRecurringSessions, onDeleteSession, onDuplicateSession, onMoveSession, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, draftClient, onCreateCalendarEvent, onCreateRecurringSessions, onDeleteCalendarEvent, onDeleteSession, onDuplicateSession, onMoveSession, onMoveSessionFromCalendar, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<CalendarDraftSelection | null>(null);
@@ -347,6 +376,8 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
   const recurringDates = getRecurringDates();
 
   function openCalendarSession(session: WeeklyCalendarSession) {
+    if (!session.clientId || session.itemKind === "event") return;
+
     if (session.sessionIndex !== undefined || session.sessionDate) {
       onOpenTrainingSession(session.clientId, {
         clientId: session.clientId,
@@ -360,6 +391,8 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
   }
 
   function openSessionAction(action: CalendarSessionAction, session: WeeklyCalendarSession) {
+    if (!session.clientId) return;
+
     setSelectedSession(session);
     setSelectedDraft(null);
     setSessionAction(action);
@@ -410,7 +443,25 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
         return;
       }
 
+      if (payload.kind === "event") {
+        if (!payload.clientId || !payload.eventId) {
+          setTrashMessage("Este evento no se puede eliminar desde la papelera.");
+          return;
+        }
+
+        if (!window.confirm("¿Eliminar este evento del calendario?")) return;
+        const result = onDeleteCalendarEvent(payload.clientId, payload.eventId);
+        setTrashMessage(result.message);
+        if (result.ok) setSelectedSession(null);
+        return;
+      }
+
       if (payload.sessionIndex === undefined) {
+        setTrashMessage("Esta sesión no se puede eliminar desde la papelera.");
+        return;
+      }
+
+      if (!payload.clientId) {
         setTrashMessage("Esta sesión no se puede eliminar desde la papelera.");
         return;
       }
@@ -430,20 +481,40 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
     }
   }
   function handleDayDragOver(event: DragEvent<HTMLElement>, date: Date) {
-    if (!event.dataTransfer.types.includes(calendarDragDataType)) return;
+    if (!event.dataTransfer.types.includes(calendarDragDataType) && !event.dataTransfer.types.includes(calendarTrashDataType)) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
+    event.dataTransfer.dropEffect = event.dataTransfer.types.includes(calendarTrashDataType) ? "move" : "copy";
     setDraggedOverDateKey(getDateKey(date));
   }
 
   function handleDayDrop(event: DragEvent<HTMLElement>, date: Date) {
     const rawItem = event.dataTransfer.getData(calendarDragDataType);
-    if (!rawItem) return;
+    const rawCalendarItem = event.dataTransfer.getData(calendarTrashDataType);
+    if (!rawItem && !rawCalendarItem) return;
 
     event.preventDefault();
     setDraggedOverDateKey(null);
 
     try {
+      if (rawCalendarItem) {
+        const payload = JSON.parse(rawCalendarItem) as CalendarTrashPayload;
+        if (payload.kind !== "session" || payload.sessionIndex === undefined || !payload.clientId) return;
+
+        if (payload.status === "Completada" || payload.status === "Pendiente de revisar") {
+          setTrashMessage("No se puede mover desde el calendario una sesión con datos registrados.");
+          return;
+        }
+
+        if (!window.confirm("¿Mover esta sesión al día seleccionado?")) return;
+        const result = onMoveSessionFromCalendar(payload.clientId, payload.sessionIndex, getDateKey(date));
+        setTrashMessage(result.message);
+        if (result.ok) {
+          setSelectedSession(null);
+          setSelectedDraft(null);
+        }
+        return;
+      }
+
       const item = JSON.parse(rawItem) as Omit<CalendarDraftSelection, "date">;
       setSelectedSession(null);
       setSelectedDraft({ ...item, clientId: associatedDraftClient?.id, clientName: associatedDraftClient?.name, date });
@@ -461,6 +532,43 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
       draftSessionType: selectedDraft.planSessionType,
       sessionDate: getDateKey(selectedDraft.date)
     });
+  }
+
+  function createDraftEvent() {
+    if (!selectedDraft || selectedDraft.kind !== "event" || !selectedDraft.clientId) return;
+    if (!configurableEventLabels.has(selectedDraft.label)) return;
+
+    const createdEvent = onCreateCalendarEvent(selectedDraft.clientId, {
+      clientId: selectedDraft.clientId,
+      clientName: selectedDraft.clientName,
+      date: getDateKey(selectedDraft.date),
+      notes: "",
+      status: "planned",
+      title: selectedDraft.label,
+      type: selectedDraft.label
+    });
+
+    setSelectedDraft(null);
+    setSelectedSession({
+      calendarEventId: createdEvent.id,
+      clientId: createdEvent.clientId,
+      clientName: createdEvent.clientName,
+      date: parseDateValue(createdEvent.date) ?? selectedDraft.date,
+      eventKind: createdEvent.type,
+      itemKind: "event",
+      status: "Planificada",
+      summary: createdEvent.title,
+      type: createdEvent.type
+    });
+  }
+
+  function deleteSelectedEvent() {
+    if (!selectedSession?.clientId || !selectedSession.calendarEventId) return;
+    if (!window.confirm("¿Eliminar este evento del calendario?")) return;
+
+    const result = onDeleteCalendarEvent(selectedSession.clientId, selectedSession.calendarEventId);
+    setTrashMessage(result.message);
+    if (result.ok) setSelectedSession(null);
   }
 
   function closeSessionAction() {
@@ -506,7 +614,7 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
   }
 
   function submitSessionAction() {
-    if (!selectedSession || selectedSession.sessionIndex === undefined || !actionDate) return;
+    if (!selectedSession || !selectedSession.clientId || selectedSession.sessionIndex === undefined || !actionDate) return;
 
     if (sessionAction === "duplicate") {
       onDuplicateSession(selectedSession.clientId, selectedSession.sessionIndex, actionDate, actionTime);
@@ -629,9 +737,11 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
                       <button
                         aria-label={detail}
                         className={`${compactChipClass} ${typeConfig.className}`}
-                        draggable={session.sessionIndex !== undefined}
-                        key={`${session.clientId}-${session.summary}-${index}`}
-                        onDragStart={(event) => handleCalendarItemDragStart(event, { clientId: session.clientId, kind: "session", sessionIndex: session.sessionIndex, status: session.status, summary: session.summary })}
+                        draggable={session.sessionIndex !== undefined || Boolean(session.calendarEventId)}
+                        key={`${session.calendarEventId ?? session.clientId}-${session.summary}-${index}`}
+                        onDragStart={(event) => handleCalendarItemDragStart(event, session.itemKind === "event"
+                          ? { clientId: session.clientId, eventId: session.calendarEventId, kind: "event", summary: session.summary }
+                          : { clientId: session.clientId, kind: "session", sessionIndex: session.sessionIndex, status: session.status, summary: session.summary })}
                         onClick={() => {
                           setSelectedDraft(null);
                           setSelectedSession(session);
@@ -641,7 +751,7 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
                       >
                         <Icon className="shrink-0" size={14} />
                         <span className={`size-1.5 shrink-0 rounded-full ${getCalendarStatusDotClass(session.status)}`} />
-                        <span className="truncate">{client ? session.summary : session.clientName}</span>
+                        <span className="truncate">{client || session.itemKind === "event" ? session.summary : session.clientName}</span>
                       </button>
                     );
                   })
@@ -711,9 +821,13 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
                 <button className={primaryButtonClass} onClick={openDraftPlanning} type="button">
                   Planificar sesión
                 </button>
-              ) : (
+              ) : pendingEventLabels.has(selectedDraft.label) ? (
                 <button className={secondaryButtonClass} disabled type="button">
                   Pendiente de configurar
+                </button>
+              ) : (
+                <button className={primaryButtonClass} disabled={!selectedDraft.clientId} onClick={createDraftEvent} type="button">
+                  Crear evento
                 </button>
               )}
             </div>
@@ -727,6 +841,9 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
           {selectedDraft.kind === "event" && !selectedDraft.clientName ? (
             <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/60">Selecciona un deportista para configurar este evento.</p>
           ) : null}
+          {selectedDraft.kind === "event" && pendingEventLabels.has(selectedDraft.label) ? (
+            <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/60">Esta acción se configurará más adelante.</p>
+          ) : null}
         </section>
       ) : null}
 
@@ -736,16 +853,22 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
             <div>
               <p className="text-xs font-semibold uppercase text-moss">Detalle seleccionado</p>
               <h3 className="mt-1 text-base font-semibold text-ink">{selectedSession.summary}</h3>
-              <p className="mt-1 text-sm text-ink/55">{selectedSession.clientName} - {formatDateShort(getDateKey(selectedSession.date))}</p>
+              <p className="mt-1 text-sm text-ink/55">{selectedSession.clientName ?? "Sin deportista asignado"} - {formatDateShort(getDateKey(selectedSession.date))}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${getCalendarStatusClass(selectedSession.status)}`}>
-                {selectedSession.status}
+                {selectedSession.itemKind === "event" ? "Planificado" : selectedSession.status}
               </span>
-              <button className={primaryButtonClass} onClick={() => openCalendarSession(selectedSession)} type="button">
-                Ver sesión
-              </button>
-              {selectedSession.sessionIndex !== undefined ? (
+              {selectedSession.itemKind === "event" ? (
+                <button className={secondaryButtonClass} onClick={deleteSelectedEvent} type="button">
+                  Eliminar evento
+                </button>
+              ) : (
+                <button className={primaryButtonClass} onClick={() => openCalendarSession(selectedSession)} type="button">
+                  Ver sesión
+                </button>
+              )}
+              {selectedSession.itemKind !== "event" && selectedSession.sessionIndex !== undefined ? (
                 <>
                   <button className={secondaryButtonClass} onClick={() => openSessionAction("duplicate", selectedSession)} type="button">
                     Duplicar sesión
@@ -761,10 +884,21 @@ export function CalendarView({ client, clients, draftClient, onCreateRecurringSe
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <ClientInfoCard label="Tipo" value={selectedSession.type || "Sin especificar"} />
-            <ClientInfoCard label="Bloque / mesociclo" value={selectedSession.block ?? "Sin asignar"} />
-            <ClientInfoCard label="Semana y sesión" value={[selectedSession.week, selectedSession.sessionNumber].filter(Boolean).join(" - ") || "Sin especificar"} />
-            <ClientInfoCard label="RPE objetivo" value={selectedSession.rpeTarget ?? "Sin especificar"} />
+            {selectedSession.itemKind === "event" ? (
+              <>
+                <ClientInfoCard label="Tipo de evento" value={selectedSession.type || "Sin especificar"} />
+                <ClientInfoCard label="Deportista" value={selectedSession.clientName ?? "Sin deportista asignado"} />
+                <ClientInfoCard label="Fecha" value={formatDateShort(getDateKey(selectedSession.date))} />
+                <ClientInfoCard label="Estado" value="Planificado" />
+              </>
+            ) : (
+              <>
+                <ClientInfoCard label="Tipo" value={selectedSession.type || "Sin especificar"} />
+                <ClientInfoCard label="Bloque / mesociclo" value={selectedSession.block ?? "Sin asignar"} />
+                <ClientInfoCard label="Semana y sesión" value={[selectedSession.week, selectedSession.sessionNumber].filter(Boolean).join(" - ") || "Sin especificar"} />
+                <ClientInfoCard label="RPE objetivo" value={selectedSession.rpeTarget ?? "Sin especificar"} />
+              </>
+            )}
           </div>
         </section>
       ) : null}

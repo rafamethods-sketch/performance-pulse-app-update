@@ -448,6 +448,36 @@ export default function ClientsPage() {
     );
   }
 
+  function moveCalendarSessionFromCalendar(clientId: string, sessionIndex: number, newDate: string) {
+    const clientForMove = clients.find((listedClient) => listedClient.id === clientId);
+    const session = clientForMove?.sessionRecords?.[sessionIndex];
+    if (!clientForMove || !session) return { ok: false, message: "No se ha encontrado la sesión." };
+
+    if (hasCalendarSessionRegisteredData(session)) {
+      return { ok: false, message: "No se puede mover desde el calendario una sesión con datos registrados." };
+    }
+
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              sessionRecords: (listedClient.sessionRecords ?? []).map((listedSession, index) =>
+                index === sessionIndex
+                  ? {
+                      ...listedSession,
+                      date: newDate
+                    }
+                  : listedSession
+              )
+            }
+          : listedClient
+      )
+    );
+
+    return { ok: true, message: "Sesión movida al día seleccionado." };
+  }
+
   function hasCalendarSessionRegisteredData(session: ClientSessionRecord) {
     const hasTechniqueVideo = (session.performedExercises ?? []).some((exercise) =>
       hasDisplayValue(exercise.techniqueVideoUrl) || hasDisplayValue(exercise.techniqueVideoNote)
@@ -495,6 +525,42 @@ export default function ClientsPage() {
     );
 
     return { ok: true, message: "Sesión eliminada del calendario." };
+  }
+
+  function createCalendarEvent(clientId: string, event: Omit<CoachCalendarEvent, "id">) {
+    const createdEvent: CoachCalendarEvent = {
+      ...event,
+      clientId,
+      id: `calendar-event-${Date.now()}`
+    };
+
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              calendarEvents: [createdEvent, ...(listedClient.calendarEvents ?? [])]
+            }
+          : listedClient
+      )
+    );
+
+    return createdEvent;
+  }
+
+  function deleteCalendarEvent(clientId: string, eventId: string) {
+    setClients((currentClients) =>
+      currentClients.map((listedClient) =>
+        listedClient.id === clientId
+          ? {
+              ...listedClient,
+              calendarEvents: (listedClient.calendarEvents ?? []).filter((event) => event.id !== eventId)
+            }
+          : listedClient
+      )
+    );
+
+    return { ok: true, message: "Evento eliminado del calendario." };
   }
 
   function createRecurringCalendarSessions(clientId: string, sessionIndex: number, dates: string[], time?: string) {
@@ -798,10 +864,13 @@ export default function ClientsPage() {
                 client={null}
                 clients={clients}
                 draftClient={scopedClient}
+                onCreateCalendarEvent={createCalendarEvent}
                 onCreateRecurringSessions={createRecurringCalendarSessions}
+                onDeleteCalendarEvent={deleteCalendarEvent}
                 onDeleteSession={deleteCalendarSession}
                 onDuplicateSession={duplicateCalendarSession}
                 onMoveSession={moveCalendarSession}
+                onMoveSessionFromCalendar={moveCalendarSessionFromCalendar}
                 onOpenTrainingDraft={openTrainingDraft}
                 onOpenTrainingSession={openTrainingSession}
               />
@@ -1069,12 +1138,23 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   wellness?: ClientWellness;
   wellnessConfirmedAt?: string;
 };
+type CoachCalendarEvent = {
+  clientId?: string;
+  clientName?: string;
+  date: string;
+  id: string;
+  notes?: string;
+  status: "planned" | "active";
+  title: string;
+  type: string;
+};
 type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessEndDate?: string;
   accessStartDate?: string;
   assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
   availableEquipment?: string;
   business?: ClientBusinessData;
+  calendarEvents?: CoachCalendarEvent[];
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
   coachPrivateNotes?: CoachPrivateNote[];
