@@ -39,10 +39,12 @@ const analyticsPeriodLabels: Record<AnalyticsPeriod, string> = {
   "7d": "Últimos 7 días",
   "30d": "Últimos 30 días",
   "90d": "Últimos 90 días",
-  all: "Todo",
   month: "Este mes",
-  year: "Este año"
+  year: "Este año",
+  all: "Todo"
 };
+
+const analyticsPeriodOptions: AnalyticsPeriod[] = ["7d", "30d", "90d", "month", "year", "all"];
 
 const acquisitionSourceLabels: Record<ClientAcquisitionSource, string> = {
   "": "Sin especificar",
@@ -235,8 +237,8 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
               onChange={(event) => setPeriod(event.target.value as AnalyticsPeriod)}
               value={period}
             >
-              {Object.entries(analyticsPeriodLabels).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {analyticsPeriodOptions.map((value) => (
+                <option key={value} value={value}>{analyticsPeriodLabels[value]}</option>
               ))}
             </select>
           </label>

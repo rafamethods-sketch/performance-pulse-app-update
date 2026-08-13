@@ -5272,6 +5272,8 @@ function ClientProgressView({
 }
 function ClientWellnessView({ client }: { client?: CoachClient | null }) {
   const [wellnessRange, setWellnessRange] = useState<7 | 14 | 28>(7);
+  const [wellnessMetric, setWellnessMetric] = useState<"calm" | "energy" | "global" | "readiness" | "recovery" | "sleep">("global");
+  const [showWellnessDetails, setShowWellnessDetails] = useState(false);
   const records = client?.sessionRecords ?? [];
   const wellnessRecords = records
     .filter((session) => session.wellness)
@@ -5299,6 +5301,33 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
   };
   const visibleWellnessRecords = wellnessRecords.slice(0, wellnessRange).reverse();
   const latestReadiness = readinessScore(latestWellness);
+  const wellnessMetricOptions: Array<{ label: string; value: typeof wellnessMetric }> = [
+    { label: "Global", value: "global" },
+    { label: "Readiness", value: "readiness" },
+    { label: "Sueño", value: "sleep" },
+    { label: "Energía", value: "energy" },
+    { label: "Recuperación", value: "recovery" },
+    { label: "Calma", value: "calm" }
+  ];
+  const getWellnessMetricScore = (wellness: ClientWellness | undefined) => {
+    if (wellnessMetric === "global" || wellnessMetric === "readiness") return readinessScore(wellness);
+    return positiveWellnessValue(wellness, wellnessMetric);
+  };
+  const wellnessChartPoints = visibleWellnessRecords.map((session, index) => {
+    const score = getWellnessMetricScore(session.wellness);
+    const x = visibleWellnessRecords.length <= 1 ? 50 : (index / (visibleWellnessRecords.length - 1)) * 100;
+    const y = 100 - Math.max(0, Math.min(5, score)) * 20;
+    return { date: session.date, score, x, y };
+  });
+  const wellnessPolyline = wellnessChartPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const detailWellness = latestWellness;
+  const detailBars = detailWellness ? [
+    ["Sueño", positiveWellnessValue(detailWellness, "sleep")],
+    ["Energía", positiveWellnessValue(detailWellness, "energy")],
+    ["Recuperación", positiveWellnessValue(detailWellness, "recovery")],
+    ["Calma / ánimo", positiveWellnessValue(detailWellness, "calm")],
+    ["Motivación", positiveWellnessValue(detailWellness, "motivation")]
+  ] : [];
 
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
 
@@ -5312,7 +5341,6 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
       <MenstrualCoachContextCard client={client} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ClientInfoCard label="Preparación reciente" value={wellnessRecords.length > 0 ? `${wellnessRecords.length} registros` : "Sin datos todavía"} />
         <ClientInfoCard label="Readiness actual" value={latestReadiness > 0 ? `${latestReadiness.toFixed(1)}/5` : "Sin datos todavía"} />
         <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
         <ClientInfoCard label="Energía" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavía"} />
@@ -5327,36 +5355,60 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             <h3 className="font-semibold text-ink">Evolución díaria del bienestar</h3>
             <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueño, energía, recuperación y calma.</p>
           </div>
-          <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
-            {[7, 14, 28].map((range) => (
-              <button
-                className={`rounded px-3 py-1 text-xs font-semibold transition ${wellnessRange === range ? "bg-ink text-white" : "text-ink/60 hover:bg-white"}`}
-                key={range}
-                onClick={() => setWellnessRange(range as 7 | 14 | 28)}
-                type="button"
-              >
-                {range} días
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
+              onClick={() => setShowWellnessDetails(true)}
+              type="button"
+            >
+              Ver detalles
+            </button>
+            <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
+              {[7, 14, 28].map((range) => (
+                <button
+                  className={`rounded px-3 py-1 text-xs font-semibold transition ${wellnessRange === range ? "bg-ink text-white" : "text-ink/60 hover:bg-white"}`}
+                  key={range}
+                  onClick={() => setWellnessRange(range as 7 | 14 | 28)}
+                  type="button"
+                >
+                  {range} días
+                </button>
+              ))}
+            </div>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {wellnessMetricOptions.map((option) => (
+            <button
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${wellnessMetric === option.value ? "border-moss bg-mint text-moss" : "border-line bg-panel/45 text-ink/60 hover:bg-panel"}`}
+              key={option.value}
+              onClick={() => setWellnessMetric(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         {visibleWellnessRecords.length > 0 ? (
           <div className="mt-5 grid gap-4">
-            <div className="flex h-40 items-end gap-2 rounded-md border border-line bg-panel/35 p-3">
-              {visibleWellnessRecords.map((session, index) => {
-                const score = readinessScore(session.wellness);
-                const height = Math.max(8, (score / 5) * 100);
-
-                return (
-                  <div className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2" key={`${session.date}-${index}`}>
-                    <div className="flex h-28 w-full items-end rounded bg-white">
-                      <div className="w-full rounded bg-moss" style={{ height: `${height}%` }} />
-                    </div>
-                    <span className="truncate text-[10px] font-semibold text-ink/45">{formatDisplayDate(session.date)}</span>
-                  </div>
-                );
-              })}
+            <div className="rounded-md border border-line bg-panel/35 p-3">
+              <svg aria-label="Evolución temporal del bienestar" className="h-44 w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+                {[0, 25, 50, 75, 100].map((y) => (
+                  <line className="stroke-line" key={y} strokeWidth="0.4" x1="0" x2="100" y1={y} y2={y} />
+                ))}
+                <polyline fill="none" points={wellnessPolyline} stroke="var(--moss)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                {wellnessChartPoints.map((point) => (
+                  <circle className="fill-panel stroke-moss" cx={point.x} cy={point.y} key={point.date} r="2.4" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+                    <title>{`${formatDisplayDate(point.date)} · ${point.score.toFixed(1)}/5`}</title>
+                  </circle>
+                ))}
+              </svg>
+              <div className="mt-2 flex justify-between gap-2 text-[10px] font-semibold text-ink/45">
+                {visibleWellnessRecords.map((session, index) => (
+                  <span className="truncate" key={`${session.date}-${index}`}>{formatDisplayDate(session.date)}</span>
+                ))}
+              </div>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               {[
@@ -5397,6 +5449,49 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
           <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
         )}
       </section>
+
+      {showWellnessDetails ? (
+        <div className="assessment-modal-overlay" onClick={() => setShowWellnessDetails(false)} role="presentation">
+          <section
+            aria-modal="true"
+            className="assessment-modal-panel max-h-[88vh] max-w-3xl overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-ink">Detalle de bienestar</h3>
+                <p className="mt-1 text-sm text-ink/55">Desglose del último registro disponible.</p>
+              </div>
+              <button
+                aria-label="Cerrar detalle de bienestar"
+                className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
+                onClick={() => setShowWellnessDetails(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </header>
+            <div className="assessment-modal-body grid gap-3 px-5 py-5">
+              {detailBars.length > 0 ? detailBars.map(([label, value]) => (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-ink">{label}</p>
+                    <span className="text-sm font-semibold text-ink/70">{Number(value) > 0 ? `${value}/5` : "Sin datos"}</span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full bg-moss" style={{ width: `${Math.min(100, (Number(value) / 5) * 100)}%` }} />
+                  </div>
+                </div>
+              )) : (
+                <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+                  Sin registros de bienestar todavía.
+                </p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -5827,7 +5922,6 @@ function PlanningView({
     sessions: Array<{ dayOffset: number; sessionIndex: number; time?: string | null }>;
     sourceWeekNumber: number;
   } | null>(null);
-  const [expandedPlanningWeeks, setExpandedPlanningWeeks] = useState<Set<number>>(new Set());
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const roadmapBlocks = planningBlocks.reduce<PlanningRoadmapBlock[]>((items, block) => {
@@ -5874,7 +5968,6 @@ function PlanningView({
       today.setHours(0, 0, 0, 0);
       return today >= week.startDate && today <= week.endDate;
     })?.weekNumber ?? null;
-  const defaultOpenPlanningWeek = currentPlanningWeekNumber ?? 1;
   const planningDistribution = planningWeekRows.map((week) => {
     const trainingSessions = week.sessions.filter((item) => trainingPlanningKinds.includes(getPlanningSessionKind(item.session)));
     const counts = trainingSessions.reduce<Record<PlanningSessionKind, number>>((current, item) => {
@@ -5904,7 +5997,6 @@ function PlanningView({
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
     setCopiedPlanningWeek(null);
-    setExpandedPlanningWeeks(new Set());
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
@@ -5981,18 +6073,6 @@ function PlanningView({
       onDuplicateSession(client.id, item.sessionIndex, getPlanningDateKey(targetDate), item.time ?? undefined);
     });
     setPlanningActionMessage(`Semana ${copiedPlanningWeek.sourceWeekNumber} duplicada en semana ${week.weekNumber}.`);
-  }
-
-  function togglePlanningWeek(weekNumber: number) {
-    setExpandedPlanningWeeks((current) => {
-      const next = new Set(current);
-      if (next.has(weekNumber)) {
-        next.delete(weekNumber);
-      } else {
-        next.add(weekNumber);
-      }
-      return next;
-    });
   }
 
   function duplicatePlanningSession(sessionIndex: number, date: Date, time?: string | null) {
@@ -6125,10 +6205,10 @@ function PlanningView({
           </div>
           <button
             className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
-            onClick={() => setShowAdvancedPlanning((current) => !current)}
+            onClick={() => setShowAdvancedPlanning(true)}
             type="button"
           >
-            {showAdvancedPlanning ? "Ocultar configuración avanzada" : "Configuración avanzada"}
+            Configuración avanzada
           </button>
         </div>
         {planningBlocks.length === 0 ? (
@@ -6259,17 +6339,16 @@ function PlanningView({
         </div>
         {planningActionMessage ? <p className="mt-3 text-sm font-semibold text-moss">{planningActionMessage}</p> : null}
         <div className="mt-5 overflow-x-auto pb-2">
-          <div className="min-w-[980px] space-y-2">
-            <div className="grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45">
+          <div className="min-w-[900px] space-y-2">
+            <div className="grid grid-cols-[88px_repeat(7,minmax(96px,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45">
               <span>Semana</span>
               {planningWeekdayLabels.map((day) => <span key={day}>{day}</span>)}
             </div>
             {planningDistribution.map((week) => {
               const isCurrentWeek = week.weekNumber === currentPlanningWeekNumber;
-              const isExpanded = expandedPlanningWeeks.has(week.weekNumber) || (expandedPlanningWeeks.size === 0 && week.weekNumber === defaultOpenPlanningWeek);
 
               return (
-              <div className={`grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2 rounded-md p-1 ${isCurrentWeek ? "border border-moss/40 bg-mint/25" : ""}`} key={`week-row-${week.weekNumber}`}>
+              <div className={`grid grid-cols-[88px_repeat(7,minmax(96px,1fr))] gap-2 rounded-md p-1 ${isCurrentWeek ? "border border-moss/30 bg-mint/15" : ""}`} key={`week-row-${week.weekNumber}`}>
                 <div className="rounded-md border border-line bg-panel/45 p-2">
                   <p className="text-sm font-semibold text-ink">Semana {week.weekNumber}</p>
                   {isCurrentWeek ? <span className="mt-1 inline-flex rounded-md border border-moss/25 bg-mint px-2 py-0.5 text-[10px] font-semibold text-moss">Semana actual</span> : null}
@@ -6277,9 +6356,6 @@ function PlanningView({
                     {formatDisplayDate(getPlanningDateKey(week.startDate))} · {formatDisplayDate(getPlanningDateKey(week.endDate))}
                   </p>
                   <div className="mt-2 grid gap-1">
-                    <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => togglePlanningWeek(week.weekNumber)} type="button">
-                      {isExpanded ? "Plegar" : "Ver semana"}
-                    </button>
                     <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => copyPlanningWeek(week)} type="button">
                       Duplicar semana
                     </button>
@@ -6290,12 +6366,12 @@ function PlanningView({
                     ) : null}
                   </div>
                 </div>
-                {isExpanded ? planningWeekdayLabels.map((day, dayIndex) => {
+                {planningWeekdayLabels.map((day, dayIndex) => {
                   const date = addPlanningDays(week.startDate, dayIndex);
                   const daySessions = week.trainingSessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
 
                   return (
-                    <div className="min-h-[116px] rounded-md border border-line bg-panel/30 p-2" key={`${week.weekNumber}-${day}`}>
+                    <div className="min-h-[104px] rounded-md border border-line bg-panel/30 p-2" key={`${week.weekNumber}-${day}`}>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="text-[11px] font-semibold uppercase text-ink/40">{day.slice(0, 3)}</span>
                         <button
@@ -6352,17 +6428,7 @@ function PlanningView({
                       </div>
                     </div>
                   );
-                }) : (
-                  <div className="col-span-7 rounded-md border border-line bg-panel/30 p-3 text-sm text-ink/60">
-                    <p className="font-semibold text-ink">{week.total > 0 ? `${week.total} sesiones de entrenamiento` : "Semana sin sesiones centrales"}</p>
-                    <p className="mt-1 text-xs text-ink/45">Pulsa Ver semana para desplegar lunes-domingo.</p>
-                    {copiedPlanningWeek ? (
-                      <button className="mt-2 rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
-                        Duplicar aquí
-                      </button>
-                    ) : null}
-                  </div>
-                )}
+                })}
               </div>
               );
             })}
@@ -6446,9 +6512,30 @@ function PlanningView({
         />
       ) : null}
 
-      <section className={showAdvancedPlanning ? "coach-surface rounded-md p-4" : "hidden"}>
-        <h2 className="text-lg font-semibold text-ink">Configuración avanzada</h2>
-        <p className="mt-1 text-sm text-ink/55">Edición estructural heredada: modelo, evento objetivo y mesociclos editables.</p>
+      {showAdvancedPlanning ? (
+        <div className="assessment-modal-overlay" onClick={() => setShowAdvancedPlanning(false)} role="presentation">
+          <section
+            aria-modal="true"
+            className="assessment-modal-panel max-h-[88vh] max-w-6xl overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Configuración avanzada</h2>
+                <p className="mt-1 text-sm text-ink/55">Edición estructural heredada: modelo, evento objetivo y mesociclos editables.</p>
+              </div>
+              <button
+                aria-label="Cerrar configuración avanzada"
+                className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
+                onClick={() => setShowAdvancedPlanning(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </header>
+            <div className="assessment-modal-body grid gap-4 px-5 py-5">
+      <section className="rounded-md border border-line bg-panel/35 p-4">
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
           Metodo de planificación
           <select
@@ -6536,7 +6623,7 @@ function PlanningView({
         </PlanningStep>
       </section>
 
-      <section className={showAdvancedPlanning ? "coach-surface rounded-md p-4" : "hidden"}>
+      <section className="rounded-md border border-line bg-panel/35 p-4">
         <PlanningStep step="4" title="Mesociclos editables">
           {planningBlocks.length === 0 ? (
             <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
@@ -6649,6 +6736,10 @@ function PlanningView({
           eventType={planningEventType}
         />
       </section>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -11078,6 +11169,7 @@ function CoachTrainingPlanner({
           </div>
         )}
       </section>
+
     </div>
   );
 }
@@ -11543,6 +11635,31 @@ function getReviewIntensityLabel(planned?: ReviewSessionExercise, performed?: Re
   return "";
 }
 
+function getRpeToneClass(value: unknown) {
+  const parsed = Number(`${value ?? ""}`.replace(",", "."));
+  if (!Number.isFinite(parsed)) return "border-line bg-panel/70 text-ink/65";
+  if (parsed <= 3) return "border-moss/30 bg-mint text-moss";
+  if (parsed <= 6) return "border-wheat bg-wheat/70 text-ink";
+  if (parsed <= 8) return "border-clay/25 bg-clay/10 text-clay";
+  return "border-red-300 bg-red-50 text-red-700";
+}
+
+function getRirToneClass(value: unknown) {
+  const parsed = Number(`${value ?? ""}`.replace(",", "."));
+  if (!Number.isFinite(parsed)) return "border-line bg-panel/70 text-ink/65";
+  if (parsed >= 5) return "border-moss/30 bg-mint text-moss";
+  if (parsed >= 3) return "border-wheat bg-wheat/70 text-ink";
+  if (parsed >= 1) return "border-clay/25 bg-clay/10 text-clay";
+  return "border-red-300 bg-red-50 text-red-700";
+}
+
+function getReviewIntensityToneClass(label: string) {
+  const value = label.match(/[-+]?\d+(?:[,.]\d+)?/)?.[0];
+  if (label.startsWith("RPE")) return getRpeToneClass(value);
+  if (label.startsWith("RIR")) return getRirToneClass(value);
+  return "border-line bg-panel/70 text-ink/65";
+}
+
 function getCompactExerciseLabel(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise, source: "planned" | "performed" = "planned") {
   const entry = source === "planned" ? planned : performed;
   if (!entry) return source === "planned" ? "Sin datos planificados" : "Sin registro real";
@@ -11585,29 +11702,6 @@ function getSessionHistoryTitle(session: ReviewSessionRecord) {
   return `${typeMeta.label} · ${summary}`;
 }
 
-function getPositiveReviewNumber(value: unknown) {
-  const parsed = parseReviewNumber(value);
-  return parsed !== null && parsed > 0 ? parsed : null;
-}
-
-function getSessionHistoryLoadChip(plannedExercises: ReviewSessionExercise[], performedExercises: ReviewSessionExercise[], session: ReviewSessionRecord) {
-  const plannedDuration = getPositiveReviewNumber(session.cardioPlan?.targetDurationMinutes);
-  const realDuration = getPositiveReviewNumber(session.cardioResult?.durationMinutes ?? session.actualDurationMinutes ?? session.duration);
-
-  if (plannedDuration !== null && realDuration !== null) {
-    return `Duración ${plannedDuration} → ${realDuration} min`;
-  }
-
-  const plannedLoad = plannedExercises.reduce((total, exercise) => total + (getPositiveReviewNumber(getPlannedValue(exercise, "load")) ?? 0), 0);
-  const realLoad = performedExercises.reduce((total, exercise) => total + (getPositiveReviewNumber(getPerformedValue(exercise, "load")) ?? 0), 0);
-
-  if (plannedLoad > 0 && realLoad > 0) {
-    return `Carga prev. → real ${plannedLoad} → ${realLoad}`;
-  }
-
-  return "";
-}
-
 function SessionHistoryPanel({
   client,
   onConsumeTargetTrainingSession,
@@ -11629,7 +11723,11 @@ function SessionHistoryPanel({
   const [reviewFeedbackModal, setReviewFeedbackModal] = useState<ReviewFeedbackModal | null>(null);
   const [techniqueReviewDrafts, setTechniqueReviewDrafts] = useState<Record<string, TechniqueReview>>({});
   const sessions = useMemo(
-    () => (client.sessionRecords ?? []) as ReviewSessionRecord[],
+    () => ([...(client.sessionRecords ?? [])] as ReviewSessionRecord[]).sort((left, right) => {
+      const leftDate = getReviewSessionDate(left.date)?.getTime() ?? 0;
+      const rightDate = getReviewSessionDate(right.date)?.getTime() ?? 0;
+      return rightDate - leftDate;
+    }),
     [client.sessionRecords]
   );
   const feedbackSession = reviewFeedbackModal ? sessions[reviewFeedbackModal.sessionIndex] : null;
@@ -11782,7 +11880,6 @@ function SessionHistoryPanel({
               ? `${Math.round(sessionDeviation.globalCompletionPct)}%`
               : "";
             const typeMeta = getSessionHistoryTypeMeta(session);
-            const compactLoadChip = getSessionHistoryLoadChip(plannedExercises, performedExercises, session);
             const compactMetaItems = [
               formatDisplayDate(session.date),
               displayValue(session.type, ""),
@@ -11834,18 +11931,6 @@ function SessionHistoryPanel({
                 ? ["Distancia", `${Math.round(cardioDeviation.distanceCompletionPct)}% · ${getCardioCompletionLabel(cardioDeviation.distanceStatus)}`]
                 : null
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1]))) : [];
-            const planSummaryItems = [
-              ["Tipo", displayValue(session.type, "Tipo sin especificar")],
-              session.cardioPlan?.targetDurationMinutes ? ["Duración objetivo", `${session.cardioPlan.targetDurationMinutes} min`] : null,
-              session.cardioPlan?.targetRpeMin || session.cardioPlan?.targetRpeMax
-                ? ["RPE objetivo", `${session.cardioPlan?.targetRpeMin ?? "-"}-${session.cardioPlan?.targetRpeMax ?? "-"}`]
-                : hasDisplayValue(session.targetRpe) ? ["RPE objetivo", `${session.targetRpe}`] : null,
-              exerciseCount > 0 ? ["Ejercicios planificados", `${plannedExercises.length}`] : null,
-              resistanceMethod ? ["Método", getResistanceMethodLabel(resistanceMethod)] : null,
-              resistanceZoneGuide.zone || session.cardioPlan?.targetZone
-                ? ["Zona objetivo", resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? ""]
-                : null
-            ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
             const performedSummaryItems = [
               hasDisplayValue(session.actualDurationMinutes ?? session.duration) ? ["Duración real", `${session.actualDurationMinutes ?? session.duration} min`] : null,
               hasDisplayValue(session.finalRpe ?? session.rpe) ? ["RPE final", `${session.finalRpe ?? session.rpe}/10`] : null,
@@ -11854,6 +11939,10 @@ function SessionHistoryPanel({
               parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? ["Distancia", formatResistanceDistance(session.cardioResult?.distanceMeters)] : null,
               athleteQuickFeedbackLabel ? ["Feedback rápido", athleteQuickFeedbackLabel] : null
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1])));
+            const compactResistanceDuration = hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "";
+            const compactResistanceDistance = parseResistanceNumber(session.cardioResult?.distanceMeters) > 0
+              ? formatResistanceDistance(session.cardioResult?.distanceMeters)
+              : "";
 
             return (
               <article className="coach-surface rounded-md px-3 py-2.5 shadow-soft sm:px-4" key={sessionKey}>
@@ -11894,7 +11983,7 @@ function SessionHistoryPanel({
                       </span>
                     ) : null}
                     {hasDisplayValue(session.finalRpe ?? session.rpe) ? (
-                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
+                      <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${getRpeToneClass(session.finalRpe ?? session.rpe)}`}>
                         RPE {session.finalRpe ?? session.rpe}/10
                       </span>
                     ) : null}
@@ -11903,14 +11992,14 @@ function SessionHistoryPanel({
                         Cumpl. {complianceLabel}
                       </span>
                     ) : null}
-                    {compactLoadChip ? (
+                    {compactResistanceDuration ? (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                        {compactLoadChip}
+                        {compactResistanceDuration}
                       </span>
                     ) : null}
-                    {parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? (
+                    {compactResistanceDistance ? (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                        {formatResistanceDistance(session.cardioResult?.distanceMeters)}
+                        {compactResistanceDistance}
                       </span>
                     ) : null}
                     {athleteQuickFeedbackLabel ? (
@@ -11959,34 +12048,20 @@ function SessionHistoryPanel({
                           <div>
                             <h5 className="font-semibold text-ink">Resumen de sesión</h5>
                             <p className="mt-1 text-sm text-ink/55">
-                              Vista breve de lo planificado frente a lo registrado.
+                              Vista rápida de lo realizado por el deportista.
                             </p>
                           </div>
                           <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>
                             {status}
                           </span>
                         </div>
-                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                          <div className="rounded-md border border-line bg-white p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Planificado</p>
-                            {planSummaryItems.length > 0 ? (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {planSummaryItems.map(([label, value]) => (
-                                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={label}>
-                                    {label}: {value}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="mt-2 text-sm font-semibold text-ink/50">Sin datos planificados.</p>
-                            )}
-                          </div>
+                        <div className="mt-4">
                           <div className="rounded-md border border-line bg-white p-3">
                             <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Realizado</p>
                             {performedSummaryItems.length > 0 ? (
                               <div className="mt-3 flex flex-wrap gap-2">
                                 {performedSummaryItems.map(([label, value]) => (
-                                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={label}>
+                                  <span className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${label === "RPE final" ? getRpeToneClass(value) : "border-line bg-panel/60 text-ink/65"}`} key={label}>
                                     {label}: {value}
                                   </span>
                                 ))}
@@ -12061,7 +12136,7 @@ function SessionHistoryPanel({
                                       <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65">
                                         <span className="rounded-md border border-line bg-panel/70 px-2 py-1">Cumplimiento: {completionLabel}</span>
                                         <span className="rounded-md border border-line bg-panel/70 px-2 py-1">{`Ca\u00edda: ${dropLabel}`}</span>
-                                        <span className="rounded-md border border-line bg-panel/70 px-2 py-1">{intensityLabel}</span>
+                                        <span className={`rounded-md border px-2 py-1 ${getReviewIntensityToneClass(intensityLabel)}`}>{intensityLabel}</span>
                                       </div>
                                     </div>
                                   </button>
