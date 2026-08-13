@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { SheetId } from "@/lib/data";
 import { exerciseLibrary } from "@/lib/exercises";
 import {
@@ -23,12 +22,23 @@ import {
   type TrainingSessionInput
 } from "@/lib/session-load";
 
-type DashboardDetailSection = "status" | "load" | "acwr" | "monotony" | "strain" | "hooper" | "fatigue-map";
-
 type DashboardSessionRecord = TrainingSessionInput & {
   actualDurationMinutes?: number | string | null;
+  athleteQuickFeedback?: {
+    comment?: string;
+    rating?: "bad" | "good" | string;
+  } | "down" | "up" | null;
+  cardioResult?: {
+    durationMinutes?: number | string | null;
+    distanceMeters?: number | string | null;
+    timeInZones?: Record<string, number | undefined>;
+  };
   completed?: boolean;
   date: string;
+  discomfort?: {
+    hasDiscomfort?: boolean;
+    notes?: string | null;
+  };
   duration?: number | string | null;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
@@ -41,6 +51,16 @@ type DashboardSessionRecord = TrainingSessionInput & {
   srpe?: number | string | null;
   summary: string;
   type: string;
+  wellness?: {
+    calm?: number;
+    energy?: number;
+    fatigue?: number;
+    motivation?: number;
+    recovery?: number;
+    sleep?: number;
+    soreness?: number;
+    stress?: number;
+  };
 };
 
 type CoachClient = {
@@ -61,6 +81,16 @@ type CoachClient = {
   modality: string;
   name: string;
   nextEvent: string;
+  assessmentPreferences?: {
+    favoriteTests?: string[];
+    reassessmentDates?: Record<string, string>;
+  };
+  assessments?: Array<{
+    category?: string;
+    date?: string;
+    name?: string;
+    testName?: string;
+  }>;
   planning: {
     currentBlock: string;
     currentWeek: string;
@@ -100,12 +130,6 @@ function getDashboardHooperStatus(value: number) {
   return "Controlado";
 }
 
-function getDashboardLoadTrend(currentLoad: number, chronicLoad: number) {
-  const difference = currentLoad - chronicLoad;
-  const sign = difference >= 0 ? "+" : "";
-  return `${sign}${difference.toFixed(0)} UA vs referencia`;
-}
-
 function getDashboardLoadData(client: CoachClient) {
   const weeklyLoad = calculateWeeklyLoad(
     client.sessionRecords.map((session) => ({
@@ -127,33 +151,8 @@ function getDashboardLoadData(client: CoachClient) {
     monotonyStatus: getDashboardMonotonyStatus(monotony),
     strain,
     strainStatus: getDashboardStrainStatus(strain),
-    weeklyLoad,
-    weeklyTrend: getDashboardLoadTrend(weeklyLoad, client.chronicLoad)
+    weeklyLoad
   };
-}
-
-function dashboardStatusClass(status: string) {
-  switch (status) {
-    case "Alto":
-    case "Riesgo":
-      return "border-line border-l-4 border-l-coral bg-panel/35 text-ink";
-    case "Vigilar":
-      return "border-line border-l-4 border-l-clay bg-panel/35 text-ink";
-    default:
-      return "border-line border-l-4 border-l-moss bg-panel/35 text-ink";
-  }
-}
-
-function dashboardStatusAccentClass(status: string) {
-  switch (status) {
-    case "Alto":
-    case "Riesgo":
-      return "text-coral";
-    case "Vigilar":
-      return "text-clay";
-    default:
-      return "text-moss";
-  }
 }
 
 function dashboardStatusBadgeClass(status: string) {
@@ -188,6 +187,12 @@ function getDashboardSrpe(session: DashboardSessionRecord) {
   if (duration === null || rpe === null || duration <= 0 || rpe <= 0) return null;
 
   return calculateSessionLoad(rpe, duration);
+}
+
+function getDashboardQuickFeedbackRating(feedback: DashboardSessionRecord["athleteQuickFeedback"]) {
+  if (!feedback) return null;
+  if (typeof feedback === "string") return feedback === "down" ? "bad" : feedback === "up" ? "good" : feedback;
+  return feedback.rating ?? null;
 }
 
 function hasDashboardRealSessionData(session: DashboardSessionRecord) {
@@ -246,6 +251,107 @@ function getDashboardEventDays(client: CoachClient) {
   return Math.ceil((parsed.getTime() - today.getTime()) / 86_400_000);
 }
 
+function getDashboardDate(value?: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getDashboardDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getStartOfDashboardWeek(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  start.setDate(start.getDate() - ((day + 6) % 7));
+  return start;
+}
+
+function getDashboardDayDiff(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((today.getTime() - target.getTime()) / 86_400_000);
+}
+
+function formatDashboardDate(value?: string | null) {
+  const date = getDashboardDate(value);
+  if (!date) return "Sin fecha";
+  return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+}
+
+function getDashboardSessionKind(session: DashboardSessionRecord): "activeRecovery" | "concurrent" | "resistance" | "strength" {
+  const label = `${session.type ?? ""} ${session.summary ?? ""}`.toLowerCase();
+  if (label.includes("descanso") || label.includes("recovery") || label.includes("recuperaci")) return "activeRecovery";
+  if (label.includes("concurrent") || label.includes("mixt")) return "concurrent";
+  if (label.includes("resistencia") || label.includes("cardio") || label.includes("z2") || label.includes("series")) return "resistance";
+  return "strength";
+}
+
+function getDashboardKindLabel(kind: ReturnType<typeof getDashboardSessionKind>) {
+  if (kind === "activeRecovery") return "Descanso activo";
+  if (kind === "concurrent") return "Concurrente";
+  if (kind === "resistance") return "Resistencia";
+  return "Fuerza";
+}
+
+function getDashboardKindClass(kind: ReturnType<typeof getDashboardSessionKind>) {
+  if (kind === "activeRecovery") return "border-moss/25 bg-mint text-moss";
+  if (kind === "concurrent") return "border-clay/25 bg-clay/10 text-clay";
+  if (kind === "resistance") return "border-steel/25 bg-steel/10 text-steel";
+  return "border-ink/15 bg-panel text-ink";
+}
+
+function getDashboardReadiness(session?: DashboardSessionRecord | null) {
+  const wellness = session?.wellness;
+  if (!wellness) return null;
+  const energy = wellness.energy ?? (wellness.fatigue ? Math.max(1, 6 - wellness.fatigue) : null);
+  const recovery = wellness.recovery ?? (wellness.soreness ? Math.max(1, 6 - wellness.soreness) : null);
+  const calm = wellness.calm ?? (wellness.stress ? Math.max(1, 6 - wellness.stress) : null);
+  const values = [wellness.sleep, energy, recovery, calm, wellness.motivation].filter((value): value is number => typeof value === "number" && value > 0);
+  if (values.length === 0) return null;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function getDashboardWeeklySeries(sessions: DashboardSessionRecord[]) {
+  const weeklyLoads = new Map<string, { label: string; load: number; start: Date }>();
+  sessions.forEach((session) => {
+    const date = getDashboardDate(session.date);
+    const srpe = getDashboardSrpe(session);
+    if (!date || srpe === null) return;
+    const start = getStartOfDashboardWeek(date);
+    const key = getDashboardDateKey(start);
+    const current = weeklyLoads.get(key) ?? { label: formatDashboardDate(key), load: 0, start };
+    weeklyLoads.set(key, { ...current, load: current.load + srpe });
+  });
+  return [...weeklyLoads.values()].sort((a, b) => a.start.getTime() - b.start.getTime()).slice(-6);
+}
+
+function getDashboardDailySeries(sessions: DashboardSessionRecord[]) {
+  return sessions
+    .map((session) => {
+      const date = getDashboardDate(session.date);
+      if (!date) return null;
+      return {
+        date,
+        discomfort: Boolean(session.discomfort?.hasDiscomfort || session.discomfort?.notes),
+        label: formatDashboardDate(session.date),
+        readiness: getDashboardReadiness(session),
+        srpe: getDashboardSrpe(session) ?? 0
+      };
+    })
+    .filter((entry): entry is { date: Date; discomfort: boolean; label: string; readiness: number | null; srpe: number } => Boolean(entry))
+    .filter((entry) => getDashboardDayDiff(entry.date) <= 13)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+function formatDashboardNumber(value: number, suffix = "") {
+  return `${Math.round(value).toLocaleString("es-ES")}${suffix}`;
+}
+
 function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof getDashboardLoadData>) {
   const sessions = (client.sessionRecords ?? []) as DashboardSessionRecord[];
   const trainingSessions = sessions.map(getDashboardSessionInput);
@@ -270,43 +376,187 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
   const pendingReviews = sessions.filter(isDashboardPendingReview).length;
   const latestSession = [...sessions].reverse().find(hasDashboardRealSessionData) ?? sessions.at(-1) ?? null;
   const latestRpe = latestSession ? getDashboardNumber(latestSession.finalRpe ?? latestSession.rpe) : null;
+  const latestReadiness = getDashboardReadiness(latestSession);
+  const latestSleep = latestSession?.wellness?.sleep ?? null;
   const eventDays = getDashboardEventDays(client);
   const strongestPattern = Object.entries(loadByPattern).sort(([, a], [, b]) => b - a)[0] ?? null;
   const strongestMuscle = Object.entries(muscleSets).sort(([, a], [, b]) => b - a)[0] ?? null;
+  const weeklySeries = getDashboardWeeklySeries(sessions);
+  const dailySeries = getDashboardDailySeries(sessions);
+  const currentWeekLoad = weeklySeries.at(-1)?.load ?? 0;
+  const previousWeekLoad = weeklySeries.at(-2)?.load ?? 0;
+  const weeklyChangePct = previousWeekLoad > 0
+    ? Math.round(((currentWeekLoad - previousWeekLoad) / previousWeekLoad) * 100)
+    : null;
+  const weeklyAverage4 = weeklySeries.length > 0
+    ? weeklySeries.slice(-4).reduce((total, entry) => total + entry.load, 0) / Math.min(4, weeklySeries.length)
+    : 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const recentSessions = sessions.filter((session) => {
+    const date = getDashboardDate(session.date);
+    const diff = date ? getDashboardDayDiff(date) : null;
+    return diff !== null && diff >= 0 && diff <= 6;
+  });
+  const recentDiscomfort = sessions.filter((session) => {
+    const date = getDashboardDate(session.date);
+    return date && getDashboardDayDiff(date) <= 14 && Boolean(session.discomfort?.hasDiscomfort || session.discomfort?.notes);
+  });
+  const negativeFeedback = sessions.filter((session) => {
+    const date = getDashboardDate(session.date);
+    return date && getDashboardDayDiff(date) <= 14 && getDashboardQuickFeedbackRating(session.athleteQuickFeedback) === "bad";
+  });
+  const reassessmentDates = Object.values(client.assessmentPreferences?.reassessmentDates ?? {})
+    .map(getDashboardDate)
+    .filter((date): date is Date => Boolean(date));
+  const dueReassessments = reassessmentDates.filter((date) => {
+    const diff = Math.ceil((date.getTime() - today.getTime()) / 86_400_000);
+    return diff <= 14;
+  });
+  const sessionDistribution = recentSessions.reduce<Record<ReturnType<typeof getDashboardSessionKind>, { count: number; load: number }>>(
+    (distribution, session) => {
+      const kind = getDashboardSessionKind(session);
+      distribution[kind].count += 1;
+      distribution[kind].load += getDashboardSrpe(session) ?? 0;
+      return distribution;
+    },
+    {
+      activeRecovery: { count: 0, load: 0 },
+      concurrent: { count: 0, load: 0 },
+      resistance: { count: 0, load: 0 },
+      strength: { count: 0, load: 0 }
+    }
+  );
   const alerts: string[] = [];
+  const watchSignals: Array<{ action: SheetId; label: string; meta: string; tone: "calm" | "warning" | "danger" }> = [];
 
-  if (latestRpe !== null && latestRpe >= 8) alerts.push("Última sesión con RPE alto. Revisar recuperación.");
-  if (loadData.weeklyLoad >= 2200) alerts.push("sRPE semanal alto. Revisar distribución de carga.");
+  const addWatchSignal = (
+    label: string,
+    meta: string,
+    action: SheetId,
+    tone: "calm" | "warning" | "danger" = "warning"
+  ) => {
+    if (watchSignals.some((signal) => signal.label === label)) return;
+    watchSignals.push({ action, label, meta, tone });
+  };
+
+  if (latestRpe !== null && latestRpe >= 8) {
+    alerts.push("Última sesión con RPE alto. Revisar recuperación.");
+    addWatchSignal("RPE final alto", `Último registro: RPE ${latestRpe}`, "training", "warning");
+  }
+  if (loadData.weeklyLoad >= 2200) {
+    alerts.push("sRPE semanal alto. Revisar distribución de carga.");
+    addWatchSignal("Carga semanal elevada", formatDashboardNumber(loadData.weeklyLoad, " UA"), "planning", "warning");
+  }
+  if (weeklyChangePct !== null && weeklyChangePct >= 35) {
+    alerts.push(`Aumento semanal de carga del ${weeklyChangePct}%. Revisar progresión.`);
+    addWatchSignal("Subida de carga semanal", `+${weeklyChangePct}% vs semana previa`, "planning", "warning");
+  }
+  if (latestReadiness !== null && latestReadiness < 3) {
+    alerts.push("Readiness reciente bajo. Revisar bienestar antes de progresar.");
+    addWatchSignal("Readiness bajo", `${latestReadiness.toFixed(1)} / 5`, "clientWellness", "danger");
+  }
+  if (typeof latestSleep === "number" && latestSleep < 3) {
+    addWatchSignal("Sueño bajo", `${latestSleep} / 5 en el último registro`, "clientWellness", "warning");
+  }
   if (strongestPattern && weeklyExternalLoad && strongestPattern[1] / weeklyExternalLoad >= 0.55) {
     alerts.push(`Carga concentrada en ${strongestPattern[0]}. Revisar distribución.`);
+    addWatchSignal("Carga concentrada", strongestPattern[0], "planning", "warning");
   }
   if (strongestMuscle && Object.values(muscleSets).reduce((total, value) => total + value, 0) > 0) {
     const totalMuscleSets = Object.values(muscleSets).reduce((total, value) => total + value, 0);
-    if (strongestMuscle[1] / totalMuscleSets >= 0.35) alerts.push(`Fatiga concentrada en ${strongestMuscle[0]}. Vigilar tolerancia.`);
+    if (strongestMuscle[1] / totalMuscleSets >= 0.35) {
+      alerts.push(`Fatiga concentrada en ${strongestMuscle[0]}. Vigilar tolerancia.`);
+      addWatchSignal("Fatiga concentrada", strongestMuscle[0], "training", "warning");
+    }
   }
-  if (adherencePercent !== null && adherencePercent < 70) alerts.push("Adherencia baja. Revisar disponibilidad o ajuste semanal.");
-  if (pendingReviews > 0) alerts.push("Hay sesiones pendientes de revisar.");
-  if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) alerts.push("Lesiones o limitaciones registradas. Revisar antes de progresar.");
-  if (eventDays !== null && eventDays >= 0 && eventDays <= 14) alerts.push("Evento próximo: ajustar carga si procede.");
+  if (adherencePercent !== null && adherencePercent < 70) {
+    alerts.push("Adherencia baja. Revisar disponibilidad o ajuste semanal.");
+    addWatchSignal("Adherencia baja", `${adherencePercent}%`, "training", "warning");
+  }
+  if (pendingReviews > 0) {
+    alerts.push("Hay sesiones pendientes de revisar.");
+    addWatchSignal("Sesiones pendientes", `${pendingReviews} por revisar`, "training", "calm");
+  }
+  if (recentDiscomfort.length > 0) {
+    addWatchSignal("Molestias recientes", `${recentDiscomfort.length} registro(s) en 14 días`, "clientWellness", "warning");
+  }
+  if (negativeFeedback.length > 0) {
+    addWatchSignal("Feedback negativo", `${negativeFeedback.length} respuesta(s) recientes`, "training", "warning");
+  }
+  if (dueReassessments.length > 0) {
+    addWatchSignal("Reevaluación próxima", `${dueReassessments.length} valoración(es)`, "assessments", "calm");
+  }
+  if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) {
+    alerts.push("Lesiones o limitaciones registradas. Revisar antes de progresar.");
+    addWatchSignal("Limitaciones registradas", client.injuries, "management", "warning");
+  }
+  if (eventDays !== null && eventDays >= 0 && eventDays <= 14) {
+    alerts.push("Evento próximo: ajustar carga si procede.");
+    addWatchSignal("Evento próximo", `${eventDays} día(s)`, "planning", "calm");
+  }
 
-  const generalStatus = loadData.weeklyLoad >= 2200 || latestRpe !== null && latestRpe >= 8
-    ? "Alta carga"
-    : pendingReviews > 0 || adherencePercent !== null && adherencePercent < 70
-      ? "Revisar"
-      : "Estable";
+  const severeSignals = [
+    weeklyChangePct !== null && weeklyChangePct >= 50,
+    latestReadiness !== null && latestReadiness < 2.5,
+    recentDiscomfort.length >= 2
+  ].filter(Boolean).length;
+  const cautionSignals = [
+    latestRpe !== null && latestRpe >= 8,
+    loadData.weeklyLoad >= 2200,
+    weeklyChangePct !== null && weeklyChangePct >= 25,
+    latestReadiness !== null && latestReadiness < 3,
+    typeof latestSleep === "number" && latestSleep < 3,
+    pendingReviews > 0,
+    adherencePercent !== null && adherencePercent < 70,
+    negativeFeedback.length > 0,
+    dueReassessments.length > 0
+  ].filter(Boolean).length;
+  const generalStatus = sessions.length === 0
+    ? "Sin datos suficientes"
+    : severeSignals > 0
+      ? "Descargar / revisar"
+      : cautionSignals > 0
+        ? "A vigilar"
+        : latestReadiness !== null && latestReadiness >= 4 && loadData.weeklyLoad > 0
+          ? "Preparado"
+          : "Estable";
+  const decisionText = generalStatus === "Preparado"
+    ? "Buena disponibilidad para progresar con prudencia."
+    : generalStatus === "Estable"
+      ? "Semana estable. Mantener y revisar respuesta."
+      : generalStatus === "A vigilar"
+        ? "Mantener carga y revisar señales antes de progresar."
+        : generalStatus === "Descargar / revisar"
+          ? "Valorar descarga o ajuste de la semana."
+          : "Aún faltan registros para orientar la decisión.";
 
   return {
     adherencePercent,
     alerts,
     completedSessions,
+    currentWeekLoad,
+    dailySeries,
+    decisionText,
     generalStatus,
     hasExerciseData,
+    latestReadiness,
     loadByPattern,
     muscleSets,
+    pendingReviews,
     plannedSessions,
+    previousWeekLoad,
+    recentSessions,
+    sessionDistribution,
     sessions,
     sessionsWithSrpe,
-    weeklyExternalLoad
+    strongestMuscle,
+    strongestPattern,
+    watchSignals: watchSignals.slice(0, 6),
+    weeklyAverage4,
+    weeklyChangePct,
+    weeklyExternalLoad,
+    weeklySeries
   };
 }
 
@@ -316,109 +566,56 @@ export function ClientDashboardView({
   onOpenClientSheet,
   onOpenDetails
 }: ClientDashboardViewProps) {
-  const [dashboardDetail, setDashboardDetail] = useState<DashboardDetailSection | null>(null);
   const loadData = getDashboardLoadData(client);
   const dashboardData = getClientDashboardData(client, loadData);
 
   return (
-    <div className="mt-6 grid gap-6">
+    <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <DashboardStatusSummary dashboardData={dashboardData} loadData={loadData} onOpenDetail={setDashboardDetail} />
-      {dashboardDetail ? (
-        <DashboardDetailPanel
-          client={client}
-          loadData={loadData}
-          onClose={() => setDashboardDetail(null)}
-          section={dashboardDetail}
-        />
-      ) : null}
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <WeeklyLoadDashboardBlock dashboardData={dashboardData} loadData={loadData} />
-        <AdherenceDashboardBlock dashboardData={dashboardData} />
+      <WeeklyDecisionBlock dashboardData={dashboardData} />
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
+        <DailyLoadReadinessBlock dashboardData={dashboardData} />
       </div>
-      <div className="grid gap-6 xl:grid-cols-2">
-        <PatternDistributionDashboardBlock dashboardData={dashboardData} />
-        <MuscleFatigueDashboardBlock dashboardData={dashboardData} />
+      <div className="grid gap-5 xl:grid-cols-2">
+        <LoadDistributionDecisionBlock dashboardData={dashboardData} />
+        <PatternZoneWatchBlock dashboardData={dashboardData} />
       </div>
-      <DashboardAlertsBlock alerts={dashboardData.alerts} />
-      <section className="coach-surface rounded-md p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-ink">Indicadores de carga</h3>
-            <p className="mt-1 text-sm text-ink/55">ACWR, Hooper, monotonía y strain como lectura secundaria.</p>
-          </div>
-          <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => setDashboardDetail("acwr")} type="button">
-            Ver detalle
-          </button>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
-          <MetricPill label="Hooper" status={loadData.hooperStatus} value={`${loadData.hooper}/25`} />
-          <MetricPill label="Monotonía" status={loadData.monotonyStatus} value={loadData.monotony.toFixed(2)} />
-          <MetricPill label="Strain" status={loadData.strainStatus} value={loadData.strain.toFixed(0)} />
-        </div>
-      </section>
+      <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
+      <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
     </div>
   );
 }
 
-function DashboardStatusSummary({
-  dashboardData,
-  loadData,
-  onOpenDetail
-}: {
-  dashboardData: ReturnType<typeof getClientDashboardData>;
-  loadData: ReturnType<typeof getDashboardLoadData>;
-  onOpenDetail: (section: DashboardDetailSection) => void;
-}) {
-  const summaryCards = [
-    {
-      detail: dashboardData.alerts.length > 0 ? "con puntos a revisar" : "sin alertas principales",
-      label: "Estado general",
-      status: dashboardData.generalStatus === "Alta carga" ? "Alto" : dashboardData.generalStatus === "Revisar" ? "Vigilar" : "Controlado",
-      value: dashboardData.generalStatus
-    },
-    {
-      detail: `${dashboardData.sessionsWithSrpe.length} sesiones con registro`,
-      label: "sRPE semanal",
-      status: loadData.acwrStatus,
-      value: dashboardData.sessionsWithSrpe.length > 0 ? `${Math.round(loadData.weeklyLoad).toLocaleString("es-ES")} UA` : "Sin datos suficientes"
-    },
-    {
-      detail: dashboardData.hasExerciseData ? "tonelaje registrado" : "faltan ejercicios con carga",
-      label: "Carga externa semanal",
-      status: dashboardData.weeklyExternalLoad && dashboardData.weeklyExternalLoad > 0 ? "Controlado" : "Vigilar",
-      value: dashboardData.weeklyExternalLoad !== null && dashboardData.weeklyExternalLoad > 0
-        ? `${Math.round(dashboardData.weeklyExternalLoad).toLocaleString("es-ES")} kg`
-        : "Sin datos suficientes"
-    },
-    {
-      detail: dashboardData.plannedSessions > 0 ? `${dashboardData.completedSessions}/${dashboardData.plannedSessions} sesiones` : "faltan sesiones planificadas",
-      label: "Adherencia",
-      status: dashboardData.adherencePercent === null ? "Vigilar" : dashboardData.adherencePercent < 70 ? "Alto" : "Controlado",
-      value: dashboardData.adherencePercent !== null ? `${dashboardData.adherencePercent}%` : "Sin datos suficientes"
-    }
-  ];
+function WeeklyDecisionBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const statusTone = dashboardData.generalStatus === "Descargar / revisar"
+    ? "Alto"
+    : dashboardData.generalStatus === "A vigilar" || dashboardData.generalStatus === "Sin datos suficientes"
+      ? "Vigilar"
+      : "Controlado";
+  const reasons = dashboardData.alerts.length > 0
+    ? dashboardData.alerts.slice(0, 4)
+    : ["Sin señales principales esta semana."];
 
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      {summaryCards.map((card) => (
-        <article className={`rounded-md border p-4 shadow-soft ${dashboardStatusClass(card.status)}`} key={card.label}>
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-semibold text-ink">{card.label}</p>
-            <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${dashboardStatusBadgeClass(card.status)}`}>
-              {card.status}
-            </span>
-          </div>
-          <p className={`mt-2 text-2xl font-semibold ${dashboardStatusAccentClass(card.status)}`}>{card.value}</p>
-          <p className="mt-2 text-xs font-medium text-ink/55">{card.detail}</p>
-          {card.label === "sRPE semanal" ? (
-            <button className="mt-3 text-xs font-semibold underline" onClick={() => onOpenDetail("load")} type="button">
-              Ver detalle
-            </button>
-          ) : null}
-        </article>
-      ))}
+    <section className="coach-surface rounded-md p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">Estado semanal</p>
+          <h3 className="mt-2 text-2xl font-semibold text-ink">{dashboardData.generalStatus}</h3>
+          <p className="mt-2 text-sm text-ink/65">{dashboardData.decisionText}</p>
+        </div>
+        <span className={`w-fit rounded-md border px-3 py-2 text-sm font-semibold ${dashboardStatusBadgeClass(statusTone)}`}>
+          Lectura orientativa
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {reasons.map((reason) => (
+          <article className="rounded-md border border-line bg-panel/45 p-3 text-sm font-semibold text-ink/75" key={reason}>
+            {reason}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -431,48 +628,53 @@ function DashboardEmptyState({ children }: { children: string }) {
   );
 }
 
-function WeeklyLoadDashboardBlock({
+function WeeklyLoadDecisionBlock({
   dashboardData,
   loadData
 }: {
   dashboardData: ReturnType<typeof getClientDashboardData>;
   loadData: ReturnType<typeof getDashboardLoadData>;
 }) {
-  const maxSrpe = Math.max(1, ...dashboardData.sessionsWithSrpe.map((entry) => entry.srpe));
+  const maxLoad = Math.max(1, ...dashboardData.weeklySeries.map((entry) => entry.load));
 
   return (
     <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Carga semanal</h3>
-          <p className="mt-1 text-sm text-ink/55">Barras por sesión usando sRPE cuando hay duración y RPE.</p>
+          <p className="mt-1 text-sm text-ink/55">Tendencia de sRPE semanal y comparación con la semana anterior.</p>
         </div>
         <span className="w-fit rounded-md bg-panel px-3 py-1 text-sm font-semibold text-ink/70">
-          {dashboardData.sessionsWithSrpe.length > 0 ? `${Math.round(loadData.weeklyLoad).toLocaleString("es-ES")} UA` : "Sin datos"}
+          {dashboardData.sessionsWithSrpe.length > 0 ? formatDashboardNumber(loadData.weeklyLoad, " UA") : "Sin datos"}
         </span>
       </div>
 
-      {dashboardData.sessionsWithSrpe.length > 0 ? (
+      {dashboardData.weeklySeries.length > 0 ? (
         <>
           <div className="mt-5 flex h-40 items-end gap-2 rounded-md bg-panel/35 p-3">
-            {dashboardData.sessionsWithSrpe.map(({ session, srpe }, index) => (
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${session.date}-${session.summary}-${index}`}>
+            {dashboardData.weeklySeries.map((entry) => (
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={entry.label}>
                 <div
                   className="w-full rounded-t bg-gradient-to-t from-moss to-steel"
-                  style={{ height: `${Math.max(18, (srpe / maxSrpe) * 112)}px` }}
+                  style={{ height: `${Math.max(18, (entry.load / maxLoad) * 112)}px` }}
                 />
-                <span className="max-w-full truncate text-[10px] font-semibold text-ink/45">{session.type}</span>
+                <span className="max-w-full truncate text-[10px] font-semibold text-ink/45">{entry.label}</span>
               </div>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ClientInfoCard label="Sesiones con datos" value={`${dashboardData.sessionsWithSrpe.length}`} />
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ClientInfoCard label="Semana actual" value={formatDashboardNumber(dashboardData.currentWeekLoad, " UA")} />
             <ClientInfoCard
-              label="Carga externa"
-              value={dashboardData.weeklyExternalLoad !== null && dashboardData.weeklyExternalLoad > 0
-                ? `${Math.round(dashboardData.weeklyExternalLoad).toLocaleString("es-ES")} kg`
-                : "Sin datos suficientes"}
+              label="Semana previa"
+              value={dashboardData.previousWeekLoad > 0 ? formatDashboardNumber(dashboardData.previousWeekLoad, " UA") : "Sin datos"}
             />
+            <ClientInfoCard
+              label="Cambio"
+              value={dashboardData.weeklyChangePct !== null ? `${dashboardData.weeklyChangePct > 0 ? "+" : ""}${dashboardData.weeklyChangePct}%` : "Sin referencia"}
+            />
+            <ClientInfoCard label="Media 4 semanas" value={formatDashboardNumber(dashboardData.weeklyAverage4, " UA")} />
+            <ClientInfoCard label="Sesiones con sRPE" value={`${dashboardData.sessionsWithSrpe.length}`} />
+            <ClientInfoCard label="ACWR" value={`${loadData.acwr.toFixed(2)} · ${loadData.acwrStatus}`} />
           </div>
         </>
       ) : (
@@ -482,25 +684,40 @@ function WeeklyLoadDashboardBlock({
   );
 }
 
-function AdherenceDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const maxSrpe = Math.max(1, ...dashboardData.dailySeries.map((entry) => entry.srpe));
+
   return (
     <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Adherencia</h3>
-      <p className="mt-1 text-sm text-ink/55">Relación entre sesiones previstas y sesiones con registro real.</p>
+      <h3 className="font-semibold text-ink">Carga diaria + readiness</h3>
+      <p className="mt-1 text-sm text-ink/55">Últimos registros diarios combinando carga, bienestar y molestias.</p>
 
-      {dashboardData.adherencePercent !== null ? (
-        <>
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-panel">
-            <div className="h-full rounded-full bg-moss" style={{ width: `${dashboardData.adherencePercent}%` }} />
+      {dashboardData.dailySeries.length > 0 ? (
+        <div className="mt-5">
+          <div className="flex h-44 items-end gap-2 rounded-md bg-panel/35 p-3">
+            {dashboardData.dailySeries.map((entry) => (
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={entry.label}>
+                <div className="flex h-28 w-full items-end justify-center">
+                  <div
+                    className={`w-full max-w-8 rounded-t ${entry.discomfort ? "bg-clay" : "bg-moss"}`}
+                    style={{ height: `${entry.srpe > 0 ? Math.max(10, (entry.srpe / maxSrpe) * 100) : 4}%` }}
+                  />
+                </div>
+                <span className="h-5 text-xs font-semibold text-ink/65">
+                  {entry.readiness !== null ? entry.readiness.toFixed(1) : "-"}
+                </span>
+                <span className="max-w-full truncate text-[10px] font-semibold text-ink/45">{entry.label}</span>
+              </div>
+            ))}
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <ClientInfoCard label="Planificadas" value={`${dashboardData.plannedSessions}`} />
-            <ClientInfoCard label="Completadas" value={`${dashboardData.completedSessions}`} />
-            <ClientInfoCard label="Adherencia" value={`${dashboardData.adherencePercent}%`} />
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
+            <span className="rounded-md border border-line bg-panel px-2 py-1">Barras: sRPE</span>
+            <span className="rounded-md border border-line bg-panel px-2 py-1">Número: readiness / 5</span>
+            <span className="rounded-md border border-line bg-panel px-2 py-1">Arcilla: molestia registrada</span>
           </div>
-        </>
+        </div>
       ) : (
-        <DashboardEmptyState>Sin datos suficientes para calcular adherencia.</DashboardEmptyState>
+        <DashboardEmptyState>Sin registros recientes de carga diaria o readiness.</DashboardEmptyState>
       )}
     </section>
   );
@@ -527,7 +744,7 @@ function HorizontalDashboardBars({
             <p className="text-sm font-semibold text-ink">{label}</p>
             <span className="text-xs font-semibold text-moss">{Math.round(value).toLocaleString("es-ES")} {suffix}</span>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel">
             <div className="h-full rounded-full bg-moss" style={{ width: `${Math.max(6, (value / maxValue) * 100)}%` }} />
           </div>
         </div>
@@ -536,60 +753,158 @@ function HorizontalDashboardBars({
   );
 }
 
-function PatternDistributionDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
-  const patternEntries = Object.entries(dashboardData.loadByPattern)
-    .filter(([, load]) => load > 0)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 6);
+function LoadDistributionDecisionBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const distribution = (["strength", "resistance", "concurrent", "activeRecovery"] as const)
+    .map((kind) => ({ kind, ...dashboardData.sessionDistribution[kind] }))
+    .filter((entry) => entry.count > 0 || entry.load > 0);
+  const totalLoad = Math.max(1, distribution.reduce((total, entry) => total + entry.load, 0));
 
   return (
     <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Distribución de carga por patrón</h3>
-      <p className="mt-1 text-sm text-ink/55">Tonelaje acumulado por patrón de movimiento cuando hay ejercicios con carga.</p>
-      <HorizontalDashboardBars
-        emptyText="Sin datos suficientes para calcular distribución por patrón."
-        entries={patternEntries}
-        suffix="kg"
-      />
-    </section>
-  );
-}
-
-function MuscleFatigueDashboardBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
-  const muscleEntries = Object.entries(dashboardData.muscleSets)
-    .filter(([, sets]) => sets > 0)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
-
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Fatiga muscular / series efectivas</h3>
-      <p className="mt-1 text-sm text-ink/55">Top de grupos con más series ponderadas por fatigueMap.</p>
-      <HorizontalDashboardBars
-        emptyText="Sin datos suficientes para calcular fatiga muscular."
-        entries={muscleEntries}
-        suffix="series"
-      />
-    </section>
-  );
-}
-
-function DashboardAlertsBlock({ alerts }: { alerts: string[] }) {
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Alertas o puntos a revisar</h3>
-      <p className="mt-1 text-sm text-ink/55">Avisos orientativos para revisar la sesión, la carga o la recuperación.</p>
-      {alerts.length > 0 ? (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {alerts.map((alert) => (
-            <article className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800" key={alert}>
-              {alert}
+      <h3 className="font-semibold text-ink">Distribución de carga</h3>
+      <p className="mt-1 text-sm text-ink/55">Reparto de sesiones y sRPE de los últimos 7 días por tipo de trabajo.</p>
+      {distribution.length > 0 ? (
+        <div className="mt-4 grid gap-3">
+          {distribution.map((entry) => (
+            <article className="rounded-md border border-line bg-panel/45 p-3" key={entry.kind}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${getDashboardKindClass(entry.kind)}`}>
+                  {getDashboardKindLabel(entry.kind)}
+                </span>
+                <span className="text-xs font-semibold text-ink/55">
+                  {entry.count} sesión(es) · {formatDashboardNumber(entry.load, " UA")}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel">
+                <div className="h-full rounded-full bg-moss" style={{ width: `${Math.max(8, (entry.load / totalLoad) * 100)}%` }} />
+              </div>
             </article>
           ))}
         </div>
       ) : (
-        <DashboardEmptyState>No hay alertas principales ahora.</DashboardEmptyState>
+        <DashboardEmptyState>Sin sesiones recientes para distribuir la carga.</DashboardEmptyState>
       )}
+    </section>
+  );
+}
+
+function PatternZoneWatchBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const patternEntries = Object.entries(dashboardData.loadByPattern)
+    .filter(([, load]) => load > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4);
+  const muscleEntries = Object.entries(dashboardData.muscleSets)
+    .filter(([, sets]) => sets > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4);
+
+  return (
+    <section className="coach-surface rounded-md p-4">
+      <h3 className="font-semibold text-ink">Fatiga por patrón / zona</h3>
+      <p className="mt-1 text-sm text-ink/55">Lectura visual de dónde se concentra el trabajo registrado.</p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">Patrones</p>
+          <HorizontalDashboardBars emptyText="Sin datos suficientes por patrón." entries={patternEntries} suffix="kg" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">Zonas musculares</p>
+          <HorizontalDashboardBars emptyText="Sin datos suficientes por zona." entries={muscleEntries} suffix="series" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DashboardWatchSignalsBlock({
+  clientId,
+  dashboardData,
+  onOpenClientSheet
+}: {
+  clientId: string;
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+}) {
+  const toneClass = {
+    calm: "border-steel/20 bg-steel/10 text-steel",
+    danger: "border-coral/25 bg-coral/10 text-coral",
+    warning: "border-clay/25 bg-clay/10 text-clay"
+  };
+
+  return (
+    <section className="coach-surface rounded-md p-4">
+      <h3 className="font-semibold text-ink">Señales a vigilar</h3>
+      <p className="mt-1 text-sm text-ink/55">Motivos concretos para abrir la vista relacionada y decidir el siguiente ajuste.</p>
+      {dashboardData.watchSignals.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {dashboardData.watchSignals.map((signal) => (
+            <article className="rounded-md border border-line bg-panel/45 p-3" key={`${signal.label}-${signal.meta}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${toneClass[signal.tone]}`}>
+                    {signal.label}
+                  </span>
+                  <p className="mt-2 text-sm font-semibold text-ink">{signal.meta}</p>
+                </div>
+                <button
+                  className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink/70"
+                  onClick={() => onOpenClientSheet(clientId, signal.action)}
+                  type="button"
+                >
+                  Revisar
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <DashboardEmptyState>Sin señales relevantes ahora.</DashboardEmptyState>
+      )}
+    </section>
+  );
+}
+
+function DashboardQuickActionsBlock({
+  client,
+  dashboardData,
+  onOpenClientSheet
+}: {
+  client: CoachClient;
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+}) {
+  const actions: Array<{ label: string; sheet: SheetId; meta: string }> = [
+    { label: "Planificar sesión", meta: "Abrir entrenamiento", sheet: "training" },
+    { label: "Ir a Planificación", meta: "Revisar semana y bloque", sheet: "planning" },
+    { label: "Ir a Valoraciones", meta: "Tests principales y reevaluación", sheet: "assessments" },
+    { label: "Ver Bienestar", meta: "Readiness, sueño y molestias", sheet: "clientWellness" },
+    { label: "Ver Progreso", meta: "Evolución y técnica", sheet: "clientProgress" }
+  ];
+
+  return (
+    <section className="coach-surface rounded-md p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Acciones rápidas</h3>
+          <p className="mt-1 text-sm text-ink/55">Atajos para actuar desde la lectura semanal sin duplicar pantallas.</p>
+        </div>
+        <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
+          {dashboardData.pendingReviews} revisión(es) pendiente(s)
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {actions.map((action) => (
+          <button
+            className="rounded-md border border-line bg-panel/45 p-3 text-left transition hover:border-moss/35 hover:bg-panel"
+            key={action.label}
+            onClick={() => onOpenClientSheet(client.id, action.sheet)}
+            type="button"
+          >
+            <span className="text-sm font-semibold text-ink">{action.label}</span>
+            <span className="mt-1 block text-xs font-medium text-ink/55">{action.meta}</span>
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
@@ -614,12 +929,12 @@ function ClientHeader({
           </button>
           <h2 className="text-xl font-semibold text-ink">{client.name}</h2>
           <p className="mt-1 text-sm text-ink/60">
-            {client.modality} - {client.level} - {client.goalType}
+            {client.modality} · {client.level} · {client.goalType}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink"
+            className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink"
             onClick={onOpenDetails}
             type="button"
           >
@@ -638,7 +953,7 @@ function ClientHeader({
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         <ClientInfoCard label="Estado actual" value={client.status} />
         <ClientInfoCard label="Readiness" value={`${client.readiness}%`} />
-        <ClientInfoCard className="md:col-span-2" label="Proximo evento" value={client.nextEvent} />
+        <ClientInfoCard className="md:col-span-2" label="Próximo evento" value={client.nextEvent} />
       </div>
     </section>
   );
@@ -649,115 +964,6 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
     <article className={`rounded-md bg-panel/55 p-4 ${className}`}>
       <p className="text-sm font-semibold text-ink">{label}</p>
       <p className="mt-2 text-sm font-semibold text-moss">{value}</p>
-    </article>
-  );
-}
-
-function DashboardDetailPanel({
-  client,
-  loadData,
-  onClose,
-  section
-}: {
-  client: CoachClient;
-  loadData: ReturnType<typeof getDashboardLoadData>;
-  onClose: () => void;
-  section: DashboardDetailSection;
-}) {
-  const content: Record<DashboardDetailSection, { items: [string, string][]; title: string }> = {
-    "acwr": {
-      title: "Detalle ACWR",
-      items: [
-        ["Carga aguda", `${loadData.weeklyLoad.toFixed(0)} UA`],
-        ["Carga cronica", `${client.chronicLoad} UA`],
-        ["Ratio actual", loadData.acwr.toFixed(2)],
-        ["Interpretacion", loadData.acwrStatus]
-      ]
-    },
-    "fatigue-map": {
-      title: "Detalle mapa de fatiga",
-      items: [
-        ["Carga semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
-        ["Hooper", `${loadData.hooper}/25`],
-        ["DOMS", `${client.hooper.soreness}/5`],
-        ["Sueno", `${client.hooper.sleep}/5`]
-      ]
-    },
-    "hooper": {
-      title: "Detalle Hooper",
-      items: [
-        ["Sueno", `${client.hooper.sleep}/5`],
-        ["Fatiga", `${client.hooper.fatigue}/5`],
-        ["Estres", `${client.hooper.stress}/5`],
-        ["DOMS", `${client.hooper.soreness}/5`],
-        ["Estado de animo", `${client.hooper.mood ?? 0}/5`]
-      ]
-    },
-    "load": {
-      title: "Detalle sRPE semanal",
-      items: [
-        ["sRPE semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
-        ["Tendencia", loadData.weeklyTrend],
-        ["Sesiones recientes", client.sessionRecords.map((session) => `${session.type} ${getDashboardSrpe(session) ?? 0} UA`).join(" | ")]
-      ]
-    },
-    "monotony": {
-      title: "Detalle monotonia",
-      items: [
-        ["Cargas diarias", client.dailyLoads.join(" / ")],
-        ["Monotonia", loadData.monotony.toFixed(2)],
-        ["Estado", loadData.monotonyStatus]
-      ]
-    },
-    "status": {
-      title: "Detalle estado global",
-      items: [
-        ["Estado actual", client.status],
-        ["Readiness", `${client.readiness}%`],
-        ["Notas", client.coachNotes],
-        ["Indices implicados", `ACWR ${loadData.acwr.toFixed(2)}, Hooper ${loadData.hooper}/25, Strain ${loadData.strain.toFixed(0)}`]
-      ]
-    },
-    "strain": {
-      title: "Detalle strain",
-      items: [
-        ["Carga semanal", `${loadData.weeklyLoad.toFixed(0)} UA`],
-        ["Monotonia", loadData.monotony.toFixed(2)],
-        ["Strain", loadData.strain.toFixed(0)],
-        ["Estado", loadData.strainStatus]
-      ]
-    }
-  };
-  const selected = content[section];
-
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-moss">Clientes / {client.name} / Dashboard</p>
-          <h3 className="mt-1 text-lg font-semibold text-ink">{selected.title}</h3>
-        </div>
-        <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink/70" onClick={onClose} type="button">
-          Cerrar
-        </button>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {selected.items.map(([label, value]) => (
-          <ClientInfoCard key={label} label={label} value={value} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MetricPill({ label, status, value }: { label: string; status: string; value: string }) {
-  return (
-    <article className={`rounded-md border p-3 ${dashboardStatusClass(status)}`}>
-      <p className="text-xs font-semibold text-ink/55">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${dashboardStatusAccentClass(status)}`}>{value}</p>
-      <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${dashboardStatusBadgeClass(status)}`}>
-        {status}
-      </span>
     </article>
   );
 }
