@@ -158,7 +158,6 @@ function getDashboardLoadData(client: CoachClient) {
 function dashboardStatusBadgeClass(status: string) {
   switch (status) {
     case "Alto":
-    case "Riesgo":
       return "border-coral/25 bg-coral/10 text-coral";
     case "Vigilar":
       return "border-clay/25 bg-clay/10 text-clay";
@@ -348,6 +347,34 @@ function getDashboardDailySeries(sessions: DashboardSessionRecord[]) {
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
+function getCurrentDashboardWeekDailyLoads(sessions: DashboardSessionRecord[]) {
+  const weekStart = getStartOfDashboardWeek(new Date());
+  const loads = Array.from({ length: 7 }, () => 0);
+
+  sessions.forEach((session) => {
+    const date = getDashboardDate(session.date);
+    const srpe = getDashboardSrpe(session);
+    if (!date || srpe === null) return;
+    const dayDiff = Math.floor((date.getTime() - weekStart.getTime()) / 86_400_000);
+    if (dayDiff < 0 || dayDiff > 6) return;
+    loads[dayDiff] += srpe;
+  });
+
+  return loads;
+}
+
+function getDashboardMean(values: number[]) {
+  if (values.length === 0) return null;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function getDashboardStandardDeviation(values: number[]) {
+  const mean = getDashboardMean(values);
+  if (mean === null || values.length === 0) return null;
+  const variance = values.reduce((total, value) => total + (value - mean) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
 function formatDashboardNumber(value: number, suffix = "") {
   return `${Math.round(value).toLocaleString("es-ES")}${suffix}`;
 }
@@ -388,9 +415,65 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
   const weeklyChangePct = previousWeekLoad > 0
     ? Math.round(((currentWeekLoad - previousWeekLoad) / previousWeekLoad) * 100)
     : null;
+  const weeklyChangeLabel = currentWeekLoad <= 0 || previousWeekLoad <= 0
+    ? "Datos insuficientes"
+    : weeklyChangePct === null
+      ? "Datos insuficientes"
+      : weeklyChangePct < -10
+        ? "Descarga"
+        : weeklyChangePct <= 10
+          ? "Estable"
+          : weeklyChangePct <= 25
+            ? "Subida suave"
+            : "Subida alta";
   const weeklyAverage4 = weeklySeries.length > 0
     ? weeklySeries.slice(-4).reduce((total, entry) => total + entry.load, 0) / Math.min(4, weeklySeries.length)
     : 0;
+  const previousWeeklyLoads = weeklySeries.slice(0, -1).slice(-4).map((entry) => entry.load).filter((load) => load > 0);
+  const habitualLoad = previousWeeklyLoads.length >= 3 ? getDashboardMean(previousWeeklyLoads) : null;
+  const recentHabitualRatio = habitualLoad && habitualLoad > 0 && currentWeekLoad > 0 ? currentWeekLoad / habitualLoad : null;
+  const recentHabitualLabel = recentHabitualRatio === null
+    ? "Datos insuficientes"
+    : recentHabitualRatio < 0.8
+      ? "Inferior a habitual"
+      : recentHabitualRatio <= 1.2
+        ? "Similar a habitual"
+        : recentHabitualRatio <= 1.5
+          ? "Superior a habitual"
+          : "Muy superior a habitual";
+  const currentWeekDailyLoads = getCurrentDashboardWeekDailyLoads(sessions);
+  const currentWeekDaysWithLoad = currentWeekDailyLoads.filter((load) => load > 0).length;
+  const dailyMean = getDashboardMean(currentWeekDailyLoads);
+  const dailyDeviation = getDashboardStandardDeviation(currentWeekDailyLoads);
+  const monotonyValue = currentWeekDaysWithLoad >= 3 && dailyMean !== null && dailyDeviation !== null && dailyDeviation > 0
+    ? dailyMean / dailyDeviation
+    : null;
+  const monotonyLabel = currentWeekDaysWithLoad < 3
+    ? "Datos insuficientes"
+    : monotonyValue === null
+      ? "Variabilidad muy baja"
+      : monotonyValue >= 2
+        ? "A vigilar"
+        : monotonyValue >= 1.5
+          ? "Variabilidad baja"
+          : "Distribución estable";
+  const strainValue = monotonyValue !== null && currentWeekLoad > 0 ? currentWeekLoad * monotonyValue : null;
+  const strainLabel = strainValue === null
+    ? "Datos insuficientes"
+    : strainValue >= 6000 || (currentWeekLoad >= 2200 && (monotonyValue ?? 0) >= 2)
+      ? "A vigilar"
+      : strainValue >= 3500
+        ? "Alto"
+        : strainValue >= 1800
+          ? "Moderado"
+          : "Bajo";
+  const adherenceLabel = adherencePercent === null
+    ? "Datos insuficientes"
+    : adherencePercent >= 85
+      ? "Alto"
+      : adherencePercent >= 65
+        ? "Medio"
+        : "Bajo";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const recentSessions = sessions.filter((session) => {
@@ -458,6 +541,17 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
   }
   if (typeof latestSleep === "number" && latestSleep < 3) {
     addWatchSignal("Sueño bajo", `${latestSleep} / 5 en el último registro`, "clientWellness", "warning");
+  }
+  if (monotonyLabel === "A vigilar" || monotonyLabel === "Variabilidad baja" || monotonyLabel === "Variabilidad muy baja") {
+    addWatchSignal("Variabilidad semanal baja", monotonyValue !== null ? `Monotony ${monotonyValue.toFixed(2)}` : monotonyLabel, "planning", "warning");
+  }
+  if (strainLabel === "A vigilar" || recentHabitualLabel === "Muy superior a habitual") {
+    addWatchSignal(
+      strainLabel === "A vigilar" ? "Estrés semanal elevado" : "Carga reciente superior a la habitual",
+      strainLabel === "A vigilar" && strainValue !== null ? formatDashboardNumber(strainValue) : recentHabitualLabel,
+      "planning",
+      "warning"
+    );
   }
   if (strongestPattern && weeklyExternalLoad && strongestPattern[1] / weeklyExternalLoad >= 0.55) {
     alerts.push(`Carga concentrada en ${strongestPattern[0]}. Revisar distribución.`);
@@ -553,6 +647,18 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     strongestMuscle,
     strongestPattern,
     watchSignals: watchSignals.slice(0, 6),
+    loadControlIndicators: {
+      adherenceLabel,
+      currentWeekDaysWithLoad,
+      currentWeekDailyLoads,
+      monotonyLabel,
+      monotonyValue,
+      recentHabitualLabel,
+      recentHabitualRatio,
+      strainLabel,
+      strainValue,
+      weeklyChangeLabel
+    },
     weeklyAverage4,
     weeklyChangePct,
     weeklyExternalLoad,
@@ -577,6 +683,7 @@ export function ClientDashboardView({
         <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
         <DailyLoadReadinessBlock dashboardData={dashboardData} />
       </div>
+      <LoadControlIndicatorsBlock dashboardData={dashboardData} />
       <div className="grid gap-5 xl:grid-cols-2">
         <LoadDistributionDecisionBlock dashboardData={dashboardData} />
         <PatternZoneWatchBlock dashboardData={dashboardData} />
@@ -719,6 +826,93 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
       ) : (
         <DashboardEmptyState>Sin registros recientes de carga diaria o readiness.</DashboardEmptyState>
       )}
+    </section>
+  );
+}
+
+function getLoadIndicatorTone(label: string) {
+  if (label === "A vigilar" || label === "Subida alta" || label === "Muy superior a habitual") return "border-clay/25 bg-clay/10 text-clay";
+  if (label === "Datos insuficientes") return "border-line bg-panel text-ink/55";
+  if (label === "Descarga" || label === "Inferior a habitual") return "border-steel/20 bg-steel/10 text-steel";
+  return "border-moss/25 bg-mint text-moss";
+}
+
+function getLoadIndicatorValue(value: number | null, decimals = 0, suffix = "") {
+  if (value === null || !Number.isFinite(value)) return "Sin datos";
+  return `${decimals > 0 ? value.toFixed(decimals) : Math.round(value).toLocaleString("es-ES")}${suffix}`;
+}
+
+function getLoadControlReading(dashboardData: ReturnType<typeof getClientDashboardData>) {
+  const indicators = dashboardData.loadControlIndicators;
+  if (dashboardData.currentWeekLoad <= 0) return "Datos insuficientes para interpretar la carga.";
+  if (indicators.recentHabitualLabel === "Muy superior a habitual" || indicators.strainLabel === "A vigilar") {
+    return "Carga reciente superior a la habitual. Revisar respuesta antes de progresar.";
+  }
+  if (indicators.monotonyLabel === "A vigilar" || indicators.monotonyLabel === "Variabilidad baja" || indicators.monotonyLabel === "Variabilidad muy baja") {
+    return "Variabilidad baja. Conviene revisar la distribución semanal.";
+  }
+  if (indicators.weeklyChangeLabel === "Subida alta") {
+    return "Subida semanal alta. Mantener lectura prudente de la respuesta.";
+  }
+  return "Carga estable y bien distribuida.";
+}
+
+function LoadControlIndicatorsBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const indicators = dashboardData.loadControlIndicators;
+  const cards = [
+    {
+      detail: indicators.weeklyChangeLabel,
+      label: "Cambio semanal",
+      value: dashboardData.weeklyChangePct !== null ? `${dashboardData.weeklyChangePct > 0 ? "+" : ""}${dashboardData.weeklyChangePct}%` : "Sin datos"
+    },
+    {
+      detail: indicators.monotonyLabel,
+      label: "Monotony",
+      value: getLoadIndicatorValue(indicators.monotonyValue, 2)
+    },
+    {
+      detail: indicators.strainLabel,
+      label: "Strain",
+      value: getLoadIndicatorValue(indicators.strainValue)
+    },
+    {
+      detail: indicators.recentHabitualLabel,
+      label: "Reciente / habitual",
+      value: getLoadIndicatorValue(indicators.recentHabitualRatio, 2)
+    },
+    {
+      detail: indicators.adherenceLabel,
+      label: "Cumplimiento",
+      value: dashboardData.adherencePercent !== null ? `${dashboardData.adherencePercent}%` : "Sin datos"
+    }
+  ];
+
+  return (
+    <section className="coach-surface rounded-md p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Indicadores de carga</h3>
+          <p className="mt-1 text-sm text-ink/55">Lectura orientativa de carga interna reciente.</p>
+        </div>
+        <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
+          {indicators.currentWeekDaysWithLoad} día(s) con carga
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {cards.map((card) => (
+          <article className="coach-subtle-card rounded-md p-3" key={card.label}>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">{card.label}</p>
+            <p className="mt-2 text-lg font-semibold text-ink">{card.value}</p>
+            <span className={`mt-3 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${getLoadIndicatorTone(card.detail)}`}>
+              {card.detail}
+            </span>
+          </article>
+        ))}
+      </div>
+      <div className="mt-4 rounded-md border border-line bg-panel/45 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-moss">Lectura de carga</p>
+        <p className="mt-1 text-sm font-semibold text-ink/75">{getLoadControlReading(dashboardData)}</p>
+      </div>
     </section>
   );
 }
