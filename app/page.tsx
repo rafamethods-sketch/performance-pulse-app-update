@@ -824,13 +824,9 @@ export default function ClientsPage() {
             role === "coach" ? (
               <ClientProgressView
                 client={scopedClient}
-                onUpdateClient={(updatedClient) =>
-                  setClients((currentClients) =>
-                    currentClients.map((listedClient) =>
-                      listedClient.id === updatedClient.id ? updatedClient : listedClient
-                    )
-                  )
-                }
+                onOpenAssessments={(clientId) => openClientSheet(clientId, "assessments")}
+                onOpenTraining={(clientId) => openClientSheet(clientId, "training")}
+                onOpenWellness={(clientId) => openClientSheet(clientId, "clientWellness")}
               />
             ) : <DecisionDashboardView />
           ) : activeSheet === "clientWellness" ? (
@@ -4687,542 +4683,359 @@ function getTechniqueVideoStatusLabel(status?: TechniqueReviewStatus) {
   return techniqueReviewStatusLabels[status ?? "not_reviewed"];
 }
 
-function getTechniqueVideoDownloadLabel(url: string) {
-  return isDirectVideoFileUrl(url) ? "Descargar vídeo" : "Abrir / descargar";
-}
-
 function ClientProgressView({
   client,
-  onUpdateClient
+  onOpenAssessments,
+  onOpenTraining,
+  onOpenWellness
 }: {
   client?: CoachClient | null;
-  onUpdateClient: (updatedClient: CoachClient) => void;
+  onOpenAssessments: (clientId: string) => void;
+  onOpenTraining: (clientId: string) => void;
+  onOpenWellness: (clientId: string) => void;
 }) {
   const assessments = client?.assessments ?? [];
-  const performanceTestEntries = getSortedPerformanceTests(client);
-  const strengthTests = assessments.filter((assessment) => assessment.type === "Fuerza");
-  const bodyCompositionTests = assessments.filter((assessment) => assessment.type === "Antropometría");
-  const enduranceTests = assessments.filter((assessment) => assessment.type === "Resistencia");
-  const otherTests = assessments.filter((assessment) => !["Fuerza", "Resistencia", "Antropometría"].includes(assessment.type));
-  const completedSessions = (client?.sessionRecords ?? []).filter((session) => session.completed || session.status === "Completada");
-  const plannedSessions = client?.sessionRecords?.length ?? 0;
+  const assessmentGroups = buildAssessmentGroups(assessments as AssessmentEntry[]);
+  const favoriteTests = client?.assessmentPreferences?.favoriteTests ?? [];
+  const reassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const favoriteAssessmentGroups = assessmentGroups.filter((group) => favoriteTests.includes(group.key));
+  const recentAssessmentGroups = [...favoriteAssessmentGroups, ...assessmentGroups.filter((group) => !favoriteTests.includes(group.key))]
+    .filter((group, index, list) => list.findIndex((item) => item.key === group.key) === index)
+    .sort((left, right) => getAssessmentDateValue(right.entries[right.entries.length - 1]?.date) - getAssessmentDateValue(left.entries[left.entries.length - 1]?.date));
+  const recentChanges = recentAssessmentGroups.slice(0, 6);
+  const sessionRecords = client?.sessionRecords ?? [];
+  const recentSessions = [...sessionRecords].sort((left, right) => (getReviewSessionDate(right.date)?.getTime() ?? 0) - (getReviewSessionDate(left.date)?.getTime() ?? 0));
+  const completedSessions = sessionRecords.filter((session) => session.completed || session.status === "Completada");
+  const pendingReviewSessions = sessionRecords.filter((session) => session.completed && session.reviewStatus !== "reviewed");
+  const plannedSessions = sessionRecords.length;
   const adherence = plannedSessions > 0 ? Math.round((completedSessions.length / plannedSessions) * 100) : null;
+  const latestCompletedSession = recentSessions.find((session) => session.completed || session.status === "Completada");
+  const nextPlannedSession = recentSessions
+    .filter((session) => !session.completed && session.date && (getReviewSessionDate(session.date)?.getTime() ?? 0) >= getTodayDateOnly().getTime())
+    .sort((left, right) => (getReviewSessionDate(left.date)?.getTime() ?? 0) - (getReviewSessionDate(right.date)?.getTime() ?? 0))[0];
   const techniqueVideos = getTechniqueVideoHistoryItems(client);
+  const pendingTechniqueVideos = techniqueVideos.filter((video) => (video.review.status ?? "not_reviewed") === "not_reviewed");
+  const relevantTechniqueVideos = techniqueVideos.filter((video) => video.review.status === "moderate_compensation" || video.review.status === "high_compensation" || video.review.globalScore === "high_priority");
+  const referenceTechniqueVideos = techniqueVideos.filter((video) => video.review.markedAsReference);
+  const wellnessRecords = recentSessions.filter((session) => session.wellness);
+  const latestWellness = wellnessRecords[0]?.wellness;
+  const positiveWellnessValue = (wellness: ClientWellness | undefined, key: "calm" | "energy" | "motivation" | "recovery" | "sleep") => {
+    if (!wellness) return 0;
+    if (key === "energy") return wellness.energy ?? Math.max(1, 6 - wellness.fatigue);
+    if (key === "recovery") return wellness.recovery ?? Math.max(1, 6 - wellness.soreness);
+    if (key === "calm") return wellness.calm ?? Math.max(1, 6 - wellness.stress);
+    return wellness[key] ?? 0;
+  };
+  const readinessValues = latestWellness
+    ? [
+        positiveWellnessValue(latestWellness, "sleep"),
+        positiveWellnessValue(latestWellness, "energy"),
+        positiveWellnessValue(latestWellness, "recovery"),
+        positiveWellnessValue(latestWellness, "calm"),
+        positiveWellnessValue(latestWellness, "motivation")
+      ].filter((value) => value > 0)
+    : [];
+  const latestReadiness = readinessValues.length > 0
+    ? readinessValues.reduce((total, value) => total + value, 0) / readinessValues.length
+    : 0;
+  const discomfortSessions = recentSessions.filter((session) => session.discomfort?.hasDiscomfort || session.discomfort?.notes).slice(0, 3);
+  const negativeFeedbackSessions = recentSessions.filter((session) => session.athleteQuickFeedback === "down").slice(0, 2);
+  const dueReassessments = favoriteAssessmentGroups
+    .map((group) => ({
+      group,
+      state: getAssessmentReassessmentState(reassessmentDates[group.key]),
+      targetDate: reassessmentDates[group.key]
+    }))
+    .filter((item) => item.state.label === "Reevaluación pendiente" || item.state.label === "Reevaluar pronto");
+  const warningSignals = [
+    ...discomfortSessions.map((session) => ({
+      action: "Ir a Sesiones",
+      date: session.date,
+      onClick: () => client && onOpenTraining(client.id),
+      text: session.discomfort?.notes || session.discomfort?.bodyArea || "Molestia registrada por el deportista.",
+      type: "Molestias"
+    })),
+    ...negativeFeedbackSessions.map((session) => ({
+      action: "Ir a Sesiones",
+      date: session.date,
+      onClick: () => client && onOpenTraining(client.id),
+      text: session.athleteQuickFeedbackNote || "Feedback negativo tras la sesión.",
+      type: "Feedback"
+    })),
+    ...(latestReadiness > 0 && latestReadiness < 3 ? [{
+      action: "Ir a Bienestar",
+      date: wellnessRecords[0]?.date,
+      onClick: () => client && onOpenWellness(client.id),
+      text: `Readiness reciente ${latestReadiness.toFixed(1)}/5.`,
+      type: "Wellness"
+    }] : []),
+    ...dueReassessments.map((item) => ({
+      action: "Ir a Valoraciones",
+      date: item.targetDate,
+      onClick: () => client && onOpenAssessments(client.id),
+      text: `${item.group.name}: ${item.state.label.toLowerCase()}.`,
+      type: "Reevaluación"
+    })),
+    ...pendingReviewSessions.slice(0, 2).map((session) => ({
+      action: "Ir a Sesiones",
+      date: session.date,
+      onClick: () => client && onOpenTraining(client.id),
+      text: session.summary || "Sesión completada pendiente de revisar.",
+      type: "Revisión"
+    }))
+  ].slice(0, 6);
+  const strengthFavoriteCount = favoriteAssessmentGroups.filter((group) => group.category === "Fuerza" || group.category === "Salto").length;
+  const enduranceFavoriteCount = favoriteAssessmentGroups.filter((group) => group.category === "Resistencia").length;
+  const progressStatusCards = [
+    {
+      label: "Estado general",
+      status: warningSignals.length > 0 ? "A vigilar" : completedSessions.length > 0 || favoriteAssessmentGroups.length > 0 ? "Estable" : "Sin datos suficientes",
+      text: warningSignals.length > 0 ? `${warningSignals.length} señales recientes` : completedSessions.length > 0 ? "Sin señales prioritarias" : "Añade sesiones o valoraciones"
+    },
+    {
+      label: "Fuerza",
+      status: strengthFavoriteCount > 0 ? "En seguimiento" : "Sin datos suficientes",
+      text: strengthFavoriteCount > 0 ? `${strengthFavoriteCount} principales` : "Marca tests principales"
+    },
+    {
+      label: "Resistencia",
+      status: enduranceFavoriteCount > 0 ? "En seguimiento" : "Sin datos suficientes",
+      text: enduranceFavoriteCount > 0 ? `${enduranceFavoriteCount} principales` : "Sin referencia principal"
+    },
+    {
+      label: "Técnica",
+      status: pendingTechniqueVideos.length > 0 ? "Pendiente de revisar" : relevantTechniqueVideos.length > 0 ? "A vigilar" : techniqueVideos.length > 0 ? "Revisado" : "Sin datos suficientes",
+      text: pendingTechniqueVideos.length > 0 ? `${pendingTechniqueVideos.length} vídeos pendientes` : techniqueVideos.length > 0 ? `${techniqueVideos.length} vídeos` : "Sin vídeos recientes"
+    },
+    {
+      label: "Adherencia",
+      status: adherence === null ? "Sin datos suficientes" : adherence >= 80 ? "Estable" : "A vigilar",
+      text: adherence === null ? "Sin sesiones suficientes" : `${adherence}% de sesiones completadas`
+    }
+  ];
 
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
+
+  const renderAssessmentSummaryCard = (group: AssessmentGroup) => {
+    const latestEntry = group.entries[group.entries.length - 1];
+    const previousEntry = group.entries[group.entries.length - 2] ?? null;
+    const numericEntries = group.entries.filter((entry) => entry.parsedValue !== null);
+    const bestEntry = numericEntries.length > 0
+      ? numericEntries.reduce((best, entry) => {
+          if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
+          return (entry.parsedValue ?? -Infinity) > (best.parsedValue ?? -Infinity) ? entry : best;
+        }, numericEntries[0])
+      : latestEntry;
+    const reassessmentDate = reassessmentDates[group.key];
+    const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+    const changeLabel = getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit);
+
+    return (
+      <article className="coach-subtle-card rounded-md p-3" key={group.key}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
+            <h4 className="mt-1 font-semibold text-ink">{group.name}</h4>
+          </div>
+          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/55">
+            {getAssessmentStatusLabel(group)}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-2 text-sm text-ink/65 sm:grid-cols-2">
+          <p>Último: <span className="font-semibold text-ink">{latestEntry.result}</span></p>
+          <p>Mejor: <span className="font-semibold text-ink">{bestEntry.result}</span></p>
+          <p>Cambio: <span className="font-semibold text-ink">{changeLabel}</span></p>
+          <p>Fecha: <span className="font-semibold text-ink">{formatDisplayDate(latestEntry.date)}</span></p>
+        </div>
+        {reassessmentDate ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</span>
+            {reassessmentState.label ? <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+          </div>
+        ) : null}
+      </article>
+    );
+  };
 
   return (
     <div className="mt-6 grid gap-5">
       <section className="coach-surface rounded-md p-4">
-        <h2 className="text-lg font-semibold text-ink">Progreso de {client.name}</h2>
-        <p className="mt-1 text-sm text-ink/55">Evolución del deportista a partir de tests, sesiones y datos ya registrados.</p>
-      </section>
-
-      <section className="coach-surface rounded-md p-4">
-        <h3 className="font-semibold text-ink">Resumen de evolución</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ClientInfoCard label="Sesiones completadas" value={`${completedSessions.length}`} />
-          <ClientInfoCard label="Última actividad" value={client.lastActivity || "Sin datos todavía"} />
-          <ClientInfoCard label="Adherencia" value={adherence !== null ? `${adherence}%` : "Sin datos todavía"} />
-          <ClientInfoCard label="Tests registrados" value={`${assessments.length + performanceTestEntries.length}`} />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Progreso - {client.name}</h2>
+            <p className="mt-1 text-sm text-ink/55">Resumen visual de evolución, adherencia y señales relevantes del deportista.</p>
+          </div>
+          <button
+            className="h-10 rounded-md border border-line bg-panel px-3 text-sm font-semibold text-ink/70 transition hover:bg-white"
+            onClick={() => onOpenAssessments(client.id)}
+            type="button"
+          >
+            Ir a Valoraciones
+          </button>
         </div>
       </section>
 
-      <PerformanceTestsProgressSection entries={performanceTestEntries} />
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {progressStatusCards.map((card) => (
+          <article className="coach-metric-card rounded-md p-4" key={card.label}>
+            <p className="text-xs font-semibold uppercase text-ink/45">{card.label}</p>
+            <h3 className="mt-2 text-lg font-semibold text-ink">{card.status}</h3>
+            <p className="mt-1 text-sm text-ink/55">{card.text}</p>
+          </article>
+        ))}
+      </section>
 
-      <TechniqueVideoHistorySection
-        client={client}
-        onUpdateClient={onUpdateClient}
-        videos={techniqueVideos}
-      />
+      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="coach-surface rounded-md p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-ink">Cambios recientes</h3>
+              <p className="mt-1 text-sm text-ink/55">Últimos cambios relevantes sin duplicar el detalle de Valoraciones.</p>
+            </div>
+            <button className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenAssessments(client.id)} type="button">
+              Ver evolución completa
+            </button>
+          </div>
+          {recentChanges.length > 0 ? (
+            <div className="mt-4 grid gap-2">
+              {recentChanges.map((group) => {
+                const latestEntry = group.entries[group.entries.length - 1];
+                const previousEntry = group.entries[group.entries.length - 2] ?? null;
+                return (
+                  <article className="coach-subtle-card rounded-md p-3" key={group.key}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{group.name}</p>
+                        <p className="mt-1 text-xs font-medium text-ink/45">{group.category} · {formatDisplayDate(latestEntry.date)}</p>
+                      </div>
+                      <span className="w-fit rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/60">
+                        {getAssessmentStatusLabel(group)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-ink/65">
+                      Último: <span className="font-semibold text-ink">{latestEntry.result}</span>
+                      {previousEntry ? <> · Cambio: <span className="font-semibold text-ink">{getAssessmentChangeLabel(previousEntry.parsedValue, latestEntry.parsedValue, group.unit)}</span></> : <> · Seguimiento inicial</>}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+              Sin cambios recientes suficientes. Registra o marca valoraciones principales para ver evolución aquí.
+            </p>
+          )}
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ClientProgressCard description="Marcas máximas y pruebas de fuerza disponibles." title="Fuerza" items={strengthTests} />
-        <ClientProgressCard description="Tests de resistencia y evolución aeróbica registrada." title="Resistencia" items={enduranceTests} />
-        <ClientProgressCard description="Peso corporal, perímetros u otras mediciones disponibles." title="Composición corporal" items={bodyCompositionTests} />
-        <ClientProgressCard description="Otros tests registrados sin categoría específica." title="Otros tests" items={otherTests} />
-      </div>
+        <div className="coach-surface rounded-md p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-ink">Valoraciones principales</h3>
+              <p className="mt-1 text-sm text-ink/55">Solo tests marcados como principales en Valoraciones.</p>
+            </div>
+            <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenAssessments(client.id)} type="button">
+              Ir a Valoraciones
+            </button>
+          </div>
+          {favoriteAssessmentGroups.length > 0 ? (
+            <div className="mt-4 grid gap-3">
+              {favoriteAssessmentGroups.slice(0, 4).map(renderAssessmentSummaryCard)}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+              Marca valoraciones principales para verlas aquí.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-3">
+        <article className="coach-surface rounded-md p-4">
+          <h3 className="font-semibold text-ink">Técnica</h3>
+          <p className="mt-1 text-sm text-ink/55">Resumen de vídeos y revisiones técnicas recientes.</p>
+          <div className="mt-4 grid gap-2 text-sm">
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Vídeos enviados</span>
+              <span className="font-semibold text-ink">{techniqueVideos.length}</span>
+            </p>
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Pendientes de revisar</span>
+              <span className="font-semibold text-ink">{pendingTechniqueVideos.length}</span>
+            </p>
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Referencias técnicas</span>
+              <span className="font-semibold text-ink">{referenceTechniqueVideos.length}</span>
+            </p>
+          </div>
+          {relevantTechniqueVideos.length > 0 ? (
+            <div className="mt-3 grid gap-2">
+              {relevantTechniqueVideos.slice(0, 3).map((video) => (
+                <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65" key={video.id}>
+                  <span className="font-semibold text-ink">{video.exerciseName}</span> · {getTechniqueVideoStatusLabel(video.review.status)}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-semibold text-ink/50">
+              {techniqueVideos.length > 0 ? "Sin vídeos pendientes prioritarios." : "Sin vídeos técnicos recientes."}
+            </p>
+          )}
+        </article>
+
+        <article className="coach-surface rounded-md p-4">
+          <h3 className="font-semibold text-ink">Adherencia y sesiones</h3>
+          <p className="mt-1 text-sm text-ink/55">Lectura simple de sesiones registradas.</p>
+          <div className="mt-4 grid gap-2 text-sm">
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Completadas</span>
+              <span className="font-semibold text-ink">{completedSessions.length}/{plannedSessions}</span>
+            </p>
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Adherencia</span>
+              <span className="font-semibold text-ink">{adherence !== null ? `${adherence}%` : "Sin datos"}</span>
+            </p>
+            <p className="flex justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <span className="text-ink/55">Pendientes de revisar</span>
+              <span className="font-semibold text-ink">{pendingReviewSessions.length}</span>
+            </p>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm text-ink/65">
+            <p>Última sesión: <span className="font-semibold text-ink">{latestCompletedSession ? formatDisplayDate(latestCompletedSession.date) : "Sin sesiones completadas"}</span></p>
+            <p>Próxima sesión: <span className="font-semibold text-ink">{nextPlannedSession ? formatDisplayDate(nextPlannedSession.date) : "Sin sesión planificada"}</span></p>
+          </div>
+          <button className="mt-4 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink/70" onClick={() => onOpenTraining(client.id)} type="button">
+            Ir a Sesiones
+          </button>
+        </article>
+
+        <article className="coach-surface rounded-md p-4">
+          <h3 className="font-semibold text-ink">Señales a vigilar</h3>
+          <p className="mt-1 text-sm text-ink/55">Puntos recientes sin lenguaje diagnóstico ni alarmista.</p>
+          {warningSignals.length > 0 ? (
+            <div className="mt-4 grid gap-2">
+              {warningSignals.map((signal, index) => (
+                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${signal.type}-${signal.date}-${index}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">{signal.type}</span>
+                    <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(signal.date)}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-ink/65">{signal.text}</p>
+                  <button className="mt-2 text-sm font-semibold text-moss" onClick={signal.onClick} type="button">
+                    {signal.action}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+              Sin señales relevantes con los datos actuales.
+            </p>
+          )}
+        </article>
+      </section>
     </div>
   );
 }
-
-function TechniqueVideoHistorySection({
-  client,
-  onUpdateClient,
-  videos
-}: {
-  client: CoachClient;
-  onUpdateClient: (updatedClient: CoachClient) => void;
-  videos: TechniqueVideoHistoryItem[];
-}) {
-  const [exerciseFilter, setExerciseFilter] = useState("all");
-  const [checklistFilter, setChecklistFilter] = useState<"all" | "issues" | "high_priority">("all");
-  const [referenceFilter, setReferenceFilter] = useState<"all" | "references">("all");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | TechniqueReviewStatus>("all");
-  const [viewFilter, setViewFilter] = useState<"all" | TechniqueVideoView>("all");
-  const [compareVideoAId, setCompareVideoAId] = useState("");
-  const [compareVideoBId, setCompareVideoBId] = useState("");
-  const exerciseOptions = Array.from(new Set(videos.map((video) => video.exerciseName))).sort((a, b) => a.localeCompare(b, "es"));
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredVideos = videos.filter((video) => {
-    const tags = video.review.compensationTags ?? [];
-    const summary = getTechniqueReviewSummary(video.review);
-    const checklistLabels = (video.review.checklist ?? []).map((item) => `${item.label} ${item.note ?? ""}`);
-    const searchable = [
-      video.exerciseName,
-      video.exercisePattern,
-      video.techniqueVideoNote,
-      video.review.coachFeedback,
-      getTechniquePlanningDecisionLabel(video.review.planningDecision),
-      video.review.globalScore ? techniqueGlobalScoreLabels[video.review.globalScore] : "",
-      ...tags,
-      ...checklistLabels
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    const matchesExercise = exerciseFilter === "all" || video.exerciseName === exerciseFilter;
-    const matchesView = viewFilter === "all" || video.techniqueVideoView === viewFilter;
-    const matchesStatus = statusFilter === "all" || (video.review.status ?? "not_reviewed") === statusFilter;
-    const matchesReference = referenceFilter === "all" || video.review.markedAsReference === true;
-    const matchesChecklist =
-      checklistFilter === "all" ||
-      (checklistFilter === "issues" && summary.issueCount > 0) ||
-      (checklistFilter === "high_priority" && video.review.globalScore === "high_priority");
-    const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
-    return matchesExercise && matchesView && matchesStatus && matchesReference && matchesChecklist && matchesSearch;
-  });
-  const referenceCount = videos.filter((video) => video.review.markedAsReference).length;
-  const pendingCount = videos.filter((video) => (video.review.status ?? "not_reviewed") === "not_reviewed").length;
-  const relevantCompensationCount = videos.filter((video) =>
-    video.review.status === "moderate_compensation" || video.review.status === "high_compensation"
-  ).length;
-  const checklistIssueCount = videos.filter((video) => getTechniqueReviewSummary(video.review).issueCount > 0).length;
-  const compareVideoA = filteredVideos.find((video) => video.id === compareVideoAId) ?? null;
-  const compareVideoB = filteredVideos.find((video) => video.id === compareVideoBId) ?? null;
-
-  function toggleReference(video: TechniqueVideoHistoryItem) {
-    onUpdateClient({
-      ...client,
-      sessionRecords: (client.sessionRecords ?? []).map((session, sessionIndex) => {
-        if (sessionIndex !== video.sessionIndex) return session;
-        return {
-          ...session,
-          performedExercises: (session.performedExercises ?? []).map((exercise, exerciseIndex) => {
-            if (exerciseIndex !== video.exerciseIndex) return exercise;
-            return {
-              ...exercise,
-              techniqueReview: {
-                ...(exercise.techniqueReview ?? {}),
-                compensationTags: exercise.techniqueReview?.compensationTags ?? [],
-                markedAsReference: !video.review.markedAsReference,
-                status: exercise.techniqueReview?.status ?? "not_reviewed"
-              }
-            };
-          })
-        };
-      })
-    });
-  }
-
-  function renderVideoActions(video: TechniqueVideoHistoryItem) {
-    return (
-      <div className="flex flex-wrap gap-2">
-        <a
-          className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink"
-          href={video.techniqueVideoUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Abrir vídeo
-        </a>
-        <a
-          className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
-          download
-          href={video.techniqueVideoUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {getTechniqueVideoDownloadLabel(video.techniqueVideoUrl)}
-        </a>
-      </div>
-    );
-  }
-
-  function renderComparisonCard(video: TechniqueVideoHistoryItem | null, label: string) {
-    if (!video) {
-      return (
-        <div className="rounded-md border border-dashed border-line bg-white p-4 text-sm font-semibold text-ink/45">
-          Selecciona {label}.
-        </div>
-      );
-    }
-    const tags = video.review.compensationTags ?? [];
-    const summary = getTechniqueReviewSummary(video.review);
-    const planningDecisionLabel = getTechniquePlanningDecisionLabel(video.review.planningDecision);
-    return (
-      <article className="rounded-md border border-line bg-white p-4">
-        <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
-        <h4 className="mt-1 font-semibold text-ink">{video.exerciseName}</h4>
-        <p className="mt-1 text-sm text-ink/60">
-          {formatDisplayDate(video.sessionDate)} · {techniqueVideoViewLabels[video.techniqueVideoView ?? "other"]} · {getTechniqueVideoStatusLabel(video.review.status)}
-        </p>
-        <div className="mt-3 grid gap-2 rounded-md border border-line bg-panel/35 p-3 text-sm">
-          <p className="font-semibold text-ink">
-            Valoración: {video.review.globalScore ? techniqueGlobalScoreLabels[video.review.globalScore] : "Sin valoración global"}
-          </p>
-          {planningDecisionLabel ? <p className="text-ink/65">Decisión: {planningDecisionLabel}</p> : null}
-          <p className="text-xs font-semibold text-ink/50">
-            {summary.issueCount} problemas · {summary.watchCount} a vigilar
-          </p>
-          {summary.mainItems.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {summary.mainItems.map((item) => (
-                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={item.id}>
-                  {item.label}: {techniqueAssessmentStatusLabels[item.status]}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {tags.length > 0 ? (
-          <p className="mt-2 text-xs font-semibold text-ink/55">{tags.join(" · ")}</p>
-        ) : null}
-        {video.review.coachFeedback ? (
-          <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{video.review.coachFeedback}</p>
-        ) : null}
-        <div className="mt-3">{renderVideoActions(video)}</div>
-      </article>
-    );
-  }
-
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-semibold text-ink">Técnica y vídeos</h3>
-          <p className="mt-1 text-sm text-ink/55">
-            Historial de enlaces de vídeo enviados por el deportista para revisión técnica.
-          </p>
-        </div>
-        <p className="max-w-xl text-xs font-medium text-ink/45">
-          Estos vídeos son enlaces compartidos por el deportista para revisión técnica. Descarga o guarda vídeos solo si tienes permiso del deportista.
-        </p>
-      </div>
-
-      {videos.length === 0 ? (
-        <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
-          Aún no hay vídeos técnicos enviados por este deportista.
-        </p>
-      ) : (
-        <div className="mt-4 grid gap-4">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <ClientInfoCard label="Vídeos enviados" value={`${videos.length}`} />
-            <ClientInfoCard label="Marcados como referencia" value={`${referenceCount}`} />
-            <ClientInfoCard label="Pendientes de revisar" value={`${pendingCount}`} />
-            <ClientInfoCard label="Compensaciones moderadas/altas" value={`${relevantCompensationCount}`} />
-            <ClientInfoCard label="Con problemas marcados" value={`${checklistIssueCount}`} />
-          </div>
-
-          <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2 xl:grid-cols-6">
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Ejercicio
-              <select
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setExerciseFilter(event.target.value)}
-                value={exerciseFilter}
-              >
-                <option value="all">Todos</option>
-                {exerciseOptions.map((exerciseName) => (
-                  <option key={exerciseName} value={exerciseName}>{exerciseName}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Vista
-              <select
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setViewFilter(event.target.value as "all" | TechniqueVideoView)}
-                value={viewFilter}
-              >
-                <option value="all">Todas</option>
-                {Object.entries(techniqueVideoViewLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Estado
-              <select
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setStatusFilter(event.target.value as "all" | TechniqueReviewStatus)}
-                value={statusFilter}
-              >
-                <option value="all">Todos</option>
-                {Object.entries(techniqueReviewStatusLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Referencia
-              <select
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setReferenceFilter(event.target.value as "all" | "references")}
-                value={referenceFilter}
-              >
-                <option value="all">Todos</option>
-                <option value="references">Solo referencias</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Checklist
-              <select
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setChecklistFilter(event.target.value as "all" | "issues" | "high_priority")}
-                value={checklistFilter}
-              >
-                <option value="all">Todos</option>
-                <option value="issues">Solo con problemas</option>
-                <option value="high_priority">Prioridad alta</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-xs font-semibold text-ink/55">
-              Buscar
-              <input
-                className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Ejercicio o etiqueta"
-                type="search"
-                value={searchTerm}
-              />
-            </label>
-          </div>
-
-          <section className="rounded-md border border-line bg-panel/35 p-4">
-            <h4 className="font-semibold text-ink">Comparar técnica</h4>
-            <p className="mt-1 text-sm text-ink/55">
-              Comparación manual: usa los vídeos para explicar técnica, compensaciones y evolución.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1 text-xs font-semibold text-ink/55">
-                Vídeo A
-                <select
-                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                  onChange={(event) => setCompareVideoAId(event.target.value)}
-                  value={compareVideoAId}
-                >
-                  <option value="">Seleccionar</option>
-                  {filteredVideos.map((video) => (
-                    <option key={`a-${video.id}`} value={video.id}>
-                      {formatDisplayDate(video.sessionDate)} · {video.exerciseName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-xs font-semibold text-ink/55">
-                Vídeo B
-                <select
-                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                  onChange={(event) => setCompareVideoBId(event.target.value)}
-                  value={compareVideoBId}
-                >
-                  <option value="">Seleccionar</option>
-                  {filteredVideos.map((video) => (
-                    <option key={`b-${video.id}`} value={video.id}>
-                      {formatDisplayDate(video.sessionDate)} · {video.exerciseName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {compareVideoA && compareVideoB && compareVideoA.exerciseName !== compareVideoB.exerciseName ? (
-              <p className="mt-3 rounded-md border border-line bg-wheat px-3 py-2 text-sm font-semibold text-ink/70">
-                Para comparar técnica, lo ideal es seleccionar vídeos del mismo ejercicio.
-              </p>
-            ) : null}
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              {renderComparisonCard(compareVideoA, "Vídeo A")}
-              {renderComparisonCard(compareVideoB, "Vídeo B")}
-            </div>
-          </section>
-
-          <div className="grid gap-3">
-            {filteredVideos.length > 0 ? filteredVideos.map((video) => {
-              const tags = video.review.compensationTags ?? [];
-              const summary = getTechniqueReviewSummary(video.review);
-              const planningDecisionLabel = getTechniquePlanningDecisionLabel(video.review.planningDecision);
-              return (
-                <article className="rounded-md border border-line bg-panel/35 p-4" key={video.id}>
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-ink/45">{formatDisplayDate(video.sessionDate)}</p>
-                      <h4 className="mt-1 font-semibold text-ink">{video.exerciseName}</h4>
-                      <p className="mt-1 text-sm text-ink/60">
-                        {techniqueVideoViewLabels[video.techniqueVideoView ?? "other"]} · {getTechniqueVideoStatusLabel(video.review.status)}
-                        {video.review.markedAsReference ? " · Referencia" : ""}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-ink/45">
-                        {[video.sessionType, video.srpe ? `sRPE ${video.srpe} UA` : "", video.finalRpe ? `RPE final ${video.finalRpe}` : ""].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink"
-                        onClick={() => toggleReference(video)}
-                        type="button"
-                      >
-                        {video.review.markedAsReference ? "Quitar referencia" : "Marcar referencia"}
-                      </button>
-                      {renderVideoActions(video)}
-                    </div>
-                  </div>
-                  {(video.review.globalScore || planningDecisionLabel || summary.issueCount > 0 || summary.watchCount > 0) ? (
-                    <div className="mt-3 grid gap-2 rounded-md border border-line bg-white p-3 text-sm">
-                      <div className="flex flex-wrap gap-2">
-                        {video.review.globalScore ? (
-                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                            Valoración: {techniqueGlobalScoreLabels[video.review.globalScore]}
-                          </span>
-                        ) : null}
-                        {planningDecisionLabel ? (
-                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                            Decisión: {planningDecisionLabel}
-                          </span>
-                        ) : null}
-                        {summary.issueCount > 0 ? (
-                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                            {summary.issueCount} problemas
-                          </span>
-                        ) : null}
-                        {summary.watchCount > 0 ? (
-                          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                            {summary.watchCount} a vigilar
-                          </span>
-                        ) : null}
-                      </div>
-                      {summary.mainItems.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {summary.mainItems.map((item) => (
-                            <span className="rounded-md border border-line bg-panel/35 px-2 py-1 text-xs font-semibold text-ink/60" key={item.id}>
-                              {item.label}: {techniqueAssessmentStatusLabels[item.status]}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {tags.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {tags.map((tag) => (
-                        <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60" key={tag}>{tag}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {video.techniqueVideoNote ? (
-                    <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
-                      <span className="font-semibold text-ink">Nota del deportista:</span> {video.techniqueVideoNote}
-                    </p>
-                  ) : null}
-                  {video.review.coachFeedback ? (
-                    <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
-                      <span className="font-semibold text-ink">Feedback del entrenador:</span> {video.review.coachFeedback}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-ink/45">La descarga depende de los permisos del enlace.</p>
-                </article>
-              );
-            }) : (
-              <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
-                No hay vídeos que coincidan con los filtros.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ClientProgressCard({ description, items, title }: { description?: string; items: ClientAssessment[]; title: string }) {
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">{title}</h3>
-      {description ? <p className="mt-1 text-sm text-ink/55">{description}</p> : null}
-      {items.length > 0 ? (
-        <div className="mt-3 grid gap-2">
-          {items.slice(0, 4).map((item, index) => (
-            <article className="rounded-md border border-line bg-panel/35 p-3" key={`${item.date}-${item.name}-${index}`}>
-              <p className="text-sm font-semibold text-ink">{item.name}</p>
-              <p className="mt-1 text-sm text-moss">{item.result}</p>
-              <p className="mt-1 text-xs text-ink/45">{formatDisplayDate(item.date)}</p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
-      )}
-    </section>
-  );
-}
-
-function PerformanceTestsProgressSection({ entries }: { entries: PerformanceTestEntry[] }) {
-  const groupedByCategory = performanceTestCategoryOrder
-    .map((category) => ({
-      category,
-      entries: entries.filter((entry) => entry.category === category)
-    }))
-    .filter((group) => group.entries.length > 0);
-
-  return (
-    <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Tests de rendimiento</h3>
-      <p className="mt-1 text-sm text-ink/55">Valores de referencia guardados por deporte o contexto. No se calculan mejoras automáticas.</p>
-      {groupedByCategory.length > 0 ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {groupedByCategory.map((group) => {
-            const byTestName = group.entries.reduce<Record<string, PerformanceTestEntry[]>>((accumulator, entry) => {
-              accumulator[entry.testName] = [...(accumulator[entry.testName] ?? []), entry];
-              return accumulator;
-            }, {});
-
-            return (
-              <article className="rounded-md border border-line bg-panel/35 p-4" key={group.category}>
-                <h4 className="font-semibold text-ink">{performanceTestCategoryLabels[group.category]}</h4>
-                <div className="mt-3 grid gap-2">
-                  {Object.entries(byTestName).map(([testName, testEntries]) => {
-                    const sortedEntries = [...testEntries].sort((a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0));
-                    const latest = sortedEntries[0];
-                    const first = sortedEntries[sortedEntries.length - 1];
-
-                    return (
-                      <div className="rounded-md border border-line bg-white p-3" key={testName}>
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <p className="text-sm font-semibold text-ink">{testName}</p>
-                          <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(latest.date)}</span>
-                        </div>
-                        <p className="mt-1 text-sm font-semibold text-moss">{formatPerformanceTestValue(latest)}</p>
-                        {sortedEntries.length > 1 ? (
-                          <p className="mt-1 text-xs font-medium text-ink/50">
-                            Primer valor: {formatPerformanceTestValue(first)} · Último valor: {formatPerformanceTestValue(latest)} · {sortedEntries.length} registros
-                          </p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin tests de rendimiento todavía.</p>
-      )}
-    </section>
-  );
-}
-
 function ClientWellnessView({ client }: { client?: CoachClient | null }) {
   const [wellnessRange, setWellnessRange] = useState<7 | 14 | 28>(7);
   const records = client?.sessionRecords ?? [];
@@ -8914,23 +8727,6 @@ function getTechniqueAssessmentPreset(pattern?: string | null): TechniqueAssessm
     side: "not_applicable",
     status: "ok"
   }));
-}
-
-function getTechniqueReviewSummary(review?: TechniqueReview | null) {
-  const checklist = review?.checklist ?? [];
-  const issueItems = checklist.filter((item) => item.status === "issue");
-  const watchItems = checklist.filter((item) => item.status === "watch");
-
-  return {
-    issueCount: issueItems.length,
-    mainItems: [...issueItems, ...watchItems].slice(0, 3),
-    watchCount: watchItems.length
-  };
-}
-
-function getTechniquePlanningDecisionLabel(decision?: TechniquePlanningDecision | null) {
-  if (!decision) return "";
-  return techniquePlanningDecisionLabels[decision] ?? "";
 }
 
 function isDirectVideoFileUrl(url?: string | null) {
