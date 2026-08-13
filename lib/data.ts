@@ -68,7 +68,7 @@ export const navItems: NavItem[] = [
   { id: "resources", label: "Recursos", icon: FolderOpen },
   { id: "messages", label: "Comunicación", icon: MessageSquareText },
   { id: "weeklyLoad", label: "Metricas", icon: LineChart },
-  { id: "assessments", label: "Tests", icon: LineChart },
+  { id: "assessments", label: "Valoraciones", icon: LineChart },
   { id: "fatigue", label: "Fatiga", icon: Activity },
   { id: "routines", label: "Rutinas", icon: Dumbbell },
   { id: "decision", label: "Dashboard general", icon: Activity }

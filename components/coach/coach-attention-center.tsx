@@ -16,6 +16,7 @@ type AttentionSectionId =
   | "lowReadiness"
   | "expiringAccess"
   | "intakeQuestionnaire"
+  | "reassessmentDue"
   | "pinnedPrivateNotes"
   | "pendingOnboarding"
   | "staleTests";
@@ -103,6 +104,18 @@ type ReviewSessionRecord = {
 
 type CoachClient = {
   accessEndDate?: string;
+  assessmentPreferences?: {
+    favoriteTests?: string[];
+    reassessmentDates?: Record<string, string>;
+  };
+  assessments?: Array<{
+    date?: string;
+    name?: string;
+    result?: number | string;
+    test?: string;
+    type?: string;
+    unit?: string;
+  }>;
   availableEquipment?: string;
   availability?: string | null;
   coachPrivateNotes?: Array<{ pinned?: boolean; text: string; title?: string }>;
@@ -125,7 +138,7 @@ type CoachClient = {
 };
 
 type CoachAttentionItem = {
-  action: "session" | "details" | "progress";
+  action: "session" | "details" | "progress" | "assessments";
   badge?: string;
   clientId: string;
   clientName: string;
@@ -159,6 +172,7 @@ const attentionSectionOrder: AttentionSectionId[] = [
   "highPriorityTechnique",
   "intakeQuestionnaire",
   "expiringAccess",
+  "reassessmentDue",
   "pinnedPrivateNotes",
   "pendingOnboarding",
   "staleTests"
@@ -199,6 +213,11 @@ const attentionSectionLabels: Record<AttentionSectionId, { description: string; 
     description: "Fichas iniciales pendientes o incompletas.",
     filter: "management",
     title: "Fichas iniciales pendientes"
+  },
+  reassessmentDue: {
+    description: "Valoraciones principales con fecha de reevaluación vencida o próxima.",
+    filter: "management",
+    title: "Reevaluaciones de valoraciones"
   },
   pinnedPrivateNotes: {
     description: "Clientes con notas privadas fijadas para tener presentes.",
@@ -271,6 +290,43 @@ function formatDisplayDate(value?: string | null, fallback = "Sin fecha") {
   }
 
   return rawValue || fallback;
+}
+
+function normalizeAttentionAssessmentCategory(category?: string | null) {
+  const value = category?.trim();
+  if (!value) return "Otro";
+  if (value === "AntropometrÃ­a") return "Antropometría";
+  if (value === "Movilidad / FMS" || value === "FMS") return "Movilidad / FMS";
+  return value;
+}
+
+function normalizeAttentionAssessmentKey(value?: string | null) {
+  return (value ?? "")
+    .trim()
+    .toLocaleLowerCase("es-ES")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getAttentionAssessmentUnit(assessment: NonNullable<CoachClient["assessments"]>[number]) {
+  return assessment.unit?.trim() || "sin-unidad";
+}
+
+function getAttentionAssessmentGroupKey(assessment: NonNullable<CoachClient["assessments"]>[number]) {
+  return [
+    normalizeAttentionAssessmentKey(normalizeAttentionAssessmentCategory(assessment.type)),
+    normalizeAttentionAssessmentKey(assessment.name ?? assessment.test),
+    normalizeAttentionAssessmentKey(getAttentionAssessmentUnit(assessment))
+  ].join("|");
+}
+
+function getAttentionAssessmentLabel(client: CoachClient, assessmentKey: string) {
+  const assessment = (client.assessments ?? []).find((item) => getAttentionAssessmentGroupKey(item) === assessmentKey);
+  if (!assessment) return "Valoración principal";
+  const unit = assessment.unit?.trim();
+  return `${assessment.name || assessment.test || "Valoración"}${unit ? ` · ${unit}` : ""}`;
 }
 
 function getReviewSessionDate(value?: string | null) {
@@ -639,6 +695,26 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
       });
     }
 
+    Object.entries(client.assessmentPreferences?.reassessmentDates ?? {}).forEach(([assessmentKey, reassessmentDate]) => {
+      const parsedDate = parseAccessDate(reassessmentDate);
+      if (!parsedDate) return;
+      const daysUntilReassessment = Math.ceil((parsedDate.getTime() - today.getTime()) / 86400000);
+      if (daysUntilReassessment > 7) return;
+
+      items.push({
+        action: "assessments",
+        badge: daysUntilReassessment < 0 ? "Reevaluación pendiente" : "Reevaluar pronto",
+        clientId: client.id,
+        clientName: client.name,
+        date: reassessmentDate,
+        detail: `Fecha objetivo: ${formatDisplayDate(reassessmentDate)}`,
+        id: `reassessment-${client.id}-${assessmentKey}`,
+        meta: client.sport || client.modality || undefined,
+        section: "reassessmentDue",
+        title: getAttentionAssessmentLabel(client, assessmentKey)
+      });
+    });
+
     const onboardingCompletion = getOnboardingCompletion(client);
     if (!onboardingCompletion.isComplete) {
       const onboardingSummary = getOnboardingSummary(client);
@@ -691,11 +767,13 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 
 export function CoachAttentionCenter({
   clients,
+  onOpenClientAssessments,
   onOpenClientDetails,
   onOpenClientProgress,
   onOpenTrainingSession
 }: {
   clients: CoachClient[];
+  onOpenClientAssessments: (clientId: string) => void;
   onOpenClientDetails: (clientId: string) => void;
   onOpenClientProgress: (clientId: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
@@ -727,6 +805,11 @@ export function CoachAttentionCenter({
 
     if (item.action === "progress") {
       onOpenClientProgress(item.clientId);
+      return;
+    }
+
+    if (item.action === "assessments") {
+      onOpenClientAssessments(item.clientId);
       return;
     }
 

@@ -590,7 +590,7 @@ export default function ClientsPage() {
     if (activeSheet === "attention") return "Asuntos pendientes";
     if (activeSheet === "analytics") return "Métricas";
     if (activeSheet === "training") return role === "coach" && scopedClient ? `Sesiones - ${scopedClient.name}` : role === "coach" ? "Entrenamiento" : "Historial";
-    if (activeSheet === "assessments") return role === "coach" && scopedClient ? `Tests - ${scopedClient.name}` : "Tests";
+    if (activeSheet === "assessments") return role === "coach" && scopedClient ? `Valoraciones - ${scopedClient.name}` : "Valoraciones";
     if (activeSheet === "calendar") return "Calendario";
     if (activeSheet === "clientProgress") return role === "coach" && scopedClient ? `Progreso - ${scopedClient.name}` : "Progreso";
     if (activeSheet === "clientWellness") return role === "coach" && scopedClient ? `Bienestar - ${scopedClient.name}` : "Bienestar";
@@ -801,6 +801,7 @@ export default function ClientsPage() {
             role === "coach" ? (
               <CoachAttentionCenter
                 clients={clients}
+                onOpenClientAssessments={(clientId) => openClientSheet(clientId, "assessments")}
                 onOpenClientDetails={(clientId) => openClientPanel(clientId, "details")}
                 onOpenClientProgress={(clientId) => openClientSheet(clientId, "clientProgress")}
                 onOpenTrainingSession={openTrainingSession}
@@ -1180,6 +1181,7 @@ type CoachCalendarEvent = {
 type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessEndDate?: string;
   accessStartDate?: string;
+  assessmentPreferences?: AssessmentPreferences;
   assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
   availableEquipment?: string;
   business?: ClientBusinessData;
@@ -1205,6 +1207,12 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   sessionRecords: ClientSessionRecord[];
 };
 type ClientAssessment = CoachClient["assessments"][number];
+
+type AssessmentImprovementDirection = "higher_is_better" | "lower_is_better" | "neutral";
+type AssessmentPreferences = {
+  favoriteTests?: string[];
+  reassessmentDates?: Record<string, string>;
+};
 
 type ClientBusinessStatus = "active" | "paused" | "inactive";
 type ClientAcquisitionSource = "instagram" | "referral" | "website" | "gym" | "event" | "friend" | "other" | "";
@@ -2222,7 +2230,7 @@ function ClientQuickNav({
     },
     {
       active: activeSheet === "assessments",
-      label: "Tests",
+      label: "Valoraciones",
       onClick: () => onOpenClientSheet(client.id, "assessments")
     },
     {
@@ -3246,7 +3254,7 @@ function CoachClientsView({
                     onClick={() => onOpenClientSheet(listedClient.id, "assessments")}
                     type="button"
                   >
-                    Tests
+                    Valoraciones
                   </button>
                   <button
                     className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70"
@@ -5814,6 +5822,9 @@ function PlanningView({
   });
   const maxWeeklySessions = Math.max(1, ...planningDistribution.map((week) => week.total));
   const hasPlanningDistributionData = planningDistribution.some((week) => week.total > 0);
+  const planningAssessmentGroups = buildAssessmentGroups((client?.assessments ?? []) as AssessmentEntry[]);
+  const planningFavoriteGroups = planningAssessmentGroups.filter((group) => client?.assessmentPreferences?.favoriteTests?.includes(group.key));
+  const planningReassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
 
   useEffect(() => {
     setPlanningBlocks(client?.planning.blocks ?? []);
@@ -5931,6 +5942,49 @@ function PlanningView({
             <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{planningEventName || client.nextEvent || "Sin evento objetivo"}</span>
           </div>
         </div>
+      </section>
+
+      <section className="coach-surface rounded-md p-5 xl:col-span-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Valoraciones de referencia</h3>
+            <p className="mt-1 text-sm text-ink/55">Pruebas principales del cliente para tener presentes durante la planificación.</p>
+          </div>
+          <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+            {planningFavoriteGroups.length}
+          </span>
+        </div>
+        {planningFavoriteGroups.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {planningFavoriteGroups.map((group) => {
+              const latestEntry = group.entries[group.entries.length - 1];
+              const numericEntries = group.entries.filter((entry) => entry.parsedValue !== null);
+              const bestEntry = numericEntries.length > 0
+                ? numericEntries.reduce((best, entry) => {
+                    if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
+                    return (entry.parsedValue ?? -Infinity) > (best.parsedValue ?? -Infinity) ? entry : best;
+                  }, numericEntries[0])
+                : latestEntry;
+              const reassessmentDate = planningReassessmentDates[group.key];
+              const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+
+              return (
+                <article className="rounded-md border border-line bg-panel/35 p-3" key={group.key}>
+                  <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
+                  <h4 className="mt-1 font-semibold text-ink">{group.name}</h4>
+                  <p className="mt-2 text-sm text-ink/65">Último: <span className="font-semibold text-ink">{latestEntry.result}</span></p>
+                  <p className="mt-1 text-sm text-ink/65">Mejor: <span className="font-semibold text-ink">{bestEntry.result}</span></p>
+                  {reassessmentDate ? <p className="mt-2 text-xs text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
+                  {reassessmentState.label ? <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
+            No hay valoraciones principales seleccionadas.
+          </p>
+        )}
       </section>
 
       <section className="coach-surface rounded-md p-5 xl:col-span-2">
@@ -7643,39 +7697,159 @@ function decisionToneClass(status: string) {
 }
 
 type AssessmentEntry = ClientAssessment & {
+  improvementDirection?: AssessmentImprovementDirection;
   notes?: string;
   unit?: string;
 };
 
-const assessmentCategoriesSimple = [
-  "Fuerza",
-  "Resistencia",
-  "Salto",
-  "FMS",
-  "Movilidad",
-  "Antropometría",
-  "Cuestionarios",
-  "Técnica",
-  "Otro"
-];
+const assessmentCategoriesSimple = ["Fuerza", "Resistencia", "Salto", "Movilidad / FMS", "Antropometría", "Otro"];
+
+const assessmentTestOptions: Record<string, string[]> = {
+  "Antropometría": ["Peso corporal", "Perímetro cintura", "Perímetro cadera", "Pliegues", "Porcentaje graso", "Masa muscular", "Otro"],
+  Fuerza: ["1RM estimado", "3RM", "5RM", "Repeticiones máximas", "Carga para X reps", "Otro"],
+  "Movilidad / FMS": ["FMS total", "Movilidad tobillo", "Movilidad cadera", "Movilidad hombro", "Otro"],
+  Otro: ["Otro"],
+  Resistencia: ["Test 6 min", "Cooper 12 min", "1000 m", "3000 m", "5 km", "VAM", "FTP", "CSS", "Otro"],
+  Salto: ["CMJ", "SJ", "Drop jump", "RSI", "Salto horizontal", "Otro"]
+};
+
+const assessmentImprovementDirectionLabels: Record<AssessmentImprovementDirection, string> = {
+  higher_is_better: "Más alto es mejor",
+  lower_is_better: "Más bajo es mejor",
+  neutral: "Solo seguimiento / sin interpretación"
+};
 
 const emptyAssessmentDraft = {
   category: "Fuerza",
   date: "",
+  improvementDirection: "higher_is_better" as AssessmentImprovementDirection,
   name: "",
   notes: "",
   result: "",
   unit: ""
 };
 
-const assessmentQuickActions = [
-  { category: "Fuerza", label: "Nuevo test de fuerza" },
-  { category: "Resistencia", label: "Nuevo test de resistencia" },
-  { category: "Salto", label: "Nuevo test de salto" },
-  { category: "FMS", label: "Nuevo test FMS" },
-  { category: assessmentCategoriesSimple[5], label: "Nueva antropometr\u00eda" }
-];
+type AssessmentGroup = {
+  category: string;
+  direction: AssessmentImprovementDirection;
+  entries: Array<AssessmentEntry & { originalIndex: number; parsedValue: number | null }>;
+  key: string;
+  name: string;
+  unit: string;
+};
 
+function normalizeAssessmentCategory(category?: string | null) {
+  const value = `${category ?? ""}`.trim();
+  if (value === "FMS" || value === "Movilidad") return "Movilidad / FMS";
+  if (value === "AntropometrÃ­a") return "Antropometría";
+  if (assessmentCategoriesSimple.includes(value)) return value;
+  return "Otro";
+}
+
+function normalizeAssessmentKey(value?: string | null) {
+  return `${value ?? ""}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function parseAssessmentNumber(value?: string | number | null) {
+  if (value === null || value === undefined) return null;
+  const match = `${value}`.replace(",", ".").match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getAssessmentDisplayUnit(assessment: AssessmentEntry) {
+  if (assessment.unit?.trim()) return assessment.unit.trim();
+  const match = `${assessment.result ?? ""}`.trim().match(/^-?\d+(?:[.,]\d+)?\s*(.*)$/);
+  return match?.[1]?.trim() ?? "";
+}
+
+function getAssessmentDisplayValue(assessment: AssessmentEntry) {
+  const result = `${assessment.result ?? ""}`.trim();
+  const unit = getAssessmentDisplayUnit(assessment);
+  if (!unit) return result;
+  const escapedUnit = unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return result.replace(new RegExp(`\\s*${escapedUnit}$`, "i"), "").trim() || result;
+}
+
+function getAssessmentGroupKey(assessment: AssessmentEntry) {
+  const category = normalizeAssessmentCategory(assessment.type);
+  const unit = getAssessmentDisplayUnit(assessment);
+  return `${normalizeAssessmentKey(category)}|${normalizeAssessmentKey(assessment.name)}|${normalizeAssessmentKey(unit)}`;
+}
+
+function getAssessmentDateValue(value?: string | null) {
+  if (!value || value === "Sin fecha") return 0;
+  const parsed = new Date(`${value}T00:00:00`).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getAssessmentStatusLabel(group: AssessmentGroup) {
+  const values = group.entries.map((entry) => entry.parsedValue).filter((value): value is number => value !== null);
+  if (group.direction === "neutral" || values.length < 2) return "Seguimiento";
+  const previous = values[values.length - 2];
+  const latest = values[values.length - 1];
+  if (latest === previous) return "Estable";
+  if (group.direction === "higher_is_better") return latest > previous ? "Mejora" : "Baja";
+  return latest < previous ? "Mejora" : "Baja";
+}
+
+function getAssessmentChangeLabel(fromValue: number | null, toValue: number | null, unit: string) {
+  if (fromValue === null || toValue === null) return "Sin datos";
+  const diff = toValue - fromValue;
+  const sign = diff > 0 ? "+" : "";
+  return `${sign}${Number(diff.toFixed(2))}${unit ? ` ${unit}` : ""}`;
+}
+
+function getAssessmentReassessmentState(dateKey?: string) {
+  if (!dateKey) return { label: "", tone: "" };
+  const target = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return { label: "", tone: "" };
+  const today = new Date();
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.ceil((target.getTime() - todayOnly.getTime()) / 86400000);
+  if (diffDays < 0) return { label: "Reevaluación pendiente", tone: "border-red-200 bg-red-50 text-red-700" };
+  if (diffDays <= 7) return { label: "Reevaluar pronto", tone: "border-amber-200 bg-amber-50 text-amber-700" };
+  return { label: "Al día", tone: "border-line bg-panel text-ink/60" };
+}
+
+function buildAssessmentGroups(assessments: AssessmentEntry[]) {
+  const groups = new Map<string, AssessmentGroup>();
+
+  assessments.forEach((assessment, originalIndex) => {
+    const category = normalizeAssessmentCategory(assessment.type);
+    const unit = getAssessmentDisplayUnit(assessment);
+    const key = getAssessmentGroupKey(assessment);
+    const direction = assessment.improvementDirection ?? "neutral";
+    const entry = { ...assessment, originalIndex, parsedValue: parseAssessmentNumber(assessment.result) };
+    const currentGroup = groups.get(key);
+
+    if (!currentGroup) {
+      groups.set(key, {
+        category,
+        direction,
+        entries: [entry],
+        key,
+        name: assessment.name || "Valoración sin nombre",
+        unit
+      });
+      return;
+    }
+
+    currentGroup.entries.push(entry);
+    if (currentGroup.direction === "neutral" && direction !== "neutral") currentGroup.direction = direction;
+  });
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    entries: group.entries.sort((left, right) => getAssessmentDateValue(left.date) - getAssessmentDateValue(right.date))
+  }));
+}
 function AssessmentsView({
   client,
   onUpdateClient
@@ -7686,36 +7860,33 @@ function AssessmentsView({
   const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
+  const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
+  const assessmentGroups = buildAssessmentGroups(assessments);
   const isEditingAssessment = editingAssessmentIndex !== null;
-  const assessmentModalTitle = isEditingAssessment
-    ? "Editar test"
-    : assessmentDraft.category === "Fuerza"
-      ? "Nuevo test de fuerza"
-      : assessmentDraft.category === "Resistencia"
-        ? "Nuevo test de resistencia"
-        : assessmentDraft.category === "Salto"
-          ? "Nuevo test de salto"
-          : assessmentDraft.category === "FMS"
-            ? "Nuevo test FMS"
-            : assessmentDraft.category === assessmentCategoriesSimple[5]
-              ? "Nueva antropometr\u00eda"
-              : "Nuevo test";
+  const favoriteTests = client?.assessmentPreferences?.favoriteTests ?? [];
+  const reassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const favoriteGroups = assessmentGroups.filter((group) => favoriteTests.includes(group.key));
+  const selectedEvolutionGroup = assessmentGroups.find((group) => group.key === selectedEvolutionKey) ?? null;
 
   useEffect(() => {
     setShowNewAssessmentForm(false);
     setAssessmentDraft(emptyAssessmentDraft);
     setEditingAssessmentIndex(null);
+    setSelectedEvolutionKey(null);
   }, [client?.id]);
 
   useEffect(() => {
-    if (!showNewAssessmentForm) return;
+    if (!showNewAssessmentForm && !selectedEvolutionGroup) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") resetAssessmentForm();
+      if (event.key === "Escape") {
+        if (showNewAssessmentForm) resetAssessmentForm();
+        setSelectedEvolutionKey(null);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -7724,7 +7895,7 @@ function AssessmentsView({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [showNewAssessmentForm]);
+  }, [showNewAssessmentForm, selectedEvolutionGroup]);
 
   const updateAssessmentDraft = (field: keyof typeof assessmentDraft, value: string) => {
     setAssessmentDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
@@ -7736,21 +7907,49 @@ function AssessmentsView({
     setShowNewAssessmentForm(false);
   };
 
-  const openNewAssessmentForm = (category = "Fuerza") => {
-    setAssessmentDraft({ ...emptyAssessmentDraft, category });
+  const openNewAssessmentForm = () => {
+    setAssessmentDraft(emptyAssessmentDraft);
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(true);
   };
+
+  function updateAssessmentPreferences(nextPreferences: AssessmentPreferences) {
+    if (!client || !onUpdateClient) return;
+    onUpdateClient({
+      ...client,
+      assessmentPreferences: {
+        favoriteTests: nextPreferences.favoriteTests ?? client.assessmentPreferences?.favoriteTests ?? [],
+        reassessmentDates: nextPreferences.reassessmentDates ?? client.assessmentPreferences?.reassessmentDates ?? {}
+      }
+    });
+  }
+
+  function toggleFavoriteAssessment(groupKey: string) {
+    const currentFavorites = client?.assessmentPreferences?.favoriteTests ?? [];
+    const nextFavorites = currentFavorites.includes(groupKey)
+      ? currentFavorites.filter((key) => key !== groupKey)
+      : [...currentFavorites, groupKey];
+    updateAssessmentPreferences({ favoriteTests: nextFavorites });
+  }
+
+  function updateReassessmentDate(groupKey: string, date: string) {
+    updateAssessmentPreferences({
+      reassessmentDates: {
+        ...(client?.assessmentPreferences?.reassessmentDates ?? {}),
+        [groupKey]: date
+      }
+    });
+  }
 
   const handleSaveAssessment = () => {
     if (!client || !onUpdateClient || (!assessmentDraft.name.trim() && !assessmentDraft.result.trim())) return;
 
     const resultWithUnit = `${assessmentDraft.result.trim()}${assessmentDraft.unit.trim() ? ` ${assessmentDraft.unit.trim()}` : ""}`.trim();
-
     const newAssessment: AssessmentEntry = {
-      action: "Ver historial",
+      action: "Ver evolución",
       date: assessmentDraft.date || "Sin fecha",
-      name: assessmentDraft.name.trim() || "Test sin nombre",
+      improvementDirection: assessmentDraft.improvementDirection,
+      name: assessmentDraft.name.trim() || "Valoración sin nombre",
       notes: assessmentDraft.notes.trim(),
       result: resultWithUnit || "Sin resultado",
       type: assessmentDraft.category,
@@ -7770,22 +7969,20 @@ function AssessmentsView({
 
     onUpdateClient({
       ...client,
-      assessments: [
-        newAssessment,
-        ...(client.assessments ?? [])
-      ]
+      assessments: [newAssessment, ...(client.assessments ?? [])]
     });
     resetAssessmentForm();
   };
 
   const handleEditAssessment = (assessment: AssessmentEntry, index: number) => {
     setAssessmentDraft({
-      category: assessment.type,
+      category: normalizeAssessmentCategory(assessment.type),
       date: assessment.date === "Sin fecha" ? "" : assessment.date,
+      improvementDirection: assessment.improvementDirection ?? "neutral",
       name: assessment.name,
       notes: assessment.notes ?? "",
-      result: assessment.result,
-      unit: assessment.unit ?? ""
+      result: getAssessmentDisplayValue(assessment),
+      unit: assessment.unit ?? getAssessmentDisplayUnit(assessment)
     });
     setEditingAssessmentIndex(index);
     setShowNewAssessmentForm(true);
@@ -7793,179 +7990,311 @@ function AssessmentsView({
 
   const handleDeleteAssessment = (targetIndex: number) => {
     if (!client || !onUpdateClient) return;
-
     onUpdateClient({
       ...client,
       assessments: (client.assessments ?? []).filter((_, index) => index !== targetIndex)
     });
-
     if (editingAssessmentIndex === targetIndex) resetAssessmentForm();
   };
+
+  function renderAssessmentGroupCard(group: AssessmentGroup) {
+    const latestEntry = group.entries[group.entries.length - 1];
+    const firstEntry = group.entries[0];
+    const previousEntry = group.entries[group.entries.length - 2] ?? null;
+    const numericEntries = group.entries.filter((entry) => entry.parsedValue !== null);
+    const bestEntry = numericEntries.length > 0
+      ? numericEntries.reduce((best, entry) => {
+          if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
+          return (entry.parsedValue ?? -Infinity) > (best.parsedValue ?? -Infinity) ? entry : best;
+        }, numericEntries[0])
+      : latestEntry;
+    const reassessmentDate = reassessmentDates[group.key];
+    const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+    const isFavorite = favoriteTests.includes(group.key);
+
+    return (
+      <article className="coach-subtle-card rounded-md p-4" key={group.key}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
+            <h4 className="mt-1 font-semibold text-ink">{group.name}</h4>
+            <p className="mt-1 text-sm text-ink/55">{assessmentImprovementDirectionLabels[group.direction]}</p>
+          </div>
+          <button
+            className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/60"}`}
+            onClick={() => toggleFavoriteAssessment(group.key)}
+            type="button"
+          >
+            {isFavorite ? "Principal" : "Marcar como principal"}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <ClientInfoCard label="Último" value={`${latestEntry.result}`} />
+          <ClientInfoCard label="Mejor" value={`${bestEntry?.result ?? latestEntry.result}`} />
+          <ClientInfoCard label="Cambio anterior" value={getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)} />
+          <ClientInfoCard label="Desde inicio" value={getAssessmentChangeLabel(firstEntry.parsedValue, latestEntry.parsedValue, group.unit)} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink/55">
+          <span>Última valoración: {formatDisplayDate(latestEntry.date)}</span>
+          <span>{group.entries.length} registros</span>
+          <span>{getAssessmentStatusLabel(group)}</span>
+          {reassessmentState.label ? (
+            <span className={`rounded-md border px-2 py-1 ${reassessmentState.tone}`}>{reassessmentState.label}</span>
+          ) : null}
+        </div>
+
+        <label className="mt-4 block text-xs font-semibold text-ink/60">
+          Próxima reevaluación
+          <input
+            className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
+            onChange={(event) => updateReassessmentDate(group.key, event.target.value)}
+            type="date"
+            value={reassessmentDate ?? ""}
+          />
+        </label>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => setSelectedEvolutionKey(group.key)} type="button">
+            Ver evolución
+          </button>
+          <button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => handleEditAssessment(latestEntry, latestEntry.originalIndex)} type="button">
+            Editar último
+          </button>
+          <button className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" onClick={() => handleDeleteAssessment(latestEntry.originalIndex)} type="button">
+            Eliminar último
+          </button>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <div className="mt-6 grid gap-6">
       <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
+            <p className="text-xs font-semibold uppercase text-moss">Valoraciones</p>
             <h2 className="text-lg font-semibold text-ink">
-              {client ? `Tests de ${client.name}` : "Tests"}
+              {client ? `Valoraciones de ${client.name}` : "Valoraciones"}
             </h2>
-            <p className="mt-1 text-sm text-ink/55">Historial asociado al cliente activo.</p>
+            <p className="mt-1 text-sm text-ink/55">Tests, mediciones y reevaluaciones principales del cliente.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {assessmentQuickActions.map((action) => (
-              <button
-                className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-3 text-sm font-semibold text-white"
-                disabled={!client}
-                key={action.label}
-                onClick={() => openNewAssessmentForm(action.category)}
-                type="button"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showNewAssessmentForm ? (
-          <div
-            aria-labelledby="assessment-modal-title"
-            aria-modal="true"
-            className="assessment-modal-overlay"
-            onClick={resetAssessmentForm}
-            role="dialog"
+          <button
+            className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!client}
+            onClick={openNewAssessmentForm}
+            type="button"
           >
-            <form
-              className="assessment-modal-panel"
-              onClick={(event) => event.stopPropagation()}
-              onSubmit={(event) => event.preventDefault()}
-            >
-              <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-ink" id="assessment-modal-title">{assessmentModalTitle}</h3>
-                  <p className="mt-1 text-sm text-ink/55">Registra el test en el historial del cliente activo.</p>
-                </div>
-                <button
-                  aria-label="Cerrar"
-                  className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink"
-                  onClick={resetAssessmentForm}
-                  type="button"
-                >
-                  <X size={18} />
-                </button>
-              </header>
+            + Añadir valoración
+          </button>
+        </div>
+      </section>
 
-              <div className="assessment-modal-body px-5 py-5">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-sm font-semibold text-ink/70">
-                    {"Categor\u00eda"}
-                    <select
-                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("category", event.target.value)}
-                      value={assessmentDraft.category}
-                    >
-                      {assessmentCategoriesSimple.map((category) => (
-                        <option key={category}>{category}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-sm font-semibold text-ink/70">
-                    Test / {"medici\u00f3n"}
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("name", event.target.value)}
-                      value={assessmentDraft.name}
-                    />
-                  </label>
-                  <label className="text-sm font-semibold text-ink/70">
-                    Fecha
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("date", event.target.value)}
-                      type="date"
-                      value={assessmentDraft.date}
-                    />
-                  </label>
-                  <label className="text-sm font-semibold text-ink/70">
-                    Resultado
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("result", event.target.value)}
-                      value={assessmentDraft.result}
-                    />
-                  </label>
-                  <label className="text-sm font-semibold text-ink/70">
-                    Unidad
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("unit", event.target.value)}
-                      placeholder="kg, cm, segundos, repeticiones, puntos, %, m, W, bpm"
-                      value={assessmentDraft.unit}
-                    />
-                  </label>
-                  <label className="text-sm font-semibold text-ink/70 md:col-span-2">
-                    Notas
-                    <textarea
-                      className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateAssessmentDraft("notes", event.target.value)}
-                      value={assessmentDraft.notes}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
-                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">
-                  Cancelar
-                </button>
-                <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
-                  {isEditingAssessment ? "Guardar cambios" : "Guardar test"}
-                </button>
-              </footer>
-            </form>
+      <section className="coach-surface rounded-md p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Valoraciones principales</h3>
+            <p className="mt-1 text-sm text-ink/55">Marca las pruebas clave que quieres tener presentes al planificar.</p>
           </div>
-        ) : null}
-
-        {assessments.length > 0 ? (
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {assessments.map((assessment, index) => (
-              <article className="rounded-md border border-line bg-panel/35 p-4" key={`${assessment.date}-${assessment.name}-${index}`}>
-                <p className="text-xs font-semibold uppercase text-moss">{assessment.type}</p>
-                <p className="mt-2 font-semibold text-ink">{assessment.name}</p>
-                <p className="mt-1 text-sm font-semibold text-ink/70">{assessment.result}</p>
-                <p className="mt-2 text-xs text-ink/45">{formatDisplayDate(assessment.date)}</p>
-                {assessment.notes ? (
-                  <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/65">{assessment.notes}</p>
-                ) : null}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => handleEditAssessment(assessment, index)}
-                    type="button"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
-                    onClick={() => handleDeleteAssessment(index)}
-                    type="button"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </article>
-            ))}
+          <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{favoriteGroups.length}</span>
+        </div>
+        {favoriteGroups.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {favoriteGroups.map((group) => {
+              const latestEntry = group.entries[group.entries.length - 1];
+              const reassessmentDate = reassessmentDates[group.key];
+              const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+              return (
+                <article className="rounded-md border border-line bg-panel/35 p-3" key={group.key}>
+                  <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
+                  <p className="mt-1 font-semibold text-ink">{group.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-ink/70">{latestEntry.result}</p>
+                  {reassessmentDate ? <p className="mt-2 text-xs text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
+                  {reassessmentState.label ? <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+                </article>
+              );
+            })}
           </div>
         ) : (
-          <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
-            No hay valoraciones registradas todavía.
-          </div>
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
+            Marca valoraciones principales para seguirlas en la planificación.
+          </p>
         )}
       </section>
+
+      {assessmentCategoriesSimple.map((category) => {
+        const categoryGroups = assessmentGroups.filter((group) => group.category === category);
+        if (categoryGroups.length === 0) return null;
+        return (
+          <section className="coach-surface rounded-md p-4" key={category}>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-ink">{category}</h3>
+              <span className="rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{categoryGroups.length}</span>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {categoryGroups.map((group) => renderAssessmentGroupCard(group))}
+            </div>
+          </section>
+        );
+      })}
+
+      {assessments.length === 0 ? (
+        <div className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
+          No hay valoraciones registradas todavía.
+        </div>
+      ) : null}
+
+      {showNewAssessmentForm ? (
+        <div aria-labelledby="assessment-modal-title" aria-modal="true" className="assessment-modal-overlay" onClick={resetAssessmentForm} role="dialog">
+          <form className="assessment-modal-panel" onClick={(event) => event.stopPropagation()} onSubmit={(event) => event.preventDefault()}>
+            <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <h3 className="text-xl font-semibold text-ink" id="assessment-modal-title">{isEditingAssessment ? "Editar valoración" : "Añadir valoración"}</h3>
+                <p className="mt-1 text-sm text-ink/55">Registra una valoración objetiva sin modificar cálculos de carga.</p>
+              </div>
+              <button aria-label="Cerrar" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink" onClick={resetAssessmentForm} type="button">
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="assessment-modal-body px-5 py-5">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm font-semibold text-ink/70">
+                  Categoría
+                  <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("category", event.target.value)} value={assessmentDraft.category}>
+                    {assessmentCategoriesSimple.map((category) => <option key={category}>{category}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-ink/70">
+                  Tipo sugerido
+                  <select
+                    className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
+                    onChange={(event) => updateAssessmentDraft("name", event.target.value === "Otro" ? "" : event.target.value)}
+                    value={assessmentTestOptions[assessmentDraft.category]?.includes(assessmentDraft.name) ? assessmentDraft.name : "Otro"}
+                  >
+                    {(assessmentTestOptions[assessmentDraft.category] ?? ["Otro"]).map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                  Nombre del test / valoración
+                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("name", event.target.value)} value={assessmentDraft.name} />
+                </label>
+                <label className="text-sm font-semibold text-ink/70">
+                  Fecha
+                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("date", event.target.value)} type="date" value={assessmentDraft.date} />
+                </label>
+                <label className="text-sm font-semibold text-ink/70">
+                  Valor
+                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("result", event.target.value)} value={assessmentDraft.result} />
+                </label>
+                <label className="text-sm font-semibold text-ink/70">
+                  Unidad
+                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("unit", event.target.value)} placeholder="kg, cm, segundos, puntos, %, m, W" value={assessmentDraft.unit} />
+                </label>
+                <label className="text-sm font-semibold text-ink/70">
+                  Dirección de mejora
+                  <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("improvementDirection", event.target.value as AssessmentImprovementDirection)} value={assessmentDraft.improvementDirection}>
+                    {Object.entries(assessmentImprovementDirectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                  Notas
+                  <textarea className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
+                </label>
+              </div>
+            </div>
+
+            <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">Cancelar</button>
+              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
+                {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
+              </button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      {selectedEvolutionGroup ? (
+        <AssessmentEvolutionModal group={selectedEvolutionGroup} onClose={() => setSelectedEvolutionKey(null)} />
+      ) : null}
     </div>
   );
 }
 
+function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; onClose: () => void }) {
+  const values = group.entries.map((entry) => entry.parsedValue).filter((value): value is number => value !== null);
+  const minValue = values.length > 0 ? Math.min(...values) : 0;
+  const maxValue = values.length > 0 ? Math.max(...values) : 1;
+  const latestEntry = group.entries[group.entries.length - 1];
+  const firstEntry = group.entries[0];
+  const previousEntry = group.entries[group.entries.length - 2] ?? null;
+  const bestEntry = values.length > 0
+    ? group.entries.filter((entry) => entry.parsedValue !== null).reduce((best, entry) => {
+        if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
+        return (entry.parsedValue ?? -Infinity) > (best.parsedValue ?? -Infinity) ? entry : best;
+      })
+    : latestEntry;
+
+  return (
+    <div aria-modal="true" className="assessment-modal-overlay" onClick={onClose} role="dialog">
+      <div className="assessment-modal-panel" onClick={(event) => event.stopPropagation()}>
+        <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">Evolución</p>
+            <h3 className="text-xl font-semibold text-ink">{group.name}</h3>
+            <p className="mt-1 text-sm text-ink/55">{group.category} · {assessmentImprovementDirectionLabels[group.direction]}</p>
+          </div>
+          <button aria-label="Cerrar" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink" onClick={onClose} type="button">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="assessment-modal-body grid gap-4 px-5 py-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ClientInfoCard label="Último valor" value={latestEntry.result} />
+            <ClientInfoCard label="Mejor valor" value={bestEntry.result} />
+            <ClientInfoCard label="Cambio anterior" value={getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)} />
+            <ClientInfoCard label="Desde inicio" value={getAssessmentChangeLabel(firstEntry.parsedValue, latestEntry.parsedValue, group.unit)} />
+          </div>
+          <div className="rounded-md border border-line bg-panel/35 p-4">
+            <h4 className="font-semibold text-ink">Gráfico simple</h4>
+            {values.length > 0 ? (
+              <div className="mt-4 flex h-40 items-end gap-2 rounded-md bg-white/60 p-3">
+                {group.entries.map((entry) => {
+                  const value = entry.parsedValue;
+                  const height = value === null ? 8 : 12 + ((value - minValue) / Math.max(1, maxValue - minValue)) * 88;
+                  return (
+                    <div className="flex flex-1 flex-col items-center gap-2" key={`${entry.date}-${entry.result}`}>
+                      <div className="w-full rounded-t bg-moss/80" style={{ height: `${height}%` }} title={entry.result} />
+                      <span className="text-[10px] font-semibold text-ink/45">{formatDisplayDate(entry.date).slice(0, 5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-ink/55">Sin valores numéricos suficientes para dibujar evolución.</p>
+            )}
+          </div>
+          <div className="rounded-md border border-line bg-panel/35 p-4">
+            <h4 className="font-semibold text-ink">Historial de mediciones</h4>
+            <div className="mt-3 grid gap-2">
+              {group.entries.map((entry) => (
+                <div className="rounded-md border border-line bg-white px-3 py-2 text-sm" key={`${entry.date}-${entry.result}-${entry.originalIndex}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold text-ink">{entry.result}</span>
+                    <span className="text-ink/50">{formatDisplayDate(entry.date)}</span>
+                  </div>
+                  {entry.notes ? <p className="mt-2 text-ink/60">{entry.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function FatigueMapView() {
   const calculatedFatigue = calculateMuscleFatigue();
   const frontalMuscles = calculatedFatigue.filter((item) => item.side === "Frontal");
