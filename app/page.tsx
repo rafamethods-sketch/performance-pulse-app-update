@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ArrowLeft,
@@ -3311,6 +3311,37 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
   );
 }
 
+function CoachInfoModal({
+  children,
+  onClose,
+  title
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <div className="assessment-modal-overlay" onClick={onClose} role="presentation">
+      <section className="assessment-modal-panel max-w-5xl" onClick={(event) => event.stopPropagation()}>
+        <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
+          <h3 className="text-xl font-semibold text-ink">{title}</h3>
+          <button
+            aria-label="Cerrar"
+            className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={16} />
+          </button>
+        </header>
+        <div className="assessment-modal-body grid gap-4 px-5 py-5">
+          {children}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function MetricPill({ label, status, value }: { label: string; status: string; value: string }) {
   return (
     <article className={`rounded-md border p-3 ${clientStatusClass(status)}`}>
@@ -3378,6 +3409,7 @@ function ClientDetailsView({
     status: sourceClient.status ?? ""
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [activeInfoPanel, setActiveInfoPanel] = useState<"details" | "intake" | "notes" | null>(null);
   const [draft, setDraft] = useState(() => createDetailsDraft(client));
   const [accessDraft, setAccessDraft] = useState({
     accessEndDate: client.accessEndDate ?? "",
@@ -3441,6 +3473,7 @@ function ClientDetailsView({
     });
     setEditingPrivateNoteId(null);
     setIsEditing(false);
+    setActiveInfoPanel(null);
   }, [client]);
 
   const displayValue = (value?: number | string | null) => {
@@ -3888,7 +3921,36 @@ function ClientDetailsView({
         <OnboardingSummaryCard client={client} />
       </div>
 
-      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+      {!isEditing ? (
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <h3 className="font-semibold text-ink">Acciones secundarias</h3>
+              <p className="mt-1 text-sm text-ink/55">
+                Los detalles largos quedan bajo demanda para mantener esta ficha corta.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint" onClick={() => setActiveInfoPanel("details")} type="button">
+                Ver ficha completa
+              </button>
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint" onClick={() => setActiveInfoPanel("intake")} type="button">
+                Ver cuestionario
+              </button>
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint" onClick={() => setActiveInfoPanel("notes")} type="button">
+                Notas internas ({sortedPrivateNotes.length})
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <ClientInfoCard label="Cuestionario" value={intakeStatus} />
+            <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
+            <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Cuestionario de ingreso</h3>
@@ -3945,7 +4007,7 @@ function ClientDetailsView({
         </div>
       </section>
 
-      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Notas internas</h3>
@@ -4062,7 +4124,7 @@ function ClientDetailsView({
         )}
       </section>
 
-      <section className="mt-5 rounded-md border border-line bg-white p-5 shadow-soft">
+      <section className="hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Tests y valores de referencia</h3>
@@ -4574,7 +4636,7 @@ function ClientDetailsView({
           </section>
         </div>
       ) : (
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <div className="hidden">
           {detailSections.map((section) => (
             <article className="rounded-md border border-line bg-panel/35 p-4" key={section.title}>
               <h3 className="font-semibold text-ink">{section.title}</h3>
@@ -4620,6 +4682,177 @@ function ClientDetailsView({
           </article>
         </div>
       )}
+
+      {activeInfoPanel === "details" ? (
+        <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Ficha completa">
+          <div className="grid gap-4 xl:grid-cols-2">
+            {detailSections.map((section) => (
+              <article className="rounded-md border border-line bg-panel/35 p-4" key={section.title}>
+                <h3 className="font-semibold text-ink">{section.title}</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {section.fields.map(([label, value]) => (
+                    <div className="rounded-md border border-line bg-panel/50 px-3 py-3" key={label}>
+                      <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+            <MenstrualCoachContextCard client={client} />
+            <article className="rounded-md border border-line bg-panel/35 p-4">
+              <h3 className="font-semibold text-ink">Conexiones</h3>
+              <div className="mt-4 rounded-md border border-line bg-panel/50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-ink">Intervals.icu</p>
+                    <p className="mt-1 text-sm text-ink/55">
+                      La app solo guardará un resumen de la actividad, no archivos completos, rutas ni datos segundo a segundo.
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-md bg-panel/70 px-3 py-1 text-xs font-semibold text-ink/65">
+                    {getCardioConnectionLabel(intervalsConnection?.status)}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <ClientInfoCard label="Estado" value={getCardioConnectionLabel(intervalsConnection?.status)} />
+                  <ClientInfoCard label="Última sincronización" value={formatCardioSyncDate(intervalsConnection?.lastSyncAt)} />
+                </div>
+              </div>
+            </article>
+          </div>
+        </CoachInfoModal>
+      ) : null}
+
+      {activeInfoPanel === "intake" ? (
+        <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Cuestionario de ingreso">
+          <div className="grid gap-3 md:grid-cols-3">
+            <ClientInfoCard label="Estado" value={intakeStatus} />
+            <ClientInfoCard label="Completado" value={client.intakeQuestionnaire?.completedAt ? formatDisplayDateTime(client.intakeQuestionnaire.completedAt) : "Sin completar"} />
+            <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
+          </div>
+          {client.intakeQuestionnaire?.completed ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {intakeSummaryRows.map(([label, value]) => (
+                <article className="rounded-md border border-line bg-panel/35 p-3" key={label}>
+                  <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-line bg-panel/35 p-3 text-sm font-semibold text-ink/60">
+              El deportista todavía no ha completado el cuestionario de ingreso.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {client.intakeQuestionnaire?.completed ? (
+              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleMarkIntakeReviewed} type="button">
+                Marcar como revisado
+              </button>
+            ) : (
+              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleMarkIntakeCompleted} type="button">
+                Marcar como completado
+              </button>
+            )}
+            <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleMarkIntakePending} type="button">
+              Marcar como pendiente
+            </button>
+          </div>
+        </CoachInfoModal>
+      ) : null}
+
+      {activeInfoPanel === "notes" ? (
+        <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Notas internas">
+          <p className="rounded-md border border-line bg-panel/35 p-3 text-xs font-semibold text-ink/55">
+            Nota privada. Solo visible para el entrenador.
+          </p>
+          <div className="coach-subtle-card rounded-md px-4 py-3">
+            <div className="grid gap-3 lg:grid-cols-[0.9fr_0.7fr]">
+              <label className="text-sm font-semibold text-ink/70">
+                Título
+                <input
+                  className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
+                  onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, title: event.target.value }))}
+                  placeholder="Opcional"
+                  value={privateNoteDraft.title}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink/70">
+                Categoría
+                <select
+                  className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
+                  onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, category: event.target.value as CoachPrivateNoteCategory }))}
+                  value={privateNoteDraft.category}
+                >
+                  {coachPrivateNoteCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-ink/70 lg:col-span-2">
+                Nota
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
+                  onChange={(event) => setPrivateNoteDraft((currentDraft) => ({ ...currentDraft, text: event.target.value }))}
+                  placeholder="Recordatorio, decisión pendiente, punto técnico o idea para la próxima sesión."
+                  value={privateNoteDraft.text}
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!privateNoteDraft.text.trim()} onClick={handleSavePrivateNote} type="button">
+                {editingPrivateNoteId ? "Guardar nota" : "Añadir nota"}
+              </button>
+              {editingPrivateNoteId ? (
+                <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetPrivateNoteDraft} type="button">
+                  Cancelar edición
+                </button>
+              ) : null}
+            </div>
+          </div>
+          {sortedPrivateNotes.length > 0 ? (
+            <div className="grid gap-3">
+              {sortedPrivateNotes.map((note) => (
+                <article className={`rounded-md border border-line bg-panel/35 p-4 ${note.pinned ? "border-l-4 border-l-moss" : ""}`} key={note.id}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/60">
+                          {coachPrivateNoteCategoryLabels[note.category ?? "other"]}
+                        </span>
+                        {note.pinned ? (
+                          <span className="rounded-md border border-moss/30 bg-mint px-2 py-1 text-xs font-semibold text-moss">Fijada</span>
+                        ) : null}
+                      </div>
+                      {note.title ? <h4 className="mt-3 font-semibold text-ink">{note.title}</h4> : null}
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-ink/70">{note.text}</p>
+                      <p className="mt-2 text-xs font-medium text-ink/45">
+                        {note.updatedAt ? `Actualizada ${formatDisplayDate(note.updatedAt)}` : `Creada ${formatDisplayDate(note.createdAt)}`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <button className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => handleTogglePrivateNotePin(note.id)} type="button">
+                        {note.pinned ? "Desfijar" : "Fijar"}
+                      </button>
+                      <button className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => handleEditPrivateNote(note)} type="button">
+                        Editar
+                      </button>
+                      <button className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" onClick={() => handleDeletePrivateNote(note.id)} type="button">
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-line bg-panel/35 px-4 py-4 text-sm font-semibold text-ink/50">
+              Aún no hay notas internas para este cliente.
+            </p>
+          )}
+        </CoachInfoModal>
+      ) : null}
     </section>
   );
 }
@@ -5590,7 +5823,6 @@ function PlanningView({
   const [extraPlanningWeeks, setExtraPlanningWeeks] = useState(0);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
-  const [copiedPlanningSession, setCopiedPlanningSession] = useState<{ sessionIndex: number; time?: string | null } | null>(null);
   const [copiedPlanningWeek, setCopiedPlanningWeek] = useState<{
     sessions: Array<{ dayOffset: number; sessionIndex: number; time?: string | null }>;
     sourceWeekNumber: number;
@@ -5671,7 +5903,6 @@ function PlanningView({
     setExtraPlanningWeeks(0);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
-    setCopiedPlanningSession(null);
     setCopiedPlanningWeek(null);
     setExpandedPlanningWeeks(new Set());
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
@@ -5725,11 +5956,6 @@ function PlanningView({
     });
   }
 
-  function pastePlanningSession(date: Date) {
-    if (!copiedPlanningSession) return;
-    duplicatePlanningSession(copiedPlanningSession.sessionIndex, date, copiedPlanningSession.time);
-  }
-
   function copyPlanningWeek(week: typeof planningDistribution[number]) {
     const sessions = week.trainingSessions.map((item) => ({
       dayOffset: Math.round((item.date.getTime() - week.startDate.getTime()) / 86400000),
@@ -5741,7 +5967,7 @@ function PlanningView({
       return;
     }
     setCopiedPlanningWeek({ sessions, sourceWeekNumber: week.weekNumber });
-    setPlanningActionMessage(`Semana ${week.weekNumber} copiada como microciclo tipo.`);
+    setPlanningActionMessage(`Semana ${week.weekNumber} preparada para duplicar como microciclo tipo.`);
   }
 
   function pastePlanningWeek(week: typeof planningDistribution[number]) {
@@ -5754,7 +5980,7 @@ function PlanningView({
       const targetDate = addPlanningDays(week.startDate, item.dayOffset);
       onDuplicateSession(client.id, item.sessionIndex, getPlanningDateKey(targetDate), item.time ?? undefined);
     });
-    setPlanningActionMessage(`Semana ${copiedPlanningWeek.sourceWeekNumber} pegada en semana ${week.weekNumber}.`);
+    setPlanningActionMessage(`Semana ${copiedPlanningWeek.sourceWeekNumber} duplicada en semana ${week.weekNumber}.`);
   }
 
   function togglePlanningWeek(weekNumber: number) {
@@ -6055,11 +6281,11 @@ function PlanningView({
                       {isExpanded ? "Plegar" : "Ver semana"}
                     </button>
                     <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => copyPlanningWeek(week)} type="button">
-                      Copiar semana
+                      Duplicar semana
                     </button>
                     {copiedPlanningWeek ? (
                       <button className="rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
-                        Pegar aquí
+                        Duplicar aquí
                       </button>
                     ) : null}
                   </div>
@@ -6102,23 +6328,11 @@ function PlanningView({
                               <div className="mt-2 flex gap-1">
                                 <button
                                   className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
-                                  onClick={() => {
-                                    setCopiedPlanningSession({ sessionIndex, time: session.time });
-                                    setPlanningActionMessage("Sesión copiada. Elige un día y pulsa Pegar aquí.");
-                                  }}
+                                  onClick={() => duplicatePlanningSession(sessionIndex, date, session.time)}
                                   type="button"
                                 >
-                                  Copiar sesión
+                                  Duplicar
                                 </button>
-                                {copiedPlanningSession ? (
-                                  <button
-                                    className="rounded border border-moss/25 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
-                                    onClick={() => pastePlanningSession(date)}
-                                    type="button"
-                                  >
-                                    Pegar aquí
-                                  </button>
-                                ) : null}
                                 <button
                                   className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
                                   onClick={() => deletePlanningSession(sessionIndex, session)}
@@ -6133,15 +6347,6 @@ function PlanningView({
                         }) : (
                           <div className="grid gap-1">
                             <p className="text-[11px] font-semibold text-ink/35">Sin sesiones</p>
-                            {copiedPlanningSession ? (
-                              <button
-                                className="rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss"
-                                onClick={() => pastePlanningSession(date)}
-                                type="button"
-                              >
-                                Pegar aquí
-                              </button>
-                            ) : null}
                           </div>
                         )}
                       </div>
@@ -6153,7 +6358,7 @@ function PlanningView({
                     <p className="mt-1 text-xs text-ink/45">Pulsa Ver semana para desplegar lunes-domingo.</p>
                     {copiedPlanningWeek ? (
                       <button className="mt-2 rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
-                        Pegar aquí
+                        Duplicar aquí
                       </button>
                     ) : null}
                   </div>
@@ -6469,7 +6674,7 @@ function PlanningBlockDetail({
       role="presentation"
     >
       <section
-        className="assessment-modal-panel max-w-5xl"
+        className="assessment-modal-panel max-h-[88vh] max-w-5xl overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

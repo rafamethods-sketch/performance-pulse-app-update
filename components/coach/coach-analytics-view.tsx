@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart3 } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 
 type AnalyticsPeriod = "7d" | "30d" | "90d" | "month" | "year" | "all";
@@ -64,6 +65,8 @@ const acquisitionSourceOptions: Array<{ label: string; value: ClientAcquisitionS
   { label: "Amigo / conocido", value: "friend" },
   { label: "Otro", value: "other" }
 ];
+
+const acquisitionDonutColors = ["#6f8f72", "#4f7f8f", "#9a7a46", "#8a6f9b", "#c56b5b", "#58715d", "#9a8f7a", "#6b7280"];
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
@@ -172,6 +175,17 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
       percent: clients.length > 0 ? Math.round((count / clients.length) * 100) : 0
     };
   });
+  const visibleSourceDistribution = sourceDistribution.filter((source) => source.count > 0);
+  let accumulatedSourcePct = 0;
+  const sourceDonutStops = visibleSourceDistribution.map((source, index) => {
+    const start = accumulatedSourcePct;
+    const end = accumulatedSourcePct + source.percent;
+    accumulatedSourcePct = end;
+    return `${acquisitionDonutColors[index % acquisitionDonutColors.length]} ${start}% ${end}%`;
+  });
+  const sourceDonutStyle: CSSProperties = {
+    background: sourceDonutStops.length > 0 ? `conic-gradient(${sourceDonutStops.join(", ")})` : undefined
+  };
   const movementItems = clients.flatMap((client) => {
     const items: Array<{ date: string; detail?: string; event: string; id: string; name: string }> = [];
     const joinedAt = getClientJoinedAt(client);
@@ -209,10 +223,9 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
       <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-ink/45">Métricas del entrenador</p>
-            <h2 className="mt-2 text-xl font-semibold text-ink">Centro de gestión de clientes</h2>
+            <h2 className="text-xl font-semibold text-ink">Métricas del entrenador</h2>
             <p className="mt-1 max-w-3xl text-sm text-ink/60">
-              Métricas basadas en datos locales de tus clientes. No se envía información a servidores.
+              Datos locales de tus clientes. No se envía información a servidores.
             </p>
           </div>
           <label className="w-full text-sm font-semibold text-ink/70 sm:w-64">
@@ -268,19 +281,43 @@ export function CoachAnalyticsView({ clients }: { clients: CoachAnalyticsClient[
 
         <section className="coach-surface rounded-md p-4">
           <h3 className="font-semibold text-ink">Cómo han conocido tus servicios</h3>
-          <div className="mt-4 grid gap-3">
-            {sourceDistribution.map((source) => (
-              <div key={source.label}>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-semibold text-ink/70">{source.label}</span>
-                  <span className="text-xs font-semibold text-ink/45">{source.count} · {source.percent}%</span>
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-panel">
-                  <div className="h-full rounded-full bg-moss" style={{ width: `${source.percent}%` }} />
+          {visibleSourceDistribution.length > 0 ? (
+            <div className="mt-4 grid gap-5 md:grid-cols-[180px_1fr] md:items-center">
+              <div
+                aria-label="Distribución de origen de clientes"
+                className="relative mx-auto size-40 rounded-full border border-line shadow-soft"
+                style={sourceDonutStyle}
+                title={visibleSourceDistribution.map((source) => `${source.label}: ${source.count} clientes (${source.percent}%)`).join(" | ")}
+              >
+                <div className="absolute inset-8 grid place-items-center rounded-full border border-line bg-panel text-center">
+                  <span className="text-2xl font-semibold text-ink">{clients.length}</span>
+                  <span className="text-[11px] font-semibold uppercase text-ink/45">clientes</span>
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="grid gap-2">
+                {visibleSourceDistribution.map((source, index) => (
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm"
+                    key={source.label}
+                    title={`${source.label}: ${source.count} clientes (${source.percent}%)`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2 font-semibold text-ink/70">
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: acquisitionDonutColors[index % acquisitionDonutColors.length] }}
+                      />
+                      <span className="truncate">{source.label}</span>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-ink/45">{source.count} · {source.percent}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
+              Sin datos de origen suficientes.
+            </p>
+          )}
         </section>
       </div>
 
