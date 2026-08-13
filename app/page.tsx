@@ -860,6 +860,7 @@ export default function ClientsPage() {
                 client={scopedClient}
                 onDeleteSession={deleteCalendarSession}
                 onDuplicateSession={duplicateCalendarSession}
+                onOpenAssessments={(clientId) => openClientSheet(clientId, "assessments")}
                 onOpenTrainingDraft={openTrainingDraft}
               />
             ) : <AthletePlanningView client={athleteClient} />
@@ -5571,11 +5572,13 @@ function PlanningView({
   client,
   onDeleteSession,
   onDuplicateSession,
+  onOpenAssessments,
   onOpenTrainingDraft
 }: {
   client?: CoachClient | null;
   onDeleteSession?: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onDuplicateSession?: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onOpenAssessments?: (clientId: string) => void;
   onOpenTrainingDraft?: (target: TargetTrainingSession) => void;
 }) {
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
@@ -5583,9 +5586,16 @@ function PlanningView({
   const [planningEventName, setPlanningEventName] = useState(client?.planning.eventName ?? "");
   const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
-  const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(client?.planning.blocks?.[0]?.id ?? null);
+  const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
   const [extraPlanningWeeks, setExtraPlanningWeeks] = useState(0);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
+  const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
+  const [copiedPlanningSession, setCopiedPlanningSession] = useState<{ sessionIndex: number; time?: string | null } | null>(null);
+  const [copiedPlanningWeek, setCopiedPlanningWeek] = useState<{
+    sessions: Array<{ dayOffset: number; sessionIndex: number; time?: string | null }>;
+    sourceWeekNumber: number;
+  } | null>(null);
+  const [expandedPlanningWeeks, setExpandedPlanningWeeks] = useState<Set<number>>(new Set());
   const planningWeeks = getPlanningWeeks(planningPeakDate, planningEventType);
   const totalWeeks = planningBlocks.reduce((total, block) => total + block.durationWeeks, 0);
   const roadmapBlocks = planningBlocks.reduce<PlanningRoadmapBlock[]>((items, block) => {
@@ -5594,7 +5604,7 @@ function PlanningView({
     return [...items, { ...block, endWeek, startWeek }];
   }, []);
   const selectedPlanningBlock =
-    roadmapBlocks.find((block) => block.id === selectedPlanningBlockId) ?? roadmapBlocks[0] ?? null;
+    selectedPlanningBlockId ? roadmapBlocks.find((block) => block.id === selectedPlanningBlockId) ?? null : null;
   const selectedPlan = {
     blocks: planningBlocks,
     clientName: client?.name ?? "",
@@ -5625,28 +5635,45 @@ function PlanningView({
     const sessions = datedPlanningSessions.filter((item) => getPlanningWeekIndex(item.date, firstSessionWeekStart) === weekIndex);
     return { endDate: addPlanningDays(startDate, 6), sessions, startDate, weekNumber: weekIndex + 1 };
   });
+  const trainingPlanningKinds: PlanningSessionKind[] = ["strength", "resistance", "concurrent", "activeRecovery"];
+  const currentPlanningWeekNumber =
+    planningWeekRows.find((week) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today >= week.startDate && today <= week.endDate;
+    })?.weekNumber ?? null;
+  const defaultOpenPlanningWeek = currentPlanningWeekNumber ?? 1;
   const planningDistribution = planningWeekRows.map((week) => {
-    const counts = week.sessions.reduce<Record<PlanningSessionKind, number>>((current, item) => {
+    const trainingSessions = week.sessions.filter((item) => trainingPlanningKinds.includes(getPlanningSessionKind(item.session)));
+    const counts = trainingSessions.reduce<Record<PlanningSessionKind, number>>((current, item) => {
       const kind = getPlanningSessionKind(item.session);
       return { ...current, [kind]: current[kind] + 1 };
     }, { activeRecovery: 0, concurrent: 0, other: 0, resistance: 0, strength: 0, test: 0 });
 
-    return { ...week, counts, total: Object.values(counts).reduce((sum, count) => sum + count, 0) };
+    return { ...week, counts, total: trainingSessions.length, trainingSessions };
   });
   const maxWeeklySessions = Math.max(1, ...planningDistribution.map((week) => week.total));
   const hasPlanningDistributionData = planningDistribution.some((week) => week.total > 0);
   const planningAssessmentGroups = buildAssessmentGroups((client?.assessments ?? []) as AssessmentEntry[]);
   const planningFavoriteGroups = planningAssessmentGroups.filter((group) => client?.assessmentPreferences?.favoriteTests?.includes(group.key));
   const planningReassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const planningReferenceCount =
+    planningFavoriteGroups.length +
+    Object.keys(planningReassessmentDates).length +
+    (planningEventName || client?.nextEvent || planningPeakDate ? 1 : 0);
 
   useEffect(() => {
     setPlanningBlocks(client?.planning.blocks ?? []);
     setPlanningEventName(client?.planning.eventName ?? "");
     setPlanningPeakDate(client?.planning.eventDate ?? "");
     setPlanningMethod(client?.planning.method ?? "");
-    setSelectedPlanningBlockId(client?.planning.blocks?.[0]?.id ?? null);
+    setSelectedPlanningBlockId(null);
     setExtraPlanningWeeks(0);
     setPlanningActionMessage("");
+    setShowAdvancedPlanning(false);
+    setCopiedPlanningSession(null);
+    setCopiedPlanningWeek(null);
+    setExpandedPlanningWeeks(new Set());
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
@@ -5695,6 +5722,50 @@ function PlanningView({
       clientId: client.id,
       draftSessionSummary: `Semana ${weekNumber}`,
       sessionDate: getPlanningDateKey(date)
+    });
+  }
+
+  function pastePlanningSession(date: Date) {
+    if (!copiedPlanningSession) return;
+    duplicatePlanningSession(copiedPlanningSession.sessionIndex, date, copiedPlanningSession.time);
+  }
+
+  function copyPlanningWeek(week: typeof planningDistribution[number]) {
+    const sessions = week.trainingSessions.map((item) => ({
+      dayOffset: Math.round((item.date.getTime() - week.startDate.getTime()) / 86400000),
+      sessionIndex: item.sessionIndex,
+      time: item.session.time
+    }));
+    if (sessions.length === 0) {
+      setPlanningActionMessage("Esta semana no tiene sesiones de entrenamiento para copiar.");
+      return;
+    }
+    setCopiedPlanningWeek({ sessions, sourceWeekNumber: week.weekNumber });
+    setPlanningActionMessage(`Semana ${week.weekNumber} copiada como microciclo tipo.`);
+  }
+
+  function pastePlanningWeek(week: typeof planningDistribution[number]) {
+    if (!copiedPlanningWeek || !client || !onDuplicateSession) return;
+    if (week.trainingSessions.length > 0) {
+      const shouldContinue = window.confirm("Esta semana ya tiene sesiones. ¿Quieres añadir las sesiones copiadas sin borrar las existentes?");
+      if (!shouldContinue) return;
+    }
+    copiedPlanningWeek.sessions.forEach((item) => {
+      const targetDate = addPlanningDays(week.startDate, item.dayOffset);
+      onDuplicateSession(client.id, item.sessionIndex, getPlanningDateKey(targetDate), item.time ?? undefined);
+    });
+    setPlanningActionMessage(`Semana ${copiedPlanningWeek.sourceWeekNumber} pegada en semana ${week.weekNumber}.`);
+  }
+
+  function togglePlanningWeek(weekNumber: number) {
+    setExpandedPlanningWeeks((current) => {
+      const next = new Set(current);
+      if (next.has(weekNumber)) {
+        next.delete(weekNumber);
+      } else {
+        next.add(weekNumber);
+      }
+      return next;
     });
   }
 
@@ -5760,13 +5831,33 @@ function PlanningView({
       <section className="coach-surface rounded-md p-5 xl:col-span-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">Valoraciones de referencia</h3>
+            <h3 className="font-semibold text-ink">Referencias de planificación</h3>
             <p className="mt-1 text-sm text-ink/55">Pruebas principales del cliente para tener presentes durante la planificación.</p>
           </div>
-          <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
-            {planningFavoriteGroups.length}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+              {planningReferenceCount} referencias
+            </span>
+            {onOpenAssessments ? (
+              <button
+                className="rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/70 transition hover:bg-mint"
+                onClick={() => onOpenAssessments(client.id)}
+                type="button"
+              >
+                Ir a Valoraciones
+              </button>
+            ) : null}
+          </div>
         </div>
+        {(planningEventName || client.nextEvent || planningPeakDate) ? (
+          <article className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+            <p className="text-xs font-semibold uppercase text-moss">Evento objetivo</p>
+            <h4 className="mt-1 font-semibold text-ink">{planningEventName || client.nextEvent || "Evento sin nombre"}</h4>
+            {planningPeakDate ? (
+              <p className="mt-1 text-sm text-ink/60">Fecha objetivo: {formatDisplayDate(planningPeakDate)}</p>
+            ) : null}
+          </article>
+        ) : null}
         {planningFavoriteGroups.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {planningFavoriteGroups.map((group) => {
@@ -5801,6 +5892,73 @@ function PlanningView({
       </section>
 
       <section className="coach-surface rounded-md p-5 xl:col-span-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="font-semibold text-ink">Mesociclos / bloques</h3>
+            <p className="mt-1 text-sm text-ink/55">Resumen visual de objetivos, duración, semanas y estado. El detalle se abre solo bajo demanda.</p>
+          </div>
+          <button
+            className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
+            onClick={() => setShowAdvancedPlanning((current) => !current)}
+            type="button"
+          >
+            {showAdvancedPlanning ? "Ocultar configuración avanzada" : "Configuración avanzada"}
+          </button>
+        </div>
+        {planningBlocks.length === 0 ? (
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
+            Sin bloques definidos. Usa Configuración avanzada para crear la estructura del ciclo.
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {roadmapBlocks.map((block, index) => {
+              const status = getPlanningBlockStatus(block, client.planning.currentBlock);
+              const progress = getPlanningBlockProgress(client, block);
+
+              return (
+                <button
+                  className="rounded-md border border-line bg-panel/35 p-4 text-left transition hover:-translate-y-0.5 hover:border-moss hover:shadow-soft"
+                  key={block.id}
+                  onClick={() => setSelectedPlanningBlockId(block.id)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase text-moss">Bloque {index + 1}</p>
+                      <h4 className="mt-1 truncate font-semibold text-ink">{block.name}</h4>
+                    </div>
+                    <span className={`shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
+                      {status}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-sm text-ink/60">
+                    <p>{block.durationWeeks} semanas · Semana {block.startWeek}-{block.endWeek}</p>
+                    <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
+                    {block.secondaryObjective ? <p>Secundario: {block.secondaryObjective}</p> : null}
+                    <p>Distribución: {block.weeklyDistribution || "Sin asignar"}</p>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
+                    <span>
+                      {progress.totalSessions > 0
+                        ? `${progress.completedSessions}/${progress.totalSessions} sesiones`
+                        : "Sin sesiones registradas"}
+                    </span>
+                    <span>Ver detalle</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-panel">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
+                      style={{ width: `${progress.completionPct}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="hidden">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Distribución semanal</h3>
@@ -5849,7 +6007,7 @@ function PlanningView({
       <section className="coach-surface rounded-md p-5 xl:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">Parrilla semanal</h3>
+            <h3 className="font-semibold text-ink">Distribución semanal</h3>
             <p className="mt-1 text-sm text-ink/55">Semanas como filas, días como columnas y sesiones compactas por celda.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -5880,17 +6038,35 @@ function PlanningView({
               <span>Semana</span>
               {planningWeekdayLabels.map((day) => <span key={day}>{day}</span>)}
             </div>
-            {planningWeekRows.map((week) => (
-              <div className="grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2" key={`week-row-${week.weekNumber}`}>
+            {planningDistribution.map((week) => {
+              const isCurrentWeek = week.weekNumber === currentPlanningWeekNumber;
+              const isExpanded = expandedPlanningWeeks.has(week.weekNumber) || (expandedPlanningWeeks.size === 0 && week.weekNumber === defaultOpenPlanningWeek);
+
+              return (
+              <div className={`grid grid-cols-[96px_repeat(7,minmax(110px,1fr))] gap-2 rounded-md p-1 ${isCurrentWeek ? "border border-moss/40 bg-mint/25" : ""}`} key={`week-row-${week.weekNumber}`}>
                 <div className="rounded-md border border-line bg-panel/45 p-2">
                   <p className="text-sm font-semibold text-ink">Semana {week.weekNumber}</p>
+                  {isCurrentWeek ? <span className="mt-1 inline-flex rounded-md border border-moss/25 bg-mint px-2 py-0.5 text-[10px] font-semibold text-moss">Semana actual</span> : null}
                   <p className="mt-1 text-[11px] text-ink/45">
                     {formatDisplayDate(getPlanningDateKey(week.startDate))} · {formatDisplayDate(getPlanningDateKey(week.endDate))}
                   </p>
+                  <div className="mt-2 grid gap-1">
+                    <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => togglePlanningWeek(week.weekNumber)} type="button">
+                      {isExpanded ? "Plegar" : "Ver semana"}
+                    </button>
+                    <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => copyPlanningWeek(week)} type="button">
+                      Copiar semana
+                    </button>
+                    {copiedPlanningWeek ? (
+                      <button className="rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
+                        Pegar aquí
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                {planningWeekdayLabels.map((day, dayIndex) => {
+                {isExpanded ? planningWeekdayLabels.map((day, dayIndex) => {
                   const date = addPlanningDays(week.startDate, dayIndex);
-                  const daySessions = week.sessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
+                  const daySessions = week.trainingSessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
 
                   return (
                     <div className="min-h-[116px] rounded-md border border-line bg-panel/30 p-2" key={`${week.weekNumber}-${day}`}>
@@ -5926,11 +6102,23 @@ function PlanningView({
                               <div className="mt-2 flex gap-1">
                                 <button
                                   className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
-                                  onClick={() => duplicatePlanningSession(sessionIndex, date, session.time)}
+                                  onClick={() => {
+                                    setCopiedPlanningSession({ sessionIndex, time: session.time });
+                                    setPlanningActionMessage("Sesión copiada. Elige un día y pulsa Pegar aquí.");
+                                  }}
                                   type="button"
                                 >
-                                  Copiar
+                                  Copiar sesión
                                 </button>
+                                {copiedPlanningSession ? (
+                                  <button
+                                    className="rounded border border-moss/25 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
+                                    onClick={() => pastePlanningSession(date)}
+                                    type="button"
+                                  >
+                                    Pegar aquí
+                                  </button>
+                                ) : null}
                                 <button
                                   className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
                                   onClick={() => deletePlanningSession(sessionIndex, session)}
@@ -5943,19 +6131,41 @@ function PlanningView({
                             </article>
                           );
                         }) : (
-                          <p className="text-[11px] font-semibold text-ink/35">Sin sesiones</p>
+                          <div className="grid gap-1">
+                            <p className="text-[11px] font-semibold text-ink/35">Sin sesiones</p>
+                            {copiedPlanningSession ? (
+                              <button
+                                className="rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss"
+                                onClick={() => pastePlanningSession(date)}
+                                type="button"
+                              >
+                                Pegar aquí
+                              </button>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                     </div>
                   );
-                })}
+                }) : (
+                  <div className="col-span-7 rounded-md border border-line bg-panel/30 p-3 text-sm text-ink/60">
+                    <p className="font-semibold text-ink">{week.total > 0 ? `${week.total} sesiones de entrenamiento` : "Semana sin sesiones centrales"}</p>
+                    <p className="mt-1 text-xs text-ink/45">Pulsa Ver semana para desplegar lunes-domingo.</p>
+                    {copiedPlanningWeek ? (
+                      <button className="mt-2 rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
+                        Pegar aquí
+                      </button>
+                    ) : null}
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+      <section className="hidden">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <ClientInfoCard label="Modelo" value={getPlanningMethodLabel(planningMethod) || "Sin seleccionar"} />
           <ClientInfoCard label="Mesociclos" value={String(planningBlocks.length)} />
@@ -6031,8 +6241,9 @@ function PlanningView({
         />
       ) : null}
 
-      <section className="coach-surface rounded-md p-4">
-        <h2 className="text-lg font-semibold text-ink">Metodo de planificación</h2>
+      <section className={showAdvancedPlanning ? "coach-surface rounded-md p-4" : "hidden"}>
+        <h2 className="text-lg font-semibold text-ink">Configuración avanzada</h2>
+        <p className="mt-1 text-sm text-ink/55">Edición estructural heredada: modelo, evento objetivo y mesociclos editables.</p>
         <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
           Metodo de planificación
           <select
@@ -6120,7 +6331,7 @@ function PlanningView({
         </PlanningStep>
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section className={showAdvancedPlanning ? "coach-surface rounded-md p-4" : "hidden"}>
         <PlanningStep step="4" title="Mesociclos editables">
           {planningBlocks.length === 0 ? (
             <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
@@ -6252,7 +6463,15 @@ function PlanningBlockDetail({
   const weekdays = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
 
   return (
-    <section className="rounded-md border border-line bg-white p-5 shadow-soft xl:col-span-2">
+    <div
+      className="assessment-modal-overlay"
+      onClick={onBack}
+      role="presentation"
+    >
+      <section
+        className="assessment-modal-panel max-w-5xl"
+        onClick={(event) => event.stopPropagation()}
+      >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
@@ -6272,6 +6491,14 @@ function PlanningBlockDetail({
         <span className={`w-fit rounded-md border px-3 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
           {status}
         </span>
+        <button
+          aria-label="Cerrar detalle del bloque"
+          className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
+          onClick={onBack}
+          type="button"
+        >
+          ×
+        </button>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -6334,7 +6561,8 @@ function PlanningBlockDetail({
           ))}
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
