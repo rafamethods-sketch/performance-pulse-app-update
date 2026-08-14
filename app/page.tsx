@@ -120,9 +120,16 @@ import {
 } from "@/lib/menstrual-cycle";
 import {
   buildInitialIntakeQuestionnaire,
-  getIntakeStatusLabel,
-  getIntakeSummaryRows,
+  getIntakeAnswerLabel,
+  intakeRestrictionLabels,
+  intakeSessionDurationLabels,
+  intakeSleepLabels,
+  intakeStrengthExperienceLabels,
+  intakeStressLabels,
+  intakeTrainingLocationLabels,
+  intakeYesNoLabels,
   isIntakeRequiredAndIncomplete,
+  mergeIntakeAnswers,
   type IntakeQuestionnaire
 } from "@/lib/intake-questionnaire";
 import { supabase } from "@/lib/supabase";
@@ -1492,6 +1499,126 @@ function getRecentPerformanceTestReferences(client?: CoachClient | null, session
     ["strength", "jump", ...sportCategories, "body_composition"];
 
   return entries.filter((entry) => preferredCategories.includes(entry.category)).slice(0, 5);
+}
+
+function getCoachIntakeStatusLabel(intake?: IntakeQuestionnaire) {
+  if (!intake?.required) return "No requerido";
+  if (intake.completed !== true) return "Pendiente";
+  if (intake.needsCoachReview) return "Actualizado por revisar";
+  if (intake.lastReviewedAt) return "Revisado";
+  return "Completado";
+}
+
+function getCoachIntakeStatusClass(intake?: IntakeQuestionnaire) {
+  if (!intake?.required) return "border-line bg-panel/50 text-ink/55";
+  if (intake.completed !== true) return "border-amber-200 bg-amber-50 text-amber-800";
+  if (intake.needsCoachReview) return "border-blue-200 bg-blue-50 text-blue-800";
+  if (intake.lastReviewedAt) return "border-moss/30 bg-mint text-moss";
+  return "border-line bg-panel/60 text-ink/70";
+}
+
+function compactIntakeValue(value?: string | null) {
+  return value && value.trim() ? value.trim() : "";
+}
+
+function addIntakeItem(items: Array<[string, string]>, label: string, value?: string | null) {
+  const cleanValue = compactIntakeValue(value);
+  if (cleanValue) items.push([label, cleanValue]);
+}
+
+function getCoachIntakeReview(client: CoachClient) {
+  const answers = mergeIntakeAnswers(client.intakeQuestionnaire?.answers);
+  const contextItems: Array<[string, string]> = [];
+  const logisticsItems: Array<[string, string]> = [];
+  const healthItems: Array<[string, string]> = [];
+  const preferenceItems: Array<[string, string]> = [];
+  const impactItems: string[] = [];
+
+  addIntakeItem(contextItems, "Deporte / modalidad", answers.currentSportDetails || client.modality || client.sport);
+  addIntakeItem(contextItems, "Objetivo principal", answers.mainGoal || client.planning.primaryGoal);
+  addIntakeItem(contextItems, "Objetivo a 3 meses", answers.threeMonthGoal);
+  addIntakeItem(contextItems, "Próxima competición / test", answers.targetDateOrEvent || client.planning.eventName || client.nextEvent);
+  addIntakeItem(contextItems, "Experiencia previa", answers.previousTraining || (answers.strengthTrainingExperience ? intakeStrengthExperienceLabels[answers.strengthTrainingExperience] : ""));
+
+  addIntakeItem(logisticsItems, "Disponibilidad semanal", answers.availableDaysPerWeek ? `${answers.availableDaysPerWeek} días/semana` : "");
+  addIntakeItem(logisticsItems, "Tiempo por sesión", answers.sessionDuration ? intakeSessionDurationLabels[answers.sessionDuration] : "");
+  addIntakeItem(logisticsItems, "Lugar de entrenamiento", answers.trainingLocation ? intakeTrainingLocationLabels[answers.trainingLocation] : "");
+  addIntakeItem(logisticsItems, "Material disponible", answers.availableEquipment || client.availableEquipment);
+
+  if (answers.diagnosedCondition === "yes") addIntakeItem(healthItems, "Condición declarada", answers.diagnosedConditionDetails || intakeYesNoLabels.yes);
+  if (answers.currentMedication === "yes") addIntakeItem(healthItems, "Medicación actual", answers.currentMedicationDetails || intakeYesNoLabels.yes);
+  if (answers.recentInjuryOrSurgery === "yes") addIntakeItem(healthItems, "Lesión / operación reciente", answers.recentInjuryOrSurgeryDetails || intakeYesNoLabels.yes);
+  if (answers.currentPain === "yes") addIntakeItem(healthItems, "Molestia actual", answers.currentPainDetails || intakeYesNoLabels.yes);
+  if (answers.medicalExerciseRestriction === "yes" || answers.medicalExerciseRestriction === "not_sure") {
+    addIntakeItem(
+      healthItems,
+      "Restricción para ejercicio",
+      `${intakeRestrictionLabels[answers.medicalExerciseRestriction]}${answers.medicalExerciseRestrictionDetails ? ` · ${answers.medicalExerciseRestrictionDetails}` : ""}`
+    );
+  }
+  const exerciseSymptoms = (answers.exerciseSymptoms ?? []).filter((item) => item !== "Ninguno");
+  addIntakeItem(healthItems, "Síntomas durante ejercicio", exerciseSymptoms.join(", "));
+  addIntakeItem(healthItems, "Limitaciones relevantes", client.injuries);
+
+  addIntakeItem(preferenceItems, "Recuperación / sueño", answers.sleepHours ? intakeSleepLabels[answers.sleepHours] : "");
+  addIntakeItem(preferenceItems, "Estrés", answers.stressLevel ? intakeStressLabels[answers.stressLevel] : "");
+  addIntakeItem(preferenceItems, "Hábitos de recuperación", (answers.recoveryHabits ?? []).join(", "));
+  addIntakeItem(preferenceItems, "Objetivos secundarios", (answers.secondaryGoals ?? []).join(", "));
+  addIntakeItem(preferenceItems, "Otros datos relevantes", answers.otherRelevantInfo);
+
+  if (answers.availableDaysPerWeek && Number(answers.availableDaysPerWeek) <= 2) impactItems.push("Disponibilidad limitada");
+  if (answers.sessionDuration === "<30") impactItems.push("Sesiones cortas");
+  if (answers.trainingLocation === "home" || answers.availableEquipment) impactItems.push("Revisar material disponible");
+  if (healthItems.length > 0) impactItems.push("Revisar limitaciones antes de planificar");
+  if (answers.mainGoal || client.planning.primaryGoal) impactItems.push("Objetivo principal como referencia de programación");
+  if (answers.targetDateOrEvent || client.planning.eventName || client.nextEvent) impactItems.push("Próxima competición/test como hito");
+  if (answers.sleepHours === "<7" || answers.stressLevel === "high") impactItems.push("Recuperación declarada limitada");
+
+  return {
+    blocks: [
+      { items: contextItems, title: "Contexto deportivo" },
+      { items: logisticsItems, title: "Disponibilidad y logística" },
+      { items: healthItems, title: "Salud / limitaciones" },
+      { items: preferenceItems, title: "Preferencias y observaciones" }
+    ],
+    fullRows: [
+      ["Nombre completo", getIntakeAnswerLabel(answers.fullName)],
+      ["Edad", getIntakeAnswerLabel(answers.age)],
+      ["Género", getIntakeAnswerLabel(answers.gender)],
+      ["Teléfono", getIntakeAnswerLabel(answers.phone)],
+      ["Contacto de emergencia", getIntakeAnswerLabel(answers.emergencyContact)],
+      ["Sueño", answers.sleepHours ? intakeSleepLabels[answers.sleepHours] : "Sin especificar"],
+      ["Estrés", answers.stressLevel ? intakeStressLabels[answers.stressLevel] : "Sin especificar"],
+      ["Actividad física actual", getIntakeAnswerLabel(answers.currentSportPractice)],
+      ["Detalle deporte / actividad", getIntakeAnswerLabel(answers.currentSportDetails)],
+      ["Objetivo principal", getIntakeAnswerLabel(answers.mainGoal)],
+      ["Objetivo a 3 meses", getIntakeAnswerLabel(answers.threeMonthGoal)],
+      ["Fecha / evento objetivo", getIntakeAnswerLabel(answers.targetDateOrEvent)],
+      ["Días disponibles", getIntakeAnswerLabel(answers.availableDaysPerWeek ? `${answers.availableDaysPerWeek} días/semana` : "")],
+      ["Tiempo por sesión", answers.sessionDuration ? intakeSessionDurationLabels[answers.sessionDuration] : "Sin especificar"],
+      ["Lugar de entrenamiento", answers.trainingLocation ? intakeTrainingLocationLabels[answers.trainingLocation] : "Sin especificar"],
+      ["Material disponible", getIntakeAnswerLabel(answers.availableEquipment)],
+      ["Experiencia de fuerza", answers.strengthTrainingExperience ? intakeStrengthExperienceLabels[answers.strengthTrainingExperience] : "Sin especificar"],
+      ["Entrenamiento previo", getIntakeAnswerLabel(answers.previousTraining)],
+      ["Condición diagnosticada", answers.diagnosedCondition ? intakeYesNoLabels[answers.diagnosedCondition] : "Sin especificar"],
+      ["Detalle condición", getIntakeAnswerLabel(answers.diagnosedConditionDetails)],
+      ["Medicación actual", answers.currentMedication ? intakeYesNoLabels[answers.currentMedication] : "Sin especificar"],
+      ["Detalle medicación", getIntakeAnswerLabel(answers.currentMedicationDetails)],
+      ["Lesión / operación reciente", answers.recentInjuryOrSurgery ? intakeYesNoLabels[answers.recentInjuryOrSurgery] : "Sin especificar"],
+      ["Detalle lesión / operación", getIntakeAnswerLabel(answers.recentInjuryOrSurgeryDetails)],
+      ["Molestia actual", answers.currentPain ? intakeYesNoLabels[answers.currentPain] : "Sin especificar"],
+      ["Detalle molestia", getIntakeAnswerLabel(answers.currentPainDetails)],
+      ["Síntomas durante ejercicio", (answers.exerciseSymptoms ?? []).join(", ") || "Sin especificar"],
+      ["Restricción para ejercicio", answers.medicalExerciseRestriction ? intakeRestrictionLabels[answers.medicalExerciseRestriction] : "Sin especificar"],
+      ["Detalle restricción", getIntakeAnswerLabel(answers.medicalExerciseRestrictionDetails)],
+      ["Apoyo profesional", (answers.currentProfessionalSupport ?? []).join(", ") || "Sin especificar"],
+      ["Hábitos de recuperación", (answers.recoveryHabits ?? []).join(", ") || "Sin especificar"],
+      ["Objetivos secundarios", (answers.secondaryGoals ?? []).join(", ") || "Sin especificar"],
+      ["Ocupación", getIntakeAnswerLabel(answers.occupation)],
+      ["Otra información relevante", getIntakeAnswerLabel(answers.otherRelevantInfo)]
+    ],
+    impactItems: Array.from(new Set(impactItems)).slice(0, 6)
+  };
 }
 
 function OnboardingSummaryCard({ client, compact = false, title = "Ficha inicial" }: { client: CoachClient; compact?: boolean; title?: string }) {
@@ -3763,8 +3890,8 @@ function ClientDetailsView({
   const accessInfo = getClientAccessInfo(client);
   const accessProgress = getAccessProgress(client.accessStartDate, client.accessEndDate);
   const performanceTestEntries = getSortedPerformanceTests(client);
-  const intakeStatus = getIntakeStatusLabel(client.intakeQuestionnaire);
-  const intakeSummaryRows = getIntakeSummaryRows(client.intakeQuestionnaire);
+  const coachIntakeStatus = getCoachIntakeStatusLabel(client.intakeQuestionnaire);
+  const intakeReview = getCoachIntakeReview(client);
 
   const updateIntakeQuestionnaire = (intakeQuestionnaire: IntakeQuestionnaire) => {
     onUpdateClient({
@@ -3941,6 +4068,97 @@ function ClientDetailsView({
 
       {!isEditing ? (
         <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-ink">Cuestionario de ingreso</h3>
+              <p className="mt-1 text-sm text-ink/55">
+                Resumen práctico de las respuestas del deportista para revisar antes de planificar.
+              </p>
+            </div>
+            <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${getCoachIntakeStatusClass(client.intakeQuestionnaire)}`}>
+              {coachIntakeStatus}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
+            <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
+            <ClientInfoCard label="Estado" value={coachIntakeStatus} />
+          </div>
+
+          {client.intakeQuestionnaire?.completed ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {intakeReview.blocks.map((block) => (
+                <article className="rounded-md border border-line bg-white p-3" key={block.title}>
+                  <h4 className="text-sm font-semibold text-ink">{block.title}</h4>
+                  {block.items.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {block.items.map(([label, value]) => (
+                        <div className="rounded-md border border-line bg-panel/40 px-3 py-2" key={label}>
+                          <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
+                          <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 px-3 py-3 text-sm font-semibold text-ink/50">
+                      Sin registrar.
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-line bg-white p-3 text-sm font-semibold text-ink/60">
+              El deportista todavía no ha completado el cuestionario de ingreso.
+            </p>
+          )}
+
+          <article className="mt-4 rounded-md border border-line bg-white p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-ink">Impacto en planificación</h4>
+                <p className="mt-1 text-xs font-medium text-ink/50">Recordatorios orientativos para revisar antes de programar.</p>
+              </div>
+              <span className="w-fit rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/60">
+                Revisar antes de planificar
+              </span>
+            </div>
+            {intakeReview.impactItems.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {intakeReview.impactItems.map((item) => (
+                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/65" key={item}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-semibold text-ink/50">Sin condicionantes declarados en el cuestionario.</p>
+            )}
+          </article>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => setActiveInfoPanel("intake")} type="button">
+              Ver cuestionario completo
+            </button>
+            {client.intakeQuestionnaire?.completed ? (
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleMarkIntakeReviewed} type="button">
+                Marcar como revisado
+              </button>
+            ) : (
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleMarkIntakeCompleted} type="button">
+                Marcar como completado
+              </button>
+            )}
+            <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink/70" onClick={handleMarkIntakePending} type="button">
+              Marcar como pendiente
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {!isEditing ? (
+        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <h3 className="font-semibold text-ink">Acciones secundarias</h3>
@@ -3953,77 +4171,15 @@ function ClientDetailsView({
                 Ver ficha completa
               </button>
               <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint" onClick={() => setActiveInfoPanel("intake")} type="button">
-                Ver cuestionario
+                Ver cuestionario completo
               </button>
               <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint" onClick={() => setActiveInfoPanel("notes")} type="button">
                 Notas internas ({sortedPrivateNotes.length})
               </button>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <ClientInfoCard label="Cuestionario" value={intakeStatus} />
-            <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
-            <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
-          </div>
         </section>
       ) : null}
-
-      <section className="hidden">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-ink">Cuestionario de ingreso</h3>
-            <p className="mt-1 text-sm text-ink/55">Formulario obligatorio para nuevos deportistas antes de acceder a la cuenta.</p>
-          </div>
-          <span className="w-fit rounded-md border border-line bg-panel/50 px-2.5 py-1 text-xs font-semibold text-ink/60">
-            {intakeStatus}
-          </span>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ClientInfoCard label="Completado" value={client.intakeQuestionnaire?.completedAt ? formatDisplayDateTime(client.intakeQuestionnaire.completedAt) : "Sin completar"} />
-          <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
-          <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
-        </div>
-        {client.intakeQuestionnaire?.completed ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {intakeSummaryRows.map(([label, value]) => (
-              <article className="rounded-md border border-line bg-panel/35 p-3" key={label}>
-                <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
-                <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm font-semibold text-ink/60">
-            El deportista todavía no ha completado el cuestionario de ingreso.
-          </p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {client.intakeQuestionnaire?.completed ? (
-            <button
-              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
-              onClick={handleMarkIntakeReviewed}
-              type="button"
-            >
-              Marcar como revisado
-            </button>
-          ) : (
-            <button
-              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
-              onClick={handleMarkIntakeCompleted}
-              type="button"
-            >
-              Marcar como completado
-            </button>
-          )}
-          <button
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70"
-            onClick={handleMarkIntakePending}
-            type="button"
-          >
-            Marcar como pendiente
-          </button>
-        </div>
-      </section>
 
       <section className="hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -4744,14 +4900,15 @@ function ClientDetailsView({
 
       {activeInfoPanel === "intake" ? (
         <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Cuestionario de ingreso">
-          <div className="grid gap-3 md:grid-cols-3">
-            <ClientInfoCard label="Estado" value={intakeStatus} />
+          <div className="grid gap-3 md:grid-cols-4">
+            <ClientInfoCard label="Estado" value={coachIntakeStatus} />
             <ClientInfoCard label="Completado" value={client.intakeQuestionnaire?.completedAt ? formatDisplayDateTime(client.intakeQuestionnaire.completedAt) : "Sin completar"} />
+            <ClientInfoCard label="Última actualización" value={client.intakeQuestionnaire?.updatedAt ? formatDisplayDateTime(client.intakeQuestionnaire.updatedAt) : "Sin actualizar"} />
             <ClientInfoCard label="Última revisión" value={client.intakeQuestionnaire?.lastReviewedAt ? formatDisplayDateTime(client.intakeQuestionnaire.lastReviewedAt) : "Sin revisar"} />
           </div>
           {client.intakeQuestionnaire?.completed ? (
             <div className="grid gap-3 md:grid-cols-2">
-              {intakeSummaryRows.map(([label, value]) => (
+              {intakeReview.fullRows.map(([label, value]) => (
                 <article className="rounded-md border border-line bg-panel/35 p-3" key={label}>
                   <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
                   <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
