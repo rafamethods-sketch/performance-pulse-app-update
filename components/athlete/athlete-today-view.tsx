@@ -145,6 +145,7 @@ type AthleteTodayViewProps<TClient extends AthleteClient> = {
   onShowCalendar: () => void;
   onShowHistory: () => void;
   onShowPlanning: () => void;
+  onShowProfile?: () => void;
   onShowWeeklyLoad: () => void;
   onUpdateClient: (updatedClient: TClient) => void;
 };
@@ -478,6 +479,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   onShowCalendar,
   onShowHistory,
   onShowPlanning,
+  onShowProfile,
   onShowWeeklyLoad,
   onUpdateClient
 }: AthleteTodayViewProps<TClient>) {
@@ -1009,17 +1011,17 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Información inicial</h3>
-          <p className="mt-1 text-sm text-ink/55">Puedes actualizar tu cuestionario si cambia tu contexto, objetivos o limitaciones.</p>
+          <p className="mt-1 text-sm text-ink/55">Puedes actualizar tu cuestionario desde Perfil si cambia tu contexto, objetivos o limitaciones.</p>
         </div>
         <button
           className="w-fit rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
-          onClick={() => setShowIntakeEditor((current) => !current)}
+          onClick={onShowProfile ?? (() => setShowIntakeEditor((current) => !current))}
           type="button"
         >
-          {showIntakeEditor ? "Cerrar cuestionario" : "Editar cuestionario de ingreso"}
+          {onShowProfile ? "Editar cuestionario en Perfil" : showIntakeEditor ? "Cerrar cuestionario" : "Editar cuestionario de ingreso"}
         </button>
       </div>
-      {showIntakeEditor ? (
+      {!onShowProfile && showIntakeEditor ? (
         <AthleteIntakeQuestionnaire
           client={client}
           mode="edit"

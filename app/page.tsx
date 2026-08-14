@@ -25,6 +25,7 @@ import { AthleteCalendarView } from "@/components/athlete/athlete-calendar-view"
 import { AthleteHistoryView } from "@/components/athlete/athlete-history-view";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthletePlanningView } from "@/components/athlete/athlete-planning-view";
+import { AthleteProfileView } from "@/components/athlete/athlete-profile-view";
 import { AthleteTodayView } from "@/components/athlete/athlete-today-view";
 import { AthleteWeeklyLoadView } from "@/components/athlete/athlete-weekly-load-view";
 import { CalendarView } from "@/components/coach/coach-calendar-view";
@@ -597,6 +598,7 @@ export default function ClientsPage() {
     if (activeSheet === "fatigue") return "Fatiga";
     if (activeSheet === "weeklyLoad") return role === "coach" ? "Métricas" : "Carga semanal";
     if (activeSheet === "planning") return role === "coach" && scopedClient ? `Planificación - ${scopedClient.name}` : "Planificación";
+    if (activeSheet === "athleteProfile") return "Perfil";
     if (activeSheet === "progressions") return "Biblioteca";
     if (activeSheet === "resources") return "Recursos";
     if (activeSheet === "routines") return "Rutinas";
@@ -678,6 +680,7 @@ export default function ClientsPage() {
                 onShowCalendar={() => setActiveSheet("calendar")}
                 onShowHistory={() => setActiveSheet("training")}
                 onShowPlanning={() => setActiveSheet("planning")}
+                onShowProfile={() => setActiveSheet("athleteProfile")}
                 onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
@@ -723,6 +726,7 @@ export default function ClientsPage() {
                 onShowCalendar={() => setActiveSheet("calendar")}
                 onShowHistory={() => setActiveSheet("training")}
                 onShowPlanning={() => setActiveSheet("planning")}
+                onShowProfile={() => setActiveSheet("athleteProfile")}
                 onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
@@ -766,6 +770,7 @@ export default function ClientsPage() {
                 onShowCalendar={() => setActiveSheet("calendar")}
                 onShowHistory={() => setActiveSheet("training")}
                 onShowPlanning={() => setActiveSheet("planning")}
+                onShowProfile={() => setActiveSheet("athleteProfile")}
                 onShowWeeklyLoad={() => setActiveSheet("weeklyLoad")}
                 onUpdateClient={(updatedClient) =>
                   setClients((currentClients) =>
@@ -864,6 +869,19 @@ export default function ClientsPage() {
                 onOpenTrainingDraft={openTrainingDraft}
               />
             ) : <AthletePlanningView client={athleteClient} />
+          ) : activeSheet === "athleteProfile" ? (
+            role === "athlete" ? (
+              <AthleteProfileView
+                client={athleteClient}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
+              />
+            ) : <DecisionDashboardView />
           ) : activeSheet === "progressions" ? (
             role === "coach" ? <ExerciseProgressionsView client={scopedClient} /> : <DecisionDashboardView />
           ) : activeSheet === "resources" ? (

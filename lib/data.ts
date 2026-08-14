@@ -34,6 +34,7 @@ export type SheetId =
   | "resources"
   | "routines"
   | "weeklyLoad"
+  | "athleteProfile"
   | "messages";
 export type MovementPattern = "Dominante rodilla" | "Bisagra cadera" | "Empuje" | "Traccion" | "Core";
 export type CardioMode = "Carrera" | "Ciclismo" | "Natacion";
@@ -68,6 +69,7 @@ export const navItems: NavItem[] = [
   { id: "resources", label: "Recursos", icon: FolderOpen },
   { id: "messages", label: "Comunicación", icon: MessageSquareText },
   { id: "weeklyLoad", label: "Metricas", icon: LineChart },
+  { id: "athleteProfile", label: "Perfil", icon: Users },
   { id: "assessments", label: "Valoraciones", icon: LineChart },
   { id: "fatigue", label: "Fatiga", icon: Activity },
   { id: "routines", label: "Rutinas", icon: Dumbbell },
@@ -75,7 +77,7 @@ export const navItems: NavItem[] = [
 ];
 
 export const coachMainNavIds: SheetId[] = ["attention", "calendar", "training", "messages", "management", "progressions", "resources"];
-export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning"];
+export const athleteMainNavIds: SheetId[] = ["today", "calendar", "weeklyLoad", "training", "planning", "athleteProfile"];
 
 export const coachStats = [
   { label: "Clientes registrados", value: "24", trend: "+3 este mes" },
