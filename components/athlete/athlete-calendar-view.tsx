@@ -88,8 +88,7 @@ function hasRealSessionData(session: AthleteCalendarSession) {
 
 function getAthleteSessionStatus(session?: AthleteCalendarSession) {
   if (!session) return "Sin sesión";
-  if (session.reviewStatus === "reviewed") return "Revisada";
-  if (hasRealSessionData(session)) return session.reviewStatus === "pending" ? "Pendiente de revisar" : "Completada";
+  if (hasRealSessionData(session)) return "Completada";
   return "Planificada";
 }
 
@@ -102,6 +101,7 @@ function getStatusClass(status: string) {
 }
 
 export function AthleteCalendarView({ client }: { client: AthleteCalendarClient | null }) {
+  const todayKey = getLocalDateKey(new Date());
   const weekDays = useMemo(() => {
     const start = getWeekStartDate();
     return Array.from({ length: 7 }, (_, index) => {
@@ -125,6 +125,10 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
     });
     return grouped;
   }, [client?.sessionRecords]);
+  const today = weekDays.find((day) => day.key === todayKey);
+  const todaySessions = sessionsByDate.get(todayKey) ?? [];
+  const nextDayWithSessions = weekDays.find((day) => day.key > todayKey && (sessionsByDate.get(day.key)?.length ?? 0) > 0);
+  const nextSessions = nextDayWithSessions ? sessionsByDate.get(nextDayWithSessions.key) ?? [] : [];
 
   if (!client) {
     return (
@@ -139,13 +143,36 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
       <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Calendario</h2>
-            <p className="mt-1 text-sm text-ink/60">Semana actual de entrenamientos de {displayValue(client.name, "tu planificación")}.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Mi semana actual</p>
+            <h2 className="mt-1 text-lg font-semibold text-ink">Tus sesiones, de un vistazo</h2>
+            <p className="mt-1 text-sm text-ink/60">Plan semanal de {displayValue(client.name, "tu entrenamiento")}.</p>
           </div>
           <span className="w-fit rounded-md bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
             Lunes a domingo
           </span>
         </div>
+      </article>
+
+      <article className="rounded-md border border-line bg-gradient-to-r from-mint/70 to-white p-4 shadow-soft sm:p-5">
+        {todaySessions.length > 0 ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Hoy · {today?.shortDate}</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{displayValue(todaySessions[0].type, "Sesión programada")}</p>
+            <p className="mt-1 text-sm text-ink/60">{displayValue(todaySessions[0].summary, "Consulta el resumen de tu sesión.")}</p>
+          </div>
+        ) : nextDayWithSessions ? (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Próxima sesión · {nextDayWithSessions.label} {nextDayWithSessions.shortDate}</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{displayValue(nextSessions[0]?.type, "Sesión programada")}</p>
+            <p className="mt-1 text-sm text-ink/60">Hoy no tienes sesión. Tu próxima sesión ya está en el plan.</p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Resumen</p>
+            <p className="mt-1 text-lg font-semibold text-ink">No hay más sesiones programadas esta semana</p>
+            <p className="mt-1 text-sm text-ink/60">Puedes consultar debajo las sesiones ya realizadas.</p>
+          </div>
+        )}
       </article>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">

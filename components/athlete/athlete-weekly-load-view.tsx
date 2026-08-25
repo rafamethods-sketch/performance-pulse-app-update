@@ -314,31 +314,31 @@ function getLoadIndex(totalSrpe: number) {
     return {
       barClassName: "bg-red-500",
       className: "bg-red-50 text-red-700",
-      label: "Muy alta",
-      message: "Carga muy alta. Coméntalo con tu entrenador si notas fatiga."
+      label: "A vigilar",
+      message: "Conviene revisar cómo te has sentido con tu entrenador."
     };
   }
   if (totalSrpe >= 450) {
     return {
       barClassName: "bg-amber-500",
       className: "bg-amber-100 text-amber-800",
-      label: "Alta",
-      message: "Carga alta. Cuida la recuperación."
+      label: "Conviene revisar",
+      message: "Semana exigente: prioriza descanso y recuperación."
     };
   }
   if (totalSrpe >= 200) {
     return {
       barClassName: "bg-steel",
       className: "bg-blue-50 text-blue-700",
-      label: "Moderada",
-      message: "Carga moderada."
+      label: "En línea",
+      message: "Actividad reciente dentro de una semana moderada."
     };
   }
   return {
     barClassName: "bg-moss",
     className: "bg-mint text-moss",
-    label: "Baja",
-    message: "Carga baja esta semana."
+    label: "Semana ligera",
+    message: "Poca actividad completada esta semana."
   };
 }
 
@@ -378,7 +378,8 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   if (!client || weeklySessions.length === 0) {
     return (
       <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center text-sm font-semibold text-ink/55 shadow-soft">
-        Todavía no hay suficientes sesiones registradas esta semana.
+        <p className="text-base text-ink">Aún no hay progreso registrado esta semana.</p>
+        <p className="mt-2 font-medium text-ink/55">Cuando completes una sesión, aquí verás un resumen sencillo de tu actividad.</p>
       </div>
     );
   }
@@ -388,32 +389,29 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
       <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Carga semanal</h2>
-            <p className="mt-1 text-sm text-ink/60">Resumen simple de las sesiones completadas esta semana.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Resumen</p>
+            <h2 className="mt-1 text-lg font-semibold text-ink">Tu progreso esta semana</h2>
+            <p className="mt-1 text-sm text-ink/60">Actividad completada y lectura orientativa de la carga reciente.</p>
           </div>
           <span className={`w-fit rounded-md px-3 py-1 text-sm font-semibold ${loadIndex.className}`}>
             {loadIndex.label}
           </span>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
-          <ClientInfoCard label="sRPE semanal" value={`${totalSrpe} UA`} />
-          <ClientInfoCard label="Tonelaje total" value={`${Math.round(totalTonnage).toLocaleString("es-ES")} kg`} />
-          <ClientInfoCard label="Sesiones de fuerza" value={`${strengthSessions.length}`} />
-          <ClientInfoCard label="Sesiones de cardio" value={`${cardioSessions.length}`} />
+          <ClientInfoCard label="Sesiones completadas" value={`${weeklySessions.length}`} />
+          <ClientInfoCard label="Cumplimiento" value={adherence !== null ? `${adherence}%` : "Sin plan semanal"} />
+          <ClientInfoCard label="Fuerza" value={`${strengthSessions.length} sesiones`} />
+          <ClientInfoCard label="Resistencia" value={`${cardioSessions.length} sesiones`} />
         </div>
-        {adherence !== null ? (
-          <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm font-semibold text-ink/70">
-            Adherencia semanal: {adherence}%
-          </div>
-        ) : null}
         <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold text-ink">Índice visual de carga</p>
+            <p className="font-semibold text-ink">Carga reciente</p>
             <p className="text-sm font-medium text-ink/65">{loadIndex.message}</p>
           </div>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
             <div className={`h-full rounded-full ${loadIndex.barClassName}`} style={{ width: `${Math.min(100, (totalSrpe / 700) * 100)}%` }} />
           </div>
+          <p className="mt-2 text-xs text-ink/50">Lectura orientativa basada en la duración y el esfuerzo que has registrado.</p>
         </div>
       </article>
 
@@ -430,7 +428,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
                     <p className="font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
                     <p className="text-sm text-ink/55">{displayValue(session.date, "Sin fecha")}</p>
                   </div>
-                  <span className="text-sm font-semibold text-moss">{srpe} UA</span>
+                  <span className="text-sm font-semibold text-moss">Carga {srpe} UA</span>
                 </div>
                 <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
                   <div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
@@ -441,6 +439,18 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
         </div>
       </article>
 
+      <details className="group rounded-md border border-line bg-white shadow-soft">
+        <summary className="cursor-pointer list-none p-4 font-semibold text-ink sm:p-5">
+          Ver detalle de carga y actividad
+          <span className="ml-2 text-sm font-medium text-ink/50 group-open:hidden">+</span>
+          <span className="ml-2 hidden text-sm font-medium text-ink/50 group-open:inline">−</span>
+        </summary>
+        <div className="grid gap-4 border-t border-line p-3 sm:p-5">
+          <div className="grid grid-cols-2 gap-2">
+            <ClientInfoCard label="Carga acumulada" value={`${totalSrpe} UA`} />
+            <ClientInfoCard label="Volumen de fuerza" value={`${Math.round(totalTonnage).toLocaleString("es-ES")} kg`} />
+          </div>
+          <p className="text-xs text-ink/50">UA resume duración × esfuerzo percibido; úsalo como referencia para comparar semanas.</p>
       <section className="grid gap-4">
         <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
           <h3 className="font-semibold text-ink">Series semanales por patrón de movimiento</h3>
@@ -581,6 +591,8 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
           </p>
         ) : null}
       </article>
+        </div>
+      </details>
     </section>
   );
 }

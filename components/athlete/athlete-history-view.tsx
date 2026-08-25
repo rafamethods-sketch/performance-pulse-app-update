@@ -302,9 +302,8 @@ function getAthleteSessionNotes(session: ReviewSessionRecord) {
 }
 
 function getAthleteSessionReviewLabel(session: ReviewSessionRecord) {
-  if (session.reviewStatus === "reviewed") return "Revisada";
-  if (session.reviewStatus === "pending" || hasRealSessionData(session)) return "Pendiente de revisar";
-  return "Enviada";
+  if (hasRealSessionData(session)) return "Completada";
+  return "Pendiente";
 }
 
 function getAthleteResistanceMethodLabel(method?: ResistanceMethod | null) {
@@ -391,8 +390,8 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
 }
 
 function getHistoryBadgeClass(label: string) {
-  if (label === "Revisada") return "bg-mint text-moss";
-  if (label === "Pendiente de revisar") return "bg-amber-100 text-amber-800";
+  if (label === "Completada") return "bg-mint text-moss";
+  if (label === "Pendiente") return "bg-amber-100 text-amber-800";
   return "bg-blue-50 text-blue-700";
 }
 
@@ -428,8 +427,9 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
   return (
     <section className="mt-4 rounded-md border border-line bg-white p-3 shadow-soft sm:mt-5 sm:p-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-ink">Historial</h2>
-        <p className="text-sm text-ink/60">Sesiones completadas y enviadas al entrenador.</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-moss">Sesiones anteriores</p>
+        <h2 className="mt-1 text-lg font-semibold text-ink">Tu historial de entrenamiento</h2>
+        <p className="text-sm text-ink/60">Consulta lo esencial de cada sesión y abre el detalle cuando lo necesites.</p>
       </div>
 
       {sessions.length > 0 ? (
@@ -457,6 +457,11 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
             const sentTechniqueVideos = performedExercises.filter((exercise) => hasDisplayValue(exercise.techniqueVideoUrl));
             const quickFeedbackLabel = getAthleteQuickFeedbackLabel(session.athleteQuickFeedback);
+            const mainExerciseNames = (performedExercises.length > 0 ? performedExercises : plannedExercises)
+              .map(getExerciseLabel)
+              .filter(Boolean)
+              .slice(0, 3);
+            const distance = session.cardioResult?.distanceMeters;
 
             return (
               <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={sessionKey}>
@@ -465,15 +470,19 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     <p className="text-xs font-semibold uppercase text-ink/45">{displayValue(session.date, "Sin fecha")}</p>
                     <h3 className="mt-1 font-semibold text-ink">{displayValue(session.type, "Sesión")}</h3>
                     <p className="mt-1 text-sm text-ink/60">{displayValue(session.summary, "Sin resumen")}</p>
+                    {mainExerciseNames.length > 0 ? (
+                      <p className="mt-2 text-xs font-medium text-ink/50">Principales: {mainExerciseNames.join(" · ")}</p>
+                    ) : null}
                   </div>
                   <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${getHistoryBadgeClass(getAthleteSessionReviewLabel(session))}`}>
                     {getAthleteSessionReviewLabel(session)}
                   </span>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2">
+                <div className={`mt-3 grid gap-1.5 sm:mt-4 sm:gap-2 ${hasDisplayValue(distance) ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
                   <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
                   <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
                   <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                  {hasDisplayValue(distance) ? <ClientInfoCard label="Distancia" value={formatResistanceDistance(distance)} /> : null}
                 </div>
                 {sentTechniqueVideos.length > 0 ? (
                   <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
