@@ -139,6 +139,7 @@ type CoachClient = {
 
 type CoachAttentionItem = {
   action: "session" | "details" | "progress" | "assessments";
+  ankleRelated?: boolean;
   badge?: string;
   clientId: string;
   clientName: string;
@@ -150,6 +151,11 @@ type CoachAttentionItem = {
   sessionIndex?: number;
   title: string;
 };
+
+function isAnkleRelatedDiscomfort(discomfort?: ReviewSessionRecord["discomfort"]) {
+  const text = [discomfort?.bodyArea, discomfort?.exerciseName, discomfort?.notes].filter(Boolean).join(" ").toLocaleLowerCase("es");
+  return ["tobillo", "pie", "gemelo", "aquiles", "pantorrilla", "parte inferior de la pierna"].some((keyword) => text.includes(keyword));
+}
 
 const attentionFilterLabels: Record<AttentionFilter, string> = {
   alerts: "Avisos",
@@ -576,6 +582,7 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
         const discomfort = session.discomfort;
         items.push({
           action: "session",
+          ankleRelated: isAnkleRelatedDiscomfort(discomfort),
           badge: discomfort?.intensity ? `${discomfort.intensity}/10` : "Molestia",
           clientId: client.id,
           clientName: client.name,
@@ -767,12 +774,14 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 
 export function CoachAttentionCenter({
   clients,
+  onOpenAnkleAssessment,
   onOpenClientAssessments,
   onOpenClientDetails,
   onOpenClientProgress,
   onOpenTrainingSession
 }: {
   clients: CoachClient[];
+  onOpenAnkleAssessment: (clientId: string) => void;
   onOpenClientAssessments: (clientId: string) => void;
   onOpenClientDetails: (clientId: string) => void;
   onOpenClientProgress: (clientId: string) => void;
@@ -901,6 +910,12 @@ export function CoachAttentionCenter({
                       ) : null}
                     </div>
                     {item.detail ? <p className="mt-3 text-sm text-ink/65">{item.detail}</p> : null}
+                    {item.ankleRelated ? (
+                      <div className="mt-3 rounded-md border border-line bg-white p-3">
+                        <p className="text-sm text-ink/65">Molestia reportada en zona tobillo/pie. Puedes hacer una valoración breve si lo consideras necesario.</p>
+                        <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenAnkleAssessment(item.clientId)} type="button">Valorar tobillo</button>
+                      </div>
+                    ) : null}
                     <button
                       className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
                       onClick={() => openItem(item)}

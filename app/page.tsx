@@ -30,6 +30,7 @@ import { AthleteTodayView } from "@/components/athlete/athlete-today-view";
 import { AthleteWeeklyLoadView } from "@/components/athlete/athlete-weekly-load-view";
 import { CalendarView } from "@/components/coach/coach-calendar-view";
 import { CoachAttentionCenter } from "@/components/coach/coach-attention-center";
+import { CoachAnkleAssessment } from "@/components/coach/coach-ankle-assessment";
 import { CoachAnalyticsView } from "@/components/coach/coach-analytics-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
 import { CoachMessagesView } from "@/components/coach/coach-messages-view";
@@ -37,6 +38,7 @@ import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import type { TargetTrainingSession } from "@/components/coach/types";
+import type { AnkleAssessment } from "@/lib/ankle-assessment";
 import {
   acwrRanges,
   calculateACWR,
@@ -170,6 +172,7 @@ export default function ClientsPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [scopedClientId, setScopedClientId] = useState("");
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
+  const [ankleAssessmentClientId, setAnkleAssessmentClientId] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [coachDataHydrated, setCoachDataHydrated] = useState(false);
   const [resources, setResources] = useState<ResourceLink[]>([]);
@@ -364,6 +367,11 @@ export default function ClientsPage() {
   function openTrainingSession(clientId: string, target?: TargetTrainingSession) {
     setTargetTrainingSession(target ?? null);
     openClientSheet(clientId, "training");
+  }
+
+  function openAnkleAssessment(clientId: string) {
+    setAnkleAssessmentClientId(clientId);
+    openClientSheet(clientId, "assessments");
   }
 
   function openTrainingDraft(target: TargetTrainingSession) {
@@ -813,6 +821,7 @@ export default function ClientsPage() {
             role === "coach" ? (
               <CoachAttentionCenter
                 clients={clients}
+                onOpenAnkleAssessment={openAnkleAssessment}
                 onOpenClientAssessments={(clientId) => openClientSheet(clientId, "assessments")}
                 onOpenClientDetails={(clientId) => openClientPanel(clientId, "details")}
                 onOpenClientProgress={(clientId) => openClientSheet(clientId, "clientProgress")}
@@ -824,6 +833,8 @@ export default function ClientsPage() {
           ) : activeSheet === "assessments" ? (
             <AssessmentsView
               client={role === "coach" ? scopedClient : null}
+              onConsumeAnkleRequest={() => setAnkleAssessmentClientId("")}
+              openAnkleOnLoad={Boolean(scopedClient && ankleAssessmentClientId === scopedClient.id)}
               onUpdateClient={(updatedClient) =>
                 setClients((currentClients) =>
                   currentClients.map((listedClient) =>
@@ -1205,6 +1216,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessStartDate?: string;
   assessmentPreferences?: AssessmentPreferences;
   assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
+  ankleAssessments?: AnkleAssessment[];
   availableEquipment?: string;
   business?: ClientBusinessData;
   calendarEvents?: CoachCalendarEvent[];
@@ -2157,13 +2169,13 @@ function buildDemoClient(): CoachClient {
     createDemoCardioSession(getDemoWeekDayOffset(4), true),
     createDemoCyclingResistanceSession(getDemoWeekDayOffset(4)),
     createDemoSession({
-      dayOffset: getDemoWeekDayOffset(5),
+      dayOffset: -1,
       discomfort: {
-        bodyArea: "Rodilla izquierda",
-        exerciseName: "Bulgarian split squat",
+        bodyArea: "Tobillo derecho",
+        exerciseName: "Elevación de gemelo",
         hasDiscomfort: true,
         intensity: 3,
-        notes: "Molestia leve durante las últimas repeticiones.",
+        notes: "Molestia leve al final de las repeticiones.",
         phase: "Final de la serie"
       },
       duration: 70,
@@ -8364,12 +8376,17 @@ function buildAssessmentGroups(assessments: AssessmentEntry[]) {
 }
 function AssessmentsView({
   client,
+  onConsumeAnkleRequest,
+  openAnkleOnLoad,
   onUpdateClient
 }: {
   client?: CoachClient | null;
+  onConsumeAnkleRequest?: () => void;
+  openAnkleOnLoad?: boolean;
   onUpdateClient?: (updatedClient: CoachClient) => void;
 }) {
   const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
+  const [showAnkleAssessment, setShowAnkleAssessment] = useState(false);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
@@ -8387,6 +8404,12 @@ function AssessmentsView({
     setEditingAssessmentIndex(null);
     setSelectedEvolutionKey(null);
   }, [client?.id]);
+
+  useEffect(() => {
+    if (!openAnkleOnLoad) return;
+    setShowAnkleAssessment(true);
+    onConsumeAnkleRequest?.();
+  }, [onConsumeAnkleRequest, openAnkleOnLoad]);
 
   useEffect(() => {
     if (!showNewAssessmentForm && !selectedEvolutionGroup) return;
@@ -8605,6 +8628,18 @@ function AssessmentsView({
       </section>
 
       <section className="coach-surface rounded-md p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
+            <h3 className="mt-1 font-semibold text-ink">Tobillo v1</h3>
+            <p className="mt-1 text-sm text-ink/55">Evaluación breve por dominios para ordenar información y facilitar retests.</p>
+            {client?.ankleAssessments?.length ? <p className="mt-2 text-xs font-semibold text-ink/50">{client.ankleAssessments.length} valoración(es) guardada(s) · última {formatDisplayDate(client.ankleAssessments[0].date)}</p> : null}
+          </div>
+          <button className="w-fit rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45" disabled={!client} onClick={() => setShowAnkleAssessment(true)} type="button">+ Valoración de tobillo</button>
+        </div>
+      </section>
+
+      <section className="coach-surface rounded-md p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Valoraciones principales</h3>
@@ -8726,6 +8761,15 @@ function AssessmentsView({
             </footer>
           </form>
         </div>
+      ) : null}
+
+      {showAnkleAssessment && client && onUpdateClient ? (
+        <CoachAnkleAssessment
+          clientName={client.name}
+          history={client.ankleAssessments ?? []}
+          onClose={() => setShowAnkleAssessment(false)}
+          onSave={(assessment) => onUpdateClient({ ...client, ankleAssessments: [assessment, ...(client.ankleAssessments ?? [])] })}
+        />
       ) : null}
 
       {selectedEvolutionGroup ? (
