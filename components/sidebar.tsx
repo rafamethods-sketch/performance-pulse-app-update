@@ -52,9 +52,13 @@ export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollaps
           const isActive = item.id === activeSheet;
           const label = role === "athlete" && item.id === "training"
             ? "Historial"
+            : role === "athlete" && item.id === "calendar"
+              ? "Semana"
             : role === "athlete" && item.id === "weeklyLoad"
-              ? "Carga semanal"
-              : item.label;
+              ? "Progreso"
+              : role === "athlete" && item.id === "messages"
+                ? "Mensajes"
+                : item.label;
           return (
             <button
               aria-label={label}

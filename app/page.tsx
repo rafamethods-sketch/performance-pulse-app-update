@@ -599,11 +599,11 @@ export default function ClientsPage() {
     if (activeSheet === "analytics") return "Métricas";
     if (activeSheet === "training") return role === "coach" && scopedClient ? `Sesiones - ${scopedClient.name}` : role === "coach" ? "Entrenamiento" : "Historial";
     if (activeSheet === "assessments") return role === "coach" && scopedClient ? `Valoraciones - ${scopedClient.name}` : "Valoraciones";
-    if (activeSheet === "calendar") return "Calendario";
+    if (activeSheet === "calendar") return role === "coach" ? "Calendario" : "Semana";
     if (activeSheet === "clientProgress") return role === "coach" && scopedClient ? `Progreso - ${scopedClient.name}` : "Progreso";
     if (activeSheet === "clientWellness") return role === "coach" && scopedClient ? `Bienestar - ${scopedClient.name}` : "Bienestar";
     if (activeSheet === "fatigue") return "Fatiga";
-    if (activeSheet === "weeklyLoad") return role === "coach" ? "Métricas" : "Carga semanal";
+    if (activeSheet === "weeklyLoad") return role === "coach" ? "Métricas" : "Progreso";
     if (activeSheet === "planning") return role === "coach" && scopedClient ? `Planificación - ${scopedClient.name}` : "Planificación";
     if (activeSheet === "athleteProfile") return "Perfil";
     if (activeSheet === "progressions") return "Biblioteca";
