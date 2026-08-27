@@ -140,6 +140,7 @@ type CoachClient = {
 type CoachAttentionItem = {
   action: "session" | "details" | "progress" | "assessments";
   ankleRelated?: boolean;
+  kneeRelated?: boolean;
   badge?: string;
   clientId: string;
   clientName: string;
@@ -155,6 +156,11 @@ type CoachAttentionItem = {
 function isAnkleRelatedDiscomfort(discomfort?: ReviewSessionRecord["discomfort"]) {
   const text = [discomfort?.bodyArea, discomfort?.exerciseName, discomfort?.notes].filter(Boolean).join(" ").toLocaleLowerCase("es");
   return ["tobillo", "pie", "gemelo", "aquiles", "pantorrilla", "parte inferior de la pierna"].some((keyword) => text.includes(keyword));
+}
+
+function isKneeRelatedDiscomfort(discomfort?: ReviewSessionRecord["discomfort"]) {
+  const text = [discomfort?.bodyArea, discomfort?.exerciseName, discomfort?.notes].filter(Boolean).join(" ").toLocaleLowerCase("es");
+  return ["rodilla", "rótula", "rotula", "poplíteo", "popliteo", "tibia proximal"].some((keyword) => text.includes(keyword));
 }
 
 const attentionFilterLabels: Record<AttentionFilter, string> = {
@@ -583,6 +589,7 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
         items.push({
           action: "session",
           ankleRelated: isAnkleRelatedDiscomfort(discomfort),
+          kneeRelated: isKneeRelatedDiscomfort(discomfort),
           badge: discomfort?.intensity ? `${discomfort.intensity}/10` : "Molestia",
           clientId: client.id,
           clientName: client.name,
@@ -775,6 +782,7 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 export function CoachAttentionCenter({
   clients,
   onOpenAnkleAssessment,
+  onOpenKneeAssessment,
   onOpenClientAssessments,
   onOpenClientDetails,
   onOpenClientProgress,
@@ -782,6 +790,7 @@ export function CoachAttentionCenter({
 }: {
   clients: CoachClient[];
   onOpenAnkleAssessment: (clientId: string) => void;
+  onOpenKneeAssessment: (clientId: string) => void;
   onOpenClientAssessments: (clientId: string) => void;
   onOpenClientDetails: (clientId: string) => void;
   onOpenClientProgress: (clientId: string) => void;
@@ -914,6 +923,12 @@ export function CoachAttentionCenter({
                       <div className="mt-3 rounded-md border border-line bg-white p-3">
                         <p className="text-sm text-ink/65">Molestia reportada en zona tobillo/pie. Puedes hacer una valoración breve si lo consideras necesario.</p>
                         <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenAnkleAssessment(item.clientId)} type="button">Valorar tobillo</button>
+                      </div>
+                    ) : null}
+                    {item.kneeRelated ? (
+                      <div className="mt-3 rounded-md border border-line bg-white p-3">
+                        <p className="text-sm text-ink/65">Molestia reportada en zona de rodilla. Puedes hacer una valoración funcional breve si lo consideras necesario.</p>
+                        <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenKneeAssessment(item.clientId)} type="button">Valorar rodilla</button>
                       </div>
                     ) : null}
                     <button

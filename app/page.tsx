@@ -31,6 +31,7 @@ import { AthleteWeeklyLoadView } from "@/components/athlete/athlete-weekly-load-
 import { CalendarView } from "@/components/coach/coach-calendar-view";
 import { CoachAttentionCenter } from "@/components/coach/coach-attention-center";
 import { CoachAnkleAssessment } from "@/components/coach/coach-ankle-assessment";
+import { CoachKneeAssessment } from "@/components/coach/coach-knee-assessment";
 import { CoachAnalyticsView } from "@/components/coach/coach-analytics-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
 import { CoachMessagesView } from "@/components/coach/coach-messages-view";
@@ -39,6 +40,7 @@ import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import { ankleDomainLabels, ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
+import { getKneeDomainStatuses, kneeDomainLabels, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
 import {
   acwrRanges,
   calculateACWR,
@@ -173,6 +175,7 @@ export default function ClientsPage() {
   const [scopedClientId, setScopedClientId] = useState("");
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
   const [ankleAssessmentClientId, setAnkleAssessmentClientId] = useState("");
+  const [kneeAssessmentClientId, setKneeAssessmentClientId] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [coachDataHydrated, setCoachDataHydrated] = useState(false);
   const [resources, setResources] = useState<ResourceLink[]>([]);
@@ -371,6 +374,11 @@ export default function ClientsPage() {
 
   function openAnkleAssessment(clientId: string) {
     setAnkleAssessmentClientId(clientId);
+    openClientSheet(clientId, "assessments");
+  }
+
+  function openKneeAssessment(clientId: string) {
+    setKneeAssessmentClientId(clientId);
     openClientSheet(clientId, "assessments");
   }
 
@@ -822,6 +830,7 @@ export default function ClientsPage() {
               <CoachAttentionCenter
                 clients={clients}
                 onOpenAnkleAssessment={openAnkleAssessment}
+                onOpenKneeAssessment={openKneeAssessment}
                 onOpenClientAssessments={(clientId) => openClientSheet(clientId, "assessments")}
                 onOpenClientDetails={(clientId) => openClientPanel(clientId, "details")}
                 onOpenClientProgress={(clientId) => openClientSheet(clientId, "clientProgress")}
@@ -834,7 +843,9 @@ export default function ClientsPage() {
             <AssessmentsView
               client={role === "coach" ? scopedClient : null}
               onConsumeAnkleRequest={() => setAnkleAssessmentClientId("")}
+              onConsumeKneeRequest={() => setKneeAssessmentClientId("")}
               openAnkleOnLoad={Boolean(scopedClient && ankleAssessmentClientId === scopedClient.id)}
+              openKneeOnLoad={Boolean(scopedClient && kneeAssessmentClientId === scopedClient.id)}
               onUpdateClient={(updatedClient) =>
                 setClients((currentClients) =>
                   currentClients.map((listedClient) =>
@@ -1217,6 +1228,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   assessmentPreferences?: AssessmentPreferences;
   assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
   ankleAssessments?: AnkleAssessment[];
+  kneeAssessments?: KneeAssessment[];
   availableEquipment?: string;
   business?: ClientBusinessData;
   calendarEvents?: CoachCalendarEvent[];
@@ -8377,17 +8389,23 @@ function buildAssessmentGroups(assessments: AssessmentEntry[]) {
 function AssessmentsView({
   client,
   onConsumeAnkleRequest,
+  onConsumeKneeRequest,
   openAnkleOnLoad,
+  openKneeOnLoad,
   onUpdateClient
 }: {
   client?: CoachClient | null;
   onConsumeAnkleRequest?: () => void;
+  onConsumeKneeRequest?: () => void;
   openAnkleOnLoad?: boolean;
+  openKneeOnLoad?: boolean;
   onUpdateClient?: (updatedClient: CoachClient) => void;
 }) {
   const [showNewAssessmentForm, setShowNewAssessmentForm] = useState(false);
   const [showAnkleAssessment, setShowAnkleAssessment] = useState(false);
   const [selectedAnkleAssessment, setSelectedAnkleAssessment] = useState<AnkleAssessment | null>(null);
+  const [showKneeAssessment, setShowKneeAssessment] = useState(false);
+  const [selectedKneeAssessment, setSelectedKneeAssessment] = useState<KneeAssessment | null>(null);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
@@ -8405,6 +8423,9 @@ function AssessmentsView({
     setEditingAssessmentIndex(null);
     setSelectedEvolutionKey(null);
     setSelectedAnkleAssessment(null);
+    setShowAnkleAssessment(false);
+    setSelectedKneeAssessment(null);
+    setShowKneeAssessment(false);
   }, [client?.id]);
 
   useEffect(() => {
@@ -8412,6 +8433,13 @@ function AssessmentsView({
     setShowAnkleAssessment(true);
     onConsumeAnkleRequest?.();
   }, [onConsumeAnkleRequest, openAnkleOnLoad]);
+
+  useEffect(() => {
+    if (!openKneeOnLoad) return;
+    setSelectedKneeAssessment(null);
+    setShowKneeAssessment(true);
+    onConsumeKneeRequest?.();
+  }, [onConsumeKneeRequest, openKneeOnLoad]);
 
   useEffect(() => {
     if (!showNewAssessmentForm && !selectedEvolutionGroup) return;
@@ -8633,6 +8661,23 @@ function AssessmentsView({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
+            <h3 className="mt-1 font-semibold text-ink">Rodilla v1</h3>
+            <p className="mt-1 text-sm text-ink/55">Valoración breve de tolerancia, movilidad, fuerza, control y performance.</p>
+            <p className="mt-2 text-xs font-semibold text-ink/50">{client?.kneeAssessments?.length ?? 0} valoraciones{client?.kneeAssessments?.length ? ` · última ${formatDisplayDate(client.kneeAssessments[0].date)}` : " · sin registros todavía"}</p>
+          </div>
+          <button className="w-fit rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45" disabled={!client} onClick={() => { setSelectedKneeAssessment(null); setShowKneeAssessment(true); }} type="button">{client?.kneeAssessments?.length ? "Repetir valoración" : "+ Valoración de rodilla"}</button>
+        </div>
+        {client?.kneeAssessments?.length ? <div className="mt-4 grid gap-2">{client.kneeAssessments.map((assessment) => {
+          const statuses = getKneeDomainStatuses(assessment);
+          const tones: Record<KneeDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-orange-50 text-orange-800" };
+          return <article className="rounded-md border border-line bg-white p-3" key={assessment.id}><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(statuses).map(([domain, status]) => <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${tones[status]}`} key={domain}>{kneeDomainLabels[domain as keyof typeof kneeDomainLabels]} · {kneeStatusLabels[status]}</span>)}</div></div><button className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => { setSelectedKneeAssessment(assessment); setShowKneeAssessment(true); }} type="button">Ver valoración</button></div></article>;
+        })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
+      </section>
+
+      <section className="coach-surface rounded-md p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
             <h3 className="mt-1 font-semibold text-ink">Tobillo v1</h3>
             <p className="mt-1 text-sm text-ink/55">Evaluación breve por dominios para ordenar información y facilitar retests.</p>
             <p className="mt-2 text-xs font-semibold text-ink/50">{client?.ankleAssessments?.length ?? 0} valoraciones{client?.ankleAssessments?.length ? ` · última ${formatDisplayDate(client.ankleAssessments[0].date)}` : " · sin registros todavía"}</p>
@@ -8641,7 +8686,7 @@ function AssessmentsView({
         </div>
         {client?.ankleAssessments?.length ? <div className="mt-4 grid gap-2">{client.ankleAssessments.map((assessment) => {
           const ankleStatuses = getAnkleDomainStatuses(assessment);
-          const ankleTone: Record<AnkleDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-red-50/60 text-red-700" };
+          const ankleTone: Record<AnkleDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-orange-50 text-orange-800" };
           return <article className="rounded-md border border-line bg-white p-3" key={assessment.id}><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(ankleStatuses).map(([domain, status]) => <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${ankleTone[status]}`} key={domain}>{ankleDomainLabels[domain as keyof typeof ankleDomainLabels]} · {ankleStatusLabels[status]}</span>)}</div></div><button className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => { setSelectedAnkleAssessment(assessment); setShowAnkleAssessment(true); }} type="button">Ver valoración</button></div></article>;
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
       </section>
@@ -8778,6 +8823,17 @@ function AssessmentsView({
           onClose={() => { setShowAnkleAssessment(false); setSelectedAnkleAssessment(null); }}
           onSave={(assessment) => onUpdateClient({ ...client, ankleAssessments: [assessment, ...(client.ankleAssessments ?? [])] })}
           readOnly={Boolean(selectedAnkleAssessment)}
+        />
+      ) : null}
+
+      {showKneeAssessment && client && onUpdateClient ? (
+        <CoachKneeAssessment
+          assessment={selectedKneeAssessment ?? undefined}
+          clientName={client.name}
+          history={client.kneeAssessments ?? []}
+          onClose={() => { setShowKneeAssessment(false); setSelectedKneeAssessment(null); }}
+          onSave={(assessment) => onUpdateClient({ ...client, kneeAssessments: [assessment, ...(client.kneeAssessments ?? [])] })}
+          readOnly={Boolean(selectedKneeAssessment)}
         />
       ) : null}
 

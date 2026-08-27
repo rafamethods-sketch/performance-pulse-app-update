@@ -5,6 +5,8 @@ export type AnkleComparisonAnswer = "yes" | "no" | "inconclusive";
 export type AnkleAssessment = {
   id: string;
   date: string;
+  painLocation?: string;
+  customPainLocation?: string;
   anchorTask: string;
   customTask?: string;
   taskStatus?: AnkleTaskStatus;
