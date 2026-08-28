@@ -10,12 +10,17 @@ const statusOrder: Record<KneeDomainStatus, number> = { priority: 0, finding: 1,
 const painLocations = ["Cara anterior de la rodilla", "Cara medial", "Cara lateral", "Cara posterior", "Región rotuliana", "Tendón rotuliano", "Región cuadricipital distal", "Línea articular medial", "Línea articular lateral", "Hueco poplíteo", "Tibia proximal", "Otra"];
 const tasks = ["Sentadilla", "Zancada / split squat", "Subir / bajar escaleras", "Correr", "Salto", "Aterrizaje", "Cambio de dirección", "Arrodillarse", "Otra"];
 const kneeMapPoints = [
-  { label: "Región cuadricipital distal", x: 70, y: 92 },
-  { label: "Cara anterior de la rodilla", x: 70, y: 122 },
-  { label: "Cara medial", x: 48, y: 124 },
-  { label: "Cara lateral", x: 92, y: 124 },
-  { label: "Tendón rotuliano", x: 70, y: 145 },
-  { label: "Tibia proximal", x: 70, y: 164 }
+  { height: 12, label: "Región cuadricipital distal", view: "front" as const, width: 24, x: 38, y: 24 },
+  { height: 16, label: "Cara anterior de la rodilla", view: "front" as const, width: 22, x: 39, y: 36 },
+  { height: 12, label: "Región rotuliana", view: "front" as const, width: 16, x: 42, y: 38 },
+  { height: 10, label: "Tendón rotuliano", view: "front" as const, width: 14, x: 43, y: 50 },
+  { height: 12, label: "Tibia proximal", view: "front" as const, width: 22, x: 39, y: 58 },
+  { height: 18, label: "Cara medial", view: "front" as const, width: 14, x: 28, y: 38 },
+  { height: 18, label: "Cara lateral", view: "front" as const, width: 14, x: 58, y: 38 },
+  { height: 8, label: "Línea articular medial", view: "front" as const, width: 14, x: 30, y: 45 },
+  { height: 8, label: "Línea articular lateral", view: "front" as const, width: 14, x: 57, y: 45 },
+  { height: 18, label: "Cara posterior", view: "posterior" as const, width: 24, x: 38, y: 37 },
+  { height: 12, label: "Hueco poplíteo", view: "posterior" as const, width: 20, x: 40, y: 40 }
 ];
 
 const emptyKneeAssessment = (): KneeAssessment => ({
@@ -83,7 +88,7 @@ export function CoachKneeAssessment({ assessment, clientName, history, onClose, 
                 <div><p className="text-sm font-semibold text-ink">Localización del dolor / molestia</p><p className="mt-1 text-xs text-ink/50">Selecciona una zona o utiliza el mapa orientativo.</p></div>
                 <select className="h-10 rounded-md border border-line bg-white px-3 text-sm" disabled={readOnly} onChange={(event) => update("painLocation", event.target.value)} value={draft.painLocation ?? ""}><option value="">Sin responder</option>{painLocations.map((location) => <option key={location}>{location}</option>)}</select>
                 {draft.painLocation === "Otra" ? <label className="text-sm font-semibold text-ink">¿Dónde la notas?<input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-3 font-normal" disabled={readOnly} onChange={(event) => update("customPainLocation", event.target.value)} value={draft.customPainLocation ?? ""} /></label> : null}
-                <FunctionalPainMap disabled={readOnly} onChange={(location) => update("painLocation", location)} points={kneeMapPoints} value={draft.painLocation} />
+                <FunctionalPainMap disabled={readOnly} frontImageSrc="/body-maps/knee-front.png" imageAlt="Mapa orientativo de rodilla" onChange={(location) => update("painLocation", location)} points={kneeMapPoints} posteriorImageSrc="/body-maps/knee-posterior.png" value={draft.painLocation} />
               </section>
 
               <section className="rounded-md border border-line bg-panel/25 p-3">
