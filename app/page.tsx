@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   BarChart3,
   CalendarDays,
+  ClipboardCheck,
+  Dumbbell,
   LogOut,
   Moon,
   Plus,
@@ -1000,59 +1002,123 @@ function LoginCover({
   }
 
   return (
-    <main className="theme-login-bg min-h-screen">
-      <div className="fixed right-4 top-4 z-10">
+    <main className="relative min-h-[100dvh] bg-white xl:h-[100dvh] xl:overflow-hidden">
+      <div className="absolute right-3 top-3 z-30 sm:right-4 sm:top-4">
         <ThemeSelector onThemeChange={onThemeChange} themePreference={themePreference} />
       </div>
-      <section className="mx-auto grid min-h-screen max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_0.72fr] lg:items-center">
-        <div className="flex min-h-[36vh] flex-col items-center justify-center px-2 py-8 sm:px-6 lg:min-h-[58vh]">
+
+      <section className="grid min-h-[100dvh] xl:h-[100dvh] xl:grid-cols-[minmax(0,1.55fr)_minmax(400px,1fr)]">
+        <div className="relative flex min-h-[280px] overflow-hidden bg-slate-950 text-white sm:min-h-[320px] md:min-h-[360px] xl:min-h-[100dvh]">
           <Image
-            alt="Rafa Methods"
-            className="h-auto w-full max-w-lg"
-            height={333}
-            src="/rafa-methods-logo-clean.png"
+            alt="Entrenamiento de fuerza en gimnasio"
+            className="object-cover object-[center_38%]"
+            fill
             priority
-            width={1161}
+            sizes="(min-width: 1280px) 61vw, 100vw"
+            src="/login/rac-login-hero.png"
           />
-          <p className="mt-6 text-center text-sm font-semibold uppercase tracking-[0.28em] text-ink/70 sm:text-base">
-            Train with intelligence
-          </p>
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/78 via-slate-950/38 to-blue-950/65" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-slate-950/20" />
+
+          <div className="relative z-10 flex w-full flex-col justify-end px-5 py-6 sm:px-10 sm:py-8 lg:px-12 lg:py-10 xl:px-16 xl:pb-24 xl:pt-14">
+            <div className="max-w-2xl">
+              <p className="text-[clamp(2rem,5vw,4.8rem)] font-black uppercase leading-[0.94] tracking-[-0.04em] drop-shadow-lg">
+                Entrenamiento
+                <span className="mt-1 block text-[#2589ff]">inteligente.</span>
+                <span className="mt-1 block">Resultados reales.</span>
+              </p>
+            </div>
+
+            <div className="mt-6 grid max-w-xl grid-cols-3 gap-1.5 border-t border-white/20 pt-4 sm:mt-8 sm:gap-5 sm:pt-5 xl:mt-14">
+              {[
+                { icon: <CalendarDays size={18} strokeWidth={1.8} />, label: "Planifica" },
+                { icon: <BarChart3 size={18} strokeWidth={1.8} />, label: "Monitoriza" },
+                { icon: <Target size={18} strokeWidth={1.8} />, label: "Progresa" }
+              ].map((item) => (
+                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-white/85 sm:gap-2 sm:text-xs sm:tracking-[0.13em]" key={item.label}>
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full border border-white/25 bg-white/10 text-[#4da0ff] backdrop-blur-sm sm:size-8">{item.icon}</span>
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 z-20 hidden h-12 items-center border-t border-white/10 bg-slate-950/30 px-8 backdrop-blur-sm xl:flex">
+            <p className="w-full truncate text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-white/25">
+              RAC System · Train with intelligence · Planifica · Monitoriza · Progresa
+            </p>
+          </div>
         </div>
 
-        <section className="p-2 sm:p-4">
-          <h2 className="text-xl font-semibold text-ink">Acceder</h2>
+        <section className="flex items-center justify-center bg-white px-5 py-10 sm:px-10 sm:py-12 lg:px-14 xl:px-10 xl:py-14 2xl:px-14">
+          <div className="w-full max-w-md">
+            <div className="flex flex-col items-center text-center">
+              <Image
+                alt="RAC System"
+                className="h-auto w-full max-w-[240px] object-contain sm:max-w-[280px] xl:max-w-[300px]"
+                height={724}
+                priority
+                src="/login/rac-system-logo.png"
+                width={2172}
+              />
+              <p className="mt-3 text-xs font-bold uppercase tracking-[0.3em] text-slate-500 sm:text-sm">
+                Train with intelligence
+              </p>
+            </div>
 
-          <button
-            className="mt-5 flex h-12 w-full items-center justify-center gap-3 rounded-md bg-ink text-sm font-semibold text-white transition hover:bg-ink/90"
-            onClick={handleGoogleLogin}
-            type="button"
-          >
-            <span className="grid size-6 place-items-center rounded-full bg-white text-xs font-bold text-ink">G</span>
-            Continuar con Google
-          </button>
-          {authMessage && (
-            <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm text-ink/70">
-              {authMessage}
+            <button
+              className="mt-9 flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#1677ff] px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(22,119,255,0.22)] transition hover:bg-[#0f65d9] hover:shadow-[0_12px_28px_rgba(22,119,255,0.28)]"
+              onClick={handleGoogleLogin}
+              type="button"
+            >
+              <span className="grid size-7 place-items-center rounded-full bg-white text-xs font-black text-[#1677ff]">G</span>
+              Continuar con Google
+            </button>
+            <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">
+              Accede con tu cuenta para guardar tu información y mantener tu progreso.
             </p>
-          )}
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <button
-              className="rounded-md bg-gradient-to-br from-steel to-moss px-4 py-4 text-left text-white transition hover:opacity-95"
-              onClick={() => onLogin("coach")}
-              type="button"
-            >
-              <span className="block text-sm font-semibold">Entrar como entrenador</span>
-              <span className="mt-2 block text-xs text-white/60">Panel, clientes, calendario y mensajes.</span>
-            </button>
-            <button
-              className="rounded-md border border-line bg-panel/45 px-4 py-4 text-left text-ink transition hover:bg-panel"
-              onClick={() => onLogin("athlete")}
-              type="button"
-            >
-              <span className="block text-sm font-semibold">Entrar como deportista</span>
-              <span className="mt-2 block text-xs text-ink/55">Mi entrenamiento, readiness y registro.</span>
-            </button>
+            {authMessage && (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {authMessage}
+              </p>
+            )}
+
+            <div className="my-6 flex items-center gap-3">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">o prueba la app como</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="grid gap-3">
+              <button
+                className="group flex min-h-16 w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-900 shadow-sm transition hover:border-[#1677ff]/45 hover:bg-blue-50/40 hover:shadow-md"
+                onClick={() => onLogin("coach")}
+                type="button"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-slate-950 text-white transition group-hover:bg-[#1677ff]">
+                  <ClipboardCheck size={20} strokeWidth={1.8} />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">Ver demo entrenador</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">Gestiona planificación, clientes y seguimiento.</span>
+                </span>
+              </button>
+
+              <button
+                className="group flex min-h-16 w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-900 shadow-sm transition hover:border-[#1677ff]/45 hover:bg-blue-50/40 hover:shadow-md"
+                onClick={() => onLogin("athlete")}
+                type="button"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#1677ff] transition group-hover:bg-[#1677ff] group-hover:text-white">
+                  <Dumbbell size={20} strokeWidth={1.8} />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">Ver demo deportista</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">Consulta tu entrenamiento y registra tu progreso.</span>
+                </span>
+              </button>
+            </div>
           </div>
         </section>
       </section>
