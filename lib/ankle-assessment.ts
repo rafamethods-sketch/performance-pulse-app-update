@@ -6,6 +6,7 @@ export type AnkleAssessment = {
   id: string;
   date: string;
   painLocation?: string;
+  painLocations?: string[];
   customPainLocation?: string;
   anchorTask: string;
   customTask?: string;
@@ -70,7 +71,7 @@ export const ankleDomainLabels: Record<"tolerance" | "rom" | "strength" | "contr
 export const ankleStatusLabels: Record<AnkleDomainStatus, string> = {
   incomplete: "Sin rellenar",
   adequate: "Adecuado",
-  finding: "Hallazgo",
+  finding: "A vigilar",
   priority: "Prioridad"
 };
 

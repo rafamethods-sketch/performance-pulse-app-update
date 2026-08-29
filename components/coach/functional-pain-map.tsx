@@ -12,20 +12,26 @@ export function FunctionalPainMap({
   imageAlt = "Mapa anatómico funcional",
   imageSrc,
   onChange,
+  onValuesChange,
   posteriorImageSrc,
   points,
-  value
+  value,
+  values
 }: {
   disabled?: boolean;
   frontImageSrc?: string;
   imageAlt?: string;
   imageSrc?: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  onValuesChange?: (values: string[]) => void;
   posteriorImageSrc?: string;
   points: PainMapPoint[];
   value?: string;
+  values?: string[];
 }) {
-  const initialView = points.find((point) => point.label === value)?.view ?? "front";
+  const selectedValues = values ?? (value ? [value] : []);
+  const externalValue = values?.[values.length - 1] ?? value;
+  const initialView = points.find((point) => point.label === externalValue)?.view ?? "front";
   const [selectedView, setSelectedView] = useState<PainMapView>(initialView);
   const hasViewSelector = Boolean(frontImageSrc && posteriorImageSrc);
   const selectedImageSrc = selectedView === "posterior"
@@ -34,9 +40,19 @@ export function FunctionalPainMap({
   const visiblePoints = points.filter((point) => (point.view ?? "front") === selectedView);
 
   useEffect(() => {
-    const selectedPoint = points.find((point) => point.label === value);
+    const selectedPoint = points.find((point) => point.label === externalValue);
     if (selectedPoint) setSelectedView(selectedPoint.view ?? "front");
-  }, [points, value]);
+  }, [externalValue, points]);
+
+  function toggleValue(label: string) {
+    if (onValuesChange) {
+      onValuesChange(selectedValues.includes(label)
+        ? selectedValues.filter((selectedValue) => selectedValue !== label)
+        : [...selectedValues, label]);
+      return;
+    }
+    onChange?.(label);
+  }
 
   return (
     <div className="rounded-md border border-line bg-panel/25 p-3">
@@ -57,10 +73,10 @@ export function FunctionalPainMap({
             {visiblePoints.map((point) => (
               <button
                 aria-label={point.label}
-                className={`absolute rounded-md transition ${disabled ? "cursor-default" : "cursor-pointer hover:bg-moss/10"} ${value === point.label ? "bg-moss/15 ring-1 ring-inset ring-moss/25" : "bg-transparent"}`}
+                className={`absolute rounded-md transition ${disabled ? "cursor-default" : "cursor-pointer hover:bg-moss/10"} ${selectedValues.includes(point.label) ? "bg-moss/15 ring-1 ring-inset ring-moss/25" : "bg-transparent"}`}
                 disabled={disabled}
                 key={point.label}
-                onClick={() => onChange(point.label)}
+                onClick={() => toggleValue(point.label)}
                 style={{ height: `${point.height}%`, left: `${point.x}%`, top: `${point.y}%`, width: `${point.width}%` }}
                 type="button"
               />
@@ -71,10 +87,10 @@ export function FunctionalPainMap({
             {visiblePoints.map((point) => (
               <button
                 aria-label={point.label}
-                className={`absolute rounded-md transition ${disabled ? "cursor-default" : "cursor-pointer hover:bg-moss/10"} ${value === point.label ? "bg-moss/15 ring-1 ring-inset ring-moss/25" : "bg-transparent"}`}
+                className={`absolute rounded-md transition ${disabled ? "cursor-default" : "cursor-pointer hover:bg-moss/10"} ${selectedValues.includes(point.label) ? "bg-moss/15 ring-1 ring-inset ring-moss/25" : "bg-transparent"}`}
                 disabled={disabled}
                 key={point.label}
-                onClick={() => onChange(point.label)}
+                onClick={() => toggleValue(point.label)}
                 style={{ height: `${point.height}%`, left: `${point.x}%`, top: `${point.y}%`, width: `${point.width}%` }}
                 type="button"
               />
