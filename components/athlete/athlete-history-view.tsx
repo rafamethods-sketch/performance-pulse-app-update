@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
+import { Activity, Bike, Dumbbell, History } from "lucide-react";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/lib/cardio-deviation";
 import { getExerciseById } from "@/lib/exercises";
@@ -396,15 +397,15 @@ function getHistoryBadgeClass(label: string) {
 }
 
 function getAthleteQuickFeedbackLabel(value?: "up" | "down" | null) {
-  if (value === "up") return "👍 Sesión valorada positivamente";
-  if (value === "down") return "👎 Sesión valorada negativamente";
+  if (value === "up") return "Buenas sensaciones";
+  if (value === "down") return "Sensaciones a comentar";
   return "";
 }
 
 function AthleteEmptyState({ clientName, message }: { clientName?: string; message: string }) {
   return (
     <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center shadow-soft">
-      <h2 className="text-lg font-semibold text-ink">Sesión de hoy</h2>
+      <h2 className="text-lg font-semibold text-ink">Historial</h2>
       {clientName ? <p className="mt-1 text-sm font-medium text-ink/70">{clientName}</p> : null}
       <p className="mt-3 text-sm text-ink/60">{message}</p>
     </div>
@@ -425,11 +426,20 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
   }
 
   return (
-    <section className="mx-auto mt-4 w-full max-w-5xl rounded-md border border-line bg-white p-3 shadow-soft sm:mt-5 sm:p-5">
-      <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-moss">Sesiones anteriores</p>
-        <h2 className="mt-1 text-lg font-semibold text-ink">Tu historial de entrenamiento</h2>
-        <p className="text-sm text-ink/60">Consulta lo esencial de cada sesión y abre el detalle cuando lo necesites.</p>
+    <section className="mx-auto mt-4 w-full min-w-0 max-w-5xl sm:mt-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">Historial</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink">Tus sesiones completadas</h2>
+          <p className="mt-2 text-sm text-ink/60">Lo esencial de tu entrenamiento, con el detalle cuando lo necesites.</p>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl bg-panel/60 px-4 py-3">
+          <History aria-hidden="true" className="text-moss" size={22} />
+          <div>
+            <p className="text-xl font-bold text-ink">{sessions.length}</p>
+            <p className="text-xs font-medium text-ink/55">sesiones completadas</p>
+          </div>
+        </div>
       </div>
 
       {sessions.length > 0 ? (
@@ -462,41 +472,55 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               .filter(Boolean)
               .slice(0, 3);
             const distance = session.cardioResult?.distanceMeters;
+            const sessionType = session.type?.toLowerCase() ?? "";
+            const activityLabel = hasResistanceData || /cardio|resistencia/.test(sessionType)
+              ? "Resistencia"
+              : /fuerza/.test(sessionType) ? "Fuerza" : "Sesión";
+            const ActivityIcon = activityLabel === "Resistencia" ? Bike : activityLabel === "Fuerza" ? Dumbbell : Activity;
+            const dateLabel = getAthleteDate(session.date)?.toLocaleDateString("es-ES", {
+              day: "numeric", month: "short", year: "numeric"
+            }) ?? displayValue(session.date, "Sin fecha");
 
             return (
-              <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={sessionKey}>
+              <article className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5" key={sessionKey}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase text-ink/45">{displayValue(session.date, "Sin fecha")}</p>
-                    <h3 className="mt-1 font-semibold text-ink">{displayValue(session.type, "Sesión")}</h3>
-                    <p className="mt-1 text-sm text-ink/60">{displayValue(session.summary, "Sin resumen")}</p>
-                    {mainExerciseNames.length > 0 ? (
-                      <p className="mt-2 text-xs font-medium text-ink/50">Principales: {mainExerciseNames.join(" · ")}</p>
-                    ) : null}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-ink/55">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-panel px-2.5 py-1 text-ink">
+                        <ActivityIcon aria-hidden="true" size={15} />
+                        {activityLabel}
+                      </span>
+                      <span>{dateLabel}</span>
+                    </div>
+                    <h3 className="mt-3 break-words font-semibold text-ink">{displayValue(session.summary, "Sesión registrada")}</h3>
                   </div>
                   <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${getHistoryBadgeClass(getAthleteSessionReviewLabel(session))}`}>
                     {getAthleteSessionReviewLabel(session)}
                   </span>
                 </div>
-                <div className={`mt-3 grid gap-1.5 sm:mt-4 sm:gap-2 ${hasDisplayValue(distance) ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:max-w-md">
                   <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                  <ClientInfoCard label="RPE final" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
-                  <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
-                  {hasDisplayValue(distance) ? <ClientInfoCard label="Distancia" value={formatResistanceDistance(distance)} /> : null}
+                  <ClientInfoCard label="Esfuerzo · RPE" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
                 </div>
-                {sentTechniqueVideos.length > 0 ? (
-                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
-                    Vídeo de técnica enviado
-                  </p>
-                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-ink/65">
+                  {session.reviewStatus ? (
+                    <span className="rounded-full bg-panel/60 px-3 py-1">
+                      {session.reviewStatus === "reviewed" ? "Revisada por tu entrenador" : "Pendiente de revisión"}
+                    </span>
+                  ) : null}
+                  {session.discomfort?.hasDiscomfort ? (
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">Molestia registrada</span>
+                  ) : null}
                 {quickFeedbackLabel ? (
-                  <p className="mt-3 w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
+                  <p className="rounded-full bg-panel/60 px-3 py-1">
                     {quickFeedbackLabel}
                   </p>
                 ) : null}
+                </div>
                 <button
                   className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
                   onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
+                  aria-expanded={isOpen}
                   type="button"
                 >
                   {isOpen ? "Ocultar detalle" : "Ver detalle"}
@@ -504,6 +528,17 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
 
                 {isOpen ? (
                   <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-line bg-white p-3 sm:p-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                      {hasDisplayValue(distance) ? <ClientInfoCard label="Distancia" value={formatResistanceDistance(distance)} /> : null}
+                    </div>
+                    <p className="text-sm text-ink/60">Tipo registrado: {displayValue(session.type, "Sesión")}</p>
+                    {mainExerciseNames.length > 0 ? (
+                      <p className="text-sm text-ink/60">Principales: {mainExerciseNames.join(" · ")}</p>
+                    ) : null}
+                    {sentTechniqueVideos.length > 0 ? (
+                      <p className="text-xs font-semibold text-ink/60">Vídeo de técnica enviado</p>
+                    ) : null}
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <ClientInfoCard label="Sueño" value={formatPositiveWellnessValue(session.wellness, "sleep")} />
                       <ClientInfoCard label="Energía" value={formatPositiveWellnessValue(session.wellness, "energy")} />
@@ -693,7 +728,8 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">
-          Todavía no has completado ninguna sesión.
+          <p className="text-base text-ink">Tu historial empieza con tu próxima sesión.</p>
+          <p className="mt-2 font-medium">Cuando completes una sesión, podrás consultarla aquí.</p>
         </div>
       )}
     </section>
