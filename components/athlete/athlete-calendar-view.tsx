@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { CalendarCheck2, Check, ChevronRight, MoonStar } from "lucide-react";
 
 type AthleteCalendarSession = {
   actualDurationMinutes?: number | string | null;
@@ -96,7 +97,7 @@ function getStatusClass(status: string) {
   if (status === "Revisada") return "bg-mint text-moss";
   if (status === "Pendiente de revisar") return "bg-amber-100 text-amber-800";
   if (status === "Completada") return "bg-blue-50 text-blue-700";
-  if (status === "Planificada") return "bg-blue-50 text-blue-700";
+  if (status === "Planificada") return "bg-amber-100 text-amber-800";
   return "bg-panel text-ink/45";
 }
 
@@ -129,6 +130,15 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
   const todaySessions = sessionsByDate.get(todayKey) ?? [];
   const nextDayWithSessions = weekDays.find((day) => day.key > todayKey && (sessionsByDate.get(day.key)?.length ?? 0) > 0);
   const nextSessions = nextDayWithSessions ? sessionsByDate.get(nextDayWithSessions.key) ?? [] : [];
+  const weekSessions = weekDays.flatMap((day) => sessionsByDate.get(day.key) ?? []);
+  const plannedSessionCount = weekSessions.length;
+  const completedSessionCount = weekSessions.filter(hasRealSessionData).length;
+  const completionPercentage = plannedSessionCount > 0
+    ? Math.round((completedSessionCount / plannedSessionCount) * 100)
+    : 0;
+  const weekRange = weekDays.length > 0
+    ? `${weekDays[0].shortDate} — ${weekDays[weekDays.length - 1].shortDate}`
+    : "";
 
   if (!client) {
     return (
@@ -140,55 +150,101 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
 
   return (
     <section className="mt-5 grid gap-5">
-      <article className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Mi semana actual</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">Tus sesiones, de un vistazo</h2>
-            <p className="mt-1 text-sm text-ink/60">Plan semanal de {displayValue(client.name, "tu entrenamiento")}.</p>
+      <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">Mi semana</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Tu plan, de un vistazo</h2>
+              <p className="mt-1 text-sm font-medium text-ink/55">{weekRange}</p>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-panel/60 px-4 py-3">
+              <span className="grid size-10 place-items-center rounded-full bg-white text-moss shadow-sm">
+                <CalendarCheck2 aria-hidden="true" size={19} />
+              </span>
+              <div>
+                <p className="text-lg font-bold leading-none text-ink">{completedSessionCount} de {plannedSessionCount}</p>
+                <p className="mt-1 text-xs font-medium text-ink/50">sesiones completadas</p>
+              </div>
+            </div>
           </div>
-          <span className="w-fit rounded-md bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
-            Lunes a domingo
-          </span>
+
+          {plannedSessionCount > 0 ? (
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
+                <span>Progreso semanal</span>
+                <span>{completionPercentage}%</span>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-panel">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-steel to-moss transition-[width]"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-5 rounded-xl border border-dashed border-line bg-panel/35 px-4 py-3 text-sm font-medium text-ink/55">
+              No tienes sesiones planificadas esta semana.
+            </p>
+          )}
         </div>
       </article>
 
-      <article className="rounded-md border border-line bg-gradient-to-r from-mint/70 to-white p-4 shadow-soft sm:p-5">
+      <article className="overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-mint/45 p-4 shadow-soft sm:p-5">
         {todaySessions.length > 0 ? (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Hoy · {today?.shortDate}</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{displayValue(todaySessions[0].type, "Sesión programada")}</p>
-            <p className="mt-1 text-sm text-ink/60">{displayValue(todaySessions[0].summary, "Consulta el resumen de tu sesión.")}</p>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
+              <span className="size-2 rounded-full bg-blue-500" />
+              Hoy · {today?.shortDate}
+            </div>
+            <p className="mt-2 text-xl font-semibold text-ink">{displayValue(todaySessions[0].type, "Sesión programada")}</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink/60">{displayValue(todaySessions[0].summary, "Consulta el resumen de tu sesión.")}</p>
+            {todaySessions.length > 1 ? (
+              <p className="mt-3 text-xs font-semibold text-ink/50">Además tienes {todaySessions.length - 1} {todaySessions.length === 2 ? "sesión" : "sesiones"} hoy.</p>
+            ) : null}
           </div>
         ) : nextDayWithSessions ? (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Próxima sesión · {nextDayWithSessions.label} {nextDayWithSessions.shortDate}</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{displayValue(nextSessions[0]?.type, "Sesión programada")}</p>
-            <p className="mt-1 text-sm text-ink/60">Hoy no tienes sesión. Tu próxima sesión ya está en el plan.</p>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-moss">
+              <ChevronRight aria-hidden="true" size={15} />
+              Próxima sesión · {nextDayWithSessions.label} {nextDayWithSessions.shortDate}
+            </div>
+            <p className="mt-2 text-xl font-semibold text-ink">{displayValue(nextSessions[0]?.type, "Sesión programada")}</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink/60">{displayValue(nextSessions[0]?.summary, "Hoy descansas. Tu próxima sesión ya está preparada.")}</p>
           </div>
         ) : (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Resumen</p>
-            <p className="mt-1 text-lg font-semibold text-ink">No hay más sesiones programadas esta semana</p>
-            <p className="mt-1 text-sm text-ink/60">Puedes consultar debajo las sesiones ya realizadas.</p>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-moss">
+              <MoonStar aria-hidden="true" size={15} />
+              Hoy · Descanso
+            </div>
+            <p className="mt-2 text-xl font-semibold text-ink">No hay más sesiones pendientes esta semana</p>
+            <p className="mt-1 text-sm text-ink/60">Revisa debajo lo que ya has completado.</p>
           </div>
         )}
       </article>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {weekDays.map((day) => {
           const daySessions = sessionsByDate.get(day.key) ?? [];
+          const isToday = day.key === todayKey;
 
           return (
-            <article className="rounded-md border border-line bg-white p-4 shadow-soft" key={day.key}>
+            <article
+              className={`rounded-2xl border p-4 shadow-soft ${isToday ? "border-blue-300 bg-blue-50/55 ring-1 ring-blue-200" : "border-line bg-white"}`}
+              key={day.key}
+            >
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
+                    {isToday ? <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Hoy</span> : null}
+                  </div>
                   <p className="text-xs font-medium text-ink/50">{day.shortDate}</p>
                 </div>
                 {daySessions.length === 0 ? (
-                  <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getStatusClass("Sin sesión")}`}>
-                    Sin sesión
+                  <span className="rounded-full bg-panel px-2.5 py-1 text-[11px] font-semibold text-ink/45">
+                    Descanso
                   </span>
                 ) : null}
               </div>
@@ -196,13 +252,15 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
               <div className="mt-3 grid gap-2">
                 {daySessions.length > 0 ? daySessions.map((session, index) => {
                   const status = getAthleteSessionStatus(session);
+                  const displayStatus = status === "Planificada" ? "Pendiente" : status;
 
                   return (
-                    <div className="rounded-md border border-line bg-panel/35 p-3" key={`${day.key}-${index}`}>
+                    <div className="rounded-xl border border-line bg-white/80 p-3" key={`${day.key}-${index}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
                         <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getStatusClass(status)}`}>
-                          {status}
+                          {displayStatus === "Completada" ? <Check aria-hidden="true" className="mr-1 inline" size={12} /> : null}
+                          {displayStatus}
                         </span>
                       </div>
                       <p className="mt-2 text-xs leading-relaxed text-ink/60">
@@ -211,8 +269,8 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                     </div>
                   );
                 }) : (
-                  <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-center text-xs font-semibold text-ink/45">
-                    Sin sesión
+                  <p className="rounded-xl border border-dashed border-line bg-panel/25 p-4 text-center text-xs font-medium text-ink/45">
+                    Día de descanso
                   </p>
                 )}
               </div>
