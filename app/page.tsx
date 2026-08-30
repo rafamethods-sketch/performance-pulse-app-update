@@ -671,7 +671,6 @@ export default function ClientsPage() {
                 onThemeChange={setThemePreference}
                 themePreference={themePreference}
               />
-              {role === "coach" ? (
                 <button
                   className="inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink/70 shadow-soft transition hover:text-ink"
                   onClick={handleLogout}
@@ -680,7 +679,6 @@ export default function ClientsPage() {
                   <LogOut size={16} />
                   Cerrar sesión
                 </button>
-              ) : null}
             </div>
           </div>
 
@@ -937,7 +935,12 @@ export default function ClientsPage() {
           ) : activeSheet === "routines" ? (
             role === "coach" ? <RoutinesView clients={clients} trainingAvailability={trainingAvailability} /> : <DecisionDashboardView />
           ) : activeSheet === "messages" ? (
-            <CoachMessagesView client={scopedClient} clients={clients} />
+            <CoachMessagesView
+              key={`${role}-${role === "athlete" ? athleteClient?.id ?? "none" : "coach"}`}
+              client={role === "athlete" ? athleteClient : scopedClient}
+              clients={clients}
+              mode={role}
+            />
           ) : (
             <DecisionDashboardView />
           )}

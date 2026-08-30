@@ -76,10 +76,12 @@ const coachQuickMessageTemplates: CoachQuickMessageTemplate[] = [
 
 export function CoachMessagesView({
   client,
-  clients
+  clients,
+  mode = "coach"
 }: {
   client?: CoachMessagesClient | null;
   clients: CoachMessagesClient[];
+  mode?: "coach" | "athlete";
 }) {
   const [selectedThreadId, setSelectedThreadId] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -119,7 +121,7 @@ export function CoachMessagesView({
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
-  const visibleThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : clients).map((listedClient) => {
+  const visibleThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : mode === "athlete" ? [] : clients).map((listedClient) => {
     const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavía.";
     const storedThread = messageThreads.find((thread) => thread.clientId === listedClient.id);
     const fallbackMessages: CoachThreadMessage[] = [
@@ -131,7 +133,9 @@ export function CoachMessagesView({
         timestamp: listedClient.coachNotes?.trim() ? "Nota inicial" : "Sistema"
       }
     ];
-    const messages = storedThread?.messages?.length ? storedThread.messages : fallbackMessages;
+    const messages = mode === "athlete"
+      ? storedThread?.messages ?? []
+      : storedThread?.messages?.length ? storedThread.messages : fallbackMessages;
     const lastMessage = messages[messages.length - 1]?.text ?? note;
 
     return {
@@ -147,6 +151,7 @@ export function CoachMessagesView({
   })
     .filter((thread) => visibleClientIds.has(thread.clientId))
     .filter((thread) => {
+      if (mode === "athlete") return true;
       const query = messageSearch.trim().toLowerCase();
       if (!query) return true;
       return [thread.clientName, thread.lastMessage, ...thread.messages.map((message) => message.text)]
@@ -176,8 +181,8 @@ export function CoachMessagesView({
 
     const nextMessage: CoachThreadMessage = {
       id: `message-${Date.now()}`,
-      read: true,
-      sender: "coach",
+      read: mode === "coach",
+      sender: mode,
       text: trimmedText,
       timestamp: new Date().toISOString()
     };
@@ -228,7 +233,8 @@ export function CoachMessagesView({
   }
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
+    <div className={mode === "athlete" ? "mx-auto mt-5 grid w-full min-w-0 max-w-5xl gap-4" : "mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]"}>
+      {mode === "coach" ? (
       <section className="coach-surface rounded-md p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Conversaciones</h2>
@@ -285,15 +291,17 @@ export function CoachMessagesView({
           )}
         </div>
       </section>
+      ) : null}
 
-      <section className="coach-surface rounded-md p-4">
+      <section className="coach-surface min-w-0 rounded-md p-4">
         {selectedThread ? (
           <>
             <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
               <div>
-                <h2 className="text-lg font-semibold text-ink">{selectedThread.clientName}</h2>
-                <p className="text-sm text-ink/50">{selectedThread.status}</p>
+                <h2 className="text-lg font-semibold text-ink">{mode === "athlete" ? "Chat con tu entrenador" : selectedThread.clientName}</h2>
+                <p className="text-sm text-ink/50">{mode === "athlete" ? "Usa este espacio para dudas sobre tus sesiones y seguimiento." : selectedThread.status}</p>
               </div>
+              {mode === "coach" ? (
               <button
                 className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white"
                 onClick={() => setShowNewNoteModal(true)}
@@ -301,9 +309,15 @@ export function CoachMessagesView({
               >
                 Nueva nota
               </button>
+              ) : null}
             </div>
 
             <div className="mt-4 space-y-3">
+              {mode === "athlete" && visibleMessages.length === 0 ? (
+                <p className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm text-ink/60">
+                  Todavía no hay mensajes. Escribe a tu entrenador cuando lo necesites.
+                </p>
+              ) : null}
               {hasHiddenMessages ? (
                 <div className="flex justify-center">
                   <button
@@ -317,18 +331,20 @@ export function CoachMessagesView({
               ) : null}
               {visibleMessages.map((message) => (
                 <div
-                  className={`flex ${message.sender === "coach" ? "justify-end" : "justify-start"}`}
+                  className={`flex ${message.sender === mode ? "justify-end" : "justify-start"}`}
                   key={message.id}
                 >
                   <div
-                    className={`max-w-[80%] rounded-md border px-4 py-3 text-sm ${
-                      message.sender === "coach"
-                        ? "border-moss/20 bg-ink text-white"
+                    className={`max-w-[80%] rounded-md border px-4 py-3 text-sm [overflow-wrap:anywhere] ${
+                      message.sender === mode
+                        ? mode === "athlete"
+                          ? "border-moss/30 bg-moss/15 text-ink"
+                          : "border-moss/20 bg-ink text-white"
                         : "border-line bg-panel/60 text-ink"
                     }`}
                   >
                     <p>{message.text}</p>
-                    <p className={`mt-2 text-xs ${message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
+                    <p className={`mt-2 text-xs ${mode === "coach" && message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
                       {formatMessageTime(message.timestamp)}
                     </p>
                   </div>
@@ -336,6 +352,7 @@ export function CoachMessagesView({
               ))}
             </div>
 
+            {mode === "coach" ? (
             <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -368,9 +385,10 @@ export function CoachMessagesView({
               ) : null}
             </div>
 
+            ) : null}
             <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
               <input
-                className="h-11 flex-1 rounded-md border border-line bg-panel/45 px-3 text-ink outline-none placeholder:text-ink/35 focus:border-moss"
+                className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/45 px-3 text-ink outline-none placeholder:text-ink/35 focus:border-moss"
                 onChange={(event) => setMessageDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") sendCurrentMessage();
@@ -391,14 +409,14 @@ export function CoachMessagesView({
           </>
         ) : (
           <div className="rounded-md border border-dashed border-line bg-panel/35 p-6 text-center">
-            <h2 className="text-lg font-semibold text-ink">No hay conversaciones todavía.</h2>
-            <p className="mt-2 text-sm text-ink/55">
+            <h2 className="text-lg font-semibold text-ink">{mode === "athlete" ? "No hay deportista seleccionado." : "No hay conversaciones todavía."}</h2>
+            {mode === "coach" ? <p className="mt-2 text-sm text-ink/55">
               Las conversaciones aparecerán cuando exista un cliente o una nota asociada.
-            </p>
+            </p> : null}
           </div>
         )}
       </section>
-      {showNewNoteModal && selectedThread ? (
+      {mode === "coach" && showNewNoteModal && selectedThread ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm"
           onClick={() => setShowNewNoteModal(false)}
