@@ -425,7 +425,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
   }
 
   return (
-    <section className="mt-4 rounded-md border border-line bg-white p-3 shadow-soft sm:mt-5 sm:p-5">
+    <section className="mx-auto mt-4 w-full max-w-5xl rounded-md border border-line bg-white p-3 shadow-soft sm:mt-5 sm:p-5">
       <div className="flex flex-col gap-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-moss">Sesiones anteriores</p>
         <h2 className="mt-1 text-lg font-semibold text-ink">Tu historial de entrenamiento</h2>

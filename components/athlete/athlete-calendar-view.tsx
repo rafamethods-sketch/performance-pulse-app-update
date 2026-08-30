@@ -149,7 +149,7 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
   }
 
   return (
-    <section className="mt-5 grid gap-5">
+    <section className="mx-auto mt-5 grid w-full max-w-5xl gap-5">
       <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

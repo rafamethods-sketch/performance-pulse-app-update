@@ -1045,7 +1045,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
   if (!session) {
     return (
-      <div className="mx-auto mt-5 max-w-3xl space-y-5">
+      <div className="mx-auto mt-5 w-full max-w-5xl space-y-5">
         <AthleteEmptyState
           clientName={client.name}
           message="No tienes ninguna sesión asignada para hoy."
@@ -1075,7 +1075,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="mx-auto mt-4 max-w-3xl space-y-4 sm:mt-5 sm:space-y-5">
+    <div className="mx-auto mt-4 w-full max-w-5xl space-y-4 sm:mt-5 sm:space-y-5">
       {intakeEditBlock}
       <section className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white shadow-soft">
         <div className="p-4 sm:p-6">

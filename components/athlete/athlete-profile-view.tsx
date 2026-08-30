@@ -75,7 +75,7 @@ export function AthleteProfileView<TClient extends AthleteProfileClient>({
 
   if (!client) {
     return (
-      <div className="mx-auto mt-5 max-w-3xl rounded-md border border-line bg-white p-5 text-sm text-ink/60 shadow-soft">
+      <div className="mx-auto mt-5 w-full max-w-5xl rounded-md border border-line bg-white p-5 text-sm text-ink/60 shadow-soft">
         No hay deportista seleccionado.
       </div>
     );
@@ -96,7 +96,7 @@ export function AthleteProfileView<TClient extends AthleteProfileClient>({
   const menstrualSymptoms = getMenstrualSymptomSummary(latestMenstrualEntry);
 
   return (
-    <div className="mx-auto mt-5 max-w-4xl space-y-5">
+    <div className="mx-auto mt-5 w-full max-w-5xl space-y-5">
       <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>

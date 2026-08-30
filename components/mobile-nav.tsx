@@ -16,7 +16,7 @@ export function MobileNav({ activeSheet, onSheetChange, role }: MobileNavProps) 
     });
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-panel/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 lg:hidden">
+    <header className={`sticky top-0 z-20 border-b border-line bg-panel/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 ${role === "athlete" ? "xl:hidden" : "lg:hidden"}`}>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="grid size-9 place-items-center rounded-md bg-gradient-to-br from-steel to-moss text-white">

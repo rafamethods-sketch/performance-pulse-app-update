@@ -19,7 +19,7 @@ export function Sidebar({ activeSheet, collapsed, onSheetChange, onToggleCollaps
 
   return (
     <aside
-      className={`hidden h-screen shrink-0 overflow-y-auto border-r border-line bg-panel/85 py-6 transition-[width,padding] duration-200 lg:block ${
+      className={`hidden h-screen shrink-0 overflow-y-auto border-r border-line bg-panel/85 py-6 transition-[width,padding] duration-200 ${role === "athlete" ? "xl:block" : "lg:block"} ${
         collapsed ? "w-20 px-3" : "w-72 px-5"
       }`}
     >
