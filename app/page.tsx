@@ -1849,6 +1849,10 @@ function getRelativeDateKey(daysOffset: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function getDemoReviewedAt(dayOffset: number) {
+  return getRelativeDateKey(Math.min(dayOffset + 1, 0));
+}
+
 type ClientAccessStatus = "active" | "expiringSoon" | "expired" | "none";
 
 function parseAccessDate(dateKey?: string | null) {
@@ -2026,6 +2030,8 @@ function getDemoWeekDayOffset(dayIndex: number) {
   return Math.round((targetDate.getTime() - today.getTime()) / 86400000);
 }
 function createDemoSession({
+  athleteQuickFeedback,
+  athleteQuickFeedbackNote,
   dayOffset,
   discomfort,
   duration,
@@ -2035,8 +2041,11 @@ function createDemoSession({
   reviewStatus = "reviewed",
   summary,
   type,
-  wellness
+  wellness,
+  weekLabel = "Semana demo"
 }: {
+  athleteQuickFeedback?: "up" | "down";
+  athleteQuickFeedbackNote?: string;
   dayOffset: number;
   discomfort?: SessionDiscomfort;
   duration: number;
@@ -2047,11 +2056,14 @@ function createDemoSession({
   summary: string;
   type: string;
   wellness: ClientWellness;
+  weekLabel?: string;
 }): ClientSessionRecord {
   const date = getRelativeDateKey(dayOffset);
 
   return {
     actualDurationMinutes: duration,
+    athleteQuickFeedback,
+    athleteQuickFeedbackNote,
     block: "Demo rendimiento mixto",
     completed: true,
     date,
@@ -2062,7 +2074,7 @@ function createDemoSession({
     isDemo: true,
     performedExercises: exercises.map((exercise, index) => createDemoPerformedExercise(exercise, finalRpe, index === 1 ? -2 : 0)),
     plannedExercises: exercises,
-    reviewedAt: getRelativeDateKey(dayOffset + 1),
+    reviewedAt: reviewStatus === "reviewed" ? getDemoReviewedAt(dayOffset) : undefined,
     reviewNotes: reviewStatus === "reviewed" ? "Buen trabajo. Mantener progresion y vigilar sensaciones locales." : "",
     reviewStatus,
     sessionNumber: 1,
@@ -2070,12 +2082,26 @@ function createDemoSession({
     status: "Completada",
     summary,
     type,
-    weekLabel: "Semana demo",
+    weekLabel,
     wellness
   };
 }
 
-function createDemoCardioSession(dayOffset: number, interval = false): ClientSessionRecord {
+function createDemoCardioSession({
+  athleteQuickFeedback,
+  athleteQuickFeedbackNote,
+  dayOffset,
+  id,
+  interval = false,
+  weekLabel = "Semana demo"
+}: {
+  athleteQuickFeedback?: "up" | "down";
+  athleteQuickFeedbackNote?: string;
+  dayOffset: number;
+  id: string;
+  interval?: boolean;
+  weekLabel?: string;
+}): ClientSessionRecord {
   const duration = interval ? 38 : 45;
   const finalRpe = interval ? 8 : 5;
   const date = getRelativeDateKey(dayOffset);
@@ -2084,6 +2110,8 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
 
   return {
     actualDurationMinutes: duration,
+    athleteQuickFeedback,
+    athleteQuickFeedbackNote,
     block: "Demo resistencia",
     cardioPlan: {
       sport: "run",
@@ -2109,12 +2137,14 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
     date,
     finalNotes: interval ? "Intervalos exigentes, recuperacion completa." : "Rodaje comodo y estable.",
     finalRpe,
-    id: interval ? "demo-session-intervals" : "demo-session-cardio-z2",
+    id,
     isDemo: true,
     performedExercises: [],
     plannedExercises: [],
     resistanceMethodId,
     resistanceSport: "running",
+    reviewedAt: interval ? undefined : getDemoReviewedAt(dayOffset),
+    reviewNotes: interval ? "" : "Ritmo estable y esfuerzo bien controlado.",
     reviewStatus: interval ? "pending" : "reviewed",
     sessionNumber: interval ? 2 : 1,
     sRPE: duration * finalRpe,
@@ -2122,19 +2152,33 @@ function createDemoCardioSession(dayOffset: number, interval = false): ClientSes
     summary: interval ? "Intervalos controlados Z4" : "Cardio Z2 continuo",
     targetResistanceZoneId,
     type: "Cardio",
-    weekLabel: "Semana demo",
+    weekLabel,
     wellness: interval
       ? { fatigue: 4, motivation: 4, sleep: 3, soreness: 3, stress: 3 }
       : { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
   };
 }
 
-function createDemoCyclingResistanceSession(dayOffset: number): ClientSessionRecord {
+function createDemoCyclingResistanceSession({
+  athleteQuickFeedback,
+  athleteQuickFeedbackNote,
+  dayOffset,
+  id,
+  weekLabel = "Semana demo"
+}: {
+  athleteQuickFeedback?: "up" | "down";
+  athleteQuickFeedbackNote?: string;
+  dayOffset: number;
+  id: string;
+  weekLabel?: string;
+}): ClientSessionRecord {
   const duration = 32;
   const finalRpe = 6;
 
   return {
     actualDurationMinutes: duration,
+    athleteQuickFeedback,
+    athleteQuickFeedbackNote,
     block: "Demo resistencia",
     cardioPlan: {
       sport: "ride",
@@ -2158,12 +2202,14 @@ function createDemoCyclingResistanceSession(dayOffset: number): ClientSessionRec
     date: getRelativeDateKey(dayOffset),
     finalNotes: "Sesión demo de ciclismo con zona objetivo.",
     finalRpe,
-    id: "demo-session-cycling-r2",
+    id,
     isDemo: true,
     performedExercises: [],
     plannedExercises: [],
     resistanceMethodId: "CV1",
     resistanceSport: "cycling",
+    reviewedAt: getDemoReviewedAt(dayOffset),
+    reviewNotes: "Buena continuidad en los bloques sostenidos.",
     reviewStatus: "reviewed",
     sessionNumber: 3,
     sRPE: duration * finalRpe,
@@ -2171,7 +2217,7 @@ function createDemoCyclingResistanceSession(dayOffset: number): ClientSessionRec
     summary: "Ciclismo R2 sostenido",
     targetResistanceZoneId: "R2",
     type: "Cardio",
-    weekLabel: "Semana demo",
+    weekLabel,
     wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
   };
 }
@@ -2212,93 +2258,174 @@ function buildDemoClient(): CoachClient {
     createDemoPlannedExercise({ block: "main", name: "Dead bug", reps: 8, rpe: 6, sets: 3 }),
     createDemoPlannedExercise({ block: "auxiliary", name: "Plank", reps: 3, rpe: 7, sets: 3 })
   ];
+  const currentDayIndex = (new Date().getDay() + 6) % 7;
+  const currentWeekStrengthOffset = -Math.min(2, currentDayIndex);
+  const currentWeekCardioOffset = -Math.min(1, currentDayIndex);
+  const futureDemoSessions: ClientSessionRecord[] = currentDayIndex < 6
+    ? [{
+        block: "Demo semana actual",
+        completed: false,
+        date: getRelativeDateKey(getDemoWeekDayOffset(Math.min(6, currentDayIndex + 2))),
+        id: "demo-session-current-future-cardio",
+        isDemo: true,
+        performedExercises: [],
+        plannedExercises: [],
+        resistanceSport: "running",
+        sessionNumber: 4,
+        status: "Planificada",
+        summary: "Rodaje suave planificado para cerrar la semana",
+        targetResistanceZoneId: "R1",
+        targetRpe: 5,
+        type: "Cardio",
+        weekLabel: "Semana actual"
+      }]
+    : [];
   const sessionRecords: ClientSessionRecord[] = [
-    createDemoSession({
-      dayOffset: getDemoWeekDayOffset(0),
-      duration: 68,
-      exercises: lowerExercises,
-      finalRpe: 7,
-      id: "demo-session-week-1-lower",
-      summary: "Fuerza tren inferior con control de RIR",
-      type: "Fuerza",
-      wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 3, stress: 2 }
-    }),
-    createDemoCardioSession(getDemoWeekDayOffset(1)),
-    createDemoSession({
-      dayOffset: getDemoWeekDayOffset(2),
-      duration: 60,
-      exercises: upperExercises,
-      finalRpe: 7,
-      id: "demo-session-week-1-upper",
-      summary: "Fuerza tren superior",
-      type: "Fuerza",
-      wellness: { fatigue: 2, motivation: 5, sleep: 4, soreness: 2, stress: 2 }
-    }),
-    createDemoSession({
-      dayOffset: getDemoWeekDayOffset(3),
-      duration: 52,
-      exercises: powerExercises,
-      finalRpe: 6,
-      id: "demo-session-week-2-power",
-      summary: "Potencia y pliometria",
-      type: "Fuerza",
-      wellness: { fatigue: 2, motivation: 4, sleep: 5, soreness: 2, stress: 1 }
-    }),
-    createDemoCardioSession(getDemoWeekDayOffset(4), true),
-    createDemoCyclingResistanceSession(getDemoWeekDayOffset(4)),
-    createDemoSession({
-      dayOffset: -1,
-      discomfort: {
-        bodyArea: "Tobillo derecho",
-        exerciseName: "Elevación de gemelo",
-        hasDiscomfort: true,
-        intensity: 3,
-        notes: "Molestia leve al final de las repeticiones.",
-        phase: "Final de la serie"
-      },
-      duration: 70,
-      exercises: lowerExercises,
-      finalRpe: 8,
-      id: "demo-session-week-3-lower",
-      reviewStatus: "pending",
-      summary: "Fuerza tren inferior con pequena desviacion",
-      type: "Fuerza",
-      wellness: { fatigue: 4, motivation: 4, sleep: 3, soreness: 4, stress: 3 }
-    }),
-    createDemoSession({
-      dayOffset: getDemoWeekDayOffset(6),
-      duration: 58,
-      exercises: upperExercises,
-      finalRpe: 6,
-      id: "demo-session-week-4-upper",
-      summary: "Fuerza tren superior tecnica",
-      type: "Fuerza",
-      wellness: { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 }
-    }),
-    createDemoSession({
-      dayOffset: getDemoWeekDayOffset(6),
-      duration: 42,
-      exercises: coreExercises,
-      finalRpe: 6,
-      id: "demo-session-week-4-core",
-      summary: "Core y accesorios para control postural",
-      type: "Fuerza",
-      wellness: { fatigue: 3, motivation: 4, sleep: 3, soreness: 2, stress: 2 }
-    }),
     {
       block: "Demo semana actual",
       completed: false,
-      date: getRelativeDateKey(2),
-      id: "demo-session-planned-future",
+      date: getRelativeDateKey(0),
+      id: "demo-session-current-today-planned",
       isDemo: true,
       performedExercises: [],
       plannedExercises: lowerExercises,
       sessionNumber: 3,
       status: "Planificada",
-      summary: "Sesión planificada demo para calendario",
+      summary: "Fuerza de tren inferior con técnica controlada",
+      targetRpe: 7,
       type: "Fuerza",
-      weekLabel: "Semana demo"
-    }
+      weekLabel: "Semana actual"
+    },
+    createDemoSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Buenas sensaciones y ritmo estable.",
+      dayOffset: currentWeekStrengthOffset,
+      duration: 60,
+      exercises: upperExercises,
+      finalRpe: 7,
+      id: "demo-session-current-strength",
+      summary: "Fuerza de tren superior con ejecución estable",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 5, sleep: 4, soreness: 2, stress: 2 },
+      weekLabel: "Semana actual"
+    }),
+    createDemoCardioSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Ritmo cómodo y respiración controlada.",
+      dayOffset: currentWeekCardioOffset,
+      id: "demo-session-current-cardio-z2",
+      weekLabel: "Semana actual"
+    }),
+    ...futureDemoSessions,
+    createDemoSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Buenas sensaciones y control del esfuerzo.",
+      dayOffset: -8,
+      duration: 68,
+      exercises: lowerExercises,
+      finalRpe: 8,
+      id: "demo-session-week-minus-1-lower",
+      summary: "Fuerza de tren inferior con control de RIR",
+      type: "Fuerza",
+      wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 3, stress: 2 },
+      weekLabel: "Semana anterior"
+    }),
+    createDemoCardioSession({
+      dayOffset: -10,
+      id: "demo-session-week-minus-1-cardio-intervals",
+      interval: true,
+      weekLabel: "Semana anterior"
+    }),
+    createDemoSession({
+      athleteQuickFeedback: "down",
+      athleteQuickFeedbackNote: "Algo más cansado de lo habitual, sin necesidad de cambios durante la sesión.",
+      dayOffset: -12,
+      discomfort: {
+        bodyArea: "Tobillo derecho",
+        exerciseName: "Pogo jump bilateral",
+        hasDiscomfort: true,
+        intensity: 3,
+        notes: "Molestia leve al final del bloque, sin cambios durante la sesión.",
+        phase: "Final de la serie"
+      },
+      duration: 50,
+      exercises: powerExercises,
+      finalRpe: 7,
+      id: "demo-session-week-minus-1-power",
+      reviewStatus: "pending",
+      summary: "Potencia y pliometría con volumen moderado",
+      type: "Fuerza",
+      wellness: { fatigue: 4, motivation: 3, sleep: 3, soreness: 3, stress: 3 },
+      weekLabel: "Semana anterior"
+    }),
+    createDemoSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Técnica sólida en las series principales.",
+      dayOffset: -15,
+      discomfort: {
+        bodyArea: "Rodilla izquierda",
+        exerciseName: "Goblet squat",
+        hasDiscomfort: true,
+        intensity: 2,
+        notes: "Molestia leve en las últimas repeticiones.",
+        phase: "Final de la serie"
+      },
+      duration: 66,
+      exercises: lowerExercises,
+      finalRpe: 7,
+      id: "demo-session-week-minus-2-lower",
+      summary: "Fuerza de tren inferior y control unilateral",
+      type: "Fuerza",
+      wellness: { fatigue: 3, motivation: 4, sleep: 4, soreness: 3, stress: 2 },
+      weekLabel: "Hace dos semanas"
+    }),
+    createDemoCyclingResistanceSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Cadencia estable durante los dos bloques.",
+      dayOffset: -17,
+      id: "demo-session-week-minus-2-cycling-r2",
+      weekLabel: "Hace dos semanas"
+    }),
+    createDemoSession({
+      dayOffset: -19,
+      duration: 58,
+      exercises: upperExercises,
+      finalRpe: 6,
+      id: "demo-session-week-minus-2-upper",
+      summary: "Fuerza de tren superior técnica",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 4, sleep: 4, soreness: 2, stress: 2 },
+      weekLabel: "Hace dos semanas"
+    }),
+    createDemoSession({
+      athleteQuickFeedback: "up",
+      athleteQuickFeedbackNote: "Sesión dinámica y buena coordinación.",
+      dayOffset: -22,
+      duration: 52,
+      exercises: powerExercises,
+      finalRpe: 6,
+      id: "demo-session-week-minus-3-power",
+      summary: "Potencia y coordinación",
+      type: "Fuerza",
+      wellness: { fatigue: 2, motivation: 5, sleep: 5, soreness: 2, stress: 1 },
+      weekLabel: "Hace tres semanas"
+    }),
+    createDemoCardioSession({
+      dayOffset: -24,
+      id: "demo-session-week-minus-3-cardio-z2",
+      weekLabel: "Hace tres semanas"
+    }),
+    createDemoSession({
+      dayOffset: -26,
+      duration: 42,
+      exercises: coreExercises,
+      finalRpe: 6,
+      id: "demo-session-week-minus-3-core",
+      summary: "Core y accesorios para control postural",
+      type: "Fuerza",
+      wellness: { fatigue: 3, motivation: 4, sleep: 3, soreness: 2, stress: 2 },
+      weekLabel: "Hace tres semanas"
+    })
   ];
 
   return {
