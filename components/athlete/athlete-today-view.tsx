@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
+import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
@@ -266,6 +267,16 @@ function getLocalDateKey(date = new Date()) {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatAthleteTodayDate(value: string) {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    weekday: "long"
+  }).format(date);
 }
 
 function parsePositiveNumber(value: unknown) {
@@ -1055,44 +1066,73 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     : sessionAlreadySent
       ? "Enviada al entrenador"
       : "Pendiente";
+  const targetDuration = session.cardioPlan?.targetDurationMinutes;
+  const todayFocus = session.summary?.trim();
+  const sessionMetadata = [
+    session.block,
+    session.weekLabel || session.week ? `${session.weekLabel || session.week}` : "",
+    session.sessionNumber ? `Sesión ${session.sessionNumber}` : ""
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="mx-auto mt-4 max-w-3xl space-y-4 sm:mt-5 sm:space-y-5">
       {intakeEditBlock}
-      <section className="rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-ink">Sesión de hoy</h2>
-            <p className="mt-1 text-sm font-medium text-ink/70">{client.name}</p>
+      <section className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white shadow-soft">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300">Hoy</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{session.type || "Sesión programada"}</h2>
+              <p className="mt-1 flex items-center gap-2 text-sm capitalize text-white/65">
+                <CalendarDays aria-hidden="true" size={15} />
+                {formatAthleteTodayDate(session.date)}
+              </p>
+            </div>
+            <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${sessionAlreadySent ? "bg-emerald-400/15 text-emerald-200" : "bg-blue-400/15 text-blue-200"}`}>
+              {sessionStatusLabel}
+            </span>
           </div>
-          <span className={`w-fit rounded-md px-3 py-1 text-xs font-semibold ${sessionAlreadySent ? "bg-mint text-moss" : "bg-blue-50 text-blue-700"}`}>
-            {sessionStatusLabel}
-          </span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3">
-          <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
-          <ClientInfoCard
-            label="Semana y sesión"
-            value={`${session.weekLabel || session.week || "Sin asignar"}${session.sessionNumber ? ` · Sesión ${session.sessionNumber}` : ""}`}
-          />
-          <ClientInfoCard label="Tipo" value={session.type} />
-          <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
-        </div>
-        <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 sm:mt-4 sm:p-4">
-          <p className="text-xs font-semibold uppercase text-ink/50">Resumen / objetivo</p>
-          <p className="mt-2 text-sm font-medium text-ink">{session.summary}</p>
+
+          {todayFocus ? (
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.07] p-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-blue-200">
+                <Sparkles aria-hidden="true" size={15} />
+                Foco de hoy
+              </div>
+              <p className="mt-2 text-base font-medium leading-relaxed text-white sm:text-lg">{todayFocus}</p>
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-white/75">
+            {targetDuration ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
+                <Clock3 aria-hidden="true" size={15} />
+                {targetDuration} min estimados
+              </span>
+            ) : null}
+            {session.targetRpe ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
+                <Gauge aria-hidden="true" size={15} />
+                RPE objetivo {session.targetRpe}/10
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
+              <Dumbbell aria-hidden="true" size={15} />
+              {sessionMetadata || "Entrenamiento de hoy"}
+            </span>
+          </div>
         </div>
         {!sessionAlreadySent ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 border-t border-white/10 bg-black/10 p-4 sm:grid-cols-[0.8fr_1.2fr] sm:p-5">
             <button
-              className="h-12 w-full rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink transition hover:bg-panel"
+              className="h-12 w-full rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
               onClick={() => setShowSessionPreview(true)}
               type="button"
             >
               Ver sesión
             </button>
             <button
-              className="h-12 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
+              className="h-12 w-full rounded-xl bg-blue-500 px-4 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-55"
               disabled={wellnessConfirmed}
               onClick={startSession}
               type="button"
@@ -1114,14 +1154,34 @@ export function AthleteTodayView<TClient extends AthleteClient>({
         <>
           <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
             {wellnessConfirmed ? (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-ink">Wellness confirmado</h3>
-                  <p className="mt-1 text-sm text-ink/60">Readiness del día: {readinessScore ?? "Pendiente"} / 5</p>
+              <div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Preparación del día</p>
+                    <h3 className="mt-1 text-lg font-semibold text-ink">Así llegas a la sesión</h3>
+                    <p className="mt-1 text-sm text-ink/60">Resumen de las sensaciones que has confirmado hoy.</p>
+                  </div>
+                  <span className="w-fit rounded-full bg-mint px-3 py-1 text-xs font-semibold text-moss">
+                    Readiness {readinessScore ?? "Pendiente"} / 5
+                  </span>
                 </div>
-                <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/70">
-                  Preparación del día
-                </span>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {athleteWellnessFields.map((field) => {
+                    const value = getPositiveWellnessValue(wellness, field.key);
+                    return (
+                      <div className="rounded-xl border border-line bg-panel/35 px-3 py-3" key={field.key}>
+                        <p className="text-xs font-semibold text-ink/50">{field.label}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-lg font-bold text-ink">{value}</span>
+                          <span className="text-xs text-ink/45">/ 5</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                          <div className="h-full rounded-full bg-gradient-to-r from-steel to-moss" style={{ width: `${Math.min(100, Math.max(0, value) * 20)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
