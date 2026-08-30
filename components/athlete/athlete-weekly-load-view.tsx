@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Bike, CheckCircle2, Dumbbell, TrendingUp } from "lucide-react";
 import { BodyFatigueMap } from "@/components/shared/body-fatigue-map";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getExerciseById } from "@/lib/exercises";
@@ -375,77 +376,130 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   const resistanceZoneDistribution = getWeeklyResistanceZoneDistribution(client?.sessionRecords ?? []);
   const maxResistanceZoneMinutes = Math.max(1, ...resistanceZoneDistribution.zones.map((zone) => zone.minutes));
 
-  if (!client || weeklySessions.length === 0) {
+  const consistencyMessage = plannedThisWeek === 0
+    ? "Semana en construcción. Todavía no hay sesiones planificadas."
+    : weeklySessions.length === plannedThisWeek
+      ? "Buen ritmo de trabajo esta semana: has completado todo lo planificado."
+      : `Has completado ${weeklySessions.length} de ${plannedThisWeek} sesiones esta semana.`;
+
+  if (!client) {
     return (
       <div className="mt-5 rounded-md border border-dashed border-line bg-white p-8 text-center text-sm font-semibold text-ink/55 shadow-soft">
-        <p className="text-base text-ink">Aún no hay progreso registrado esta semana.</p>
-        <p className="mt-2 font-medium text-ink/55">Cuando completes una sesión, aquí verás un resumen sencillo de tu actividad.</p>
+        No hay deportista seleccionado.
       </div>
     );
   }
 
   return (
     <section className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5">
-      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Resumen</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">Tu progreso esta semana</h2>
-            <p className="mt-1 text-sm text-ink/60">Actividad completada y lectura orientativa de la carga reciente.</p>
+      <article className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-white sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Tu progreso</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Así va tu semana</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/65">{consistencyMessage}</p>
+            </div>
+            {plannedThisWeek > 0 ? (
+              <span className="w-fit rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-blue-100">
+                {adherence}% completado
+              </span>
+            ) : null}
           </div>
-          <span className={`w-fit rounded-md px-3 py-1 text-sm font-semibold ${loadIndex.className}`}>
-            {loadIndex.label}
-          </span>
+
+          {plannedThisWeek > 0 ? (
+            <div className="mt-6">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-3xl font-bold">{weeklySessions.length} <span className="text-lg font-medium text-white/50">de {plannedThisWeek}</span></p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-white/55">sesiones completadas</p>
+                </div>
+                <TrendingUp aria-hidden="true" className="text-blue-300" size={26} />
+              </div>
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-400" style={{ width: `${Math.min(100, adherence ?? 0)}%` }} />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.07] px-4 py-3 text-sm text-white/65">
+              Sin sesiones planificadas esta semana.
+            </p>
+          )}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
-          <ClientInfoCard label="Sesiones completadas" value={`${weeklySessions.length}`} />
-          <ClientInfoCard label="Cumplimiento" value={adherence !== null ? `${adherence}%` : "Sin plan semanal"} />
-          <ClientInfoCard label="Fuerza" value={`${strengthSessions.length} sesiones`} />
-          <ClientInfoCard label="Resistencia" value={`${cardioSessions.length} sesiones`} />
-        </div>
-        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold text-ink">Carga reciente</p>
-            <p className="text-sm font-medium text-ink/65">{loadIndex.message}</p>
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-panel/35 p-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-mint text-moss"><CheckCircle2 aria-hidden="true" size={19} /></span>
+            <div><p className="text-lg font-bold text-ink">{weeklySessions.length}</p><p className="text-xs font-medium text-ink/50">Completadas</p></div>
           </div>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
-            <div className={`h-full rounded-full ${loadIndex.barClassName}`} style={{ width: `${Math.min(100, (totalSrpe / 700) * 100)}%` }} />
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-panel/35 p-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-700"><Dumbbell aria-hidden="true" size={19} /></span>
+            <div><p className="text-lg font-bold text-ink">{strengthSessions.length}</p><p className="text-xs font-medium text-ink/50">Fuerza</p></div>
           </div>
-          <p className="mt-2 text-xs text-ink/50">Lectura orientativa basada en la duración y el esfuerzo que has registrado.</p>
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-panel/35 p-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800"><Bike aria-hidden="true" size={19} /></span>
+            <div><p className="text-lg font-bold text-ink">{cardioSessions.length}</p><p className="text-xs font-medium text-ink/50">Resistencia</p></div>
+          </div>
         </div>
       </article>
 
-      <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
-        <h3 className="font-semibold text-ink">Sesiones de la semana</h3>
-        <div className="mt-4 grid gap-3">
-          {weeklySessions.map((session, index) => {
-            const srpe = getSessionSrpe(session) ?? 0;
-
-            return (
-              <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      {weeklySessions.length > 0 ? (
+        <article className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
+          <h3 className="font-semibold text-ink">Actividad de la semana</h3>
+          <p className="mt-1 text-sm text-ink/55">Tus sesiones completadas, en orden de registro.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {weeklySessions.map((session, index) => (
+              <div className="rounded-xl border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
-                    <p className="text-sm text-ink/55">{displayValue(session.date, "Sin fecha")}</p>
+                    <p className="mt-1 text-xs font-medium text-ink/50">{displayValue(session.date, "Sin fecha")}</p>
                   </div>
-                  <span className="text-sm font-semibold text-moss">Carga {srpe} UA</span>
+                  <CheckCircle2 aria-hidden="true" className="shrink-0 text-moss" size={18} />
                 </div>
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white">
-                  <div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
-                </div>
-              </article>
-            );
-          })}
+                {session.summary?.trim() ? <p className="mt-3 text-sm leading-relaxed text-ink/60">{session.summary.trim()}</p> : null}
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-line bg-white p-6 text-center shadow-soft">
+          <p className="font-semibold text-ink">Aún no hay actividad completada esta semana.</p>
+          <p className="mt-2 text-sm text-ink/55">Cuando completes una sesión, aparecerá aquí.</p>
         </div>
-      </article>
+      )}
 
-      <details className="group rounded-md border border-line bg-white shadow-soft">
+      {weeklySessions.length > 0 ? (
+      <details className="group rounded-2xl border border-line bg-white shadow-soft">
         <summary className="cursor-pointer list-none p-4 font-semibold text-ink sm:p-5">
-          Ver detalle de carga y actividad
+          Detalle de entrenamiento
           <span className="ml-2 text-sm font-medium text-ink/50 group-open:hidden">+</span>
           <span className="ml-2 hidden text-sm font-medium text-ink/50 group-open:inline">−</span>
         </summary>
         <div className="grid gap-4 border-t border-line p-3 sm:p-5">
+          <article className="min-w-0 rounded-md border border-line bg-white p-3 shadow-soft sm:p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-ink">Carga reciente por sesión</h3>
+                <p className="mt-1 text-sm text-ink/60">Lectura orientativa basada en duración y esfuerzo registrado.</p>
+              </div>
+              <span className={`w-fit rounded-md px-3 py-1 text-sm font-semibold ${loadIndex.className}`}>{loadIndex.label}</span>
+            </div>
+            <p className="mt-3 text-sm font-medium text-ink/65">{loadIndex.message}</p>
+            <div className="mt-4 grid gap-3">
+              {weeklySessions.map((session, index) => {
+                const srpe = getSessionSrpe(session) ?? 0;
+                return (
+                  <div className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-load-${index}`}>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div><p className="font-semibold text-ink">{displayValue(session.type, "Sesión")}</p><p className="text-sm text-ink/55">{displayValue(session.date, "Sin fecha")}</p></div>
+                      <span className="text-sm font-semibold text-moss">Carga {srpe} UA</span>
+                    </div>
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${(srpe / maxSrpe) * 100}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
           <div className="grid grid-cols-2 gap-2">
             <ClientInfoCard label="Carga acumulada" value={`${totalSrpe} UA`} />
             <ClientInfoCard label="Volumen de fuerza" value={`${Math.round(totalTonnage).toLocaleString("es-ES")} kg`} />
@@ -593,6 +647,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
       </article>
         </div>
       </details>
+      ) : null}
     </section>
   );
 }
