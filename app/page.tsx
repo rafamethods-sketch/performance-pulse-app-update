@@ -301,9 +301,26 @@ export default function ClientsPage() {
     window.localStorage.setItem("coach_resources_v1", JSON.stringify(resources));
   }, [resources, resourcesHydrated]);
 
+  function activateDemoAthlete() {
+    const demoClient = buildDemoClient();
+
+    setClients((currentClients) => [
+      demoClient,
+      ...currentClients.filter((listedClient) => !isDemoClient(listedClient))
+    ]);
+    setSelectedClientId(demoClient.id);
+    setRole("athlete");
+    setActiveSheet("today");
+  }
+
   function handleLogin(nextRole: UserRole) {
+    if (nextRole === "athlete") {
+      activateDemoAthlete();
+      return;
+    }
+
     setRole(nextRole);
-    setActiveSheet(nextRole === "coach" ? "attention" : "today");
+    setActiveSheet("attention");
   }
 
   if (!role) {
