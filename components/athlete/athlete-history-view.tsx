@@ -392,8 +392,8 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
 
 function getHistoryBadgeClass(label: string) {
   if (label === "Completada") return "bg-mint text-moss";
-  if (label === "Pendiente") return "bg-amber-100 text-amber-800";
-  return "bg-blue-50 text-blue-700";
+  if (label === "Pendiente") return "bg-wheat text-clay";
+  return "bg-mint text-moss";
 }
 
 function getAthleteQuickFeedbackLabel(value?: "up" | "down" | null) {
@@ -426,10 +426,10 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
   }
 
   return (
-    <section className="mx-auto mt-4 w-full min-w-0 max-w-5xl sm:mt-5">
+    <section className="mt-4 w-full min-w-0 sm:mt-5">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-6">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">Historial</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-moss">Historial</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink">Tus sesiones completadas</h2>
           <p className="mt-2 text-sm text-ink/60">Lo esencial de tu entrenamiento, con el detalle cuando lo necesites.</p>
         </div>
@@ -509,7 +509,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     </span>
                   ) : null}
                   {session.discomfort?.hasDiscomfort ? (
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">Molestia registrada</span>
+                    <span className="rounded-full bg-wheat px-3 py-1 text-clay">Molestia registrada</span>
                   ) : null}
                 {quickFeedbackLabel ? (
                   <p className="rounded-full bg-panel/60 px-3 py-1">
@@ -584,7 +584,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       </div>
                     ) : null}
                     {session.discomfort?.hasDiscomfort ? (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      <div className="rounded-md border border-clay/25 bg-wheat p-3 text-sm text-ink/80">
                         <p className="font-semibold">Molestia reportada</p>
                         <p className="mt-1">Zona corporal: {session.discomfort.bodyArea || "Sin especificar"}</p>
                         {session.discomfort.exerciseName ? <p className="mt-1">Ejercicio: {session.discomfort.exerciseName}</p> : null}

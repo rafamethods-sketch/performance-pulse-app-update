@@ -1045,7 +1045,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
   if (!session) {
     return (
-      <div className="mx-auto mt-5 w-full max-w-5xl space-y-5">
+      <div className="mt-5 w-full min-w-0 space-y-5">
         <AthleteEmptyState
           clientName={client.name}
           message="No tienes ninguna sesión asignada para hoy."
@@ -1075,13 +1075,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-5xl space-y-4 sm:mt-5 sm:space-y-5">
+    <div className="mt-4 w-full min-w-0 space-y-4 sm:mt-5 sm:space-y-5">
       {intakeEditBlock}
       <section className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white shadow-soft">
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300">Hoy</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-300">Hoy</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{session.type || "Sesión programada"}</h2>
               <p className="mt-1 flex items-center gap-2 text-sm capitalize text-white/65">
                 <CalendarDays aria-hidden="true" size={15} />
@@ -1095,7 +1095,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 
           {todayFocus ? (
             <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.07] p-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-blue-200">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-200">
                 <Sparkles aria-hidden="true" size={15} />
                 Foco de hoy
               </div>
@@ -1146,9 +1146,9 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       {menstrualTrackingBlock}
 
       {sessionAlreadySent ? (
-        <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-center shadow-soft">
-          <h3 className="font-semibold text-emerald-900">Sesión enviada al entrenador.</h3>
-          <p className="mt-2 text-sm text-emerald-800">sRPE: {session.sRPE ? `${session.sRPE} UA` : "Pendiente"}</p>
+        <section className="rounded-md border border-line bg-panel p-5 text-center shadow-soft">
+          <h3 className="font-semibold text-[rgb(var(--color-success))]">Sesión enviada al entrenador.</h3>
+          <p className="mt-2 text-sm text-ink/70">sRPE: {session.sRPE ? `${session.sRPE} UA` : "Pendiente"}</p>
         </section>
       ) : (
         <>
@@ -1373,7 +1373,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     </label>
                   </div>
                   {!finalRpeValid ? (
-                    <p className="mt-3 text-sm font-medium text-amber-800">
+                    <p className="mt-3 text-sm font-medium text-clay">
                       Introduce el RPE final de la sesión para poder enviarla.
                     </p>
                   ) : null}
@@ -1423,7 +1423,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                   </div>
                 ) : null}
                 {!isResistanceSession && !finalRpeValid ? (
-                  <p className="mt-3 text-sm font-medium text-amber-800">
+                  <p className="mt-3 text-sm font-medium text-clay">
                     Introduce el RPE final de la sesión para poder enviarla.
                   </p>
                 ) : null}
@@ -1449,7 +1449,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     ))}
                   </div>
                   {!discomfortAnswer ? (
-                    <p className="mt-2 text-sm font-medium text-amber-800">Responde esta pregunta para poder enviar la sesión.</p>
+                    <p className="mt-2 text-sm font-medium text-clay">Responde esta pregunta para poder enviar la sesión.</p>
                   ) : null}
 
                   {discomfortAnswer === "yes" ? (
@@ -1563,7 +1563,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                 >
                   Enviar sesión al entrenador
                 </button>
-                {validationMessage ? <p className="mt-3 text-sm font-medium text-red-700">{validationMessage}</p> : null}
+                {validationMessage ? <p className="mt-3 text-sm font-medium text-coral">{validationMessage}</p> : null}
               </section>
             </>
           ) : (

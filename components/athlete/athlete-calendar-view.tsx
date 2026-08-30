@@ -95,9 +95,9 @@ function getAthleteSessionStatus(session?: AthleteCalendarSession) {
 
 function getStatusClass(status: string) {
   if (status === "Revisada") return "bg-mint text-moss";
-  if (status === "Pendiente de revisar") return "bg-amber-100 text-amber-800";
-  if (status === "Completada") return "bg-blue-50 text-blue-700";
-  if (status === "Planificada") return "bg-amber-100 text-amber-800";
+  if (status === "Pendiente de revisar") return "bg-wheat text-clay";
+  if (status === "Completada") return "bg-mint text-moss";
+  if (status === "Planificada") return "bg-wheat text-clay";
   return "bg-panel text-ink/45";
 }
 
@@ -149,12 +149,12 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
   }
 
   return (
-    <section className="mx-auto mt-5 grid w-full max-w-5xl gap-5">
+    <section className="mt-5 grid w-full min-w-0 gap-5">
       <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">Mi semana</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-moss">Plan semanal</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Tu plan, de un vistazo</h2>
               <p className="mt-1 text-sm font-medium text-ink/55">{weekRange}</p>
             </div>
@@ -190,11 +190,11 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
         </div>
       </article>
 
-      <article className="overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-mint/45 p-4 shadow-soft sm:p-5">
+      <article className="overflow-hidden rounded-2xl border border-moss/25 bg-gradient-to-br from-mint/60 to-panel/40 p-4 shadow-soft sm:p-5">
         {todaySessions.length > 0 ? (
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
-              <span className="size-2 rounded-full bg-blue-500" />
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-moss">
+              <span className="size-2 rounded-full bg-moss" />
               Hoy · {today?.shortDate}
             </div>
             <p className="mt-2 text-xl font-semibold text-ink">{displayValue(todaySessions[0].type, "Sesión programada")}</p>
@@ -205,7 +205,7 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
           </div>
         ) : nextDayWithSessions ? (
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-moss">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-moss">
               <ChevronRight aria-hidden="true" size={15} />
               Próxima sesión · {nextDayWithSessions.label} {nextDayWithSessions.shortDate}
             </div>
@@ -214,7 +214,7 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
           </div>
         ) : (
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-moss">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-moss">
               <MoonStar aria-hidden="true" size={15} />
               Hoy · Descanso
             </div>
@@ -224,21 +224,21 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
         )}
       </article>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {weekDays.map((day) => {
           const daySessions = sessionsByDate.get(day.key) ?? [];
           const isToday = day.key === todayKey;
 
           return (
             <article
-              className={`rounded-2xl border p-4 shadow-soft ${isToday ? "border-blue-300 bg-blue-50/55 ring-1 ring-blue-200" : "border-line bg-white"}`}
+              className={`min-w-0 rounded-2xl border p-4 shadow-soft ${isToday ? "border-moss/40 bg-mint/40 ring-1 ring-moss/20" : "border-line bg-white"}`}
               key={day.key}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
-                    {isToday ? <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Hoy</span> : null}
+                    {isToday ? <span className="rounded-full bg-mint px-2 py-0.5 text-[10px] font-bold uppercase text-moss">Hoy</span> : null}
                   </div>
                   <p className="text-xs font-medium text-ink/50">{day.shortDate}</p>
                 </div>
@@ -255,7 +255,7 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                   const displayStatus = status === "Planificada" ? "Pendiente" : status;
 
                   return (
-                    <div className="rounded-xl border border-line bg-white/80 p-3" key={`${day.key}-${index}`}>
+                    <div className="rounded-xl border border-line bg-panel/60 p-3" key={`${day.key}-${index}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
                         <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${getStatusClass(status)}`}>

@@ -221,17 +221,17 @@ function calculateWeeklyPatternSets(sessions: AthleteWeeklySession[]) {
 }
 
 function getPatternSetsRange(value: number) {
-  if (value > 16) return { className: "bg-red-50 text-red-700", label: "Muy alto", barClassName: "bg-red-500" };
-  if (value >= 11) return { className: "bg-amber-100 text-amber-800", label: "Alto", barClassName: "bg-amber-500" };
-  if (value >= 6) return { className: "bg-blue-50 text-blue-700", label: "Moderado", barClassName: "bg-steel" };
+  if (value > 16) return { className: "bg-coral/10 text-coral", label: "Muy alto", barClassName: "bg-red-500" };
+  if (value >= 11) return { className: "bg-wheat text-clay", label: "Alto", barClassName: "bg-amber-500" };
+  if (value >= 6) return { className: "bg-mint text-moss", label: "Moderado", barClassName: "bg-steel" };
   if (value >= 1) return { className: "bg-panel text-ink/60", label: "Bajo", barClassName: "bg-ink/25" };
   return { className: "bg-panel text-ink/45", label: "Sin carga", barClassName: "bg-ink/10" };
 }
 
 function getResistanceZoneBucketStyles(bucket: ResistanceZoneIntensityBucket) {
-  if (bucket === "veryHigh") return { barClassName: "bg-red-500", badgeClassName: "bg-red-50 text-red-700", label: "Muy alto" };
-  if (bucket === "high") return { barClassName: "bg-amber-500", badgeClassName: "bg-amber-100 text-amber-800", label: "Alto" };
-  if (bucket === "moderate") return { barClassName: "bg-steel", badgeClassName: "bg-blue-50 text-blue-700", label: "Moderado" };
+  if (bucket === "veryHigh") return { barClassName: "bg-red-500", badgeClassName: "bg-coral/10 text-coral", label: "Muy alto" };
+  if (bucket === "high") return { barClassName: "bg-amber-500", badgeClassName: "bg-wheat text-clay", label: "Alto" };
+  if (bucket === "moderate") return { barClassName: "bg-steel", badgeClassName: "bg-mint text-moss", label: "Moderado" };
   return { barClassName: "bg-ink/25", badgeClassName: "bg-panel text-ink/60", label: "Bajo" };
 }
 
@@ -314,7 +314,7 @@ function getLoadIndex(totalSrpe: number) {
   if (totalSrpe >= 700) {
     return {
       barClassName: "bg-red-500",
-      className: "bg-red-50 text-red-700",
+      className: "bg-coral/10 text-coral",
       label: "A vigilar",
       message: "Conviene revisar cómo te has sentido con tu entrenador."
     };
@@ -322,7 +322,7 @@ function getLoadIndex(totalSrpe: number) {
   if (totalSrpe >= 450) {
     return {
       barClassName: "bg-amber-500",
-      className: "bg-amber-100 text-amber-800",
+      className: "bg-wheat text-clay",
       label: "Conviene revisar",
       message: "Semana exigente: prioriza descanso y recuperación."
     };
@@ -330,7 +330,7 @@ function getLoadIndex(totalSrpe: number) {
   if (totalSrpe >= 200) {
     return {
       barClassName: "bg-steel",
-      className: "bg-blue-50 text-blue-700",
+      className: "bg-mint text-moss",
       label: "En línea",
       message: "Actividad reciente dentro de una semana moderada."
     };
@@ -391,13 +391,13 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   }
 
   return (
-    <section className="mx-auto mt-4 grid w-full min-w-0 max-w-5xl gap-4 sm:mt-5 sm:gap-5">
+    <section className="mt-4 grid w-full min-w-0 gap-4 sm:mt-5 sm:gap-5">
       <article className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-white sm:p-6">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-white sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Tu progreso</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Así va tu semana</h2>
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-300">Resumen semanal</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">Así va tu semana</h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/65">{consistencyMessage}</p>
             </div>
             {plannedThisWeek > 0 ? (
@@ -432,11 +432,11 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             <div><p className="text-lg font-bold text-ink">{weeklySessions.length}</p><p className="text-xs font-medium text-ink/50">Completadas</p></div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-line bg-panel/35 p-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-700"><Dumbbell aria-hidden="true" size={19} /></span>
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-mint text-moss"><Dumbbell aria-hidden="true" size={19} /></span>
             <div><p className="text-lg font-bold text-ink">{strengthSessions.length}</p><p className="text-xs font-medium text-ink/50">Fuerza</p></div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-line bg-panel/35 p-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800"><Bike aria-hidden="true" size={19} /></span>
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-wheat text-clay"><Bike aria-hidden="true" size={19} /></span>
             <div><p className="text-lg font-bold text-ink">{cardioSessions.length}</p><p className="text-xs font-medium text-ink/50">Resistencia</p></div>
           </div>
         </div>
@@ -548,7 +548,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             <div className="mt-4 grid gap-4">
               <BodyFatigueMap muscles={muscleFatigue.results} />
               {muscleFatigue.incomplete ? (
-                <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-amber-800">
+                <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-medium text-clay">
                   Estimación parcial: algunas sesiones no tienen RPE registrado.
                 </p>
               ) : null}
