@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { CalendarCheck2, Check, ChevronRight, MoonStar } from "lucide-react";
+import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 
 type AthleteCalendarSession = {
   actualDurationMinutes?: number | string | null;
@@ -253,6 +254,8 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                 {daySessions.length > 0 ? daySessions.map((session, index) => {
                   const status = getAthleteSessionStatus(session);
                   const displayStatus = status === "Planificada" ? "Pendiente" : status;
+                  const impact = status === "Completada" ? getSessionImpact(session) : null;
+                  const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
 
                   return (
                     <div className="rounded-xl border border-line bg-panel/60 p-3" key={`${day.key}-${index}`}>
@@ -266,6 +269,12 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                       <p className="mt-2 text-xs leading-relaxed text-ink/60">
                         {displayValue(session.summary, "Sin resumen")}
                       </p>
+                      {impact && impactStyle ? (
+                        <span className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${impactStyle.badgeClassName}`}>
+                          <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                          {impact.label}
+                        </span>
+                      ) : null}
                     </div>
                   );
                 }) : (

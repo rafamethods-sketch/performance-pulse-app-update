@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Bike, CheckCircle2, Dumbbell, TrendingUp } from "lucide-react";
 import { BodyFatigueMap } from "@/components/shared/body-fatigue-map";
 import { calculateSessionLoad } from "@/lib/client-metrics";
+import { getSessionImpact, getSessionImpactStyle, type SessionImpactLevel } from "@/lib/session-impact";
 import { getExerciseById } from "@/lib/exercises";
 import { calculateWeeklyMuscleFatigue, type MuscleFatigueExercise } from "@/lib/muscle-fatigue";
 import {
@@ -359,6 +360,10 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
     [client?.sessionRecords]
   );
   const totalSrpe = weeklySessions.reduce((total, session) => total + (getSessionSrpe(session) ?? 0), 0);
+  const impactCounts = weeklySessions.reduce<Record<SessionImpactLevel, number>>((counts, session) => {
+    counts[getSessionImpact(session).level] += 1;
+    return counts;
+  }, { low: 0, moderate: 0, high: 0, unknown: 0 });
   const plannedThisWeek = (client?.sessionRecords ?? []).filter((session) => isThisWeek(session.date)).length;
   const adherence = plannedThisWeek > 0 ? Math.round((weeklySessions.length / plannedThisWeek) * 100) : null;
   const maxSrpe = Math.max(1, ...weeklySessions.map((session) => getSessionSrpe(session) ?? 0));
@@ -440,6 +445,28 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             <div><p className="text-lg font-bold text-ink">{cardioSessions.length}</p><p className="text-xs font-medium text-ink/50">Resistencia</p></div>
           </div>
         </div>
+      </article>
+
+      <article className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
+        <h3 className="font-semibold text-ink">Impacto de la semana</h3>
+        <p className="mt-1 text-sm text-ink/60">Demanda de tus sesiones completadas.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {([
+            { level: "low", label: "Bajo" },
+            { level: "moderate", label: "Medio" },
+            { level: "high", label: "Alto" },
+            { level: "unknown", label: "Sin datos" }
+          ] as const).map(({ level, label }) => {
+            const impactStyle = getSessionImpactStyle(level);
+            return (
+              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${impactStyle.badgeClassName}`} key={level}>
+                <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                {label} <span className="font-bold tabular-nums">{impactCounts[level]}</span>
+              </span>
+            );
+          })}
+        </div>
+        {weeklySessions.length === 0 ? <p className="mt-3 text-sm text-ink/55">Sin sesiones completadas esta semana.</p> : null}
       </article>
 
       {weeklySessions.length > 0 ? (

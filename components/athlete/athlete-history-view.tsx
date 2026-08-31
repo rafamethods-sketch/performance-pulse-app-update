@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Activity, Bike, Dumbbell, History } from "lucide-react";
 import { calculateSessionLoad } from "@/lib/client-metrics";
+import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/lib/cardio-deviation";
 import { getExerciseById } from "@/lib/exercises";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
@@ -450,6 +451,8 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             const duration = getAthleteSessionDuration(session);
             const rpe = getAthleteSessionRpe(session);
             const srpe = getSessionSrpe(session);
+            const impact = getSessionImpact(session);
+            const impactStyle = getSessionImpactStyle(impact.level);
             const notes = getAthleteSessionNotes(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
@@ -491,6 +494,10 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         {activityLabel}
                       </span>
                       <span>{dateLabel}</span>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${impactStyle.badgeClassName}`}>
+                        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                        {impact.label}
+                      </span>
                     </div>
                     <h3 className="mt-3 break-words font-semibold text-ink">{displayValue(session.summary, "Sesión registrada")}</h3>
                   </div>
@@ -528,6 +535,14 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
 
                 {isOpen ? (
                   <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-line bg-white p-3 sm:p-4">
+                    {impact.reasons.length > 0 ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/70">
+                        <h4 className="font-semibold text-ink">Motivos de impacto</h4>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                          {impact.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                        </ul>
+                      </div>
+                    ) : null}
                     <div className="grid grid-cols-2 gap-2">
                       <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
                       {hasDisplayValue(distance) ? <ClientInfoCard label="Distancia" value={formatResistanceDistance(distance)} /> : null}
