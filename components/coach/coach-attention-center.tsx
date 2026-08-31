@@ -1,5 +1,7 @@
 "use client";
 
+import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+
 import { useMemo, useState } from "react";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import { getExerciseById } from "@/lib/exercises";
@@ -902,7 +904,14 @@ export function CoachAttentionCenter({
                 </span>
               </div>
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {sectionItems.slice(0, 8).map((item) => (
+                {sectionItems.slice(0, 8).map((item) => {
+                  const session = item.section === "pendingSessions" && item.sessionIndex !== undefined
+                    ? clients.find((client) => client.id === item.clientId)?.sessionRecords?.[item.sessionIndex]
+                    : undefined;
+                  const impact = session && hasRealSessionData(session) ? getSessionImpact(session) : null;
+                  const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
+
+                  return (
                   <article className="coach-subtle-card rounded-md p-3.5" key={item.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -919,6 +928,14 @@ export function CoachAttentionCenter({
                       ) : null}
                     </div>
                     {item.detail ? <p className="mt-3 text-sm text-ink/65">{item.detail}</p> : null}
+                    {impact && impactStyle ? (
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
+                          <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                          {impact.label}
+                        </span>
+                      </div>
+                    ) : null}
                     {item.ankleRelated ? (
                       <div className="mt-3 rounded-md border border-line bg-white p-3">
                         <p className="text-sm text-ink/65">Molestia reportada en zona tobillo/pie. Puedes hacer una valoración breve si lo consideras necesario.</p>
@@ -939,7 +956,8 @@ export function CoachAttentionCenter({
                       {item.action === "session" ? "Ver detalle" : item.action === "progress" ? "Ver progreso" : "Ver información"}
                     </button>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             </section>
           );

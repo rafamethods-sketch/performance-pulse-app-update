@@ -55,6 +55,7 @@ import {
   monotonyRanges,
   strainRanges
 } from "@/lib/client-metrics";
+import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import {
   getPlanningMethodDescription,
   getPlanningMethodLabel,
@@ -12385,6 +12386,8 @@ function SessionHistoryPanel({
             const sessionKey = getSessionHistoryKey(session, sessionIndex);
             const isOpen = openSessionKey === sessionKey;
             const status = getSessionStatus(session);
+            const impact = hasRealSessionData(session) || status === "Completada" ? getSessionImpact(session) : null;
+            const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
             const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
@@ -12475,6 +12478,12 @@ function SessionHistoryPanel({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-sm font-semibold text-ink sm:text-base">{getSessionHistoryTitle(session)}</h3>
+                        {impact && impactStyle ? (
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${impactStyle.badgeClassName}`}>
+                            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                            {impact.label}
+                          </span>
+                        ) : null}
                         <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${getStatusBadgeClass(status)}`}>
                           {status}
                         </span>
@@ -12567,6 +12576,22 @@ function SessionHistoryPanel({
                         </button>
                       </div>
                       <section className="mb-4 rounded-md border border-line bg-panel/25 p-4">
+                        {impact && impactStyle ? (
+                          <div className="mb-4">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
+                              <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                              {impact.label}
+                            </span>
+                            {impact.reasons.length > 0 ? (
+                              <details className="mt-2 text-sm text-ink/65">
+                                <summary className="cursor-pointer font-semibold">Motivos de impacto</summary>
+                                <ul className="mt-2 list-disc space-y-1 pl-5">
+                                  {impact.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                                </ul>
+                              </details>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <h5 className="font-semibold text-ink">Resumen de sesión</h5>

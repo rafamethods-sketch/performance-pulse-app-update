@@ -1,12 +1,28 @@
 "use client";
 
 import { calculateSessionLoad } from "@/lib/client-metrics";
+import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
 const secondaryCardClass = "rounded-md border border-line bg-panel/35 p-3";
 const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90";
 const emptyStateClass = "mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55";
+
+function SessionImpactBadge({ session }: { session: CoachSessionRecordForViews }) {
+  if (!hasRealSessionData(session) && session.status !== "Completada") return null;
+  const impact = getSessionImpact(session as Parameters<typeof getSessionImpact>[0]);
+  const style = getSessionImpactStyle(impact.level);
+
+  return (
+    <div className="mt-2">
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${style.badgeClassName}`}>
+        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${style.dotClassName}`} />
+        {impact.label}
+      </span>
+    </div>
+  );
+}
 
 function hasDisplayValue(value: unknown) {
   return value !== null && value !== undefined && `${value}`.trim() !== "";
@@ -257,6 +273,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                 </div>
                 <p className="mt-2 text-sm font-semibold text-ink/70">{session.type}</p>
                 <p className="mt-1 text-sm text-ink/55">{session.summary}</p>
+                <SessionImpactBadge session={session} />
                 <button
                   className={`mt-3 ${primaryButtonClass}`}
                   onClick={() =>
@@ -299,6 +316,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                       <p className="mt-1 text-sm font-semibold text-ink/70">{session.type}</p>
                       <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
                       <p className="mt-1 text-xs font-semibold uppercase text-ink/45">{formatDateShort(session.date)}</p>
+                      <SessionImpactBadge session={session} />
                     </div>
                     <button
                       className={`w-fit ${primaryButtonClass}`}
