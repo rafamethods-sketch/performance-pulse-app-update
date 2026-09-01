@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { CalendarCheck2, Check, ChevronRight, MoonStar } from "lucide-react";
-import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 
 type AthleteCalendarSession = {
   actualDurationMinutes?: number | string | null;
@@ -254,7 +254,11 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                 {daySessions.length > 0 ? daySessions.map((session, index) => {
                   const status = getAthleteSessionStatus(session);
                   const displayStatus = status === "Planificada" ? "Pendiente" : status;
-                  const impact = status === "Completada" ? getSessionImpact(session) : null;
+                  const isPlannedImpact = status !== "Completada";
+                  const impact = isPlannedImpact
+                    ? getPlannedSessionImpact(session as Parameters<typeof getPlannedSessionImpact>[0])
+                    : getSessionImpact(session);
+                  const showImpact = !isPlannedImpact || impact.level !== "unknown";
                   const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
 
                   return (
@@ -269,10 +273,10 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
                       <p className="mt-2 text-xs leading-relaxed text-ink/60">
                         {displayValue(session.summary, "Sin resumen")}
                       </p>
-                      {impact && impactStyle ? (
+                      {showImpact && impactStyle ? (
                         <span className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${impactStyle.badgeClassName}`}>
                           <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
-                          {impact.label}
+                          {isPlannedImpact ? `Previsto: ${impact.label}` : impact.label}
                         </span>
                       ) : null}
                     </div>

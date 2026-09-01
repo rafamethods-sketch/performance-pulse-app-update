@@ -1,7 +1,7 @@
 "use client";
 
 import { calculateSessionLoad } from "@/lib/client-metrics";
-import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
@@ -10,15 +10,18 @@ const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold te
 const emptyStateClass = "mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-sm font-semibold text-ink/55";
 
 function SessionImpactBadge({ session }: { session: CoachSessionRecordForViews }) {
-  if (!hasRealSessionData(session) && session.status !== "Completada") return null;
-  const impact = getSessionImpact(session as Parameters<typeof getSessionImpact>[0]);
+  const isRealImpact = hasRealSessionData(session) || session.status === "Completada";
+  const impact = isRealImpact
+    ? getSessionImpact(session as Parameters<typeof getSessionImpact>[0])
+    : getPlannedSessionImpact(session as Parameters<typeof getPlannedSessionImpact>[0]);
+  if (!isRealImpact && impact.level === "unknown") return null;
   const style = getSessionImpactStyle(impact.level);
 
   return (
     <div className="mt-2">
       <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${style.badgeClassName}`}>
         <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${style.dotClassName}`} />
-        {impact.label}
+        {isRealImpact ? impact.label : `Previsto: ${impact.label}`}
       </span>
     </div>
   );
