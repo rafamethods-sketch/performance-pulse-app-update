@@ -1,224 +1,188 @@
+"use client";
+
+import Image from "next/image";
+import { useState } from "react";
 import type { MuscleFatigueLevel, MuscleFatigueResult } from "@/lib/muscle-fatigue";
 
 type BodyFatigueMapProps = {
   muscles: MuscleFatigueResult[];
 };
 
-type ZoneShape = {
-  d?: string;
-  key: string;
-  label: string;
-  shape: "circle" | "path" | "rect";
-  cx?: number;
-  cy?: number;
-  height?: number;
-  r?: number;
-  rx?: number;
-  strokeWidth?: number;
-  view: "front" | "back";
-  width?: number;
-  x?: number;
-  y?: number;
+type ZoneShape = { key: string; label: string; d: string };
+
+const levelStyles: Record<MuscleFatigueLevel, { badge: string; bar: string; label: string; fill: string; opacity: number }> = {
+  none: { badge: "border-line bg-panel text-ink/60", bar: "bg-ink/20", label: "Sin carga registrada", fill: "rgb(var(--color-ink))", opacity: 0.04 },
+  low: { badge: "border-line bg-mint text-moss", bar: "bg-moss", label: "Baja", fill: "rgb(var(--color-moss))", opacity: 0.25 },
+  moderate: { badge: "border-line bg-wheat text-ink", bar: "bg-clay", label: "Media", fill: "rgb(var(--color-clay))", opacity: 0.24 },
+  high: { badge: "border-clay/30 bg-clay/10 text-ink", bar: "bg-clay", label: "Alta", fill: "rgb(var(--color-clay))", opacity: 0.42 },
+  very_high: { badge: "border-clay/60 bg-clay/20 text-ink", bar: "bg-clay", label: "Muy alta", fill: "rgb(var(--color-clay))", opacity: 0.64 }
 };
 
-const levelStyles: Record<MuscleFatigueLevel, { badge: string; fill: string; label: string }> = {
-  high: {
-    badge: "border-orange-300/60 bg-orange-500/12 text-orange-700 dark:text-orange-200",
-    fill: "#f97316",
-    label: "Alta"
-  },
-  low: {
-    badge: "border-teal-300/60 bg-teal-500/12 text-teal-700 dark:text-teal-200",
-    fill: "#5eead4",
-    label: "Baja"
-  },
-  moderate: {
-    badge: "border-amber-300/70 bg-amber-500/14 text-amber-800 dark:text-amber-200",
-    fill: "#facc15",
-    label: "Moderada"
-  },
-  none: {
-    badge: "border-line bg-panel/70 text-ink/50",
-    fill: "#d8dedb",
-    label: "Sin carga"
-  },
-  very_high: {
-    badge: "border-red-300/70 bg-red-500/14 text-red-700 dark:text-red-200",
-    fill: "#ef4444",
-    label: "Muy alta"
-  }
-};
-
+// Approximate visual zones in the images' 768 × 1024 coordinate space.
+// These shapes do not change muscle scores or imply side-specific measurements.
 const frontZones: ZoneShape[] = [
-  { cx: 110, cy: 22, key: "none", label: "Cabeza", r: 18, shape: "circle", view: "front" },
-  { height: 19, key: "none", label: "Cuello", rx: 8, shape: "rect", view: "front", width: 22, x: 99, y: 42 },
-  { d: "M75 75 C84 59 96 54 110 54 C124 54 136 59 145 75 C138 88 126 96 110 97 C94 96 82 88 75 75Z", key: "chest", label: "Pectoral", shape: "path", view: "front" },
-  { d: "M92 96 C101 101 119 101 128 96 L136 154 C128 174 119 183 110 184 C101 183 92 174 84 154Z", key: "core", label: "Core", shape: "path", view: "front" },
-  { d: "M72 76 C58 82 49 96 46 116 C58 115 67 107 76 91Z", key: "delts", label: "Deltoides", shape: "path", view: "front" },
-  { d: "M148 76 C162 82 171 96 174 116 C162 115 153 107 144 91Z", key: "delts", label: "Deltoides", shape: "path", view: "front" },
-  { d: "M45 119 C39 141 36 160 35 183 C47 181 53 162 55 123Z", key: "biceps", label: "Biceps", shape: "path", view: "front" },
-  { d: "M175 119 C181 141 184 160 185 183 C173 181 167 162 165 123Z", key: "biceps", label: "Biceps", shape: "path", view: "front" },
-  { d: "M34 187 C33 205 36 223 42 238 C51 225 51 204 45 185Z", key: "forearms", label: "Antebrazos", shape: "path", view: "front" },
-  { d: "M186 187 C187 205 184 223 178 238 C169 225 169 204 175 185Z", key: "forearms", label: "Antebrazos", shape: "path", view: "front" },
-  { d: "M83 160 C95 171 125 171 137 160 C139 181 132 198 110 202 C88 198 81 181 83 160Z", key: "glutes", label: "Gluteos", shape: "path", view: "front" },
-  { d: "M75 169 C84 180 91 196 91 215 C78 210 68 194 66 176Z", key: "glutes", label: "Gluteo medio", shape: "path", view: "front" },
-  { d: "M145 169 C136 180 129 196 129 215 C142 210 152 194 154 176Z", key: "glutes", label: "Gluteo medio", shape: "path", view: "front" },
-  { d: "M85 207 C73 244 70 286 79 323 C94 304 101 250 103 208Z", key: "quadriceps", label: "Cuadriceps", shape: "path", view: "front" },
-  { d: "M135 207 C147 244 150 286 141 323 C126 304 119 250 117 208Z", key: "quadriceps", label: "Cuadriceps", shape: "path", view: "front" },
-  { d: "M103 212 C99 244 97 276 99 303 C105 287 109 246 109 213Z", key: "adductors", label: "Aductores", shape: "path", view: "front" },
-  { d: "M117 212 C121 244 123 276 121 303 C115 287 111 246 111 213Z", key: "adductors", label: "Aductores", shape: "path", view: "front" },
-  { d: "M78 326 C72 347 71 365 76 381 C88 372 91 349 88 327Z", key: "tibialisAnterior", label: "Tibial anterior", shape: "path", view: "front" },
-  { d: "M142 326 C148 347 149 365 144 381 C132 372 129 349 132 327Z", key: "tibialisAnterior", label: "Tibial anterior", shape: "path", view: "front" },
-  { d: "M89 329 C96 350 96 371 88 388 C101 382 106 358 102 329Z", key: "calves", label: "Gemelos / soleo", shape: "path", view: "front" },
-  { d: "M131 329 C124 350 124 371 132 388 C119 382 114 358 118 329Z", key: "calves", label: "Gemelos / soleo", shape: "path", view: "front" }
+  { key: "chest", label: "Pectoral", d: "M326 203 Q370 173 419 190 L418 263 Q365 283 321 247Z M433 190 Q480 173 523 204 L523 247 Q481 283 434 263Z" },
+  { key: "core", label: "Core", d: "M359 279 Q420 289 486 279 L480 365 L452 434 L397 434 L365 368Z" },
+  { key: "delts", label: "Deltoides", d: "M319 174 Q284 183 282 239 L306 261 L326 207 L359 184Z M518 174 Q553 183 558 239 L537 261 L518 207 L487 184Z" },
+  { key: "biceps", label: "Bíceps", d: "M283 247 Q271 275 273 315 L299 333 L320 274 L308 250Z M541 247 Q561 275 563 315 L539 333 L520 274 L532 250Z" },
+  { key: "glutes", label: "Glúteos", d: "M342 381 L362 399 L363 454 L329 482 Q316 432 342 381Z M495 381 L476 399 L477 454 L510 482 Q522 432 495 381Z" },
+  { key: "quadriceps", label: "Cuádriceps", d: "M329 466 Q340 491 390 472 L397 542 L377 662 L344 684 Q310 592 329 466Z M451 472 Q484 491 510 466 Q527 592 493 684 L460 662 L444 542Z" },
+  { key: "calves", label: "Gemelos / sóleo", d: "M342 697 L371 701 Q382 758 366 812 L353 876 L332 876 Q313 777 342 697Z M464 701 L493 697 Q520 777 501 876 L480 876 L469 812 Q453 758 464 701Z" }
 ];
 
 const backZones: ZoneShape[] = [
-  { cx: 110, cy: 22, key: "none", label: "Cabeza", r: 18, shape: "circle", view: "back" },
-  { height: 19, key: "none", label: "Cuello", rx: 8, shape: "rect", view: "back", width: 22, x: 99, y: 42 },
-  { d: "M76 76 C86 60 96 55 110 55 C124 55 134 60 144 76 C138 102 127 125 110 138 C93 125 82 102 76 76Z", key: "back", label: "Espalda / dorsales", shape: "path", view: "back" },
-  { d: "M99 95 C105 107 115 107 121 95 L126 162 C121 175 116 183 110 187 C104 183 99 175 94 162Z", key: "core", label: "Erectores / core posterior", shape: "path", view: "back" },
-  { d: "M72 76 C58 82 49 96 46 116 C58 115 67 107 76 91Z", key: "delts", label: "Deltoides", shape: "path", view: "back" },
-  { d: "M148 76 C162 82 171 96 174 116 C162 115 153 107 144 91Z", key: "delts", label: "Deltoides", shape: "path", view: "back" },
-  { d: "M45 119 C39 141 36 160 35 183 C47 181 53 162 55 123Z", key: "triceps", label: "Triceps", shape: "path", view: "back" },
-  { d: "M175 119 C181 141 184 160 185 183 C173 181 167 162 165 123Z", key: "triceps", label: "Triceps", shape: "path", view: "back" },
-  { d: "M34 187 C33 205 36 223 42 238 C51 225 51 204 45 185Z", key: "forearms", label: "Antebrazos", shape: "path", view: "back" },
-  { d: "M186 187 C187 205 184 223 178 238 C169 225 169 204 175 185Z", key: "forearms", label: "Antebrazos", shape: "path", view: "back" },
-  { d: "M80 160 C95 171 125 171 140 160 C141 187 130 205 110 209 C90 205 79 187 80 160Z", key: "glutes", label: "Gluteos", shape: "path", view: "back" },
-  { d: "M76 166 C85 184 90 201 89 219 C76 214 66 196 65 177Z", key: "glutes", label: "Gluteo medio", shape: "path", view: "back" },
-  { d: "M144 166 C135 184 130 201 131 219 C144 214 154 196 155 177Z", key: "glutes", label: "Gluteo medio", shape: "path", view: "back" },
-  { d: "M85 213 C72 249 72 287 80 323 C95 304 102 253 102 215Z", key: "hamstrings", label: "Isquiosurales", shape: "path", view: "back" },
-  { d: "M135 213 C148 249 148 287 140 323 C125 304 118 253 118 215Z", key: "hamstrings", label: "Isquiosurales", shape: "path", view: "back" },
-  { d: "M76 326 C68 348 69 370 78 389 C91 377 91 349 87 326Z", key: "calves", label: "Gemelos / soleo", shape: "path", view: "back" },
-  { d: "M144 326 C152 348 151 370 142 389 C129 377 129 349 133 326Z", key: "calves", label: "Gemelos / soleo", shape: "path", view: "back" }
+  { key: "back", label: "Espalda / dorsales", d: "M270 163 L314 149 L329 174 L333 296 L303 345 L268 300 L245 225Z M355 149 L400 163 L423 225 L399 300 L364 345 L338 296 L340 174Z" },
+  { key: "core", label: "Core", d: "M305 312 L330 290 L341 290 L365 312 L378 393 Q335 370 294 393Z" },
+  { key: "delts", label: "Deltoides", d: "M257 171 Q220 169 208 233 L232 250 L254 217 L281 181Z M411 171 Q449 169 458 233 L434 250 L413 217 L386 181Z" },
+  { key: "triceps", label: "Tríceps", d: "M210 247 L235 254 L253 278 L228 327 L205 307Z M436 254 L458 247 L464 307 L443 327 L419 278Z" },
+  { key: "glutes", label: "Glúteos", d: "M277 396 Q307 384 332 409 L331 486 Q285 520 265 477Z M339 409 Q364 384 396 396 L408 477 Q385 520 340 486Z" },
+  { key: "hamstrings", label: "Isquiosurales", d: "M263 492 Q289 523 327 503 L320 609 L304 675 L277 680 Q255 596 263 492Z M343 503 Q380 523 409 492 Q417 596 395 680 L366 675 L350 609Z" },
+  { key: "calves", label: "Gemelos / sóleo", d: "M277 694 L305 694 Q322 741 305 793 L289 844 L270 843 Q251 769 277 694Z M367 694 L395 694 Q421 769 402 843 L383 844 L367 793 Q350 741 367 694Z" }
 ];
 
 function getZoneData(musclesByKey: Map<string, MuscleFatigueResult>, key: string) {
   const muscle = musclesByKey.get(key);
-  const level = muscle?.level ?? "none";
-
-  return {
-    fill: levelStyles[level].fill,
-    levelLabel: levelStyles[level].label,
-    relative: muscle?.relative ?? 0
-  };
+  return { muscle, style: levelStyles[muscle?.level ?? "none"] };
 }
 
 function getZoneLabel(musclesByKey: Map<string, MuscleFatigueResult>, zone: ZoneShape) {
-  const data = getZoneData(musclesByKey, zone.key);
-  return `${zone.label} · ${data.levelLabel} · ${data.relative}%`;
+  const { muscle, style } = getZoneData(musclesByKey, zone.key);
+  return muscle ? `${muscle.label} · ${style.label} · ${muscle.relative}% relativo` : `${zone.label} · Sin datos`;
 }
 
 function MuscleZone({ musclesByKey, zone }: { musclesByKey: Map<string, MuscleFatigueResult>; zone: ZoneShape }) {
-  const data = getZoneData(musclesByKey, zone.key);
+  const { style } = getZoneData(musclesByKey, zone.key);
   const label = getZoneLabel(musclesByKey, zone);
-  const commonProps = {
-    "aria-label": label,
-    fill: data.fill,
-    role: "img",
-    stroke: "rgba(255,255,255,0.72)",
-    strokeLinejoin: "round" as const,
-    strokeWidth: zone.strokeWidth ?? 1.4
-  };
-
-  if (zone.shape === "circle") {
-    return (
-      <circle {...commonProps} cx={zone.cx} cy={zone.cy} r={zone.r}>
-        <title>{label}</title>
-      </circle>
-    );
-  }
-
-  if (zone.shape === "rect") {
-    return (
-      <rect {...commonProps} height={zone.height} rx={zone.rx} width={zone.width} x={zone.x} y={zone.y}>
-        <title>{label}</title>
-      </rect>
-    );
-  }
-
   return (
-    <path {...commonProps} d={zone.d}>
+    <path aria-label={label} d={zone.d} fill={style.fill} fillOpacity={style.opacity} role="img" stroke="rgba(255,255,255,0.6)" strokeWidth={1} vectorEffect="non-scaling-stroke">
       <title>{label}</title>
     </path>
   );
 }
 
-function MuscleFigure({
-  musclesByKey,
-  title,
-  zones
-}: {
-  musclesByKey: Map<string, MuscleFatigueResult>;
-  title: string;
-  zones: ZoneShape[];
-}) {
+const views = {
+  front: {
+    label: "Anterior",
+    image: "/body-maps/fatigue-map-anterior.png",
+    zones: frontZones
+  },
+  back: {
+    label: "Posterior",
+    image: "/body-maps/fatigue-map-posterior.png",
+    zones: backZones
+  }
+} as const;
+
+const mappedKeys = new Set([...frontZones, ...backZones].map((zone) => zone.key));
+
+function MuscleList({ muscles }: BodyFatigueMapProps) {
   return (
-    <div className="min-w-0 rounded-md border border-line bg-panel/55 p-2 shadow-soft sm:p-3">
-      <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">{title}</p>
-      <svg aria-label={`Mapa muscular ${title.toLowerCase()}`} className="mx-auto h-auto w-full max-w-[220px] sm:max-w-[260px]" role="img" viewBox="0 0 220 404">
-        <g opacity="0.42">
-          <path className="text-ink/20" d="M80 67 C89 52 99 47 110 47 C121 47 131 52 140 67 L158 167 C160 188 153 211 140 225 L130 393 L91 393 L80 225 C67 211 60 188 62 167Z" fill="none" stroke="currentColor" strokeWidth="2" />
-          <path className="text-ink/15" d="M67 83 C46 94 36 126 31 182 C29 204 33 225 43 244" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="8" />
-          <path className="text-ink/15" d="M153 83 C174 94 184 126 189 182 C191 204 187 225 177 244" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="8" />
-        </g>
-        {zones.map((zone) => (
-          <MuscleZone key={`${zone.view}-${zone.label}-${zone.d ?? zone.x ?? zone.cx}`} musclesByKey={musclesByKey} zone={zone} />
-        ))}
-        <path d="M99 43 C101 57 119 57 121 43" fill="none" stroke="rgba(255,255,255,0.68)" strokeLinecap="round" strokeWidth="1.5" />
-        <path d="M110 99 L110 186" fill="none" stroke="rgba(255,255,255,0.5)" strokeLinecap="round" strokeWidth="1" />
-        <path d="M110 209 L110 393" fill="none" stroke="rgba(255,255,255,0.45)" strokeLinecap="round" strokeWidth="1" />
-      </svg>
-    </div>
+    <ul className="grid min-w-0 gap-2 sm:grid-cols-2">
+      {muscles.map((muscle) => {
+        const style = levelStyles[muscle.level];
+
+        return (
+          <li className="min-w-0 rounded-xl border border-line bg-panel/45 p-3" key={muscle.key}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="break-words text-sm font-semibold text-ink">{muscle.label}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${style.badge}`}>
+                {style.label}
+              </span>
+            </div>
+            <div aria-hidden="true" className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink/10">
+              <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${muscle.relative}%` }} />
+            </div>
+            <p className="mt-1.5 text-xs text-ink/60">{muscle.relative}% relativo</p>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
 export function BodyFatigueMap({ muscles }: BodyFatigueMapProps) {
-  const musclesByKey = new Map(muscles.map((muscle) => [muscle.key, muscle]));
+  const [selectedView, setSelectedView] = useState<keyof typeof views>("front");
+  const view = views[selectedView];
+  const musclesByKey = new Map<string, MuscleFatigueResult>(muscles.map((muscle) => [muscle.key, muscle]));
+  const visibleMuscles = muscles.filter((muscle) => view.zones.some((zone) => zone.key === muscle.key));
+  const otherMuscles = muscles.filter((muscle) => !mappedKeys.has(muscle.key));
+  const hasData = muscles.some((muscle) => muscle.score > 0);
+
+  if (!hasData) {
+    return (
+      <div className="rounded-xl border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/60">
+        Aún no hay datos suficientes para estimar la fatiga muscular.
+      </div>
+    );
+  }
 
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(320px,1fr)_minmax(280px,0.82fr)] xl:items-start">
-      <div className="min-w-0 rounded-md border border-line bg-panel/35 p-2 sm:p-4">
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
-          <MuscleFigure musclesByKey={musclesByKey} title="Frontal" zones={frontZones} />
-          <MuscleFigure musclesByKey={musclesByKey} title="Posterior" zones={backZones} />
+    <section aria-label="Fatiga estimada por grupo muscular" className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-ink">Fatiga estimada</p>
+          <p className="mt-1 text-xs text-ink/60">Carga muscular reciente · lectura relativa entre grupos.</p>
+        </div>
+        <div aria-label="Vista del cuerpo" className="inline-flex rounded-lg border border-line bg-panel p-1" role="group">
+          {(["front", "back"] as const).map((key) => (
+            <button
+              aria-pressed={selectedView === key}
+              className={`min-h-10 rounded-md px-3 text-sm font-semibold transition ${selectedView === key ? "bg-mint text-moss" : "text-ink/60 hover:bg-ink/5"}`}
+              key={key}
+              onClick={() => setSelectedView(key)}
+              type="button"
+            >
+              {views[key].label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid gap-3">
-        <div className="rounded-md border border-line bg-panel/45 p-3 shadow-soft">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Leyenda</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(["none", "low", "moderate", "high", "very_high"] as MuscleFatigueLevel[]).map((level) => (
-              <span className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-semibold ${levelStyles[level].badge}`} key={level}>
-                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: levelStyles[level].fill }} />
-                {levelStyles[level].label}
-              </span>
-            ))}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:items-start">
+        <figure className="min-w-0 rounded-xl border border-line bg-panel/45 p-3">
+          <div className="relative mx-auto aspect-[3/4] w-full max-w-[270px] sm:max-w-[330px]">
+            <Image
+              alt={`Cuerpo humano: vista ${view.label.toLowerCase()} orientativa`}
+              className="h-full w-full rounded-lg object-contain mix-blend-multiply [[data-theme=dark]_&]:invert [[data-theme=dark]_&]:mix-blend-screen"
+              height={1024}
+              src={view.image}
+              width={768}
+            />
+            <svg aria-label={`Zonas de fatiga estimada · ${view.label}`} className="absolute inset-0 h-full w-full" role="group" viewBox="0 0 768 1024">
+              {view.zones.map((zone) => <MuscleZone key={zone.key} musclesByKey={musclesByKey} zone={zone} />)}
+            </svg>
           </div>
-        </div>
+          <figcaption className="mt-3 text-center text-xs leading-relaxed text-ink/55">
+            Referencia visual orientativa. La fatiga se estima por grupos musculares según los registros disponibles.
+          </figcaption>
+        </figure>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-          {muscles.map((muscle) => {
-            const style = levelStyles[muscle.level];
-
-            return (
-              <div className="rounded-md border border-line bg-panel/45 p-3 shadow-soft" key={muscle.key}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-ink">{muscle.label}</p>
-                  <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${style.badge}`}>
-                    {style.label}
-                  </span>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/8">
-                  <div className="h-full rounded-full" style={{ backgroundColor: style.fill, width: `${muscle.relative}%` }} />
-                </div>
-                <p className="mt-2 text-xs font-medium text-ink/50">{muscle.relative}% relativo</p>
-              </div>
-            );
-          })}
+        <div className="min-w-0 space-y-3">
+          <h4 className="text-sm font-semibold text-ink">Grupos musculares · {view.label}</h4>
+          {visibleMuscles.length > 0 ? <MuscleList muscles={visibleMuscles} /> : (
+            <p className="text-sm text-ink/60">Sin datos para los grupos de esta vista.</p>
+          )}
+          {otherMuscles.length > 0 ? (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-ink">Otros grupos</h4>
+              <MuscleList muscles={otherMuscles} />
+            </div>
+          ) : null}
         </div>
       </div>
-    </div>
+
+      <div className="rounded-xl border border-line bg-panel/35 p-3">
+        <p className="text-xs font-semibold text-ink/60">Escala de fatiga estimada</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(["none", "low", "moderate", "high", "very_high"] as const).map((level) => (
+            <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${levelStyles[level].badge}`} key={level}>
+              <span aria-hidden="true" className="size-3 shrink-0 rounded-full border border-line" style={{ backgroundColor: levelStyles[level].fill, opacity: levelStyles[level].opacity }} />
+              {levelStyles[level].label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink/55">Estimación orientativa según los registros disponibles. Sin carga registrada no equivale a recuperación completa.</p>
+      </div>
+    </section>
   );
 }
