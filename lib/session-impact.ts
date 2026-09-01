@@ -28,6 +28,28 @@ type SessionImpactInput = {
   summary?: string | null;
 };
 
+type PlannedExerciseInput = {
+  plannedSets?: NumericInput;
+  setDetails?: readonly unknown[] | null;
+  sets?: NumericInput;
+};
+
+type PlannedSessionImpactInput = {
+  targetRpe?: NumericInput;
+  duration?: NumericInput;
+  plannedDurationMinutes?: NumericInput;
+  exercises?: readonly PlannedExerciseInput[] | null;
+  plannedExercises?: readonly PlannedExerciseInput[] | null;
+  exercisePlan?: readonly PlannedExerciseInput[] | null;
+  cardioPlan?: {
+    targetDurationMinutes?: NumericInput;
+    targetRpeMax?: NumericInput;
+    targetRpeMin?: NumericInput;
+  } | null;
+  type?: string | null;
+  summary?: string | null;
+};
+
 const impactCopy: Record<SessionImpactLevel, Pick<SessionImpact, "label" | "description">> = {
   low: {
     label: "Impacto bajo",
@@ -54,6 +76,12 @@ const impactThresholds = {
   moderateRpe: 6,
   highRpe: 8,
   longDurationMinutes: 60
+} as const;
+
+// RAC v1 placeholders for planned volume. They are not diagnostic cut-offs.
+const plannedImpactThresholds = {
+  elevatedSets: 18,
+  veryHighSets: 30
 } as const;
 
 function readNumber(value: NumericInput | undefined): number | null {
@@ -99,6 +127,68 @@ export function getSessionImpact(session: SessionImpactInput): SessionImpact {
 
   // Context only: discomfort does not participate in the demand classification.
   if (session.discomfort?.hasDiscomfort === true) reasons.push("Molestia registrada");
+
+  return { level, ...impactCopy[level], reasons };
+}
+
+function getPlannedExerciseSets(exercise: PlannedExerciseInput) {
+  const explicitSets = readNumber(exercise.plannedSets) ?? readNumber(exercise.sets);
+  if (explicitSets !== null) return explicitSets;
+  return exercise.setDetails?.length ?? 0;
+}
+
+// Estimate expected demand before a session. This does not classify real work or create alerts.
+export function getPlannedSessionImpact(session: PlannedSessionImpactInput): SessionImpact {
+  const exercises = session.plannedExercises?.length
+    ? session.plannedExercises
+    : session.exercises?.length
+      ? session.exercises
+      : session.exercisePlan ?? [];
+  const plannedSets = exercises.reduce((total, exercise) => total + getPlannedExerciseSets(exercise), 0);
+  const duration = readNumber(session.plannedDurationMinutes)
+    ?? readNumber(session.cardioPlan?.targetDurationMinutes)
+    ?? readNumber(session.duration);
+  const parsedTargetRpe = readNumber(session.targetRpe)
+    ?? readNumber(session.cardioPlan?.targetRpeMax)
+    ?? readNumber(session.cardioPlan?.targetRpeMin);
+  const targetRpe = parsedTargetRpe !== null && parsedTargetRpe > 0 && parsedTargetRpe <= 10
+    ? parsedTargetRpe
+    : null;
+  const canEstimateLoad = duration !== null && duration > 0 && targetRpe !== null;
+  const plannedLoad = canEstimateLoad ? duration * targetRpe : null;
+  const elevatedVolume = plannedSets >= plannedImpactThresholds.elevatedSets;
+  const veryHighVolume = plannedSets >= plannedImpactThresholds.veryHighSets;
+  const reasons: string[] = [];
+  let level: SessionImpactLevel = "unknown";
+
+  if (plannedLoad !== null) {
+    if (plannedLoad >= impactThresholds.highSrpe) level = "high";
+    else if (plannedLoad >= impactThresholds.moderateSrpe) level = "moderate";
+    else level = "low";
+
+    reasons.push("Estimación con datos planificados");
+    if (plannedLoad >= impactThresholds.highSrpe) reasons.push("Carga prevista alta");
+    else if (plannedLoad >= impactThresholds.moderateSrpe) reasons.push("Carga prevista moderada");
+  } else if (targetRpe !== null) {
+    level = targetRpe >= impactThresholds.moderateRpe ? "moderate" : "low";
+    reasons.push("Estimación con datos planificados");
+  } else if (elevatedVolume) {
+    // Volume alone supports a cautious moderate estimate, never a high estimate.
+    level = "moderate";
+    reasons.push("Estimación con datos planificados");
+  } else {
+    reasons.push("Faltan datos planificados");
+  }
+
+  if (level !== "unknown") {
+    if (targetRpe !== null && targetRpe >= impactThresholds.highRpe) reasons.push("RPE objetivo alto");
+    else if (targetRpe !== null && targetRpe >= impactThresholds.moderateRpe) reasons.push("RPE objetivo moderado");
+    if (duration !== null && duration >= impactThresholds.longDurationMinutes) reasons.push("Duración prevista elevada");
+    if (elevatedVolume) reasons.push("Volumen planificado elevado");
+
+    if (veryHighVolume && level === "moderate") level = "high";
+    else if (elevatedVolume && level === "low") level = "moderate";
+  }
 
   return { level, ...impactCopy[level], reasons };
 }
