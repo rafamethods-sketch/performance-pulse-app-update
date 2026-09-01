@@ -197,21 +197,21 @@ export function getSessionImpactStyle(level: SessionImpactLevel): SessionImpactS
   switch (level) {
     case "low":
       return {
-        badgeClassName: "border border-blue-100 bg-blue-50/90 text-blue-700 [[data-theme=dark]_&]:border-blue-900 [[data-theme=dark]_&]:bg-blue-950/40 [[data-theme=dark]_&]:text-blue-200",
-        dotClassName: "bg-blue-300",
-        borderClassName: "border-blue-100 [[data-theme=dark]_&]:border-blue-900"
+        badgeClassName: "border border-blue-100 bg-blue-50/90 text-blue-700 [[data-theme=dark]_&]:border-blue-900/50 [[data-theme=dark]_&]:bg-blue-950/20 [[data-theme=dark]_&]:text-blue-200",
+        dotClassName: "bg-blue-300 [[data-theme=dark]_&]:bg-blue-300/70",
+        borderClassName: "border-blue-100 [[data-theme=dark]_&]:border-blue-900/50"
       };
     case "moderate":
       return {
-        badgeClassName: "border border-blue-200/90 bg-blue-100 text-blue-800 [[data-theme=dark]_&]:border-blue-700 [[data-theme=dark]_&]:bg-blue-900 [[data-theme=dark]_&]:text-blue-100",
-        dotClassName: "bg-blue-500",
-        borderClassName: "border-blue-300 [[data-theme=dark]_&]:border-blue-700"
+        badgeClassName: "border border-blue-200/90 bg-blue-100 text-blue-800 [[data-theme=dark]_&]:border-blue-700/50 [[data-theme=dark]_&]:bg-blue-900/30 [[data-theme=dark]_&]:text-blue-100",
+        dotClassName: "bg-blue-500 [[data-theme=dark]_&]:bg-blue-300/80",
+        borderClassName: "border-blue-300 [[data-theme=dark]_&]:border-blue-700/50"
       };
     case "high":
       return {
-        badgeClassName: "border border-blue-800 bg-blue-950 text-blue-100",
-        dotClassName: "bg-blue-300",
-        borderClassName: "border-blue-800"
+        badgeClassName: "border border-blue-800 bg-blue-950 text-blue-100 [[data-theme=dark]_&]:border-blue-700/70 [[data-theme=dark]_&]:bg-blue-950/60 [[data-theme=dark]_&]:text-blue-50",
+        dotClassName: "bg-blue-300 [[data-theme=dark]_&]:bg-blue-200",
+        borderClassName: "border-blue-800 [[data-theme=dark]_&]:border-blue-700/70"
       };
     case "unknown":
       return {

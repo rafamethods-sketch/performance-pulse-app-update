@@ -353,6 +353,62 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
   );
 }
 
+function WeeklyImpactDonut({ counts }: { counts: Record<SessionImpactLevel, number> }) {
+  const total = counts.low + counts.moderate + counts.high + counts.unknown;
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  let accumulatedLength = 0;
+  const segments = ([
+    { className: "stroke-blue-300 [[data-theme=dark]_&]:stroke-blue-300/70", level: "low" },
+    { className: "stroke-blue-500 [[data-theme=dark]_&]:stroke-blue-400/75", level: "moderate" },
+    { className: "stroke-blue-950 [[data-theme=dark]_&]:stroke-blue-700/80", level: "high" },
+    { className: "stroke-slate-300 [[data-theme=dark]_&]:stroke-slate-500/60", level: "unknown" }
+  ] as const).map(({ className, level }) => {
+    const segmentLength = total > 0 ? (counts[level] / total) * circumference : 0;
+    const segment = {
+      className,
+      dashArray: `${Math.max(0, segmentLength - 2)} ${circumference}`,
+      dashOffset: -accumulatedLength,
+      level
+    };
+    accumulatedLength += segmentLength;
+    return segment;
+  });
+
+  return (
+    <div className="relative size-36 shrink-0" role="img" aria-label={`Distribución de impacto de ${total} sesiones completadas`}>
+      <svg className="size-full" viewBox="0 0 100 100">
+        <title>Distribución del impacto semanal</title>
+        <circle
+          className="fill-none stroke-slate-200 [[data-theme=dark]_&]:stroke-slate-700/60"
+          cx="50"
+          cy="50"
+          r={radius}
+          strokeWidth="12"
+        />
+        {total > 0 ? segments.map((segment) => (
+          <circle
+            className={`fill-none ${segment.className}`}
+            cx="50"
+            cy="50"
+            key={segment.level}
+            r={radius}
+            strokeDasharray={segment.dashArray}
+            strokeDashoffset={segment.dashOffset}
+            strokeLinecap="round"
+            strokeWidth="12"
+            transform="rotate(-90 50 50)"
+          />
+        )) : null}
+      </svg>
+      <div className="absolute inset-0 grid place-content-center text-center">
+        <span className="text-2xl font-bold tabular-nums text-ink">{total}</span>
+        <span className="text-[11px] font-semibold text-ink/50">sesiones</span>
+      </div>
+    </div>
+  );
+}
+
 export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient | null }) {
   const weeklySessions = useMemo(
     () => ((client?.sessionRecords ?? []) as AthleteWeeklySession[])
@@ -449,22 +505,25 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
 
       <article className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5">
         <h3 className="font-semibold text-ink">Impacto de la semana</h3>
-        <p className="mt-1 text-sm text-ink/60">Demanda de tus sesiones completadas.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {([
-            { level: "low", label: "Bajo" },
-            { level: "moderate", label: "Medio" },
-            { level: "high", label: "Alto" },
-            { level: "unknown", label: "Sin datos" }
-          ] as const).map(({ level, label }) => {
-            const impactStyle = getSessionImpactStyle(level);
-            return (
-              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${impactStyle.badgeClassName}`} key={level}>
-                <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
-                {label} <span className="font-bold tabular-nums">{impactCounts[level]}</span>
-              </span>
-            );
-          })}
+        <p className="mt-1 text-sm text-ink/60">Distribución de la demanda de tus sesiones completadas.</p>
+        <div className="mt-4 flex min-w-0 flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <WeeklyImpactDonut counts={impactCounts} />
+          <div className="flex min-w-0 flex-1 flex-wrap justify-center gap-2 sm:justify-start">
+            {([
+              { level: "low", label: "Bajo" },
+              { level: "moderate", label: "Medio" },
+              { level: "high", label: "Alto" },
+              { level: "unknown", label: "Sin datos" }
+            ] as const).map(({ level, label }) => {
+              const impactStyle = getSessionImpactStyle(level);
+              return (
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${impactStyle.badgeClassName}`} key={level}>
+                  <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
+                  {label} <span className="font-bold tabular-nums">{impactCounts[level]}</span>
+                </span>
+              );
+            })}
+          </div>
         </div>
         {weeklySessions.length === 0 ? <p className="mt-3 text-sm text-ink/55">Sin sesiones completadas esta semana.</p> : null}
       </article>
