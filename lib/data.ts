@@ -59,7 +59,7 @@ type NavItem = {
 export const navItems: NavItem[] = [
   { id: "today", label: "Hoy", icon: Activity },
   { id: "clients", label: "Clientes", icon: Users },
-  { id: "attention", label: "Asuntos pendientes", icon: ClipboardCheck },
+  { id: "attention", label: "Centro de control", icon: ClipboardCheck },
   { id: "analytics", label: "Métricas", icon: BarChart3 },
   { id: "management", label: "Gestión", icon: Users },
   { id: "calendar", label: "Calendario", icon: CalendarDays },
