@@ -470,7 +470,19 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
 
       {sessions.length > 0 ? (
         <div className="mt-4 grid gap-4 sm:mt-5">
-          {sessionGroups.map((blockGroup, blockIndex) => (
+          {sessionGroups.map((blockGroup, blockIndex) => {
+            const blockSessions = blockGroup.weeks.flatMap((week) => week.sessions.map(({ session }) => session));
+            const blockDates = blockSessions
+              .map((session) => getAthleteDate(session.date))
+              .filter((date): date is Date => Boolean(date))
+              .sort((left, right) => left.getTime() - right.getTime());
+            const firstBlockDate = blockDates[0];
+            const lastBlockDate = blockDates.at(-1);
+            const blockDateRange = firstBlockDate && lastBlockDate
+              ? `${firstBlockDate.toLocaleDateString("es-ES", { day: "numeric", month: "short" })} – ${lastBlockDate.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`
+              : "";
+
+            return (
             <details
               className="min-w-0 rounded-2xl border border-line bg-white p-3 shadow-soft sm:p-4"
               key={blockGroup.label}
@@ -482,23 +494,29 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               }}
               open={openBlockStates[blockGroup.label] ?? blockIndex === 0}
             >
-              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                <div>
+              <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
+                <div className="min-w-0">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">Mesociclo / bloque</p>
-                  <h3 className="mt-1 font-semibold text-ink">{blockGroup.label}</h3>
+                  <h3 className="mt-1 break-words text-base font-semibold text-ink sm:text-lg">{blockGroup.label}</h3>
+                  <p className="mt-1 text-xs font-medium text-ink/55">
+                    {blockGroup.weeks.length} {blockGroup.weeks.length === 1 ? "semana" : "semanas"} · {blockSessions.length} {blockSessions.length === 1 ? "sesión" : "sesiones"} · {blockSessions.length} {blockSessions.length === 1 ? "completada" : "completadas"}
+                  </p>
+                  {blockDateRange ? <p className="mt-1 text-xs text-ink/45">{blockDateRange}</p> : null}
                 </div>
-                <span className="rounded-full bg-panel px-2.5 py-1 text-xs font-semibold text-ink/55">
-                  {blockGroup.weeks.reduce((total, week) => total + week.sessions.length, 0)} sesiones
+                <span className="shrink-0 rounded-full bg-mint px-2.5 py-1 text-xs font-semibold text-moss">
+                  {blockIndex === 0 ? "Bloque reciente" : "Ver bloque"}
                 </span>
               </summary>
               <div className="mt-3 grid gap-3">
-                {blockGroup.weeks.map((weekGroup) => (
+                {blockGroup.weeks.map((weekGroup) => {
+                  const weekSessionCount = weekGroup.sessions.length;
+                  return (
                   <section className="min-w-0 rounded-xl border border-line bg-panel/25 p-3" key={`${blockGroup.label}-${weekGroup.label}`}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h4 className="text-sm font-semibold text-ink">{weekGroup.label}</h4>
-                      <span className="text-xs font-medium text-ink/45">
-                        {weekGroup.sessions.length} {weekGroup.sessions.length === 1 ? "sesión" : "sesiones"}
-                      </span>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-2">
+                      <h4 className="text-sm font-semibold text-ink sm:text-base">{weekGroup.label}</h4>
+                      <p className="text-xs font-medium text-ink/50">
+                        {weekSessionCount} {weekSessionCount === 1 ? "sesión" : "sesiones"} · {weekSessionCount} {weekSessionCount === 1 ? "completada" : "completadas"}
+                      </p>
                     </div>
                     <div className="grid gap-2">
           {weekGroup.sessions.map(({ session, originalIndex: index }) => {
@@ -581,7 +599,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                 ) : null}
                 </div>
                 <button
-                  className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
+                  className="mt-4 min-h-11 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/85 sm:w-auto"
                   onClick={() => setOpenSessionKey(sessionKey)}
                   aria-haspopup="dialog"
                   type="button"
@@ -825,10 +843,12 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
           })}
                     </div>
                   </section>
-                ))}
+                  );
+                })}
               </div>
             </details>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">

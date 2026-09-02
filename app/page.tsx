@@ -12385,7 +12385,21 @@ function SessionHistoryPanel({
 
       {sessions.length > 0 ? (
         <div className="mt-5 grid gap-4">
-          {sessionGroups.map((blockGroup, blockIndex) => (
+          {sessionGroups.map((blockGroup, blockIndex) => {
+            const blockSessions = blockGroup.weeks.flatMap((week) => week.sessions.map(({ session }) => session));
+            const blockCompleted = blockSessions.filter((session) => getSessionStatus(session) === "Completada").length;
+            const blockPending = blockSessions.length - blockCompleted;
+            const blockDates = blockSessions
+              .map((session) => getReviewSessionDate(session.date))
+              .filter((date): date is Date => Boolean(date))
+              .sort((left, right) => left.getTime() - right.getTime());
+            const firstBlockDate = blockDates[0];
+            const lastBlockDate = blockDates.at(-1);
+            const blockDateRange = firstBlockDate && lastBlockDate
+              ? `${firstBlockDate.toLocaleDateString("es-ES", { day: "numeric", month: "short" })} – ${lastBlockDate.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`
+              : "";
+
+            return (
             <details
               className="coach-surface min-w-0 rounded-md p-3 shadow-soft sm:p-4"
               key={blockGroup.label}
@@ -12397,23 +12411,32 @@ function SessionHistoryPanel({
               }}
               open={openSessionBlockStates[blockGroup.label] ?? blockIndex === 0}
             >
-              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                <div>
+              <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Mesociclo / bloque</p>
-                  <h3 className="mt-1 font-semibold text-ink">{blockGroup.label}</h3>
+                  <h3 className="mt-1 break-words text-base font-semibold text-ink sm:text-lg">{blockGroup.label}</h3>
+                  <p className="mt-1 text-xs font-medium text-ink/55">
+                    {blockGroup.weeks.length} {blockGroup.weeks.length === 1 ? "semana" : "semanas"} · {blockSessions.length} {blockSessions.length === 1 ? "sesión" : "sesiones"} · {blockCompleted} {blockCompleted === 1 ? "completada" : "completadas"}{blockPending > 0 ? ` · ${blockPending} ${blockPending === 1 ? "pendiente" : "pendientes"}` : ""}
+                  </p>
+                  {blockDateRange ? <p className="mt-1 text-xs text-ink/45">{blockDateRange}</p> : null}
                 </div>
-                <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/55">
-                  {blockGroup.weeks.reduce((total, week) => total + week.sessions.length, 0)} sesiones
+                <span className="shrink-0 rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/55">
+                  {blockIndex === 0 ? "Bloque reciente" : "Ver bloque"}
                 </span>
               </summary>
               <div className="mt-3 grid gap-3">
-                {blockGroup.weeks.map((weekGroup) => (
+                {blockGroup.weeks.map((weekGroup) => {
+                  const weekSessions = weekGroup.sessions.map(({ session }) => session);
+                  const weekCompleted = weekSessions.filter((session) => getSessionStatus(session) === "Completada").length;
+                  const weekPending = weekSessions.length - weekCompleted;
+                  const weekReviewed = weekSessions.filter((session) => getSessionReviewStatus(session) === "reviewed").length;
+                  return (
                   <section className="min-w-0 rounded-md border border-line bg-panel/25 p-3" key={`${blockGroup.label}-${weekGroup.label}`}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h4 className="text-sm font-semibold text-ink">{weekGroup.label}</h4>
-                      <span className="text-xs font-medium text-ink/45">
-                        {weekGroup.sessions.length} {weekGroup.sessions.length === 1 ? "sesión" : "sesiones"}
-                      </span>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-2">
+                      <h4 className="text-sm font-semibold text-ink sm:text-base">{weekGroup.label}</h4>
+                      <p className="text-xs font-medium text-ink/50">
+                        {weekSessions.length} {weekSessions.length === 1 ? "sesión" : "sesiones"} · {weekCompleted} {weekCompleted === 1 ? "completada" : "completadas"}{weekPending > 0 ? ` · ${weekPending} ${weekPending === 1 ? "pendiente" : "pendientes"}` : ""}{weekReviewed > 0 ? ` · ${weekReviewed} ${weekReviewed === 1 ? "revisada" : "revisadas"}` : ""}
+                      </p>
                     </div>
                     <div className="grid gap-2">
           {weekGroup.sessions.map(({ session, originalIndex: sessionIndex }) => {
@@ -12582,7 +12605,7 @@ function SessionHistoryPanel({
                       </span>
                     ) : null}
                     <button
-                      className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mint"
+                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-ink/85"
                       onClick={() => setOpenSessionKey(sessionKey)}
                       type="button"
                     >
@@ -13083,10 +13106,12 @@ function SessionHistoryPanel({
           })}
                     </div>
                   </section>
-                ))}
+                  );
+                })}
               </div>
             </details>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">
