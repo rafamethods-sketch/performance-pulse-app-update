@@ -21,6 +21,12 @@ import {
   type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
+import {
+  getWeeklyCoachReview,
+  getWeeklyReviewStyle,
+  type WeeklyCoachReview,
+  type WeeklyReviewSession
+} from "@/lib/weekly-review";
 
 type DashboardSessionRecord = TrainingSessionInput & {
   actualDurationMinutes?: number | string | null;
@@ -33,6 +39,11 @@ type DashboardSessionRecord = TrainingSessionInput & {
     distanceMeters?: number | string | null;
     timeInZones?: Record<string, number | undefined>;
   };
+  cardioPlan?: {
+    targetDurationMinutes?: number | string | null;
+    targetRpeMax?: number | string | null;
+    targetRpeMin?: number | string | null;
+  } | null;
   completed?: boolean;
   date: string;
   discomfort?: {
@@ -50,6 +61,7 @@ type DashboardSessionRecord = TrainingSessionInput & {
   sRPE?: number | string | null;
   srpe?: number | string | null;
   summary: string;
+  targetRpe?: number | string | null;
   type: string;
   wellness?: {
     calm?: number;
@@ -153,17 +165,6 @@ function getDashboardLoadData(client: CoachClient) {
     strainStatus: getDashboardStrainStatus(strain),
     weeklyLoad
   };
-}
-
-function dashboardStatusBadgeClass(status: string) {
-  switch (status) {
-    case "Alto":
-      return "border-coral/25 bg-coral/10 text-coral";
-    case "Vigilar":
-      return "border-clay/25 bg-clay/10 text-clay";
-    default:
-      return "border-moss/25 bg-mint text-moss";
-  }
 }
 
 function hasDashboardValue(value: unknown) {
@@ -674,11 +675,22 @@ export function ClientDashboardView({
 }: ClientDashboardViewProps) {
   const loadData = getDashboardLoadData(client);
   const dashboardData = getClientDashboardData(client, loadData);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextSession = client.sessionRecords
+    .map((session) => ({ date: getDashboardDate(session.date), session }))
+    .filter((entry) => entry.date && entry.date >= today && !hasDashboardRealSessionData(entry.session))
+    .sort((left, right) => (left.date?.getTime() ?? 0) - (right.date?.getTime() ?? 0))[0]?.session ?? null;
+  const weeklyReview = getWeeklyCoachReview({
+    nextSession: nextSession as WeeklyReviewSession | null,
+    referenceDate: today,
+    sessions: client.sessionRecords as WeeklyReviewSession[]
+  });
 
   return (
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <WeeklyDecisionBlock dashboardData={dashboardData} />
+      <WeeklyDecisionBlock review={weeklyReview} />
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
         <DailyLoadReadinessBlock dashboardData={dashboardData} />
@@ -694,35 +706,62 @@ export function ClientDashboardView({
   );
 }
 
-function WeeklyDecisionBlock({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
-  const statusTone = dashboardData.generalStatus === "Descargar / revisar"
-    ? "Alto"
-    : dashboardData.generalStatus === "A vigilar" || dashboardData.generalStatus === "Sin datos suficientes"
-      ? "Vigilar"
-      : "Controlado";
-  const reasons = dashboardData.alerts.length > 0
-    ? dashboardData.alerts.slice(0, 4)
-    : ["Sin señales principales esta semana."];
+function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
+  const style = getWeeklyReviewStyle(review.level);
+  const secondaryReasons = review.reasons
+    .filter((reason) => reason !== review.primaryReason)
+    .slice(0, 3);
+  const confidenceLabel = review.confidence === "high" ? "alta" : review.confidence === "medium" ? "media" : "baja";
+  const impactSummary = [
+    `${review.stats.highImpactSessions} ${review.stats.highImpactSessions === 1 ? "alto" : "altos"}`,
+    `${review.stats.moderateImpactSessions} ${review.stats.moderateImpactSessions === 1 ? "medio" : "medios"}`,
+    `${review.stats.lowImpactSessions} ${review.stats.lowImpactSessions === 1 ? "bajo" : "bajos"}`,
+    review.stats.unknownImpactSessions > 0 ? `${review.stats.unknownImpactSessions} sin datos` : ""
+  ].filter(Boolean).join(" · ");
 
   return (
-    <section className="coach-surface rounded-md p-5">
+    <section className={`coach-surface rounded-md border p-5 ${style.borderClassName}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">Estado semanal</p>
-          <h3 className="mt-2 text-2xl font-semibold text-ink">{dashboardData.generalStatus}</h3>
-          <p className="mt-2 text-sm text-ink/65">{dashboardData.decisionText}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">RAC Review semanal</p>
+          <h3 className="mt-2 text-2xl font-semibold text-ink">{review.label}</h3>
+          <p className="mt-2 text-sm text-ink/65">{review.description}</p>
         </div>
-        <span className={`w-fit rounded-md border px-3 py-2 text-sm font-semibold ${dashboardStatusBadgeClass(statusTone)}`}>
-          Lectura orientativa
+        <span className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${style.badgeClassName}`}>
+          <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${style.dotClassName}`} />
+          {review.label}
         </span>
       </div>
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {reasons.map((reason) => (
-          <article className="rounded-md border border-line bg-panel/45 p-3 text-sm font-semibold text-ink/75" key={reason}>
-            {reason}
-          </article>
-        ))}
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-md border border-line bg-panel/45 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Qué significa</p>
+          <p className="mt-2 text-sm text-ink/70">
+            <span className="font-semibold text-ink">Motivo principal:</span>{" "}
+            {review.primaryReason?.label ?? "Sin aspectos principales a revisar."}
+          </p>
+          <p className="mt-3 text-sm text-ink/70">
+            <span className="font-semibold text-ink">Decisión sugerida:</span> {review.suggestedDecision}
+          </p>
+          <p className="mt-3 text-xs font-semibold text-ink/45">Confianza {confidenceLabel}</p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          <ClientInfoCard label="Cumplimiento" value={`${review.stats.completedSessions}/${review.stats.plannedSessions} sesiones`} />
+          <ClientInfoCard label="Impacto" value={impactSummary} />
+          <ClientInfoCard label="Molestias" value={`${review.stats.discomfortSessions}`} />
+        </div>
       </div>
+
+      {secondaryReasons.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {secondaryReasons.map((reason) => (
+            <span className="rounded-md border border-line bg-panel/55 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={`${reason.type}-${reason.label}`}>
+              {reason.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -759,8 +798,8 @@ function WeeklyLoadDecisionBlock({
       {dashboardData.weeklySeries.length > 0 ? (
         <>
           <div className="mt-5 flex h-40 items-end gap-2 rounded-md bg-panel/35 p-3">
-            {dashboardData.weeklySeries.map((entry) => (
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={entry.label}>
+            {dashboardData.weeklySeries.map((entry, index) => (
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${entry.label}-${index}`}>
                 <div
                   className="w-full rounded-t bg-gradient-to-t from-moss to-steel"
                   style={{ height: `${Math.max(18, (entry.load / maxLoad) * 112)}px` }}
@@ -802,8 +841,8 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
       {dashboardData.dailySeries.length > 0 ? (
         <div className="mt-5">
           <div className="flex h-44 items-end gap-2 rounded-md bg-panel/35 p-3">
-            {dashboardData.dailySeries.map((entry) => (
-              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={entry.label}>
+            {dashboardData.dailySeries.map((entry, index) => (
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${entry.label}-${index}`}>
                 <div className="flex h-28 w-full items-end justify-center">
                   <div
                     className={`w-full max-w-8 rounded-t ${entry.discomfort ? "bg-clay" : "bg-moss"}`}
