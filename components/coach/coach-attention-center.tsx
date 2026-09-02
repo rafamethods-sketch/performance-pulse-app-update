@@ -888,6 +888,17 @@ export function CoachAttentionCenter({
     technique: items.filter((item) => getAttentionSectionFilter(item.section) === "technique").length,
     wellness: items.filter((item) => getAttentionSectionFilter(item.section) === "wellness").length
   };
+  const pendingReviewCount = items.filter((item) => item.section === "pendingSessions").length;
+  const upcomingReviewCount = items.filter((item) => item.section === "sessionCompatibility").length;
+  const priorityCount = items.filter((item) =>
+    item.section === "highPriorityTechnique" ||
+    (item.section === "sessionCompatibility" && item.compatibilityLevel === "priority")
+  ).length;
+  const clientsWithAttention = new Set(
+    items
+      .filter((item) => ["discomfort", "highPriorityTechnique", "lowReadiness", "negativeFeedback", "sessionCompatibility"].includes(item.section))
+      .map((item) => item.clientId)
+  ).size;
 
   function openItem(item: CoachAttentionItem) {
     if (item.action === "details") {
@@ -914,18 +925,53 @@ export function CoachAttentionCenter({
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="coach-surface rounded-md p-4">
+      <section className="coach-surface rounded-md p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Centro de atención</h2>
-            <p className="mt-1 text-sm text-ink/55">Qué necesita revisión o seguimiento rápido hoy.</p>
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-moss">Vista entrenador</p>
+            <h2 className="mt-2 text-xl font-semibold text-ink sm:text-2xl">Centro de control</h2>
+            <p className="mt-2 text-sm text-ink/60">
+              Revisa qué clientes necesitan atención, por qué y cuál es la próxima acción disponible.
+            </p>
           </div>
-          <p className="max-w-xl text-xs font-medium text-ink/45">
-            Vista de trabajo basada en datos locales del entrenador.
-          </p>
+          <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-2 text-xs font-semibold text-ink/55">
+            Lectura orientativa · {period} días
+          </span>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-md border border-line bg-panel/35 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-md border border-line bg-panel/45 p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Clientes con atención</p>
+            <p className="mt-2 text-2xl font-semibold text-ink">{clientsWithAttention}</p>
+            <p className="mt-1 text-xs text-ink/50">de {clients.length} en seguimiento</p>
+          </article>
+          <article className="rounded-md border border-line bg-panel/45 p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Sesiones que revisar</p>
+            <p className="mt-2 text-2xl font-semibold text-ink">{pendingReviewCount}</p>
+            <p className="mt-1 text-xs text-ink/50">completadas y pendientes</p>
+          </article>
+          <article className="rounded-md border border-line bg-panel/45 p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Prioridades</p>
+            <p className="mt-2 text-2xl font-semibold text-ink">{priorityCount}</p>
+            <p className="mt-1 text-xs text-ink/50">{priorityCount > 0 ? "para revisar primero" : "sin prioridades urgentes"}</p>
+          </article>
+          <article className="rounded-md border border-line bg-panel/45 p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Próximas sesiones</p>
+            <p className="mt-2 text-2xl font-semibold text-ink">{upcomingReviewCount}</p>
+            <p className="mt-1 text-xs text-ink/50">con contexto a revisar</p>
+          </article>
+        </div>
+
+        <div className="mt-5 border-t border-line pt-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-ink">Prioridades de hoy</h3>
+              <p className="mt-1 text-sm text-ink/55">Filtra el centro de control según el tipo de seguimiento.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-3 rounded-md border border-line bg-panel/35 p-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
             {attentionFilterOrder.map((filter) => (
               <button
@@ -1029,13 +1075,16 @@ export function CoachAttentionCenter({
                         <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenKneeAssessment(item.clientId)} type="button">Valorar rodilla</button>
                       </div>
                     ) : null}
-                    <button
-                      className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
-                      onClick={() => openItem(item)}
-                      type="button"
-                    >
-                      {item.action === "session" ? "Ver detalle" : item.action === "progress" ? "Ver progreso" : "Ver información"}
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-3">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/40">Próxima acción</span>
+                      <button
+                        className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
+                        onClick={() => openItem(item)}
+                        type="button"
+                      >
+                        {item.action === "session" ? "Ver detalle" : item.action === "progress" ? "Ver progreso" : "Ver información"}
+                      </button>
+                    </div>
                   </article>
                   );
                 })}

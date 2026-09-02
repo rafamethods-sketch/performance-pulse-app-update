@@ -633,7 +633,7 @@ export default function ClientsPage() {
       if (role === "coach" && trainerClientPanel === "details") return `Información - ${selectedClient?.name ?? "cliente"}`;
       return "Gestión";
     }
-    if (activeSheet === "attention") return "Asuntos pendientes";
+    if (activeSheet === "attention") return "Centro de control";
     if (activeSheet === "analytics") return "Métricas";
     if (activeSheet === "training") return role === "coach" && scopedClient ? `Sesiones - ${scopedClient.name}` : role === "coach" ? "Entrenamiento" : "Historial";
     if (activeSheet === "assessments") return role === "coach" && scopedClient ? `Valoraciones - ${scopedClient.name}` : "Valoraciones";
