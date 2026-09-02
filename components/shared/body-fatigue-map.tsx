@@ -140,7 +140,7 @@ export function BodyFatigueMap({ muscles }: BodyFatigueMapProps) {
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:items-start">
         <figure className="min-w-0 rounded-xl border border-line bg-panel/45 p-3">
-          <div className="relative mx-auto aspect-[3/4] w-full max-w-[270px] sm:max-w-[330px]">
+          <div className="relative mx-auto aspect-[3/4] w-full max-w-[240px] sm:max-w-[280px]">
             <Image
               alt={`Cuerpo humano: vista ${view.label.toLowerCase()} orientativa`}
               className="h-full w-full rounded-lg object-contain mix-blend-multiply [[data-theme=dark]_&]:invert [[data-theme=dark]_&]:mix-blend-screen"
@@ -168,20 +168,19 @@ export function BodyFatigueMap({ muscles }: BodyFatigueMapProps) {
               <MuscleList muscles={otherMuscles} />
             </div>
           ) : null}
+          <div className="rounded-xl border border-line bg-panel/35 p-3">
+            <p className="text-xs font-semibold text-ink/60">Escala de fatiga estimada</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(["none", "low", "moderate", "high", "very_high"] as const).map((level) => (
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium ${levelStyles[level].badge}`} key={level}>
+                  <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full border border-line" style={{ backgroundColor: levelStyles[level].fill, opacity: levelStyles[level].opacity }} />
+                  {levelStyles[level].label}
+                </span>
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-ink/55">Estimación orientativa según los registros disponibles. Sin carga registrada no equivale a recuperación completa.</p>
+          </div>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-line bg-panel/35 p-3">
-        <p className="text-xs font-semibold text-ink/60">Escala de fatiga estimada</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {(["none", "low", "moderate", "high", "very_high"] as const).map((level) => (
-            <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${levelStyles[level].badge}`} key={level}>
-              <span aria-hidden="true" className="size-3 shrink-0 rounded-full border border-line" style={{ backgroundColor: levelStyles[level].fill, opacity: levelStyles[level].opacity }} />
-              {levelStyles[level].label}
-            </span>
-          ))}
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-ink/55">Estimación orientativa según los registros disponibles. Sin carga registrada no equivale a recuperación completa.</p>
       </div>
     </section>
   );
