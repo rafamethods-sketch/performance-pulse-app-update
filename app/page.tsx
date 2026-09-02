@@ -59,6 +59,11 @@ import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import {
+  getWeeklyCoachReview,
+  getWeeklyReviewStyle,
+  type WeeklyReviewSession
+} from "@/lib/weekly-review";
+import {
   getPlanningMethodDescription,
   getPlanningMethodLabel,
   planningConfig,
@@ -2928,6 +2933,37 @@ function CoachClientsView({
         .includes(query);
     return matchesGoal && matchesSearch;
   });
+  const reviewReferenceDate = new Date();
+  reviewReferenceDate.setHours(0, 0, 0, 0);
+  const reviewLevelOrder = { priority: 0, review: 1, unknown: 2, stable: 3 } as const;
+  const reviewedClients = filteredClients
+    .map((listedClient, originalIndex) => {
+      const nextSession = (listedClient.sessionRecords ?? [])
+        .map((session) => {
+          const rawDate = session.date?.trim();
+          const date = rawDate
+            ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T00:00:00` : rawDate)
+            : null;
+          return { date: date && !Number.isNaN(date.getTime()) ? date : null, session };
+        })
+        .filter((entry) =>
+          entry.date &&
+          entry.date >= reviewReferenceDate &&
+          !hasRealSessionData(entry.session as ReviewSessionRecord)
+        )
+        .sort((left, right) => (left.date?.getTime() ?? 0) - (right.date?.getTime() ?? 0))[0]?.session ?? null;
+      const review = getWeeklyCoachReview({
+        nextSession: nextSession as WeeklyReviewSession | null,
+        referenceDate: reviewReferenceDate,
+        sessions: (listedClient.sessionRecords ?? []) as WeeklyReviewSession[]
+      });
+
+      return { listedClient, originalIndex, review };
+    })
+    .sort((left, right) =>
+      reviewLevelOrder[left.review.level] - reviewLevelOrder[right.review.level] ||
+      left.originalIndex - right.originalIndex
+    );
 
   function resetNewClientDraft() {
     setNewClientDraft({
@@ -3572,10 +3608,11 @@ function CoachClientsView({
         )}
 
         <div className="mt-4 space-y-2.5">
-          {filteredClients.map((listedClient) => {
+          {reviewedClients.map(({ listedClient, review }) => {
             const accessInfo = getClientAccessInfo(listedClient);
             const onboardingCompletion = getOnboardingCompletion(listedClient);
             const onboardingSummary = getOnboardingSummary(listedClient);
+            const reviewStyle = getWeeklyReviewStyle(review.level);
             const visibleBadges = [listedClient.goalType, listedClient.status].filter(
               (badge) => badge && badge !== "Datos completos"
             );
@@ -3585,42 +3622,26 @@ function CoachClientsView({
                 className="coach-subtle-card rounded-md p-3.5"
                 key={listedClient.id}
               >
-                <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h3 className="mr-1 text-base font-semibold text-ink">{listedClient.name}</h3>
-                    {visibleBadges.map((badge) => (
-                      <span
-                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                          badge === listedClient.goalType ? "bg-white text-ink/70" : "bg-wheat text-ink/70"
-                        }`}
-                        key={badge}
-                      >
-                        {badge}
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h3 className="mr-1 text-base font-semibold text-ink">{listedClient.name}</h3>
+                      <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ${reviewStyle.badgeClassName}`}>
+                        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${reviewStyle.dotClassName}`} />
+                        {review.label}
                       </span>
-                    ))}
-                    <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
-                      {listedClient.readiness}%
-                    </span>
-                    <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
-                      {accessInfo.label}
-                    </span>
-                    <span
-                      className={`rounded-md border px-2 py-1 text-xs font-semibold ${
-                        onboardingCompletion.isComplete
-                          ? "border-moss/30 bg-mint text-moss"
-                          : "border-line bg-white text-ink/55"
-                      }`}
-                    >
-                      Ficha inicial {onboardingCompletion.label.toLowerCase()}
-                    </span>
+                    </div>
+                    <p className="mt-1 text-xs font-medium text-ink/50">
+                      {listedClient.age} años · {onboardingSummary.primarySport || listedClient.modality || listedClient.sport}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
                   <button
-                    className="rounded-md bg-ink px-2.5 py-1.5 text-xs font-semibold text-white"
+                    className="rounded-md bg-ink px-3 py-2 text-xs font-semibold text-white"
                     onClick={() => onOpenDashboard(listedClient.id)}
                     type="button"
                   >
-                    Resumen
+                    Abrir seguimiento
                   </button>
                   <button
                     aria-label={`Información de ${listedClient.name}`}
@@ -3664,8 +3685,57 @@ function CoachClientsView({
                   </div>
                 </div>
 
+                <div className="mt-3 grid gap-3 border-t border-line/70 pt-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                  <div className="grid gap-2 text-sm text-ink/65">
+                    <p>
+                      <span className="font-semibold text-ink">Motivo principal:</span>{" "}
+                      {review.primaryReason?.label ?? "Sin aspectos principales a revisar."}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-ink">Decisión sugerida:</span> {review.suggestedDecision}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:w-fit">
+                    <article className="rounded-md border border-line bg-panel/45 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/40">Cumplimiento</p>
+                      <p className="mt-1 text-sm font-semibold text-ink">{review.stats.completedSessions}/{review.stats.plannedSessions}</p>
+                    </article>
+                    <article className="rounded-md border border-line bg-panel/45 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/40">Molestias</p>
+                      <p className="mt-1 text-sm font-semibold text-ink">{review.stats.discomfortSessions}</p>
+                    </article>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {visibleBadges.map((badge) => (
+                      <span
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                          badge === listedClient.goalType ? "bg-white text-ink/70" : "bg-wheat text-ink/70"
+                        }`}
+                        key={badge}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                    <span className="rounded-md bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                      {listedClient.readiness}%
+                    </span>
+                    <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${accessInfo.badgeClass}`}>
+                      {accessInfo.label}
+                    </span>
+                    <span
+                      className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                        onboardingCompletion.isComplete
+                          ? "border-moss/30 bg-mint text-moss"
+                          : "border-line bg-white text-ink/55"
+                      }`}
+                    >
+                      Ficha inicial {onboardingCompletion.label.toLowerCase()}
+                    </span>
+                </div>
+
                 <div className="mt-2.5 flex flex-col gap-1 text-xs font-medium text-ink/55 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
-                  <span>{listedClient.age} años · {onboardingSummary.primarySport || listedClient.modality || listedClient.sport}</span>
                   <span>Objetivo: {onboardingSummary.mainGoal || listedClient.planning.primaryGoal || "Ficha inicial pendiente"}</span>
                   <span>Disponibilidad: {onboardingSummary.availability || listedClient.availability || "Pendiente"}</span>
                   <span>Última actividad: {listedClient.lastActivity}</span>
