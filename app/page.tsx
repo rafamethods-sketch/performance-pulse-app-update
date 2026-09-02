@@ -56,6 +56,7 @@ import {
   strainRanges
 } from "@/lib/client-metrics";
 import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import {
   getPlanningMethodDescription,
   getPlanningMethodLabel,
@@ -12242,6 +12243,7 @@ function SessionHistoryPanel({
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
+  const [openSessionBlockStates, setOpenSessionBlockStates] = useState<Record<string, boolean>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [selectedExerciseDetail, setSelectedExerciseDetail] = useState<ReviewExerciseDetail | null>(null);
   const [reviewFeedbackModal, setReviewFeedbackModal] = useState<ReviewFeedbackModal | null>(null);
@@ -12254,6 +12256,7 @@ function SessionHistoryPanel({
     }),
     [client.sessionRecords]
   );
+  const sessionGroups = useMemo(() => groupSessionsByBlockAndWeek(sessions), [sessions]);
   const feedbackSession = reviewFeedbackModal ? sessions[reviewFeedbackModal.sessionIndex] : null;
 
   function getReviewDraft(sessionKey: string, session: ReviewSessionRecord, suggestedReviewNotes = "") {
@@ -12381,8 +12384,39 @@ function SessionHistoryPanel({
       </div>
 
       {sessions.length > 0 ? (
-        <div className="mt-5 grid gap-3">
-          {sessions.map((session, sessionIndex) => {
+        <div className="mt-5 grid gap-4">
+          {sessionGroups.map((blockGroup, blockIndex) => (
+            <details
+              className="coach-surface min-w-0 rounded-md p-3 shadow-soft sm:p-4"
+              key={blockGroup.label}
+              onToggle={(event) => {
+                const isOpen = event.currentTarget.open;
+                setOpenSessionBlockStates((current) => current[blockGroup.label] === isOpen
+                  ? current
+                  : { ...current, [blockGroup.label]: isOpen });
+              }}
+              open={openSessionBlockStates[blockGroup.label] ?? blockIndex === 0}
+            >
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Mesociclo / bloque</p>
+                  <h3 className="mt-1 font-semibold text-ink">{blockGroup.label}</h3>
+                </div>
+                <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/55">
+                  {blockGroup.weeks.reduce((total, week) => total + week.sessions.length, 0)} sesiones
+                </span>
+              </summary>
+              <div className="mt-3 grid gap-3">
+                {blockGroup.weeks.map((weekGroup) => (
+                  <section className="min-w-0 rounded-md border border-line bg-panel/25 p-3" key={`${blockGroup.label}-${weekGroup.label}`}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-ink">{weekGroup.label}</h4>
+                      <span className="text-xs font-medium text-ink/45">
+                        {weekGroup.sessions.length} {weekGroup.sessions.length === 1 ? "sesión" : "sesiones"}
+                      </span>
+                    </div>
+                    <div className="grid gap-2">
+          {weekGroup.sessions.map(({ session, originalIndex: sessionIndex }) => {
             const sessionKey = getSessionHistoryKey(session, sessionIndex);
             const isOpen = openSessionKey === sessionKey;
             const status = getSessionStatus(session);
@@ -12413,11 +12447,12 @@ function SessionHistoryPanel({
               ? `${Math.round(sessionDeviation.globalCompletionPct)}%`
               : "";
             const typeMeta = getSessionHistoryTypeMeta(session);
+            const rawWeekLabel = `${session.week ?? session.weekLabel ?? ""}`.trim();
             const compactMetaItems = [
               formatDisplayDate(session.date),
               displayValue(session.type, ""),
               session.block || session.mesocycle ? `${session.block ?? session.mesocycle}` : "",
-              session.week || session.weekLabel ? `Semana ${session.week ?? session.weekLabel}` : ""
+              rawWeekLabel ? (/^semana\b/i.test(rawWeekLabel) ? rawWeekLabel : `Semana ${rawWeekLabel}`) : ""
             ].filter((item) => hasDisplayValue(item));
             const suggestedReviewNotes = [
               sessionDeviation.suggestedReviewNotes,
@@ -12478,7 +12513,7 @@ function SessionHistoryPanel({
               : "";
 
             return (
-              <article className="coach-surface rounded-md px-3 py-2.5 shadow-soft sm:px-4" key={sessionKey}>
+              <article className="min-w-0 rounded-md border border-line bg-white px-3 py-2.5 sm:px-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 gap-3">
                     <span className={`mt-1 size-2.5 shrink-0 rounded-full ${typeMeta.dotClass}`} />
@@ -12558,13 +12593,13 @@ function SessionHistoryPanel({
 
                 {isOpen ? (
                   <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm"
+                    className="fixed inset-0 z-50 flex items-stretch justify-end bg-ink/55 p-0 backdrop-blur-sm sm:p-3"
                     onClick={() => setOpenSessionKey("")}
                     role="dialog"
                     aria-modal="true"
                   >
                     <div
-                      className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-md border border-line bg-white p-4 shadow-soft sm:p-5"
+                      className="h-[100dvh] w-full max-w-4xl overflow-x-hidden overflow-y-auto border border-line bg-white p-4 shadow-soft sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-xl sm:p-5"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <div className="mb-4 flex items-start justify-between gap-3">
@@ -13046,6 +13081,12 @@ function SessionHistoryPanel({
               </article>
             );
           })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </details>
+          ))}
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-8 text-center">

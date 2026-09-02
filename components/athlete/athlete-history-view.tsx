@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, Bike, Dumbbell, History } from "lucide-react";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
@@ -8,6 +8,7 @@ import { analyzeCardioDeviation, type CardioPlan, type CardioResult } from "@/li
 import { getExerciseById } from "@/lib/exercises";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
+import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 
 type ResistanceCardioResult = CardioResult & {
   intensityCompleted?: string;
@@ -85,6 +86,8 @@ type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
   athleteQuickFeedback?: "up" | "down" | null;
   athleteQuickFeedbackNote?: string | null;
+  block?: string | null;
+  blockName?: string | null;
   cardioPlan?: CardioPlan;
   cardioResult?: ResistanceCardioResult;
   completed?: boolean;
@@ -102,6 +105,8 @@ type ReviewSessionRecord = {
   exercises?: ReviewSessionExercise[];
   finalNotes?: string | null;
   finalRpe?: number | string | null;
+  mesocycle?: string | null;
+  mesocycleName?: string | null;
   notes?: string | null;
   performedExercises?: ReviewSessionExercise[];
   plannedExercises?: ReviewSessionExercise[];
@@ -115,8 +120,12 @@ type ReviewSessionRecord = {
   sRPE?: number | string | null;
   status?: string | null;
   summary: string;
+  sessionNumber?: number | string | null;
   targetResistanceZoneId?: ResistanceZone["id"];
   type: string;
+  week?: number | string | null;
+  weekLabel?: string | null;
+  weekNumber?: number | string | null;
   wellness?: AthleteWellness;
 };
 
@@ -415,12 +424,28 @@ function AthleteEmptyState({ clientName, message }: { clientName?: string; messa
 
 export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | null }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
+  const [openBlockStates, setOpenBlockStates] = useState<Record<string, boolean>>({});
   const sessions = useMemo(
     () => ((client?.sessionRecords ?? []) as ReviewSessionRecord[])
       .filter((session) => hasRealSessionData(session))
       .sort((a, b) => (getAthleteDate(b.date)?.getTime() ?? 0) - (getAthleteDate(a.date)?.getTime() ?? 0)),
     [client?.sessionRecords]
   );
+  const sessionGroups = useMemo(() => groupSessionsByBlockAndWeek(sessions), [sessions]);
+
+  useEffect(() => {
+    if (!openSessionKey) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenSessionKey("");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openSessionKey]);
 
   if (!client) {
     return <AthleteEmptyState message="No hay deportista seleccionado." />;
@@ -444,8 +469,39 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
       </div>
 
       {sessions.length > 0 ? (
-        <div className="mt-4 grid gap-3 sm:mt-5">
-          {sessions.map((session, index) => {
+        <div className="mt-4 grid gap-4 sm:mt-5">
+          {sessionGroups.map((blockGroup, blockIndex) => (
+            <details
+              className="min-w-0 rounded-2xl border border-line bg-white p-3 shadow-soft sm:p-4"
+              key={blockGroup.label}
+              onToggle={(event) => {
+                const isOpen = event.currentTarget.open;
+                setOpenBlockStates((current) => current[blockGroup.label] === isOpen
+                  ? current
+                  : { ...current, [blockGroup.label]: isOpen });
+              }}
+              open={openBlockStates[blockGroup.label] ?? blockIndex === 0}
+            >
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-ink/45">Mesociclo / bloque</p>
+                  <h3 className="mt-1 font-semibold text-ink">{blockGroup.label}</h3>
+                </div>
+                <span className="rounded-full bg-panel px-2.5 py-1 text-xs font-semibold text-ink/55">
+                  {blockGroup.weeks.reduce((total, week) => total + week.sessions.length, 0)} sesiones
+                </span>
+              </summary>
+              <div className="mt-3 grid gap-3">
+                {blockGroup.weeks.map((weekGroup) => (
+                  <section className="min-w-0 rounded-xl border border-line bg-panel/25 p-3" key={`${blockGroup.label}-${weekGroup.label}`}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-ink">{weekGroup.label}</h4>
+                      <span className="text-xs font-medium text-ink/45">
+                        {weekGroup.sessions.length} {weekGroup.sessions.length === 1 ? "sesión" : "sesiones"}
+                      </span>
+                    </div>
+                    <div className="grid gap-2">
+          {weekGroup.sessions.map(({ session, originalIndex: index }) => {
             const sessionKey = getSessionHistoryKey(session, index);
             const isOpen = openSessionKey === sessionKey;
             const duration = getAthleteSessionDuration(session);
@@ -485,7 +541,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
             }) ?? displayValue(session.date, "Sin fecha");
 
             return (
-              <article className="min-w-0 rounded-2xl border border-line bg-white p-4 shadow-soft sm:p-5" key={sessionKey}>
+              <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:p-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-ink/55">
@@ -526,15 +582,40 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                 </div>
                 <button
                   className="mt-4 min-h-11 w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-auto"
-                  onClick={() => setOpenSessionKey(isOpen ? "" : sessionKey)}
-                  aria-expanded={isOpen}
+                  onClick={() => setOpenSessionKey(sessionKey)}
+                  aria-haspopup="dialog"
                   type="button"
                 >
-                  {isOpen ? "Ocultar detalle" : "Ver detalle"}
+                  Ver detalle
                 </button>
 
                 {isOpen ? (
-                  <div className="mt-4 grid min-w-0 gap-3 rounded-md border border-line bg-white p-3 sm:p-4">
+                  <div
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 flex items-end justify-center bg-ink/55 p-2 backdrop-blur-sm sm:items-center sm:p-4"
+                    onClick={() => setOpenSessionKey("")}
+                    role="dialog"
+                  >
+                    <div
+                      className="max-h-[94dvh] w-full max-w-5xl overflow-x-hidden overflow-y-auto rounded-2xl border border-line bg-white p-4 shadow-soft sm:max-h-[90vh] sm:p-5"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="mb-4 flex items-start justify-between gap-3 border-b border-line pb-4">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold uppercase tracking-wide text-ink/45">Detalle de sesión</p>
+                          <h3 className="mt-1 break-words text-xl font-semibold text-ink">{displayValue(session.summary, "Sesión registrada")}</h3>
+                          <p className="mt-1 text-sm text-ink/55">{dateLabel} · {activityLabel}</p>
+                        </div>
+                        <button
+                          aria-label="Cerrar detalle"
+                          className="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-panel text-xl font-semibold text-ink transition hover:bg-mint"
+                          onClick={() => setOpenSessionKey("")}
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="grid min-w-0 gap-3">
                     {impact.reasons.length > 0 ? (
                       <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/70">
                         <h4 className="font-semibold text-ink">Motivos de impacto</h4>
@@ -735,11 +816,19 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         Sin datos de ejercicios para esta sesión.
                       </p>
                     )}
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </article>
             );
           })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </details>
+          ))}
         </div>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55">
