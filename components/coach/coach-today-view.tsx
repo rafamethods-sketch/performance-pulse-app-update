@@ -1,6 +1,7 @@
 "use client";
 
 import { calculateSessionLoad } from "@/lib/client-metrics";
+import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import type { CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
@@ -24,6 +25,63 @@ function SessionImpactBadge({ session }: { session: CoachSessionRecordForViews }
         {isRealImpact ? impact.label : `Previsto: ${impact.label}`}
       </span>
     </div>
+  );
+}
+
+const compatibilityConfidenceLabels = {
+  high: "Confianza alta",
+  low: "Confianza baja",
+  medium: "Confianza media"
+} as const;
+
+function SessionCompatibilityCard({
+  client,
+  session
+}: {
+  client: CoachClientForViews;
+  session: CoachSessionRecordForViews;
+}) {
+  if (hasRealSessionData(session) || session.status === "Completada") return null;
+
+  const recentSessions = (client.sessionRecords ?? []).filter((record) => record !== session);
+  const recentWellness = recentSessions.flatMap((record) => record.wellness
+    ? [{ date: record.date, ...record.wellness }]
+    : []);
+  const compatibility = getNextSessionCompatibility({
+    nextSession: session as Parameters<typeof getNextSessionCompatibility>[0]["nextSession"],
+    recentSessions: recentSessions as Parameters<typeof getNextSessionCompatibility>[0]["recentSessions"],
+    recentWellness
+  });
+  const style = getSessionCompatibilityStyle(compatibility.level);
+
+  return (
+    <section className={`mt-3 rounded-md border bg-white/70 p-3 ${style.borderClassName}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Compatibilidad próxima sesión</p>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${style.badgeClassName}`}>
+          <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${style.dotClassName}`} />
+          {compatibility.label}
+        </span>
+      </div>
+      {compatibility.primaryReason ? (
+        <p className="mt-2 text-sm text-ink/65">
+          <span className="font-semibold text-ink">Motivo principal:</span> {compatibility.primaryReason.label}
+        </p>
+      ) : null}
+      <p className="mt-1 text-sm text-ink/65">
+        <span className="font-semibold text-ink">Acción sugerida:</span> {compatibility.suggestedAction}
+      </p>
+      <p className="mt-2 text-xs font-semibold text-ink/45">{compatibilityConfidenceLabels[compatibility.confidence]}</p>
+      {compatibility.reasons.length > 1 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {compatibility.reasons.slice(1, 3).map((reason) => (
+            <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-medium text-ink/60" key={`${reason.type}-${reason.label}`}>
+              {reason.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -277,6 +335,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                 <p className="mt-2 text-sm font-semibold text-ink/70">{session.type}</p>
                 <p className="mt-1 text-sm text-ink/55">{session.summary}</p>
                 <SessionImpactBadge session={session} />
+                <SessionCompatibilityCard client={client} session={session} />
                 <button
                   className={`mt-3 ${primaryButtonClass}`}
                   onClick={() =>

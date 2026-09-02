@@ -30,6 +30,17 @@ export type CoachSessionRecordForViews = {
   summary: string;
   time?: string | null;
   type: string;
+  wellness?: {
+    calm?: number;
+    energy?: number;
+    fatigue?: number;
+    motivation?: number;
+    recovery?: number;
+    sleep?: number;
+    sleepQuality?: number;
+    soreness?: number;
+    stress?: number;
+  } | null;
 };
 
 export type CoachCalendarEventForViews = {

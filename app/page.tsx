@@ -56,6 +56,7 @@ import {
   strainRanges
 } from "@/lib/client-metrics";
 import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import {
   getPlanningMethodDescription,
@@ -12452,6 +12453,14 @@ function SessionHistoryPanel({
                 : null;
             const impactLabel = impact ? `${isRealImpact ? "" : "Previsto: "}${impact.label}` : "";
             const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
+            const compatibility = !isRealImpact ? getNextSessionCompatibility({
+              nextSession: session,
+              recentSessions: sessions.filter((listedSession) => listedSession !== session),
+              recentWellness: sessions.flatMap((listedSession) => listedSession.wellness
+                ? [{ date: listedSession.date, ...listedSession.wellness }]
+                : [])
+            }) : null;
+            const compatibilityStyle = compatibility ? getSessionCompatibilityStyle(compatibility.level) : null;
             const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
@@ -12656,6 +12665,37 @@ function SessionHistoryPanel({
                                   {impact.reasons.map((reason) => <li key={reason}>{reason}</li>)}
                                 </ul>
                               </details>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {compatibility && compatibilityStyle ? (
+                          <div className={`mb-4 rounded-md border bg-white p-3 ${compatibilityStyle.borderClassName}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Compatibilidad próxima sesión</p>
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${compatibilityStyle.badgeClassName}`}>
+                                <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${compatibilityStyle.dotClassName}`} />
+                                {compatibility.label}
+                              </span>
+                            </div>
+                            {compatibility.primaryReason ? (
+                              <p className="mt-2 text-sm text-ink/65">
+                                <span className="font-semibold text-ink">Motivo principal:</span> {compatibility.primaryReason.label}
+                              </p>
+                            ) : null}
+                            <p className="mt-1 text-sm text-ink/65">
+                              <span className="font-semibold text-ink">Acción sugerida:</span> {compatibility.suggestedAction}
+                            </p>
+                            <p className="mt-2 text-xs font-semibold text-ink/45">
+                              Confianza {compatibility.confidence === "high" ? "alta" : compatibility.confidence === "medium" ? "media" : "baja"}
+                            </p>
+                            {compatibility.reasons.length > 1 ? (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {compatibility.reasons.slice(1, 3).map((reason) => (
+                                  <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-medium text-ink/60" key={`${reason.type}-${reason.label}`}>
+                                    {reason.label}
+                                  </span>
+                                ))}
+                              </div>
                             ) : null}
                           </div>
                         ) : null}
