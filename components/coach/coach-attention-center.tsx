@@ -1,6 +1,11 @@
 "use client";
 
 import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import {
+  getNextSessionCompatibility,
+  getSessionCompatibilityStyle,
+  type SessionCompatibilityLevel
+} from "@/lib/session-compatibility";
 
 import { useMemo, useState } from "react";
 import type { TargetTrainingSession } from "@/components/coach/types";
@@ -11,6 +16,7 @@ type AttentionFilter = "all" | "alerts" | "sessions" | "technique" | "wellness" 
 type AttentionPeriod = 7 | 14 | 30 | 90;
 type AttentionSectionId =
   | "pendingSessions"
+  | "sessionCompatibility"
   | "unreviewedVideos"
   | "highPriorityTechnique"
   | "negativeFeedback"
@@ -72,7 +78,11 @@ type ReviewSessionRecord = {
   actualDurationMinutes?: number | string | null;
   athleteQuickFeedback?: "up" | "down" | null;
   athleteQuickFeedbackNote?: string | null;
-  cardioPlan?: unknown;
+  cardioPlan?: {
+    targetDurationMinutes?: number | string | null;
+    targetRpeMax?: number | string | null;
+    targetRpeMin?: number | string | null;
+  } | null;
   cardioResult?: unknown;
   completed?: boolean;
   discomfort?: {
@@ -146,12 +156,14 @@ type CoachAttentionItem = {
   badge?: string;
   clientId: string;
   clientName: string;
+  compatibilityLevel?: SessionCompatibilityLevel;
   date?: string | null;
   detail?: string;
   id: string;
   meta?: string;
   section: AttentionSectionId;
   sessionIndex?: number;
+  suggestedAction?: string;
   title: string;
 };
 
@@ -180,6 +192,7 @@ const attentionPeriodOptions: AttentionPeriod[] = [7, 14, 30, 90];
 const attentionSectionOrder: AttentionSectionId[] = [
   "discomfort",
   "negativeFeedback",
+  "sessionCompatibility",
   "pendingSessions",
   "lowReadiness",
   "unreviewedVideos",
@@ -242,6 +255,11 @@ const attentionSectionLabels: Record<AttentionSectionId, { description: string; 
     description: "Sesiones completadas que todavía necesitan revisión.",
     filter: "sessions",
     title: "Sesiones pendientes de revisar"
+  },
+  sessionCompatibility: {
+    description: "Próximas sesiones cuyo contexto reciente conviene revisar antes de mantenerlas tal como están.",
+    filter: "sessions",
+    title: "Próximas sesiones a revisar"
   },
   staleTests: {
     description: "Clientes sin tests de referencia o con tests antiguos.",
@@ -430,6 +448,17 @@ function getSessionSrpe(session: ReviewSessionRecord) {
   return calculateSessionLoad(rpe, duration);
 }
 
+function shouldShowCompatibilityInAttention(compatibility: ReturnType<typeof getNextSessionCompatibility>) {
+  if (compatibility.level === "priority") return true;
+  if (compatibility.level !== "review") return false;
+
+  const primaryReason = compatibility.primaryReason;
+  if (!primaryReason) return false;
+  if (["discomfort", "wellness", "recentImpact", "deviation"].includes(primaryReason.type)) return true;
+
+  return primaryReason.type === "plannedImpact" && primaryReason.label === "Faltan datos de la próxima sesión";
+}
+
 function getTechniqueReviewSummary(review?: TechniqueReview | null) {
   const checklist = review?.checklist ?? [];
   const issueItems = checklist.filter((item) => item.status === "issue");
@@ -522,6 +551,40 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
   clients.forEach((client) => {
     const sessionRecords = client.sessionRecords ?? [];
     const intakeQuestionnaire = client.intakeQuestionnaire;
+
+    const nextSessionEntry = sessionRecords
+      .map((session, sessionIndex) => ({ date: getAttentionDate(session.date), session, sessionIndex }))
+      .filter((entry) => entry.date && entry.date >= today && !hasRealSessionData(entry.session))
+      .sort((left, right) => (left.date?.getTime() ?? 0) - (right.date?.getTime() ?? 0))[0];
+
+    if (nextSessionEntry) {
+      const recentSessions = sessionRecords.filter((session) => session !== nextSessionEntry.session);
+      const recentWellness = recentSessions.flatMap((session) => session.wellness
+        ? [{ date: session.date, ...session.wellness }]
+        : []);
+      const compatibility = getNextSessionCompatibility({
+        nextSession: nextSessionEntry.session as Parameters<typeof getNextSessionCompatibility>[0]["nextSession"],
+        recentSessions: recentSessions as Parameters<typeof getNextSessionCompatibility>[0]["recentSessions"],
+        recentWellness
+      });
+
+      if (shouldShowCompatibilityInAttention(compatibility)) {
+        items.push({
+          action: "session",
+          badge: compatibility.label,
+          clientId: client.id,
+          clientName: client.name,
+          compatibilityLevel: compatibility.level,
+          date: nextSessionEntry.session.date,
+          detail: compatibility.primaryReason ? `Motivo principal: ${compatibility.primaryReason.label}` : undefined,
+          id: `session-compatibility-${client.id}-${nextSessionEntry.sessionIndex}`,
+          meta: nextSessionEntry.session.type ?? undefined,
+          section: "sessionCompatibility",
+          suggestedAction: compatibility.suggestedAction,
+          title: nextSessionEntry.session.summary || "Próxima sesión"
+        });
+      }
+    }
 
     if (intakeQuestionnaire?.required === true && intakeQuestionnaire.completed !== true) {
       items.push({
@@ -775,6 +838,15 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
   });
 
   return items.sort((left, right) => {
+    if (left.section === "sessionCompatibility" && right.section === "sessionCompatibility") {
+      const compatibilityOrder = { priority: 0, review: 1 } as const;
+      const levelDifference = compatibilityOrder[left.compatibilityLevel as keyof typeof compatibilityOrder]
+        - compatibilityOrder[right.compatibilityLevel as keyof typeof compatibilityOrder];
+      if (levelDifference) return levelDifference;
+      const leftTime = getAttentionDate(left.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightTime = getAttentionDate(right.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return leftTime - rightTime;
+    }
     const leftTime = getAttentionDate(left.date)?.getTime() ?? 0;
     const rightTime = getAttentionDate(right.date)?.getTime() ?? 0;
     return rightTime - leftTime;
@@ -910,6 +982,9 @@ export function CoachAttentionCenter({
                     : undefined;
                   const impact = session && hasRealSessionData(session) ? getSessionImpact(session) : null;
                   const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
+                  const compatibilityStyle = item.compatibilityLevel
+                    ? getSessionCompatibilityStyle(item.compatibilityLevel)
+                    : null;
 
                   return (
                   <article className="coach-subtle-card rounded-md p-3.5" key={item.id}>
@@ -922,12 +997,18 @@ export function CoachAttentionCenter({
                         </p>
                       </div>
                       {item.badge ? (
-                        <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/65">
+                        <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${compatibilityStyle?.badgeClassName ?? "border border-line bg-white text-ink/65"}`}>
+                          {compatibilityStyle ? <span aria-hidden="true" className={`mr-1.5 inline-block size-1.5 rounded-full ${compatibilityStyle.dotClassName}`} /> : null}
                           {item.badge}
                         </span>
                       ) : null}
                     </div>
                     {item.detail ? <p className="mt-3 text-sm text-ink/65">{item.detail}</p> : null}
+                    {item.suggestedAction ? (
+                      <p className="mt-1 text-sm text-ink/65">
+                        <span className="font-semibold text-ink">Acción:</span> {item.suggestedAction}
+                      </p>
+                    ) : null}
                     {impact && impactStyle ? (
                       <div className="mt-2">
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
