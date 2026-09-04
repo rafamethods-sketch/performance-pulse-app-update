@@ -1,6 +1,8 @@
 "use client";
 
 import type { SheetId } from "@/lib/data";
+import { getPlannedSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { exerciseLibrary } from "@/lib/exercises";
 import {
   acwrRanges,
@@ -686,20 +688,81 @@ export function ClientDashboardView({
     referenceDate: today,
     sessions: client.sessionRecords as WeeklyReviewSession[]
   });
+  const plannedImpact = nextSession ? getPlannedSessionImpact(nextSession as WeeklyReviewSession) : null;
+  const plannedImpactStyle = plannedImpact ? getSessionImpactStyle(plannedImpact.level) : null;
+  const recentSessions = client.sessionRecords.filter((session) => session !== nextSession);
+  const compatibility = nextSession ? getNextSessionCompatibility({
+    nextSession: nextSession as WeeklyReviewSession,
+    recentSessions: recentSessions as WeeklyReviewSession[],
+    recentWellness: recentSessions.filter((session) => session.wellness).map((session) => ({
+      ...session.wellness,
+      date: session.date
+    }))
+  }) : null;
+  const compatibilityStyle = compatibility ? getSessionCompatibilityStyle(compatibility.level) : null;
 
   return (
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
       <WeeklyDecisionBlock review={weeklyReview} />
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
-        <DailyLoadReadinessBlock dashboardData={dashboardData} />
-      </div>
-      <LoadControlIndicatorsBlock dashboardData={dashboardData} />
-      <div className="grid gap-5 xl:grid-cols-2">
-        <LoadDistributionDecisionBlock dashboardData={dashboardData} />
-        <PatternZoneWatchBlock dashboardData={dashboardData} />
-      </div>
+      <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-ink">Próxima sesión</h3>
+            <p className="mt-1 text-sm text-ink/55">Demanda prevista y contexto reciente, con lecturas separadas.</p>
+          </div>
+          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">
+            Ver planificación
+          </button>
+        </div>
+        {nextSession ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="min-w-0 rounded-md border border-line bg-panel/35 p-3">
+              <p className="text-xs font-medium text-ink/55">{formatDashboardDate(nextSession.date)} · {nextSession.type}</p>
+              <p className="mt-2 break-words font-semibold text-ink">{nextSession.summary || "Sesión planificada"}</p>
+              {plannedImpact && plannedImpactStyle ? (
+                <span className={`mt-3 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${plannedImpactStyle.badgeClassName}`}>
+                  <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${plannedImpactStyle.dotClassName}`} />
+                  Previsto: {plannedImpact.label}
+                </span>
+              ) : null}
+            </div>
+            {compatibility && compatibilityStyle ? (
+              <div className="min-w-0 rounded-md border border-line p-3">
+                <p className="text-xs font-semibold text-ink/55">Compatibilidad · Lectura orientativa</p>
+                <span className={`mt-2 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${compatibilityStyle.badgeClassName}`}>
+                  <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${compatibilityStyle.dotClassName}`} />
+                  {compatibility.label}
+                </span>
+                {compatibility.primaryReason ? <p className="mt-2 text-sm text-ink/65">{compatibility.primaryReason.label}</p> : null}
+                <p className="mt-2 text-sm text-ink/70"><span className="font-semibold text-ink">Próxima decisión:</span> {compatibility.suggestedAction}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : <DashboardEmptyState>No hay una próxima sesión pendiente con fecha disponible.</DashboardEmptyState>}
+      </section>
+
+      <section className="min-w-0 space-y-3" aria-label="Contexto de carga">
+        <div>
+          <h3 className="font-semibold text-ink">Contexto de carga</h3>
+          <p className="mt-1 text-sm text-ink/55">Carga registrada y bienestar para contextualizar la lectura semanal.</p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
+          <DailyLoadReadinessBlock dashboardData={dashboardData} />
+        </div>
+        <details className="coach-surface rounded-md p-4">
+          <summary className="cursor-pointer font-semibold text-ink">Detalle de entrenamiento</summary>
+          <p className="mt-2 text-sm text-ink/55">Indicadores de carga, distribución muscular, patrones y zonas.</p>
+          <div className="mt-4 grid gap-4">
+            <LoadControlIndicatorsBlock dashboardData={dashboardData} />
+            <div className="grid gap-4 xl:grid-cols-2">
+              <LoadDistributionDecisionBlock dashboardData={dashboardData} />
+              <PatternZoneWatchBlock dashboardData={dashboardData} />
+            </div>
+          </div>
+        </details>
+      </section>
       <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
       <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
     </div>
@@ -723,8 +786,8 @@ function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
     <section className={`coach-surface rounded-md border p-5 ${style.borderClassName}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-moss">RAC Review semanal</p>
-          <h3 className="mt-2 text-2xl font-semibold text-ink">{review.label}</h3>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-moss">Lectura semanal</p>
+          <h3 className="mt-2 text-xl font-semibold text-ink sm:text-2xl">RAC Review semanal</h3>
           <p className="mt-2 text-sm text-ink/65">{review.description}</p>
         </div>
         <span className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${style.badgeClassName}`}>
@@ -820,7 +883,7 @@ function WeeklyLoadDecisionBlock({
             />
             <ClientInfoCard label="Media 4 semanas" value={formatDashboardNumber(dashboardData.weeklyAverage4, " UA")} />
             <ClientInfoCard label="Sesiones con sRPE" value={`${dashboardData.sessionsWithSrpe.length}`} />
-            <ClientInfoCard label="ACWR" value={`${loadData.acwr.toFixed(2)} · ${loadData.acwrStatus}`} />
+            <ClientInfoCard label="ACWR" value={`${loadData.acwr.toFixed(2)} · ${loadData.acwrStatus === "Riesgo" ? "A revisar" : loadData.acwrStatus}`} />
           </div>
         </>
       ) : (
@@ -835,7 +898,7 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
 
   return (
     <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Carga diaria + readiness</h3>
+      <h3 className="font-semibold text-ink">Carga diaria y bienestar</h3>
       <p className="mt-1 text-sm text-ink/55">Últimos registros diarios combinando carga, bienestar y molestias.</p>
 
       {dashboardData.dailySeries.length > 0 ? (
@@ -1066,7 +1129,7 @@ function DashboardWatchSignalsBlock({
 
   return (
     <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Señales a vigilar</h3>
+      <h3 className="font-semibold text-ink">Qué revisar</h3>
       <p className="mt-1 text-sm text-ink/55">Motivos concretos para abrir la vista relacionada y decidir el siguiente ajuste.</p>
       {dashboardData.watchSignals.length > 0 ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1118,7 +1181,7 @@ function DashboardQuickActionsBlock({
     <section className="coach-surface rounded-md p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="font-semibold text-ink">Acciones rápidas</h3>
+          <h3 className="font-semibold text-ink">Seguimiento</h3>
           <p className="mt-1 text-sm text-ink/55">Atajos para actuar desde la lectura semanal sin duplicar pantallas.</p>
         </div>
         <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
@@ -1183,10 +1246,11 @@ function ClientHeader({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <ClientInfoCard label="Estado actual" value={client.status} />
-        <ClientInfoCard label="Readiness" value={`${client.readiness}%`} />
-        <ClientInfoCard className="md:col-span-2" label="Próximo evento" value={client.nextEvent} />
+      <p className="mt-3 text-sm text-ink/65"><span className="font-semibold text-ink">Objetivo:</span> {client.planning.primaryGoal}</p>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-xs text-ink/60">
+        <span>Contexto: {client.status}</span>
+        <span>Readiness: {client.readiness}%</span>
+        <span>Próximo evento: {client.nextEvent}</span>
       </div>
     </section>
   );
@@ -1194,9 +1258,9 @@ function ClientHeader({
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <article className={`rounded-md bg-panel/55 p-4 ${className}`}>
-      <p className="text-sm font-semibold text-ink">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-moss">{value}</p>
+    <article className={`min-w-0 rounded-md bg-panel/55 p-3 ${className}`}>
+      <p className="text-xs font-semibold text-ink/60">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-ink">{value}</p>
     </article>
   );
 }
