@@ -1,6 +1,7 @@
 "use client";
 
 import type { SheetId } from "@/lib/data";
+import { fromWeeklyCoachReview, fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
 import { getPlannedSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { exerciseLibrary } from "@/lib/exercises";
@@ -736,6 +737,7 @@ export function ClientDashboardView({
                 </span>
                 {compatibility.primaryReason ? <p className="mt-2 text-sm text-ink/65">{compatibility.primaryReason.label}</p> : null}
                 <p className="mt-2 text-sm text-ink/70"><span className="font-semibold text-ink">Próxima decisión:</span> {compatibility.suggestedAction}</p>
+                <DecisionExplanationDetails explanation={fromSessionCompatibility(compatibility)} summary="Ver contexto usado" />
               </div>
             ) : null}
           </div>
@@ -766,6 +768,45 @@ export function ClientDashboardView({
       <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
       <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
     </div>
+  );
+}
+
+function DecisionExplanationDetails({ explanation, summary }: { explanation: DecisionExplanation; summary: string }) {
+  const evidence = explanation.supportingEvidence.slice(0, 5);
+  const missingData = explanation.missingData.slice(0, 4);
+  if (evidence.length === 0 && missingData.length === 0) return null;
+
+  const confidenceLabel = explanation.confidence === "high" ? "alta" : explanation.confidence === "medium" ? "media" : "baja";
+
+  return (
+    <details className="mt-3 min-w-0 border-t border-line pt-3">
+      <summary className="cursor-pointer rounded-sm text-sm font-semibold text-ink/75 transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+        {summary}
+      </summary>
+      <div className="mt-3 space-y-3 break-words text-sm text-ink/70">
+        {evidence.length > 0 ? (
+          <div>
+            <p className="font-semibold text-ink">Se basa en</p>
+            <ul className="mt-2 space-y-2">
+              {evidence.map((item) => (
+                <li className="rounded-md bg-panel/55 px-3 py-2" key={item.label}>
+                  {item.label}{item.value ? <span className="font-medium text-ink">: {item.value}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {missingData.length > 0 ? (
+          <div>
+            <p className="font-semibold text-ink">Datos incompletos</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {missingData.map((item) => <li key={item.label}>{item.label}</li>)}
+            </ul>
+          </div>
+        ) : null}
+        <p className="text-xs text-ink/60">Confianza {confidenceLabel} · Lectura orientativa</p>
+      </div>
+    </details>
   );
 }
 
@@ -807,6 +848,7 @@ function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
             <span className="font-semibold text-ink">Decisión sugerida:</span> {review.suggestedDecision}
           </p>
           <p className="mt-3 text-xs font-semibold text-ink/45">Confianza {confidenceLabel}</p>
+          <DecisionExplanationDetails explanation={fromWeeklyCoachReview(review)} summary="Ver en qué se basa" />
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
