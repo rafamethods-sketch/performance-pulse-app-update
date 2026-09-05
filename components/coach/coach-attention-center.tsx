@@ -1,5 +1,6 @@
 "use client";
 
+import { fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
 import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import {
   getNextSessionCompatibility,
@@ -158,6 +159,7 @@ type CoachAttentionItem = {
   clientName: string;
   compatibilityLevel?: SessionCompatibilityLevel;
   date?: string | null;
+  decisionExplanation?: DecisionExplanation;
   detail?: string;
   id: string;
   meta?: string;
@@ -576,6 +578,7 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
           clientName: client.name,
           compatibilityLevel: compatibility.level,
           date: nextSessionEntry.session.date,
+          decisionExplanation: fromSessionCompatibility(compatibility),
           detail: compatibility.primaryReason ? `Motivo principal: ${compatibility.primaryReason.label}` : undefined,
           id: `session-compatibility-${client.id}-${nextSessionEntry.sessionIndex}`,
           meta: nextSessionEntry.session.type ?? undefined,
@@ -1055,6 +1058,9 @@ export function CoachAttentionCenter({
                         <span className="font-semibold text-ink">Acción:</span> {item.suggestedAction}
                       </p>
                     ) : null}
+                    {item.decisionExplanation ? (
+                      <AttentionDecisionContext explanation={item.decisionExplanation} />
+                    ) : null}
                     {impact && impactStyle ? (
                       <div className="mt-2">
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
@@ -1094,5 +1100,44 @@ export function CoachAttentionCenter({
         })
       )}
     </div>
+  );
+}
+
+function AttentionDecisionContext({ explanation }: { explanation: DecisionExplanation }) {
+  const evidence = explanation.supportingEvidence.slice(0, 3);
+  const missingData = explanation.missingData.slice(0, 2);
+  if (evidence.length === 0 && missingData.length === 0) return null;
+
+  const confidenceLabel = explanation.confidence === "high" ? "alta" : explanation.confidence === "medium" ? "media" : "baja";
+
+  return (
+    <details className="mt-2 min-w-0 rounded-md border border-line/70 bg-panel/35 px-3 py-2">
+      <summary className="cursor-pointer text-xs font-semibold text-ink/65 transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel">
+        Ver contexto usado
+      </summary>
+      <div className="mt-2 space-y-2 break-words text-xs text-ink/65">
+        {evidence.length > 0 ? (
+          <div>
+            <p className="font-semibold text-ink">Se basa en</p>
+            <ul className="mt-1 space-y-1">
+              {evidence.map((item) => (
+                <li key={item.label}>
+                  {item.label}{item.value ? <span className="font-medium text-ink">: {item.value}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {missingData.length > 0 ? (
+          <div>
+            <p className="font-semibold text-ink">Datos incompletos</p>
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              {missingData.map((item) => <li key={item.label}>{item.label}</li>)}
+            </ul>
+          </div>
+        ) : null}
+        <p className="text-ink/50">Confianza {confidenceLabel} · Lectura orientativa</p>
+      </div>
+    </details>
   );
 }
