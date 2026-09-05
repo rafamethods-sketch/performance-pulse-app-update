@@ -40,7 +40,7 @@ import { CoachMessagesView } from "@/components/coach/coach-messages-view";
 import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
-import type { TargetTrainingSession } from "@/components/coach/types";
+import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleDomainLabels, ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeDomainLabels, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
 import {
@@ -1329,6 +1329,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   cardioActivities?: CardioActivitySummary[];
   cardioConnections?: CardioConnectionStatus[];
   coachPrivateNotes?: CoachPrivateNote[];
+  decisionLog?: CoachDecisionLogEntry[];
   intakeQuestionnaire?: IntakeQuestionnaire;
   isDemo?: boolean;
   menstrualTracking?: MenstrualTracking;
@@ -3131,6 +3132,14 @@ function CoachClientsView({
         onBack={onBack}
         onOpenClientSheet={onOpenClientSheet}
         onOpenDetails={() => onOpenDetails(client.id)}
+        onSaveDecision={(entry) =>
+          setClients((currentClients) =>
+            currentClients.map((listedClient) => listedClient.id === client.id
+              ? { ...listedClient, decisionLog: [entry, ...(listedClient.decisionLog ?? [])] }
+              : listedClient
+            )
+          )
+        }
       />
     );
   }

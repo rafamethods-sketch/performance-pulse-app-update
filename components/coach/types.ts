@@ -6,6 +6,15 @@ export type TargetTrainingSession = {
   sessionIndex?: number;
 };
 
+export type CoachDecisionLogEntry = {
+  id: string;
+  date: string;
+  title: string;
+  decision: string;
+  reason?: string;
+  source?: "weeklyReview" | "compatibility" | "manual";
+};
+
 export type CoachSessionRecordForViews = {
   actualDurationMinutes?: number | string | null;
   athleteQuickFeedback?: "up" | "down" | null;

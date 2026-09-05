@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { SheetId } from "@/lib/data";
+import type { CoachDecisionLogEntry } from "@/components/coach/types";
 import { fromWeeklyCoachReview, fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
 import { getPlannedSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
@@ -82,6 +84,7 @@ type CoachClient = {
   chronicLoad: number;
   coachNotes: string;
   dailyLoads: number[];
+  decisionLog?: CoachDecisionLogEntry[];
   goalType: string;
   hooper: {
     fatigue: number;
@@ -125,6 +128,7 @@ type ClientDashboardViewProps = {
   onBack: () => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
+  onSaveDecision: (entry: CoachDecisionLogEntry) => void;
 };
 
 function getDashboardMonotonyStatus(value: number) {
@@ -674,7 +678,8 @@ export function ClientDashboardView({
   client,
   onBack,
   onOpenClientSheet,
-  onOpenDetails
+  onOpenDetails,
+  onSaveDecision
 }: ClientDashboardViewProps) {
   const loadData = getDashboardLoadData(client);
   const dashboardData = getClientDashboardData(client, loadData);
@@ -701,11 +706,27 @@ export function ClientDashboardView({
     }))
   }) : null;
   const compatibilityStyle = compatibility ? getSessionCompatibilityStyle(compatibility.level) : null;
+  const todayKey = getLocalDecisionDateKey(today);
+  const weeklyDecisionSaved = (client.decisionLog ?? []).some((entry) =>
+    entry.source === "weeklyReview" &&
+    entry.decision === weeklyReview.suggestedDecision &&
+    getLocalDecisionDateKey(new Date(entry.date)) === todayKey
+  );
+
+  function saveWeeklyDecision() {
+    if (weeklyDecisionSaved) return;
+    onSaveDecision(createCoachDecisionEntry({
+      decision: weeklyReview.suggestedDecision,
+      reason: weeklyReview.primaryReason?.label,
+      source: "weeklyReview"
+    }));
+  }
 
   return (
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <WeeklyDecisionBlock review={weeklyReview} />
+      <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
+      <CoachDecisionLog decisions={client.decisionLog ?? []} onSaveDecision={onSaveDecision} />
       <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -810,7 +831,15 @@ function DecisionExplanationDetails({ explanation, summary }: { explanation: Dec
   );
 }
 
-function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
+function WeeklyDecisionBlock({
+  onSaveSuggestedDecision,
+  review,
+  suggestedDecisionSaved
+}: {
+  onSaveSuggestedDecision: () => void;
+  review: WeeklyCoachReview;
+  suggestedDecisionSaved: boolean;
+}) {
   const style = getWeeklyReviewStyle(review.level);
   const secondaryReasons = review.reasons
     .filter((reason) => reason !== review.primaryReason)
@@ -849,6 +878,14 @@ function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
           </p>
           <p className="mt-3 text-xs font-semibold text-ink/45">Confianza {confidenceLabel}</p>
           <DecisionExplanationDetails explanation={fromWeeklyCoachReview(review)} summary="Ver en qué se basa" />
+          <button
+            className="mt-4 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink transition hover:border-moss/35 disabled:cursor-default disabled:opacity-55"
+            disabled={suggestedDecisionSaved}
+            onClick={onSaveSuggestedDecision}
+            type="button"
+          >
+            {suggestedDecisionSaved ? "Decisión sugerida guardada" : "Guardar decisión sugerida"}
+          </button>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -867,6 +904,154 @@ function WeeklyDecisionBlock({ review }: { review: WeeklyCoachReview }) {
           ))}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+const decisionSourceLabels: Record<NonNullable<CoachDecisionLogEntry["source"]>, string> = {
+  compatibility: "Compatibilidad",
+  manual: "Manual",
+  weeklyReview: "RAC Review"
+};
+
+function getLocalDecisionDateKey(date: Date) {
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function createCoachDecisionEntry({
+  decision,
+  reason,
+  source
+}: {
+  decision: string;
+  reason?: string;
+  source: NonNullable<CoachDecisionLogEntry["source"]>;
+}): CoachDecisionLogEntry {
+  const now = new Date();
+  return {
+    date: now.toISOString(),
+    decision,
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `decision-${now.getTime()}`,
+    reason: reason?.trim() || undefined,
+    source,
+    title: decision
+  };
+}
+
+function formatDecisionDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function CoachDecisionLog({
+  decisions,
+  onSaveDecision
+}: {
+  decisions: CoachDecisionLogEntry[];
+  onSaveDecision: (entry: CoachDecisionLogEntry) => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [decision, setDecision] = useState("");
+  const [reason, setReason] = useState("");
+  const [source, setSource] = useState<NonNullable<CoachDecisionLogEntry["source"]>>("manual");
+  const latestDecisions = [...decisions]
+    .sort((left, right) => (new Date(right.date).getTime() || 0) - (new Date(left.date).getTime() || 0))
+    .slice(0, 3);
+
+  function resetForm() {
+    setDecision("");
+    setReason("");
+    setSource("manual");
+    setShowForm(false);
+  }
+
+  function saveDecision() {
+    const cleanDecision = decision.trim();
+    if (!cleanDecision) return;
+    onSaveDecision(createCoachDecisionEntry({ decision: cleanDecision, reason, source }));
+    resetForm();
+  }
+
+  return (
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Decisiones del entrenador</h3>
+          <p className="mt-1 text-sm text-ink/55">Criterio profesional registrado a partir del seguimiento del cliente.</p>
+        </div>
+        {!showForm ? (
+          <button className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={() => setShowForm(true)} type="button">
+            Registrar decisión
+          </button>
+        ) : null}
+      </div>
+
+      {showForm ? (
+        <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
+          <div className="grid gap-3">
+            <label className="grid gap-2 text-sm font-semibold text-ink/70">
+              Decisión / título
+              <textarea
+                className="min-h-24 w-full resize-y rounded-md border border-line bg-white p-3 font-normal text-ink outline-none focus:border-moss"
+                onChange={(event) => setDecision(event.target.value)}
+                placeholder="Ej. Mantener progresión esta semana."
+                value={decision}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink/70">
+              Motivo <span className="font-normal text-ink/45">(opcional)</span>
+              <textarea
+                className="min-h-20 w-full resize-y rounded-md border border-line bg-white p-3 font-normal text-ink outline-none focus:border-moss"
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Contexto breve de la decisión."
+                value={reason}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-ink/70 sm:max-w-xs">
+              Origen
+              <select className="h-11 rounded-md border border-line bg-white px-3 font-normal text-ink outline-none focus:border-moss" onChange={(event) => setSource(event.target.value as NonNullable<CoachDecisionLogEntry["source"]>)} value={source}>
+                <option value="manual">Manual</option>
+                <option value="weeklyReview">RAC Review</option>
+                <option value="compatibility">Compatibilidad</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!decision.trim()} onClick={saveDecision} type="button">
+              Guardar
+            </button>
+            <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink" onClick={resetForm} type="button">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {latestDecisions.length > 0 ? (
+        <div className="mt-4 grid gap-3">
+          {latestDecisions.map((entry) => (
+            <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={entry.id}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="break-words text-sm font-semibold text-ink">{entry.title || entry.decision}</p>
+                <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/55">
+                  {decisionSourceLabels[entry.source ?? "manual"]}
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-medium text-ink/45">{formatDecisionDate(entry.date)}</p>
+              {entry.reason ? <p className="mt-2 break-words text-sm text-ink/65"><span className="font-semibold text-ink">Motivo:</span> {entry.reason}</p> : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
+          Todavía no hay decisiones registradas.
+        </p>
+      )}
     </section>
   );
 }
