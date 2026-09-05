@@ -715,7 +715,15 @@ export function ClientDashboardView({
 
   function saveWeeklyDecision() {
     if (weeklyDecisionSaved) return;
+    const weekBounds = getDecisionWeekBounds(today);
     onSaveDecision(createCoachDecisionEntry({
+      context: {
+        confidence: weeklyReview.confidence,
+        primaryReason: weeklyReview.primaryReason?.label,
+        reviewLevel: weeklyReview.level,
+        type: "weeklyReview",
+        ...weekBounds
+      },
       decision: weeklyReview.suggestedDecision,
       reason: weeklyReview.primaryReason?.label,
       source: "weeklyReview"
@@ -931,17 +939,83 @@ function getLocalDecisionDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function getDecisionWeekBounds(date: Date) {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  return {
+    weekEnd: getLocalDecisionDateKey(weekEnd),
+    weekStart: getLocalDecisionDateKey(weekStart)
+  };
+}
+
+function formatDecisionContextDate(value: string) {
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "");
+}
+
+function getDecisionContextLines(entry: CoachDecisionLogEntry) {
+  const context = entry.context;
+  if (!context) return null;
+  const week = context.weekStart && context.weekEnd
+    ? `Semana: ${formatDecisionContextDate(context.weekStart)}–${formatDecisionContextDate(context.weekEnd)}`
+    : null;
+  const session = context.sessionDate
+    ? `Sesión: ${formatDecisionContextDate(context.sessionDate)}${context.sessionSummary ? ` · ${context.sessionSummary}` : ""}`
+    : null;
+  const reviewLevelLabels: Record<string, string> = {
+    compatible: "Compatible",
+    high: "Alto",
+    low: "Bajo",
+    moderate: "Medio",
+    priority: "Prioridad",
+    review: "Conviene revisar",
+    stable: "Seguimiento estable",
+    unknown: "Sin datos suficientes"
+  };
+  const confidenceLabels: Record<string, string> = { high: "alta", low: "baja", medium: "media" };
+  const details = [
+    context.reviewLevel ? `Estado al guardar: ${reviewLevelLabels[context.reviewLevel] ?? context.reviewLevel}` : null,
+    context.confidence ? `Confianza: ${confidenceLabels[context.confidence] ?? context.confidence}` : null
+  ].filter((value): value is string => Boolean(value));
+  return {
+    primary: week ?? session ?? `Contexto: ${decisionSourceLabels[context.type]}`,
+    secondary: details.join(" · ")
+  };
+}
+
+function DecisionContext({ entry, expanded }: { entry: CoachDecisionLogEntry; expanded: boolean }) {
+  const contextLines = getDecisionContextLines(entry);
+  if (!contextLines) return null;
+
+  return (
+    <div className="mt-2 min-w-0 text-xs text-ink/55">
+      <p className="break-words font-medium">{contextLines.primary}</p>
+      {expanded && contextLines.secondary ? <p className="mt-1 break-words">{contextLines.secondary}</p> : null}
+    </div>
+  );
+}
+
 function createCoachDecisionEntry({
+  context,
   decision,
   reason,
   source
 }: {
+  context?: CoachDecisionLogEntry["context"];
   decision: string;
   reason?: string;
   source: NonNullable<CoachDecisionLogEntry["source"]>;
 }): CoachDecisionLogEntry {
   const now = new Date();
+  const savedContext = context ?? {
+    type: source,
+    ...(source === "compatibility" ? {} : getDecisionWeekBounds(now))
+  };
   return {
+    context: savedContext,
     date: now.toISOString(),
     decision,
     id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `decision-${now.getTime()}`,
@@ -1090,6 +1164,7 @@ function CoachDecisionLog({
                     </span>
                   </div>
                   <p className="mt-1 text-xs font-medium text-ink/45">{formatDecisionDate(entry.date)}</p>
+                  <DecisionContext entry={entry} expanded={showFullHistory} />
                   {entry.reason ? <p className="mt-2 break-words text-sm text-ink/65"><span className="font-semibold text-ink">Motivo:</span> {entry.reason}</p> : null}
                 </article>
               ))}

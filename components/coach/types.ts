@@ -13,6 +13,16 @@ export type CoachDecisionLogEntry = {
   decision: string;
   reason?: string;
   source?: "weeklyReview" | "compatibility" | "manual";
+  context?: {
+    type: "weeklyReview" | "compatibility" | "manual";
+    weekStart?: string;
+    weekEnd?: string;
+    sessionDate?: string;
+    sessionSummary?: string;
+    reviewLevel?: string;
+    primaryReason?: string;
+    confidence?: string;
+  };
 };
 
 export type CoachSessionRecordForViews = {
