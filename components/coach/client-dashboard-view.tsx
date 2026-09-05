@@ -914,6 +914,15 @@ const decisionSourceLabels: Record<NonNullable<CoachDecisionLogEntry["source"]>,
   weeklyReview: "RAC Review"
 };
 
+type DecisionSourceFilter = "all" | NonNullable<CoachDecisionLogEntry["source"]>;
+
+const decisionSourceFilters: Array<{ label: string; value: DecisionSourceFilter }> = [
+  { label: "Todas", value: "all" },
+  { label: "RAC Review", value: "weeklyReview" },
+  { label: "Compatibilidad", value: "compatibility" },
+  { label: "Manual", value: "manual" }
+];
+
 function getLocalDecisionDateKey(date: Date) {
   if (Number.isNaN(date.getTime())) return "";
   const year = date.getFullYear();
@@ -959,9 +968,22 @@ function CoachDecisionLog({
   const [decision, setDecision] = useState("");
   const [reason, setReason] = useState("");
   const [source, setSource] = useState<NonNullable<CoachDecisionLogEntry["source"]>>("manual");
-  const latestDecisions = [...decisions]
-    .sort((left, right) => (new Date(right.date).getTime() || 0) - (new Date(left.date).getTime() || 0))
-    .slice(0, 3);
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<DecisionSourceFilter>("all");
+  const sortedDecisions = decisions
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => {
+      const dateDifference = (new Date(right.entry.date).getTime() || 0) - (new Date(left.entry.date).getTime() || 0);
+      return dateDifference || left.index - right.index;
+    })
+    .map(({ entry }) => entry);
+  const filteredDecisions = sourceFilter === "all"
+    ? sortedDecisions
+    : sortedDecisions.filter((entry) => (entry.source ?? "manual") === sourceFilter);
+  const displayedDecisions = showFullHistory ? filteredDecisions : sortedDecisions.slice(0, 3);
+  const decisionCountLabel = decisions.length === 0
+    ? "Sin decisiones registradas"
+    : `${decisions.length} ${decisions.length === 1 ? "decisión registrada" : "decisiones registradas"}`;
 
   function resetForm() {
     setDecision("");
@@ -982,7 +1004,8 @@ function CoachDecisionLog({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Decisiones del entrenador</h3>
-          <p className="mt-1 text-sm text-ink/55">Criterio profesional registrado a partir del seguimiento del cliente.</p>
+          <p className="mt-1 text-sm text-ink/55">{decisionCountLabel}</p>
+          <p className="mt-1 text-xs text-ink/45">Criterio profesional registrado a partir del seguimiento del cliente.</p>
         </div>
         {!showForm ? (
           <button className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={() => setShowForm(true)} type="button">
@@ -1032,21 +1055,64 @@ function CoachDecisionLog({
         </div>
       ) : null}
 
-      {latestDecisions.length > 0 ? (
-        <div className="mt-4 grid gap-3">
-          {latestDecisions.map((entry) => (
-            <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={entry.id}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="break-words text-sm font-semibold text-ink">{entry.title || entry.decision}</p>
-                <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/55">
-                  {decisionSourceLabels[entry.source ?? "manual"]}
-                </span>
+      {sortedDecisions.length > 0 ? (
+        <>
+          {showFullHistory ? (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Origen</p>
+              <div className="mt-2 flex flex-wrap gap-2" aria-label="Filtrar decisiones por origen">
+                {decisionSourceFilters.map((filter) => (
+                  <button
+                    className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      sourceFilter === filter.value
+                        ? "border-ink bg-ink text-white"
+                        : "border-line bg-panel text-ink/60 hover:border-ink/25 hover:text-ink"
+                    }`}
+                    key={filter.value}
+                    onClick={() => setSourceFilter(filter.value)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
               </div>
-              <p className="mt-1 text-xs font-medium text-ink/45">{formatDecisionDate(entry.date)}</p>
-              {entry.reason ? <p className="mt-2 break-words text-sm text-ink/65"><span className="font-semibold text-ink">Motivo:</span> {entry.reason}</p> : null}
-            </article>
-          ))}
-        </div>
+            </div>
+          ) : null}
+
+          {displayedDecisions.length > 0 ? (
+            <div className="mt-4 grid gap-3">
+              {displayedDecisions.map((entry) => (
+                <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={entry.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="break-words text-sm font-semibold text-ink">{entry.title || entry.decision}</p>
+                    <span className="rounded-md border border-line bg-panel px-2 py-1 text-xs font-semibold text-ink/55">
+                      {decisionSourceLabels[entry.source ?? "manual"]}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-ink/45">{formatDecisionDate(entry.date)}</p>
+                  {entry.reason ? <p className="mt-2 break-words text-sm text-ink/65"><span className="font-semibold text-ink">Motivo:</span> {entry.reason}</p> : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
+              No hay decisiones para este origen.
+            </p>
+          )}
+
+          {decisions.length > 3 ? (
+            <button
+              className="mt-4 text-sm font-semibold text-moss underline-offset-4 hover:underline"
+              onClick={() => {
+                setShowFullHistory((current) => !current);
+                if (showFullHistory) setSourceFilter("all");
+              }}
+              type="button"
+            >
+              {showFullHistory ? "Ocultar historial" : "Ver historial completo"}
+            </button>
+          ) : null}
+        </>
       ) : (
         <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
           Todavía no hay decisiones registradas.
