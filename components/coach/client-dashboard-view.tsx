@@ -761,7 +761,6 @@ export function ClientDashboardView({
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
       <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
-      <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
       <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -807,17 +806,18 @@ export function ClientDashboardView({
           </div>
         ) : <DashboardEmptyState>No hay una próxima sesión pendiente con fecha disponible.</DashboardEmptyState>}
       </section>
+      <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
 
-      <section className="min-w-0 space-y-3" aria-label="Contexto de carga">
-        <div>
-          <h3 className="font-semibold text-ink">Contexto de carga</h3>
-          <p className="mt-1 text-sm text-ink/55">Carga registrada y bienestar para contextualizar la lectura semanal.</p>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
+      <details className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+          <span className="block font-semibold">Contexto de carga</span>
+          <span className="mt-1 block text-sm font-normal text-ink/55">Carga semanal, readiness y detalle técnico.</span>
+        </summary>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
           <DailyLoadReadinessBlock dashboardData={dashboardData} />
         </div>
-        <details className="coach-surface rounded-md p-4">
+        <details className="mt-4 rounded-md border border-line bg-panel/35 p-4">
           <summary className="cursor-pointer font-semibold text-ink">Detalle de entrenamiento</summary>
           <p className="mt-2 text-sm text-ink/55">Indicadores de carga, distribución muscular, patrones y zonas.</p>
           <div className="mt-4 grid gap-4">
@@ -828,7 +828,7 @@ export function ClientDashboardView({
             </div>
           </div>
         </details>
-      </section>
+      </details>
       <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
       <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
     </div>
@@ -1552,35 +1552,44 @@ function DashboardWatchSignalsBlock({
   };
 
   return (
-    <section className="coach-surface rounded-md p-4">
-      <h3 className="font-semibold text-ink">Qué revisar</h3>
-      <p className="mt-1 text-sm text-ink/55">Motivos concretos para abrir la vista relacionada y decidir el siguiente ajuste.</p>
-      {dashboardData.watchSignals.length > 0 ? (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {dashboardData.watchSignals.map((signal) => (
-            <article className="rounded-md border border-line bg-panel/45 p-3" key={`${signal.label}-${signal.meta}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${toneClass[signal.tone]}`}>
-                    {signal.label}
-                  </span>
-                  <p className="mt-2 text-sm font-semibold text-ink">{signal.meta}</p>
+    <details className="coach-surface rounded-md p-4 sm:p-5">
+      <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+        <span className="block font-semibold">Qué revisar</span>
+        <span className="mt-1 block text-sm font-normal text-ink/55">
+          {dashboardData.watchSignals.length > 0
+            ? `${dashboardData.watchSignals.length} ${dashboardData.watchSignals.length === 1 ? "aspecto disponible" : "aspectos disponibles"}`
+            : "Sin señales relevantes ahora"}
+        </span>
+      </summary>
+      <div className="mt-4">
+        <p className="text-sm text-ink/55">Motivos concretos para abrir la vista relacionada y decidir el siguiente ajuste.</p>
+        {dashboardData.watchSignals.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {dashboardData.watchSignals.map((signal) => (
+              <article className="rounded-md border border-line bg-panel/45 p-3" key={`${signal.label}-${signal.meta}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${toneClass[signal.tone]}`}>
+                      {signal.label}
+                    </span>
+                    <p className="mt-2 text-sm font-semibold text-ink">{signal.meta}</p>
+                  </div>
+                  <button
+                    className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink/70"
+                    onClick={() => onOpenClientSheet(clientId, signal.action)}
+                    type="button"
+                  >
+                    Revisar
+                  </button>
                 </div>
-                <button
-                  className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink/70"
-                  onClick={() => onOpenClientSheet(clientId, signal.action)}
-                  type="button"
-                >
-                  Revisar
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <DashboardEmptyState>Sin señales relevantes ahora.</DashboardEmptyState>
-      )}
-    </section>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <DashboardEmptyState>Sin señales relevantes ahora.</DashboardEmptyState>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -1602,30 +1611,35 @@ function DashboardQuickActionsBlock({
   ];
 
   return (
-    <section className="coach-surface rounded-md p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-semibold text-ink">Seguimiento</h3>
-          <p className="mt-1 text-sm text-ink/55">Atajos para actuar desde la lectura semanal sin duplicar pantallas.</p>
-        </div>
-        <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
-          {dashboardData.pendingReviews} revisión(es) pendiente(s)
+    <details className="coach-surface rounded-md p-4 sm:p-5">
+      <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+        <span className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <span>
+            <span className="block font-semibold">Seguimiento</span>
+            <span className="mt-1 block text-sm font-normal text-ink/55">Atajos para actuar desde la lectura semanal.</span>
+          </span>
+          <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
+            {dashboardData.pendingReviews} revisión(es) pendiente(s)
+          </span>
         </span>
+      </summary>
+      <div className="mt-4">
+        <p className="text-sm text-ink/55">Acciones disponibles para continuar el seguimiento sin duplicar pantallas.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {actions.map((action) => (
+            <button
+              className="rounded-md border border-line bg-panel/45 p-3 text-left transition hover:border-moss/35 hover:bg-panel"
+              key={action.label}
+              onClick={() => onOpenClientSheet(client.id, action.sheet)}
+              type="button"
+            >
+              <span className="text-sm font-semibold text-ink">{action.label}</span>
+              <span className="mt-1 block text-xs font-medium text-ink/55">{action.meta}</span>
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {actions.map((action) => (
-          <button
-            className="rounded-md border border-line bg-panel/45 p-3 text-left transition hover:border-moss/35 hover:bg-panel"
-            key={action.label}
-            onClick={() => onOpenClientSheet(client.id, action.sheet)}
-            type="button"
-          >
-            <span className="text-sm font-semibold text-ink">{action.label}</span>
-            <span className="mt-1 block text-xs font-medium text-ink/55">{action.meta}</span>
-          </button>
-        ))}
-      </div>
-    </section>
+    </details>
   );
 }
 
