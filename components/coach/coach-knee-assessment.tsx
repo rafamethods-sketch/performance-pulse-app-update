@@ -141,12 +141,17 @@ export function CoachKneeAssessment({ assessment, clientName, history, onClose, 
               </section>
 
               <section className="grid gap-3">
-                <div><h3 className="text-lg font-semibold text-ink">Resumen Rodilla</h3><p className="mt-1 text-sm text-ink/55">Simple por fuera; abre un dominio para consultar el detalle.</p></div>
+                <div><h3 className="text-lg font-semibold text-ink">Resumen de valoración</h3><p className="mt-1 text-sm text-ink/55">Dominios principales con detalle progresivo.</p></div>
                 {sortedDomains.map((item) => <button className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-md border border-line bg-white p-3 text-left hover:bg-panel/40" key={item} onClick={() => setDomain(item)} type="button"><span><span className="font-semibold text-ink">{kneeDomainLabels[item]}</span><span className="mt-1 block text-xs text-ink/50">{statuses[item] === "incomplete" ? "Abre el dominio para registrar datos." : statuses[item] === "adequate" ? "Datos completos sin aspectos relevantes a vigilar." : statuses[item] === "finding" ? "Hay aspectos útiles para revisar." : "Conviene revisar antes de progresar."}</span></span><span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${statusTone(statuses[item])}`}><span className={`size-2 rounded-full ${statusDot(statuses[item])}`} />{kneeStatusLabels[statuses[item]]}</span><ChevronRight className="text-ink/35" size={17} /></button>)}
                 {sortedDomains.some((item) => ["priority", "finding"].includes(statuses[item])) ? <div className="rounded-md border border-line bg-panel/25 p-3"><p className="text-xs font-semibold uppercase text-ink/45">Dominios a revisar</p><p className="mt-2 text-sm text-ink/65">{sortedDomains.filter((item) => ["priority", "finding"].includes(statuses[item])).map((item) => kneeDomainLabels[item]).join(" · ")}</p></div> : null}
                 <p className="rounded-md border border-line bg-panel/35 p-3 text-xs text-ink/55">{kneeAssessmentConfig.note}</p>
               </section>
-              <label className="text-sm font-semibold text-ink">Nota del entrenador<textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white p-3 font-normal" disabled={readOnly} onChange={(event) => update("notes", event.target.value)} value={draft.notes ?? ""} /></label>
+              <details className="rounded-md border border-line bg-white">
+                <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-ink">Notas</summary>
+                <div className="border-t border-line p-3">
+                  <label className="text-sm font-semibold text-ink">Nota del entrenador<textarea className="mt-1 min-h-20 w-full rounded-md border border-line bg-white p-3 font-normal" disabled={readOnly} onChange={(event) => update("notes", event.target.value)} value={draft.notes ?? ""} /></label>
+                </div>
+              </details>
               <div className="flex justify-end gap-2"><button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold" onClick={onClose} type="button">Cerrar</button>{!readOnly && onSave ? <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => { onSave(draft); onClose(); }} type="button">Guardar valoración</button> : null}</div>
             </>
           ) : (
