@@ -126,6 +126,7 @@ type CoachClient = {
 type ClientDashboardViewProps = {
   client: CoachClient;
   onBack: () => void;
+  onDeleteDecision: (decisionId: string) => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
   onSaveDecision: (entry: CoachDecisionLogEntry) => void;
@@ -677,6 +678,7 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
 export function ClientDashboardView({
   client,
   onBack,
+  onDeleteDecision,
   onOpenClientSheet,
   onOpenDetails,
   onSaveDecision
@@ -759,7 +761,7 @@ export function ClientDashboardView({
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
       <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
-      <CoachDecisionLog decisions={client.decisionLog ?? []} onSaveDecision={onSaveDecision} />
+      <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
       <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -1068,9 +1070,11 @@ function formatDecisionDate(value: string) {
 
 function CoachDecisionLog({
   decisions,
+  onDeleteDecision,
   onSaveDecision
 }: {
   decisions: CoachDecisionLogEntry[];
+  onDeleteDecision: (decisionId: string) => void;
   onSaveDecision: (entry: CoachDecisionLogEntry) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -1106,6 +1110,16 @@ function CoachDecisionLog({
     if (!cleanDecision) return;
     onSaveDecision(createCoachDecisionEntry({ decision: cleanDecision, reason, source }));
     resetForm();
+  }
+
+  function deleteDecision(decisionId: string) {
+    const confirmed = window.confirm("¿Borrar esta decisión del entrenador? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+    if (decisions.length <= 4) {
+      setShowFullHistory(false);
+      setSourceFilter("all");
+    }
+    onDeleteDecision(decisionId);
   }
 
   return (
@@ -1201,6 +1215,13 @@ function CoachDecisionLog({
                   <p className="mt-1 text-xs font-medium text-ink/45">{formatDecisionDate(entry.date)}</p>
                   <DecisionContext entry={entry} expanded={showFullHistory} />
                   {entry.reason ? <p className="mt-2 break-words text-sm text-ink/65"><span className="font-semibold text-ink">Motivo:</span> {entry.reason}</p> : null}
+                  <button
+                    className="mt-3 rounded-md border border-clay/25 bg-panel px-2.5 py-1.5 text-xs font-semibold text-clay transition hover:border-clay/45"
+                    onClick={() => deleteDecision(entry.id)}
+                    type="button"
+                  >
+                    Borrar
+                  </button>
                 </article>
               ))}
             </div>

@@ -3130,6 +3130,14 @@ function CoachClientsView({
       <ClientDashboardView
         client={client}
         onBack={onBack}
+        onDeleteDecision={(decisionId) =>
+          setClients((currentClients) =>
+            currentClients.map((listedClient) => listedClient.id === client.id
+              ? { ...listedClient, decisionLog: (listedClient.decisionLog ?? []).filter((entry) => entry.id !== decisionId) }
+              : listedClient
+            )
+          )
+        }
         onOpenClientSheet={onOpenClientSheet}
         onOpenDetails={() => onOpenDetails(client.id)}
         onSaveDecision={(entry) =>
