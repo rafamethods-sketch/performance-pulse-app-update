@@ -69,7 +69,7 @@ export function FunctionalPainMap({
       <div className="mt-3 grid gap-3">
         {selectedImageSrc ? (
           <div className="relative mx-auto w-full max-w-48 overflow-hidden rounded-md">
-            <Image alt={`${imageAlt} · vista ${selectedView === "front" ? "anterior" : "posterior"}`} className="block h-auto max-h-96 w-full object-contain" height={384} src={selectedImageSrc} width={192} />
+            <Image alt={`${imageAlt} · vista ${selectedView === "front" ? "anterior" : "posterior"}`} className="block h-auto max-h-96 w-full object-contain" height={0} sizes="192px" src={selectedImageSrc} style={{ height: "auto", width: "100%" }} width={0} />
             {visiblePoints.map((point) => (
               <button
                 aria-label={point.label}
