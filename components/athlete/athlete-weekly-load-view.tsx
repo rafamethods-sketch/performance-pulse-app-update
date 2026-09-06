@@ -519,41 +519,43 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             })}
             </div>
           </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h4 className="font-semibold text-ink">Carga reciente</h4>
-                <p className="mt-1 text-xs leading-relaxed text-ink/55">Duración × esfuerzo registrado, expresado en UA.</p>
-              </div>
+          <details className="group min-w-0 rounded-xl border border-line bg-panel/25 p-3 sm:p-4">
+            <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-2 rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+              <span>
+                <span className="block font-semibold">Ver detalle de sesiones</span>
+                <span className="mt-1 block text-xs font-normal leading-relaxed text-ink/55">Carga reciente según duración y esfuerzo registrado.</span>
+              </span>
               {weeklySessions.length > 0 ? (
-                <span className="rounded-full bg-panel px-2.5 py-1 text-xs font-semibold text-ink/60">{totalSrpe} UA acumuladas</span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-ink/60">{totalSrpe} UA acumuladas</span>
               ) : null}
-            </div>
-            {weeklySessions.length > 0 ? (
-              <div className="mt-3 grid gap-2">
-                {weeklySessions.map((session, index) => {
-                  const srpe = getSessionSrpe(session) ?? 0;
-                  return (
-                    <div className="min-w-0 rounded-xl border border-line bg-panel/35 p-3" key={`${session.date}-load-${index}`}>
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
-                          <p className="mt-0.5 text-xs text-ink/50">{displayValue(session.date, "Sin fecha")}</p>
-                          {session.summary?.trim() ? <p className="mt-1 line-clamp-1 text-xs text-ink/55">{session.summary.trim()}</p> : null}
+            </summary>
+            <div className="mt-3 border-t border-line pt-3">
+              {weeklySessions.length > 0 ? (
+                <div className="grid gap-2">
+                  {weeklySessions.map((session, index) => {
+                    const srpe = getSessionSrpe(session) ?? 0;
+                    return (
+                      <div className="min-w-0 rounded-xl border border-line bg-white p-3" key={`${session.date}-load-${index}`}>
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink">{displayValue(session.type, "Sesión")}</p>
+                            <p className="mt-0.5 text-xs text-ink/50">{displayValue(session.date, "Sin fecha")}</p>
+                            {session.summary?.trim() ? <p className="mt-1 line-clamp-1 text-xs text-ink/55">{session.summary.trim()}</p> : null}
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold text-blue-700 [[data-theme=dark]_&]:text-blue-300">{srpe} UA</span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-blue-700 [[data-theme=dark]_&]:text-blue-300">{srpe} UA</span>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10">
+                          <div className="h-full rounded-full bg-gradient-to-r from-blue-300 via-blue-500 to-blue-800" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
+                        </div>
                       </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10">
-                        <div className="h-full rounded-full bg-gradient-to-r from-blue-300 via-blue-500 to-blue-800" style={{ width: `${(srpe / maxSrpe) * 100}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-3 rounded-xl border border-dashed border-line bg-panel/25 p-5 text-center text-sm font-medium text-ink/55">Sin sesiones completadas esta semana.</p>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-line bg-white p-5 text-center text-sm font-medium text-ink/55">Sin sesiones completadas esta semana.</p>
+              )}
+            </div>
+          </details>
         </div>
       </article>
 
