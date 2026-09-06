@@ -712,6 +712,13 @@ export function ClientDashboardView({
     entry.decision === weeklyReview.suggestedDecision &&
     getLocalDecisionDateKey(new Date(entry.date)) === todayKey
   );
+  const compatibilityDecisionSaved = Boolean(nextSession && compatibility && (client.decisionLog ?? []).some((entry) =>
+    entry.source === "compatibility" &&
+    entry.decision === compatibility.suggestedAction &&
+    entry.context?.sessionDate === nextSession.date &&
+    entry.context?.sessionSummary === nextSession.summary &&
+    getLocalDecisionDateKey(new Date(entry.date)) === todayKey
+  ));
 
   function saveWeeklyDecision() {
     if (weeklyDecisionSaved) return;
@@ -727,6 +734,24 @@ export function ClientDashboardView({
       decision: weeklyReview.suggestedDecision,
       reason: weeklyReview.primaryReason?.label,
       source: "weeklyReview"
+    }));
+  }
+
+  function saveCompatibilityDecision() {
+    if (!nextSession || !compatibility || compatibilityDecisionSaved) return;
+    onSaveDecision(createCoachDecisionEntry({
+      context: {
+        confidence: compatibility.confidence,
+        primaryReason: compatibility.primaryReason?.label,
+        reviewLevel: compatibility.level,
+        sessionDate: nextSession.date,
+        sessionSummary: nextSession.summary,
+        type: "compatibility",
+        ...getDecisionWeekBounds(today)
+      },
+      decision: compatibility.suggestedAction,
+      reason: compatibility.primaryReason?.label,
+      source: "compatibility"
     }));
   }
 
@@ -767,6 +792,14 @@ export function ClientDashboardView({
                 {compatibility.primaryReason ? <p className="mt-2 text-sm text-ink/65">{compatibility.primaryReason.label}</p> : null}
                 <p className="mt-2 text-sm text-ink/70"><span className="font-semibold text-ink">Próxima decisión:</span> {compatibility.suggestedAction}</p>
                 <DecisionExplanationDetails explanation={fromSessionCompatibility(compatibility)} summary="Ver contexto usado" />
+                <button
+                  className="mt-3 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink transition hover:border-moss/35 disabled:cursor-default disabled:opacity-55"
+                  disabled={compatibilityDecisionSaved}
+                  onClick={saveCompatibilityDecision}
+                  type="button"
+                >
+                  {compatibilityDecisionSaved ? "Decisión de compatibilidad guardada" : "Guardar decisión de compatibilidad"}
+                </button>
               </div>
             ) : null}
           </div>
@@ -981,7 +1014,9 @@ function getDecisionContextLines(entry: CoachDecisionLogEntry) {
     context.confidence ? `Confianza: ${confidenceLabels[context.confidence] ?? context.confidence}` : null
   ].filter((value): value is string => Boolean(value));
   return {
-    primary: week ?? session ?? `Contexto: ${decisionSourceLabels[context.type]}`,
+    primary: context.type === "compatibility"
+      ? session ?? week ?? `Contexto: ${decisionSourceLabels[context.type]}`
+      : week ?? session ?? `Contexto: ${decisionSourceLabels[context.type]}`,
     secondary: details.join(" · ")
   };
 }
