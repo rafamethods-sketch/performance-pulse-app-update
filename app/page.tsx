@@ -12606,19 +12606,20 @@ function SessionHistoryPanel({
 
                 {isOpen ? (
                   <div
-                    className="fixed inset-0 z-50 flex items-stretch justify-end bg-ink/55 p-0 backdrop-blur-sm sm:p-3"
+                    aria-labelledby={`session-detail-title-${sessionIndex}`}
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-3 backdrop-blur-sm sm:p-5"
                     onClick={() => setOpenSessionKey("")}
                     role="dialog"
-                    aria-modal="true"
                   >
                     <div
-                      className="h-[100dvh] w-full max-w-4xl overflow-x-hidden overflow-y-auto border border-line bg-white p-4 shadow-soft sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-xl sm:p-5"
+                      className="max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl overflow-x-hidden overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-soft sm:max-h-[90vh] sm:p-5"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Detalle de sesi{"\u00f3"}n</p>
-                          <h4 className="mt-1 text-xl font-semibold text-ink">{displayValue(session.type, "Tipo sin especificar")}</h4>
+                          <h4 className="mt-1 text-xl font-semibold text-ink" id={`session-detail-title-${sessionIndex}`}>{displayValue(session.type, "Tipo sin especificar")}</h4>
                           <p className="mt-1 text-sm text-ink/55">{formatDisplayDate(session.date)} {"\u00b7"} {client.name}</p>
                         </div>
                         <button
