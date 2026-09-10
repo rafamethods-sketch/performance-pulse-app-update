@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import {
-  ArrowLeft,
   BarChart3,
   CalendarDays,
   ClipboardCheck,
@@ -7110,6 +7109,21 @@ function PlanningBlockDetail({
     (week) => week.weekNumber >= block.startWeek && week.weekNumber <= block.endWeek
   );
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onBack();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onBack]);
+
   return (
     <div
       className="assessment-modal-overlay"
@@ -7117,68 +7131,71 @@ function PlanningBlockDetail({
       role="presentation"
     >
       <section
-        className="assessment-modal-panel max-h-[88vh] max-w-5xl overflow-y-auto"
+        aria-labelledby="planning-block-detail-title"
+        aria-modal="true"
+        className="assessment-modal-panel !max-h-[90vh] !w-full !max-w-6xl"
         onClick={(event) => event.stopPropagation()}
+        role="dialog"
       >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <header className="assessment-modal-header flex items-start justify-between gap-4 px-4 py-4 sm:px-5">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Detalle del bloque</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="min-w-0 truncate text-xl font-semibold text-ink sm:text-2xl" id="planning-block-detail-title">{block.name}</h2>
+              <span className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
+                {status}
+              </span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-ink/55">
+              {block.durationWeeks} semanas · Semana {block.startWeek}-{block.endWeek}
+            </p>
+          </div>
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60"
+            aria-label="Cerrar detalle del bloque"
+            className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-lg font-semibold text-ink/70 transition hover:bg-mint"
             onClick={onBack}
             type="button"
           >
-            <ArrowLeft size={16} />
-            Volver a planificación
+            ×
           </button>
-          <p className="mt-5 text-xs font-semibold uppercase text-moss">Detalle del bloque</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink">{block.name}</h2>
-          <p className="mt-2 max-w-3xl text-sm text-ink/60">
-            {block.notes || block.primaryObjective || "Bloque preparado para concretar sesiones desde la vista Sesiones."}
-          </p>
-        </div>
-        <span className={`w-fit rounded-md border px-3 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
-          {status}
-        </span>
-        <button
-          aria-label="Cerrar detalle del bloque"
-          className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
-          onClick={onBack}
-          type="button"
-        >
-          ×
-        </button>
-      </div>
+        </header>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <ClientInfoCard label="Duración" value={`${block.durationWeeks} semanas`} />
-        <ClientInfoCard label="Fechas" value={`Semana ${block.startWeek}-${block.endWeek}`} />
-        <ClientInfoCard label="Distribución" value={block.weeklyDistribution || "Sin asignar"} />
-        <ClientInfoCard label="Objetivo" value={block.primaryObjective || "Sin definir"} />
-        <ClientInfoCard
-          label="Progreso"
-          value={progress.totalSessions > 0 ? `${progress.completedSessions}/${progress.totalSessions} sesiones` : "Sin sesiones registradas"}
-        />
-      </div>
-
-      <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-semibold text-ink">Carga semanal del bloque</h3>
-            <p className="mt-1 text-sm text-ink/55">Resumen visual basado en sesiones ya registradas para este bloque.</p>
+        <div className="assessment-modal-body px-4 py-4 sm:px-5 sm:py-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-md border border-line bg-white p-3 sm:col-span-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Objetivo principal</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{block.primaryObjective || "Sin definir"}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Objetivo secundario</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{block.secondaryObjective || "Sin definir"}</p>
+            </div>
+            <div className="rounded-md border border-line bg-white p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Distribución semanal</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{block.weeklyDistribution || "Sin asignar"}</p>
+            </div>
           </div>
-          <span className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-ink">
-            {Math.round(progress.completionPct)}%
-          </span>
-        </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
-            style={{ width: `${progress.completionPct}%` }}
-          />
-        </div>
-      </div>
 
-      <div className="mt-5 rounded-md border border-line bg-white p-4">
+          <div className="mt-3 rounded-md border border-line bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Progreso del bloque</p>
+                <p className="mt-1 text-sm font-semibold text-ink">
+                  {progress.totalSessions > 0 ? `${progress.completedSessions}/${progress.totalSessions} sesiones` : "Sin sesiones registradas"}
+                </p>
+              </div>
+              <span className="rounded-md bg-panel px-2.5 py-1 text-sm font-semibold text-ink">{Math.round(progress.completionPct)}%</span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel">
+              <div className="h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${progress.completionPct}%` }} />
+            </div>
+          </div>
+
+          {block.notes ? (
+            <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/60">{block.notes}</p>
+          ) : null}
+
+      <div className="mt-4 rounded-md border border-line bg-white p-3 sm:p-4">
         <div>
           <div>
             <div className="flex items-center gap-2">
@@ -7277,6 +7294,7 @@ function PlanningBlockDetail({
           </div>
         </div>
       </div>
+        </div>
       </section>
     </div>
   );
