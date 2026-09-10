@@ -6320,6 +6320,22 @@ function downloadPlanningCalendarCsv({
 const planningWeekdayLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 type PlanningSessionKind = "strength" | "resistance" | "concurrent" | "activeRecovery" | "test" | "other";
 
+type PlanningCalendarSession = {
+  date: Date;
+  session: ReviewSessionRecord;
+  sessionIndex: number;
+};
+
+type PlanningCalendarWeek = {
+  endDate: Date;
+  sessions: PlanningCalendarSession[];
+  startDate: Date;
+  weekNumber: number;
+  counts: Record<PlanningSessionKind, number>;
+  total: number;
+  trainingSessions: PlanningCalendarSession[];
+};
+
 function getPlanningDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -6417,7 +6433,6 @@ function PlanningView({
   const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
-  const [extraPlanningWeeks, setExtraPlanningWeeks] = useState(0);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
   const [copiedPlanningWeek, setCopiedPlanningWeek] = useState<{
@@ -6457,7 +6472,7 @@ function PlanningView({
     0
   );
   const basePlanningWeekCount = Math.max(totalWeeks, datedPlanningSessions.length > 0 ? latestSessionWeekIndex + 1 : 4);
-  const visualPlanningWeekCount = basePlanningWeekCount + extraPlanningWeeks;
+  const visualPlanningWeekCount = basePlanningWeekCount;
   const planningWeekRows = Array.from({ length: visualPlanningWeekCount }, (_, weekIndex) => {
     const startDate = addPlanningDays(firstSessionWeekStart, weekIndex * 7);
     const sessions = datedPlanningSessions.filter((item) => getPlanningWeekIndex(item.date, firstSessionWeekStart) === weekIndex);
@@ -6495,7 +6510,6 @@ function PlanningView({
     setPlanningPeakDate(client?.planning.eventDate ?? "");
     setPlanningMethod(client?.planning.method ?? "");
     setSelectedPlanningBlockId(null);
-    setExtraPlanningWeeks(0);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
     setCopiedPlanningWeek(null);
@@ -6593,12 +6607,6 @@ function PlanningView({
     if (!window.confirm("¿Eliminar esta sesión planificada?")) return;
     const result = onDeleteSession(client.id, sessionIndex);
     setPlanningActionMessage(result.message);
-  }
-
-  function removeVisualPlanningWeek() {
-    if (extraPlanningWeeks <= 0) return;
-    setExtraPlanningWeeks((current) => Math.max(0, current - 1));
-    setPlanningActionMessage("Semana visual eliminada.");
   }
 
   if (!client) {
@@ -6820,205 +6828,20 @@ function PlanningView({
         )}
       </section>
 
-      <section className="coach-surface rounded-md p-5 xl:col-span-2">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h3 className="font-semibold text-ink">Distribución semanal</h3>
-            <p className="mt-1 text-sm text-ink/55">Semanas como filas, días como columnas y sesiones compactas por celda.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
-              onClick={() => {
-                setExtraPlanningWeeks((current) => current + 1);
-                setPlanningActionMessage("Semana visual añadida.");
-              }}
-              type="button"
-            >
-              Añadir semana
-            </button>
-            <button
-              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={extraPlanningWeeks <= 0}
-              onClick={removeVisualPlanningWeek}
-              type="button"
-            >
-              Borrar semana
-            </button>
-          </div>
-        </div>
-        {planningActionMessage ? <p className="mt-3 text-sm font-semibold text-moss">{planningActionMessage}</p> : null}
-        <div className="mt-5 overflow-x-auto pb-2">
-          <div className="min-w-[900px] space-y-2">
-            <div className="grid grid-cols-[88px_repeat(7,minmax(96px,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45">
-              <span>Semana</span>
-              {planningWeekdayLabels.map((day) => <span key={day}>{day}</span>)}
-            </div>
-            {planningDistribution.map((week) => {
-              const isCurrentWeek = week.weekNumber === currentPlanningWeekNumber;
-
-              return (
-              <div className={`grid grid-cols-[88px_repeat(7,minmax(96px,1fr))] gap-2 rounded-md p-1 ${isCurrentWeek ? "border border-moss/30 bg-mint/15" : ""}`} key={`week-row-${week.weekNumber}`}>
-                <div className="rounded-md border border-line bg-panel/45 p-2">
-                  <p className="text-sm font-semibold text-ink">Semana {week.weekNumber}</p>
-                  {isCurrentWeek ? <span className="mt-1 inline-flex rounded-md border border-moss/25 bg-mint px-2 py-0.5 text-[10px] font-semibold text-moss">Semana actual</span> : null}
-                  <p className="mt-1 text-[11px] text-ink/45">
-                    {formatDisplayDate(getPlanningDateKey(week.startDate))} · {formatDisplayDate(getPlanningDateKey(week.endDate))}
-                  </p>
-                  <div className="mt-2 grid gap-1">
-                    <button className="rounded border border-line bg-panel px-2 py-1 text-[10px] font-semibold text-ink/65" onClick={() => copyPlanningWeek(week)} type="button">
-                      Duplicar semana
-                    </button>
-                    {copiedPlanningWeek ? (
-                      <button className="rounded border border-moss/25 bg-mint px-2 py-1 text-[10px] font-semibold text-moss" onClick={() => pastePlanningWeek(week)} type="button">
-                        Duplicar aquí
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                {planningWeekdayLabels.map((day, dayIndex) => {
-                  const date = addPlanningDays(week.startDate, dayIndex);
-                  const daySessions = week.trainingSessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
-
-                  return (
-                    <div className="min-h-[104px] rounded-md border border-line bg-panel/30 p-2" key={`${week.weekNumber}-${day}`}>
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold uppercase text-ink/40">{day.slice(0, 3)}</span>
-                        <button
-                          className="grid size-7 place-items-center rounded-md border border-line bg-white text-sm font-semibold text-ink transition hover:bg-mint"
-                          onClick={() => openPlanningSessionDraft(date, week.weekNumber)}
-                          title="Añadir sesión"
-                          type="button"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="grid gap-1.5">
-                        {daySessions.length > 0 ? daySessions.map(({ session, sessionIndex }) => {
-                          const kind = getPlanningSessionKind(session);
-                          const metricLabel = getPlanningSessionMetricLabel(session);
-                          const locked = hasCalendarSessionRegisteredData(session);
-
-                          return (
-                            <article className={`rounded-md border px-2 py-1.5 ${getPlanningSessionKindClass(kind)}`} key={`${sessionIndex}-${session.summary}`}>
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs font-semibold">{getPlanningSessionKindLabel(kind)}</p>
-                                  <p className="mt-0.5 line-clamp-2 text-[11px] opacity-80">{session.summary || "Sesión sin resumen"}</p>
-                                  {metricLabel ? <p className="mt-1 text-[11px] font-semibold opacity-75">{metricLabel}</p> : null}
-                                </div>
-                                <span className="rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-semibold">
-                                  {getSessionStatus(session)}
-                                </span>
-                              </div>
-                              <div className="mt-2 flex gap-1">
-                                <button
-                                  className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
-                                  onClick={() => duplicatePlanningSession(sessionIndex, date, session.time)}
-                                  type="button"
-                                >
-                                  Duplicar
-                                </button>
-                                <button
-                                  className="rounded border border-white/50 bg-white/50 px-1.5 py-1 text-[10px] font-semibold"
-                                  onClick={() => deletePlanningSession(sessionIndex, session)}
-                                  title={locked ? "No se puede eliminar una sesión con datos registrados." : "Eliminar sesión"}
-                                  type="button"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </article>
-                          );
-                        }) : (
-                          <div className="grid gap-1">
-                            <p className="text-[11px] font-semibold text-ink/35">Sin sesiones</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="hidden">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <ClientInfoCard label="Modelo" value={getPlanningMethodLabel(planningMethod) || "Sin seleccionar"} />
-          <ClientInfoCard label="Mesociclos" value={String(planningBlocks.length)} />
-          <ClientInfoCard label="Bloque actual" value={client.planning.currentBlock || "Sin asignar"} />
-          <ClientInfoCard label="Objetivo principal" value={client.planning.primaryGoal || "Pendiente"} />
-          <ClientInfoCard label="Duración total" value={`${totalWeeks} semanas`} />
-        </div>
-
-        <div className="mt-5">
-          <h3 className="font-semibold text-ink">Bloques de entrenamiento</h3>
-          {planningBlocks.length === 0 ? (
-            <div className="mt-3 rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-              Sin asignar
-            </div>
-          ) : (
-            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {roadmapBlocks.map((block, index) => {
-                const status = getPlanningBlockStatus(block, client.planning.currentBlock);
-                const progress = getPlanningBlockProgress(client, block);
-
-                return (
-                <div className="min-w-0" key={block.id}>
-                  <button
-                    className={`min-w-0 w-full rounded-md border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-soft ${
-                      selectedPlanningBlock?.id === block.id ? "border-moss bg-mint/35" : "border-line bg-panel/35"
-                    }`}
-                    onClick={() => setSelectedPlanningBlockId(block.id)}
-                    type="button"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase text-moss">Bloque {index + 1}</p>
-                        <p className="mt-1 truncate font-semibold text-ink">{block.name}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
-                        {status}
-                      </span>
-                    </div>
-                    <div className="mt-3 grid gap-1 text-sm text-ink/60">
-                      <p>{block.durationWeeks} semanas</p>
-                      <p>Semana {block.startWeek}-{block.endWeek}</p>
-                      <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
-                      <p>Distribución: {block.weeklyDistribution || "Sin asignar"}</p>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
-                      <span>
-                        {progress.totalSessions > 0
-                          ? `${progress.completedSessions}/${progress.totalSessions} sesiones`
-                          : "Sesiones pendientes"}
-                      </span>
-                      <span>{Math.round(progress.completionPct)}%</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
-                        style={{ width: `${progress.completionPct}%` }}
-                      />
-                    </div>
-                  </button>
-                </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
       {selectedPlanningBlock ? (
         <PlanningBlockDetail
           block={selectedPlanningBlock}
           client={client}
+          copiedPlanningWeek={Boolean(copiedPlanningWeek)}
+          currentPlanningWeekNumber={currentPlanningWeekNumber}
+          onAddSession={openPlanningSessionDraft}
           onBack={() => setSelectedPlanningBlockId(null)}
+          onCopyWeek={copyPlanningWeek}
+          onDeleteSession={deletePlanningSession}
+          onDuplicateSession={duplicatePlanningSession}
+          onPasteWeek={pastePlanningWeek}
+          planningActionMessage={planningActionMessage}
+          planningDistribution={planningDistribution}
         />
       ) : null}
 
@@ -7257,16 +7080,35 @@ function PlanningView({
 function PlanningBlockDetail({
   block,
   client,
-  onBack
+  copiedPlanningWeek,
+  currentPlanningWeekNumber,
+  onAddSession,
+  onBack,
+  onCopyWeek,
+  onDeleteSession,
+  onDuplicateSession,
+  onPasteWeek,
+  planningActionMessage,
+  planningDistribution
 }: {
   block: PlanningRoadmapBlock;
   client: CoachClient;
+  copiedPlanningWeek: boolean;
+  currentPlanningWeekNumber: number | null;
+  onAddSession: (date: Date, weekNumber: number) => void;
   onBack: () => void;
+  onCopyWeek: (week: PlanningCalendarWeek) => void;
+  onDeleteSession: (sessionIndex: number, session: ReviewSessionRecord) => void;
+  onDuplicateSession: (sessionIndex: number, date: Date, time?: string | null) => void;
+  onPasteWeek: (week: PlanningCalendarWeek) => void;
+  planningActionMessage: string;
+  planningDistribution: PlanningCalendarWeek[];
 }) {
   const status = getPlanningBlockStatus(block, client.planning.currentBlock);
   const progress = getPlanningBlockProgress(client, block);
-  const weekRows = Array.from({ length: block.durationWeeks }, (_, index) => block.startWeek + index);
-  const weekdays = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
+  const blockWeeks = planningDistribution.filter(
+    (week) => week.weekNumber >= block.startWeek && week.weekNumber <= block.endWeek
+  );
 
   return (
     <div
@@ -7337,62 +7179,106 @@ function PlanningBlockDetail({
       </div>
 
       <div className="mt-5 rounded-md border border-line bg-white p-4">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="text-moss" size={18} />
-          <h3 className="font-semibold text-ink">Calendario del bloque</h3>
-        </div>
-        <div className="mt-4 grid gap-3">
-          <div className="hidden grid-cols-[72px_repeat(7,minmax(0,1fr))] gap-2 text-xs font-semibold uppercase text-ink/45 md:grid">
-            <span>Sem.</span>
-            {weekdays.map((day) => <span key={day}>{day}</span>)}
-          </div>
-          {weekRows.map((weekNumber) => (
-            <div className="grid gap-2 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-[72px_repeat(7,minmax(0,1fr))]" key={weekNumber}>
-              <div className="text-sm font-semibold text-ink">Semana {weekNumber}</div>
-              {weekdays.map((day, dayIndex) => (
-                <div className="min-h-12 rounded-md bg-white p-2" key={`${weekNumber}-${day}`}>
-                  <p className="mb-1 text-[10px] font-semibold uppercase text-ink/35 md:hidden">{day}</p>
-                  {dayIndex === 0 ? (
-                    <PlanningMiniChip Icon={Target} label={block.primaryObjective || "Objetivo"} tone="moss" />
-                  ) : null}
-                  {dayIndex === 2 ? (
-                    <PlanningMiniChip Icon={BarChart3} label={block.weeklyDistribution || "Distribución"} tone="steel" />
-                  ) : null}
-                  {dayIndex === 4 ? (
-                    <PlanningMiniChip Icon={Plus} label="Sesiones" tone="ink" />
-                  ) : null}
-                </div>
-              ))}
+        <div>
+          <div>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="text-moss" size={18} />
+              <h3 className="font-semibold text-ink">Calendario del bloque</h3>
             </div>
-          ))}
+            <p className="mt-1 text-sm text-ink/55">Abre una sesión para consultar su resumen y acciones.</p>
+          </div>
+        </div>
+        {planningActionMessage ? <p className="mt-3 text-sm font-semibold text-moss">{planningActionMessage}</p> : null}
+        <div className="mt-4 overflow-x-auto pb-2">
+          <div className="min-w-[780px] space-y-2">
+            <div className="grid grid-cols-[82px_repeat(7,minmax(84px,1fr))] gap-2 text-[11px] font-semibold uppercase text-ink/45">
+              <span>Semana</span>
+              {planningWeekdayLabels.map((day) => <span key={day}>{day.slice(0, 3)}</span>)}
+            </div>
+            {blockWeeks.map((week) => {
+              const isCurrentWeek = week.weekNumber === currentPlanningWeekNumber;
+
+              return (
+                <div className={`grid grid-cols-[82px_repeat(7,minmax(84px,1fr))] gap-2 rounded-md p-1 ${isCurrentWeek ? "border border-moss/30 bg-mint/15" : ""}`} key={week.weekNumber}>
+                  <div className="rounded-md border border-line bg-panel/45 p-2">
+                    <p className="text-xs font-semibold text-ink">Semana {week.weekNumber}</p>
+                    {isCurrentWeek ? <span className="mt-1 inline-flex rounded border border-moss/25 bg-mint px-1.5 py-0.5 text-[9px] font-semibold text-moss">Actual</span> : null}
+                    <div className="mt-2 grid gap-1">
+                      <button className="rounded border border-line bg-panel px-1.5 py-1 text-[9px] font-semibold text-ink/65" onClick={() => onCopyWeek(week)} type="button">
+                        Duplicar
+                      </button>
+                      {copiedPlanningWeek ? (
+                        <button className="rounded border border-moss/25 bg-mint px-1.5 py-1 text-[9px] font-semibold text-moss" onClick={() => onPasteWeek(week)} type="button">
+                          Pegar aquí
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {planningWeekdayLabels.map((day, dayIndex) => {
+                    const date = addPlanningDays(week.startDate, dayIndex);
+                    const daySessions = week.trainingSessions.filter((item) => getPlanningDateKey(item.date) === getPlanningDateKey(date));
+
+                    return (
+                      <div className="min-h-20 rounded-md border border-line bg-panel/30 p-1.5" key={`${week.weekNumber}-${day}`}>
+                        <div className="mb-1.5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-semibold text-ink/40">{date.getDate()}</span>
+                          <button
+                            className="grid size-5 place-items-center rounded border border-line bg-white text-xs font-semibold text-ink transition hover:bg-mint"
+                            onClick={() => onAddSession(date, week.weekNumber)}
+                            title="Añadir sesión"
+                            type="button"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="grid gap-1">
+                          {daySessions.map(({ session, sessionIndex }) => {
+                            const kind = getPlanningSessionKind(session);
+                            const metricLabel = getPlanningSessionMetricLabel(session);
+                            const locked = hasCalendarSessionRegisteredData(session);
+
+                            return (
+                              <details className={`rounded border ${getPlanningSessionKindClass(kind)}`} key={`${sessionIndex}-${session.summary}`}>
+                                <summary className="cursor-pointer list-none px-1.5 py-1 text-[10px] font-semibold [&::-webkit-details-marker]:hidden">
+                                  <span className="flex min-w-0 items-center gap-1">
+                                    <span className="size-1.5 shrink-0 rounded-full bg-current opacity-60" />
+                                    <span className="truncate">{getPlanningSessionKindLabel(kind)}</span>
+                                  </span>
+                                </summary>
+                                <div className="border-t border-current/15 px-1.5 py-1.5 text-[9px]">
+                                  <p className="line-clamp-2 opacity-80">{session.summary || "Sesión sin resumen"}</p>
+                                  {metricLabel ? <p className="mt-1 font-semibold opacity-70">{metricLabel}</p> : null}
+                                  <p className="mt-1 opacity-65">{getSessionStatus(session)}</p>
+                                  <div className="mt-1.5 flex gap-1">
+                                    <button className="rounded border border-white/50 bg-white/50 px-1 py-0.5 font-semibold" onClick={() => onDuplicateSession(sessionIndex, date, session.time)} type="button">
+                                      Duplicar
+                                    </button>
+                                    <button
+                                      className="rounded border border-white/50 bg-white/50 px-1 py-0.5 font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+                                      disabled={locked}
+                                      onClick={() => onDeleteSession(sessionIndex, session)}
+                                      title={locked ? "No se puede eliminar una sesión con datos registrados." : "Eliminar sesión"}
+                                      type="button"
+                                    >
+                                      <Trash2 size={10} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </details>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
       </section>
     </div>
-  );
-}
-
-function PlanningMiniChip({
-  Icon,
-  label,
-  tone
-}: {
-  Icon: typeof Target;
-  label: string;
-  tone: "ink" | "moss" | "steel";
-}) {
-  const className =
-    tone === "moss"
-      ? "border-moss/25 bg-mint text-moss"
-      : tone === "steel"
-        ? "border-steel/25 bg-sky text-steel"
-        : "border-line bg-panel text-ink/60";
-
-  return (
-    <span className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold ${className}`}>
-      <Icon className="shrink-0" size={12} />
-      <span className="truncate">{label}</span>
-    </span>
   );
 }
 
