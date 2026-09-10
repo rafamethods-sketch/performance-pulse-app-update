@@ -6612,7 +6612,7 @@ function PlanningView({
   }
 
   return (
-    <div className="mt-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+    <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
       <section className="coach-surface rounded-md p-5 xl:col-span-2">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -6636,11 +6636,11 @@ function PlanningView({
         </div>
       </section>
 
-      <section className="coach-surface rounded-md p-5 xl:col-span-2">
+      <section className="coach-surface rounded-md p-4 xl:col-span-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Referencias de planificación</h3>
-            <p className="mt-1 text-sm text-ink/55">Pruebas principales del cliente para tener presentes durante la planificación.</p>
+            <p className="mt-1 text-sm text-ink/55">Evento objetivo y valoraciones principales del cliente.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
@@ -6658,16 +6658,18 @@ function PlanningView({
           </div>
         </div>
         {(planningEventName || client.nextEvent || planningPeakDate) ? (
-          <article className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-            <p className="text-xs font-semibold uppercase text-moss">Evento objetivo</p>
-            <h4 className="mt-1 font-semibold text-ink">{planningEventName || client.nextEvent || "Evento sin nombre"}</h4>
+          <article className="mt-3 flex flex-col gap-2 rounded-md border border-line bg-panel/35 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase text-moss">Evento objetivo</p>
+              <h4 className="mt-0.5 truncate font-semibold text-ink">{planningEventName || client.nextEvent || "Evento sin nombre"}</h4>
+            </div>
             {planningPeakDate ? (
-              <p className="mt-1 text-sm text-ink/60">Fecha objetivo: {formatDisplayDate(planningPeakDate)}</p>
+              <p className="w-fit shrink-0 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/60">Fecha objetivo · {formatDisplayDate(planningPeakDate)}</p>
             ) : null}
           </article>
         ) : null}
         {planningFavoriteGroups.length > 0 ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {planningFavoriteGroups.map((group) => {
               const latestEntry = group.entries[group.entries.length - 1];
               const numericEntries = group.entries.filter((entry) => entry.parsedValue !== null);
@@ -6681,20 +6683,26 @@ function PlanningView({
               const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
 
               return (
-                <article className="rounded-md border border-line bg-panel/35 p-3" key={group.key}>
-                  <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
-                  <h4 className="mt-1 font-semibold text-ink">{group.name}</h4>
-                  <p className="mt-2 text-sm text-ink/65">Último: <span className="font-semibold text-ink">{latestEntry.result}</span></p>
-                  <p className="mt-1 text-sm text-ink/65">Mejor: <span className="font-semibold text-ink">{bestEntry.result}</span></p>
-                  {reassessmentDate ? <p className="mt-2 text-xs text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
-                  {reassessmentState.label ? <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+                <article className="rounded-md border border-line bg-panel/35 px-3 py-2.5" key={group.key}>
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase text-moss">{group.category}</p>
+                      <h4 className="mt-0.5 truncate text-sm font-semibold text-ink">{group.name}</h4>
+                    </div>
+                    {reassessmentState.label ? <span className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/60">
+                    <p>Último: <span className="font-semibold text-ink">{latestEntry.result}</span></p>
+                    <p>Mejor: <span className="font-semibold text-ink">{bestEntry.result}</span></p>
+                    {reassessmentDate ? <p className="text-ink/50">Reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
+                  </div>
                 </article>
               );
             })}
           </div>
         ) : (
-          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
-            No hay valoraciones principales seleccionadas.
+          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 px-3 py-2.5 text-sm font-semibold text-ink/55">
+            Sin valoraciones principales. Añade una para usarla como referencia.
           </p>
         )}
       </section>
