@@ -6734,13 +6734,13 @@ function PlanningView({
           </div>
         </div>
         {(planningEventName || client.nextEvent || planningPeakDate) ? (
-          <article className="mt-3 flex flex-col gap-2 rounded-md border border-line bg-panel/35 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <article className="highlight-summary-card mt-3 flex flex-col gap-2 rounded-md px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase text-moss">Evento objetivo</p>
-              <h4 className="mt-0.5 truncate font-semibold text-ink">{planningEventName || client.nextEvent || "Evento sin nombre"}</h4>
+              <p className="text-xs font-semibold uppercase text-blue-300">Evento objetivo</p>
+              <h4 className="mt-0.5 truncate font-semibold text-white">{planningEventName || client.nextEvent || "Evento sin nombre"}</h4>
             </div>
             {planningPeakDate ? (
-              <p className="w-fit shrink-0 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/60">Fecha objetivo · {formatDisplayDate(planningPeakDate)}</p>
+              <p className="w-fit shrink-0 rounded-md border border-white/15 bg-white/[0.08] px-2.5 py-1.5 text-xs font-semibold text-white/70">Fecha objetivo · {formatDisplayDate(planningPeakDate)}</p>
             ) : null}
           </article>
         ) : null}

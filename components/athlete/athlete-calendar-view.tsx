@@ -151,40 +151,40 @@ export function AthleteCalendarView({ client }: { client: AthleteCalendarClient 
 
   return (
     <section className="mt-5 grid w-full min-w-0 gap-5">
-      <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
+      <article className="highlight-summary-card overflow-hidden rounded-2xl">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-moss">Plan semanal</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Tu plan, de un vistazo</h2>
-              <p className="mt-1 text-sm font-medium text-ink/55">{weekRange}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-300">Plan semanal</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">Tu plan, de un vistazo</h2>
+              <p className="mt-1 text-sm font-medium text-white/60">{weekRange}</p>
             </div>
-            <div className="flex items-center gap-3 rounded-xl bg-panel/60 px-4 py-3">
-              <span className="grid size-10 place-items-center rounded-full bg-white text-moss shadow-sm">
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.07] px-4 py-3">
+              <span className="grid size-10 place-items-center rounded-full bg-white/10 text-blue-200 shadow-sm">
                 <CalendarCheck2 aria-hidden="true" size={19} />
               </span>
               <div>
-                <p className="text-lg font-bold leading-none text-ink">{completedSessionCount} de {plannedSessionCount}</p>
-                <p className="mt-1 text-xs font-medium text-ink/50">sesiones completadas</p>
+                <p className="text-lg font-bold leading-none text-white">{completedSessionCount} de {plannedSessionCount}</p>
+                <p className="mt-1 text-xs font-medium text-white/55">sesiones completadas</p>
               </div>
             </div>
           </div>
 
           {plannedSessionCount > 0 ? (
             <div className="mt-5">
-              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-white/60">
                 <span>Progreso semanal</span>
                 <span>{completionPercentage}%</span>
               </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-panel">
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-steel to-moss transition-[width]"
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-[width]"
                   style={{ width: `${completionPercentage}%` }}
                 />
               </div>
             </div>
           ) : (
-            <p className="mt-5 rounded-xl border border-dashed border-line bg-panel/35 px-4 py-3 text-sm font-medium text-ink/55">
+            <p className="mt-5 rounded-xl border border-dashed border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white/60">
               No tienes sesiones planificadas esta semana.
             </p>
           )}
