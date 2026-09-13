@@ -896,12 +896,12 @@ function WeeklyDecisionBlock({
   ].filter(Boolean).join(" · ");
 
   return (
-    <section className={`coach-surface rounded-md border p-5 ${style.borderClassName}`}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className={`coach-surface overflow-hidden rounded-md border ${style.borderClassName}`}>
+      <div className="highlight-summary-card flex flex-col gap-4 border-0 p-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-moss">Lectura semanal</p>
-          <h3 className="mt-2 text-xl font-semibold text-ink sm:text-2xl">RAC Review semanal</h3>
-          <p className="mt-2 text-sm text-ink/65">{review.description}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">Lectura semanal</p>
+          <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">RAC Review semanal</h3>
+          <p className="mt-2 text-sm text-white/65">{review.description}</p>
         </div>
         <span className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${style.badgeClassName}`}>
           <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${style.dotClassName}`} />
@@ -909,7 +909,7 @@ function WeeklyDecisionBlock({
         </span>
       </div>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-3 p-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-md border border-line bg-panel/45 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Qué significa</p>
           <p className="mt-2 text-sm text-ink/70">
@@ -939,7 +939,7 @@ function WeeklyDecisionBlock({
       </div>
 
       {secondaryReasons.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 px-5 pb-5">
           {secondaryReasons.map((reason) => (
             <span className="rounded-md border border-line bg-panel/55 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={`${reason.type}-${reason.label}`}>
               {reason.label}

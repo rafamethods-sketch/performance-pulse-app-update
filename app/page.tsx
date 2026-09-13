@@ -5874,7 +5874,7 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
     <div className="mt-6 grid gap-5">
       <section className="coach-surface overflow-hidden rounded-md">
         <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white sm:p-6">
+          <div className="highlight-summary-card border-0 p-5 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Último readiness</p>
             {latestReadiness > 0 ? (
               <>

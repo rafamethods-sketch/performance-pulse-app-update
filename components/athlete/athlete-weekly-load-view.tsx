@@ -447,7 +447,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
   return (
     <section className="mt-4 grid w-full min-w-0 gap-4 sm:mt-5 sm:gap-5">
       <article className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white shadow-soft">
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-white sm:p-5">
+        <div className="highlight-summary-card border-0 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-blue-300">Resumen semanal</p>

@@ -1077,7 +1077,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   return (
     <div className="mt-4 w-full min-w-0 space-y-4 sm:mt-5 sm:space-y-5">
       {intakeEditBlock}
-      <section className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white shadow-soft">
+      <section className="highlight-summary-card overflow-hidden rounded-2xl">
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
