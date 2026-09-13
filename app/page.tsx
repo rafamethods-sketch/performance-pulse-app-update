@@ -5853,7 +5853,12 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
     const y = 100 - Math.max(0, Math.min(5, score)) * 20;
     return { date: session.date, score, x, y };
   });
-  const wellnessPolyline = wellnessChartPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const wellnessCurvePath = wellnessChartPoints.reduce((path, point, index) => {
+    if (index === 0) return `M ${point.x} ${point.y}`;
+    const previousPoint = wellnessChartPoints[index - 1];
+    const middleX = (previousPoint.x + point.x) / 2;
+    return `${path} C ${middleX} ${previousPoint.y}, ${middleX} ${point.y}, ${point.x} ${point.y}`;
+  }, "");
   const detailWellness = latestWellness;
   const detailBars = detailWellness ? [
     ["Sueño", positiveWellnessValue(detailWellness, "sleep")],
@@ -5867,26 +5872,43 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="coach-surface rounded-md p-4">
-        <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
-        <p className="mt-1 text-sm text-ink/55">Vista inicial con datos disponibles de wellness, sesiones y molestias recientes.</p>
+      <section className="coach-surface overflow-hidden rounded-md">
+        <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Último readiness</p>
+            {latestReadiness > 0 ? (
+              <>
+                <p className="mt-3 text-5xl font-bold tracking-tight sm:text-6xl">{latestReadiness.toFixed(1)}<span className="ml-1 text-2xl font-medium text-white/45">/5</span></p>
+                <p className="mt-3 text-sm font-medium text-white/70">Lectura orientativa del último registro disponible.</p>
+                <p className="mt-1 text-xs text-white/45">{wellnessRecords[0]?.date ? formatDisplayDate(wellnessRecords[0].date) : "Sin fecha disponible"}</p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-2xl font-semibold">Sin datos todavía</p>
+                <p className="mt-2 text-sm text-white/60">Añade registros para consultar la evolución.</p>
+              </>
+            )}
+          </div>
+          <div className="p-4 sm:p-5">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
+              <p className="mt-1 text-sm text-ink/55">Últimos registros de wellness y seguimiento.</p>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
+              <ClientInfoCard label="Energía" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavía"} />
+              <ClientInfoCard label="Recuperación" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavía"} />
+              <ClientInfoCard label="Calma / ánimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavía"} />
+            </div>
+          </div>
+        </div>
       </section>
 
-      <MenstrualCoachContextCard client={client} />
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ClientInfoCard label="Readiness actual" value={latestReadiness > 0 ? `${latestReadiness.toFixed(1)}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Energía" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Recuperación muscular" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Calma / ánimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavía"} />
-        <ClientInfoCard label="Molestias recientes" value={discomfortRecords.length > 0 ? `${discomfortRecords.length} registros` : "Sin datos todavía"} />
-      </div>
-
-      <section className="coach-surface rounded-md p-4">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
+      <section className="coach-surface min-w-0 rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">Evolución díaria del bienestar</h3>
+            <h3 className="font-semibold text-ink">Evolución diaria del bienestar</h3>
             <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueño, energía, recuperación y calma.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -5925,22 +5947,27 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
         </div>
 
         {visibleWellnessRecords.length > 0 ? (
-          <div className="mt-5 grid gap-4">
-            <div className="rounded-md border border-line bg-panel/35 p-3">
+          <div className="mt-5 grid min-w-0 gap-4">
+            <div className="min-w-0 overflow-hidden rounded-md border border-line bg-panel/35 p-3">
               <svg aria-label="Evolución temporal del bienestar" className="h-44 w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
                 {[0, 25, 50, 75, 100].map((y) => (
                   <line className="stroke-line" key={y} strokeWidth="0.4" x1="0" x2="100" y1={y} y2={y} />
                 ))}
-                <polyline fill="none" points={wellnessPolyline} stroke="var(--moss)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                {wellnessChartPoints.length > 1 ? (
+                  <path className="stroke-moss" d={wellnessCurvePath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                ) : null}
                 {wellnessChartPoints.map((point) => (
-                  <circle className="fill-panel stroke-moss" cx={point.x} cy={point.y} key={point.date} r="2.4" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-                    <title>{`${formatDisplayDate(point.date)} · ${point.score.toFixed(1)}/5`}</title>
-                  </circle>
+                  <g key={point.date}>
+                    <circle className="fill-moss/15" cx={point.x} cy={point.y} r="4.5" />
+                    <circle className="fill-panel stroke-moss" cx={point.x} cy={point.y} r="2.6" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+                      <title>{`${formatDisplayDate(point.date)} · ${point.score.toFixed(1)}/5`}</title>
+                    </circle>
+                  </g>
                 ))}
               </svg>
-              <div className="mt-2 flex justify-between gap-2 text-[10px] font-semibold text-ink/45">
+              <div className="mt-2 flex min-w-0 justify-between gap-2 text-[10px] font-semibold text-ink/45">
                 {visibleWellnessRecords.map((session, index) => (
-                  <span className="truncate" key={`${session.date}-${index}`}>{formatDisplayDate(session.date)}</span>
+                  <span className="min-w-0 truncate" key={`${session.date}-${index}`}>{formatDisplayDate(session.date)}</span>
                 ))}
               </div>
             </div>
@@ -5968,8 +5995,14 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
         )}
       </section>
 
-      <section className="coach-surface rounded-md p-4">
-        <h3 className="font-semibold text-ink">Notas recientes</h3>
+      <section className="coach-surface min-w-0 rounded-md p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="font-semibold text-ink">Notas recientes</h3>
+            <p className="mt-1 text-sm text-ink/55">Contexto de los últimos registros.</p>
+          </div>
+          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{discomfortRecords.length}</span>
+        </div>
         {discomfortRecords.length > 0 ? (
           <div className="mt-3 grid gap-2">
             {discomfortRecords.slice(0, 3).map((session, index) => (
@@ -5983,6 +6016,9 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
           <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
         )}
       </section>
+      </div>
+
+      <MenstrualCoachContextCard client={client} />
 
       {showWellnessDetails ? (
         <div className="assessment-modal-overlay" onClick={() => setShowWellnessDetails(false)} role="presentation">
