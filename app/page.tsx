@@ -5519,6 +5519,20 @@ function ClientProgressView({
       type: "Revisión"
     }))
   ].slice(0, 6);
+  const warningSignalCategoryByType: Record<string, string> = {
+    Feedback: "Feedback",
+    Molestias: "Molestias",
+    Reevaluación: "Revisiones",
+    Revisión: "Revisiones",
+    Wellness: "Otras señales"
+  };
+  const warningSignalCategoryOrder = ["Molestias", "Feedback", "Revisiones", "Técnica", "Adherencia / sesiones", "Carga", "Otras señales"];
+  const groupedWarningSignals = warningSignalCategoryOrder
+    .map((category) => ({
+      category,
+      signals: warningSignals.filter((signal) => (warningSignalCategoryByType[signal.type] ?? "Otras señales") === category)
+    }))
+    .filter((group) => group.signals.length > 0);
   const strengthFavoriteCount = favoriteAssessmentGroups.filter((group) => group.category === "Fuerza" || group.category === "Salto").length;
   const enduranceFavoriteCount = favoriteAssessmentGroups.filter((group) => group.category === "Resistencia").length;
   const progressStatusCards = [
@@ -5684,7 +5698,7 @@ function ClientProgressView({
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-3">
+      <section className="grid items-start gap-5 xl:grid-cols-2">
         <article className="coach-surface rounded-md p-4">
           <h3 className="font-semibold text-ink">Técnica</h3>
           <p className="mt-1 text-sm text-ink/55">Resumen de vídeos y revisiones técnicas recientes.</p>
@@ -5743,22 +5757,41 @@ function ClientProgressView({
           </button>
         </article>
 
-        <article className="coach-surface rounded-md p-4">
-          <h3 className="font-semibold text-ink">Señales a vigilar</h3>
-          <p className="mt-1 text-sm text-ink/55">Puntos recientes sin lenguaje diagnóstico ni alarmista.</p>
+        <article className="coach-surface rounded-md p-4 xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-ink">Señales a vigilar</h3>
+              <p className="mt-1 text-sm text-ink/55">Lectura orientativa agrupada por tipo de seguimiento.</p>
+            </div>
+            {warningSignals.length > 0 ? (
+              <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/55">
+                {warningSignals.length} {warningSignals.length === 1 ? "señal" : "señales"}
+              </span>
+            ) : null}
+          </div>
           {warningSignals.length > 0 ? (
-            <div className="mt-4 grid gap-2">
-              {warningSignals.map((signal, index) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={`${signal.type}-${signal.date}-${index}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">{signal.type}</span>
-                    <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(signal.date)}</span>
+            <div className="mt-4 grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {groupedWarningSignals.map((group) => (
+                <section className="min-w-0 rounded-md border border-line bg-panel/25 p-3" key={group.category}>
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-ink">{group.category}</h4>
+                    <span className="rounded-md border border-line bg-white px-2 py-0.5 text-xs font-semibold text-ink/50">{group.signals.length}</span>
                   </div>
-                  <p className="mt-2 text-sm text-ink/65">{signal.text}</p>
-                  <button className="mt-2 text-sm font-semibold text-moss" onClick={signal.onClick} type="button">
-                    {signal.action}
-                  </button>
-                </div>
+                  <div className="mt-2 grid gap-2">
+                    {group.signals.map((signal, index) => (
+                      <div className="rounded-md border border-line bg-white p-2.5" key={`${signal.type}-${signal.date}-${index}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-ink/55">{signal.type}</span>
+                          <span className="text-xs font-semibold text-ink/40">{formatDisplayDate(signal.date)}</span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink/65" title={signal.text}>{signal.text}</p>
+                        <button className="mt-1.5 text-xs font-semibold text-moss" onClick={signal.onClick} type="button">
+                          {signal.action}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           ) : (
