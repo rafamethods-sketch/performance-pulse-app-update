@@ -531,7 +531,7 @@ export function AthleteWeeklyLoadView({ client }: { client: AthleteWeeklyClient 
             </summary>
             <div className="mt-3 border-t border-line pt-3">
               {weeklySessions.length > 0 ? (
-                <div className="grid gap-2">
+                <div className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-96">
                   {weeklySessions.map((session, index) => {
                     const srpe = getSessionSrpe(session) ?? 0;
                     return (
