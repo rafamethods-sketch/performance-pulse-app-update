@@ -188,9 +188,12 @@ function getPositiveWellnessValue(wellness: AthleteWellness | undefined, key: "s
   return wellness[key] ?? 0;
 }
 
-function formatPositiveWellnessValue(wellness: AthleteWellness | undefined, key: "sleep" | "energy" | "recovery" | "calm" | "motivation") {
-  const value = getPositiveWellnessValue(wellness, key);
-  return value ? `${value}/5` : "Sin registrar";
+function getAverageReadiness(wellness?: AthleteWellness) {
+  const values = (["sleep", "energy", "recovery", "calm", "motivation"] as const)
+    .map((key) => getPositiveWellnessValue(wellness, key))
+    .filter((value) => value > 0);
+  if (values.length === 0) return null;
+  return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function getSetDetailsReps(entry?: ReviewSessionExercise) {
@@ -262,6 +265,82 @@ function getPerformedValue(entry: ReviewSessionExercise | undefined, field: "set
     case "rir":
       return entry.rir ?? entry.targetRir;
   }
+}
+
+function formatExerciseRest(value: unknown) {
+  if (!hasDisplayValue(value)) return "";
+  const rawValue = `${value}`.trim();
+  const normalizedValue = rawValue.replace(",", ".").toLowerCase();
+  const colonMatch = normalizedValue.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colonMatch) return `${colonMatch[1].padStart(2, "0")}:${colonMatch[2].padStart(2, "0")}`;
+  const secondsMatch = normalizedValue.match(/^(\d+(?:\.\d+)?)\s*(s|seg|sec|")?$/);
+  if (!secondsMatch) return rawValue;
+  const totalSeconds = Number(secondsMatch[1]);
+  if (!Number.isFinite(totalSeconds)) return rawValue;
+  return `${Math.floor(totalSeconds / 60).toString().padStart(2, "0")}:${Math.round(totalSeconds % 60).toString().padStart(2, "0")}`;
+}
+
+function formatExerciseLoad(value: unknown) {
+  if (!hasDisplayValue(value)) return "";
+  const numericValue = Number(`${value}`.replace(",", "."));
+  if (Number.isFinite(numericValue)) return numericValue > 0 ? `${value} kg` : "";
+  return `${value}`;
+}
+
+function getExerciseSummary(entry: ReviewSessionExercise | undefined, mode: "planned" | "performed") {
+  if (!entry) return "";
+  const setDetails = getSetDetailsReps(entry);
+  const sets = mode === "planned"
+    ? getPlannedValue(entry, "sets")
+    : setDetails.length || getPerformedValue(entry, "sets");
+  const reps = mode === "planned"
+    ? getPlannedValue(entry, "reps")
+    : setDetails.length > 0 && setDetails.every((value) => value === setDetails[0])
+      ? setDetails[0]
+      : entry.reps;
+  const load = mode === "planned" ? getPlannedValue(entry, "load") : getPerformedValue(entry, "load");
+  const rest = mode === "planned" ? getPlannedValue(entry, "rest") : getPerformedValue(entry, "rest");
+  const rir = mode === "planned" ? getPlannedValue(entry, "rir") : getPerformedValue(entry, "rir");
+  const intensity = hasDisplayValue(entry.exerciseRpe)
+    ? `RPE ${entry.exerciseRpe}`
+    : hasDisplayValue(rir) ? `RIR ${rir}` : "";
+  const volume = hasDisplayValue(sets) && hasDisplayValue(reps) ? `${sets}x${reps}` : "";
+
+  return [
+    volume,
+    formatExerciseLoad(load),
+    formatExerciseRest(rest),
+    intensity
+  ].filter(Boolean).join(" · ");
+}
+
+function getExerciseBlock(entry?: ReviewSessionExercise) {
+  const block = `${entry?.block ?? entry?.section ?? ""}`.trim().toLowerCase();
+  if (block === "activation") return { key: "activation", label: "Activación", order: 0 };
+  if (block === "auxiliary" || block === "accessory") return { key: "auxiliary", label: "Accesorios", order: 2 };
+  return { key: block || "main", label: block && block !== "main" ? entry?.block ?? entry?.section ?? "Bloque principal" : "Bloque principal", order: 1 };
+}
+
+function formatHistoryWeekDate(date: Date) {
+  const month = date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+  return `${date.getDate()}-${month} ${date.getFullYear()}`;
+}
+
+function getHistoryWeekHeading(
+  week: ReturnType<typeof groupSessionsByBlockAndWeek<ReviewSessionRecord>>[number]["weeks"][number],
+  weekIndex: number
+) {
+  const explicitWeek = week.sessions
+    .map(({ session }) => Number(session.weekNumber ?? session.week))
+    .find((value) => Number.isFinite(value) && value > 0);
+  const dates = week.sessions
+    .map(({ session }) => getAthleteDate(session.date))
+    .filter((date): date is Date => Boolean(date));
+  const firstDate = dates.sort((left, right) => left.getTime() - right.getTime())[0];
+  if (!firstDate) return `Semana ${explicitWeek ?? weekIndex + 1}`;
+  const monday = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return `Semana ${explicitWeek ?? weekIndex + 1} · ${formatHistoryWeekDate(monday)}`;
 }
 
 function hasRealSessionData(session: ReviewSessionRecord) {
@@ -508,12 +587,12 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                 </span>
               </summary>
               <div className="mt-3 grid gap-3">
-                {blockGroup.weeks.map((weekGroup) => {
+                {blockGroup.weeks.map((weekGroup, weekIndex) => {
                   const weekSessionCount = weekGroup.sessions.length;
                   return (
                   <section className="min-w-0 rounded-xl border border-line bg-panel/25 p-3" key={`${blockGroup.label}-${weekGroup.label}`}>
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-2">
-                      <h4 className="text-sm font-semibold text-ink sm:text-base">{weekGroup.label}</h4>
+                      <h4 className="text-sm font-semibold text-ink sm:text-base">{getHistoryWeekHeading(weekGroup, weekIndex)}</h4>
                       <p className="text-xs font-medium text-ink/50">
                         {weekSessionCount} {weekSessionCount === 1 ? "sesión" : "sesiones"} · {weekSessionCount} {weekSessionCount === 1 ? "completada" : "completadas"}
                       </p>
@@ -541,6 +620,15 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
               performed: performedExercises[exerciseIndex],
               planned: plannedExercises[exerciseIndex]
             }));
+            const exerciseGroups = [...detailRows.reduce((groups, row) => {
+              const block = getExerciseBlock(row.performed ?? row.planned);
+              const current = groups.get(block.key) ?? { ...block, rows: [] as typeof detailRows };
+              current.rows.push(row);
+              groups.set(block.key, current);
+              return groups;
+            }, new Map<string, { key: string; label: string; order: number; rows: typeof detailRows }>()).values()]
+              .sort((left, right) => left.order - right.order);
+            const averageReadiness = getAverageReadiness(session.wellness);
             const resistanceZoneGuide = getAthleteHistoryResistanceZoneGuide(session.resistanceSport, session.targetResistanceZoneId);
             const sentTechniqueVideos = performedExercises.filter((exercise) => hasDisplayValue(exercise.techniqueVideoUrl));
             const quickFeedbackLabel = getAthleteQuickFeedbackLabel(session.athleteQuickFeedback);
@@ -653,24 +741,11 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                     {sentTechniqueVideos.length > 0 ? (
                       <p className="text-xs font-semibold text-ink/60">Vídeo de técnica enviado</p>
                     ) : null}
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      <ClientInfoCard label="Sueño" value={formatPositiveWellnessValue(session.wellness, "sleep")} />
-                      <ClientInfoCard label="Energía" value={formatPositiveWellnessValue(session.wellness, "energy")} />
-                      <ClientInfoCard label="Recuperación muscular" value={formatPositiveWellnessValue(session.wellness, "recovery")} />
-                      <ClientInfoCard label="Calma" value={formatPositiveWellnessValue(session.wellness, "calm")} />
-                      <ClientInfoCard label="Motivación" value={formatPositiveWellnessValue(session.wellness, "motivation")} />
-                    </div>
-                    <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                      <p className="font-semibold text-ink">Notas del deportista</p>
-                      <p className="mt-1">{notes || "Sin notas registradas"}</p>
-                    </div>
-                    {quickFeedbackLabel ? (
-                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <p className="font-semibold text-ink">Feedback rápido</p>
-                        <p className="mt-1">{quickFeedbackLabel}</p>
-                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
-                      </div>
-                    ) : null}
+                    <ClientInfoCard
+                      className="sm:max-w-xs"
+                      label="Readiness medio"
+                      value={averageReadiness !== null ? `${averageReadiness.toFixed(1)}/5` : "Sin datos de readiness"}
+                    />
                     {resistanceMethod ? (
                       <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
                         <p className="font-semibold text-ink">Método de resistencia</p>
@@ -741,49 +816,37 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         {cardioDeviation ? <p className="mt-3 rounded-md bg-white px-3 py-2">{cardioDeviation.reading}</p> : null}
                       </div>
                     ) : null}
-                    {session.reviewStatus === "reviewed" ? (
-                      <div className="rounded-md border border-line bg-mint/50 p-3 text-sm text-ink/70">
-                        <p className="font-semibold text-ink">Feedback del entrenador</p>
-                        <p className="mt-1">{session.reviewNotes || "Sesión revisada por tu entrenador."}</p>
-                      </div>
-                    ) : session.reviewStatus === "pending" ? (
-                      <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/55">
-                        Pendiente de revisión
-                      </p>
-                    ) : null}
                     {exerciseCount > 0 ? (
                       <div className="grid gap-3">
-                        {detailRows.map(({ planned, performed }, exerciseIndex) => (
-                          <article className="rounded-md border border-line bg-panel/35 p-3" key={`${sessionKey}-${exerciseIndex}`}>
+                        {exerciseGroups.map((group) => (
+                          <section className="rounded-md border border-line bg-panel/25 p-3" key={`${sessionKey}-${group.key}`}>
+                            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/55">{group.label}</h4>
+                            <div className="mt-2 grid gap-2">
+                            {group.rows.map(({ planned, performed }, exerciseIndex) => {
+                              const plannedSummary = getExerciseSummary(planned, "planned");
+                              const performedSummary = getExerciseSummary(performed, "performed");
+                              const hasExtraDetail = Boolean(
+                                hasDisplayValue(performed?.athleteNotes) ||
+                                getSetDetailsReps(performed).length > 0 ||
+                                performed?.techniqueVideoUrl
+                              );
+                              return (
+                          <article className="rounded-md border border-line bg-white px-3 py-2.5" key={`${sessionKey}-${group.key}-${exerciseIndex}`}>
                             <p className="font-semibold text-ink">{getExerciseLabel(performed ?? planned)}</p>
                             {getExerciseMetaLabel(performed ?? planned) ? (
                               <p className="mt-1 text-xs font-semibold text-ink/45">{getExerciseMetaLabel(performed ?? planned)}</p>
                             ) : null}
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                              {([
-                                ["Series", getPlannedValue(planned, "sets"), getPerformedValue(performed, "sets")],
-                                ["Reps", getPlannedValue(planned, "reps"), getPerformedValue(performed, "reps")],
-                                ["Carga", getPlannedValue(planned, "load"), getPerformedValue(performed, "load")],
-                                ["Descanso", getPlannedValue(planned, "rest"), getPerformedValue(performed, "rest")],
-                                ["RIR", getPlannedValue(planned, "rir"), getPerformedValue(performed, "rir")],
-                                ["RPE ejercicio", undefined, performed?.exerciseRpe]
-                              ] as const).map(([label, plannedValue, performedValue]) => (
-                                <div className="rounded-md border border-line bg-white px-3 py-2 text-sm" key={label}>
-                                  <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
-                                  <p className="mt-1 text-ink/70">Plan: <span className="font-semibold text-ink">{displayValue(plannedValue, "-")}</span></p>
-                                  <p className="text-ink/70">Real: <span className="font-semibold text-ink">{displayValue(performedValue, "-")}</span></p>
-                                </div>
-                              ))}
+                            <div className="mt-2 grid gap-1 text-sm text-ink/65">
+                              {plannedSummary ? <p><span className="font-semibold text-ink">Plan:</span> {plannedSummary}</p> : null}
+                              {performedSummary ? <p><span className="font-semibold text-ink">Real:</span> {performedSummary}</p> : null}
                             </div>
-                            {hasDisplayValue(performed?.athleteNotes) ? (
-                              <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{performed?.athleteNotes}</p>
-                            ) : null}
-                            {getSetDetailsReps(performed).length > 0 ? (
-                              <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">
-                                <span className="font-semibold text-ink">Detalle por serie: </span>
-                                {getSetDetailsReps(performed).join(" / ")} reps
-                              </p>
-                            ) : null}
+                            {hasExtraDetail ? (
+                              <details className="mt-2 border-t border-line pt-2 text-sm text-ink/65">
+                                <summary className="cursor-pointer text-xs font-semibold text-ink/60">Detalle por serie</summary>
+                                {hasDisplayValue(performed?.athleteNotes) ? <p className="mt-2">{performed?.athleteNotes}</p> : null}
+                                {getSetDetailsReps(performed).length > 0 ? (
+                                  <p className="mt-2"><span className="font-semibold text-ink">Detalle por serie: </span>{getSetDetailsReps(performed).join(" / ")} reps</p>
+                                ) : null}
                             {performed?.techniqueVideoUrl ? (
                               <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
                                 <p className="font-semibold text-ink">Vídeo de técnica enviado</p>
@@ -826,14 +889,37 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                                 ) : null}
                               </div>
                             ) : null}
+                              </details>
+                            ) : null}
                           </article>
+                              );
+                            })}
+                            </div>
+                          </section>
                         ))}
                       </div>
-                    ) : (
+                    ) : !hasResistanceData ? (
                       <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/55">
                         Sin datos de ejercicios para esta sesión.
                       </p>
-                    )}
+                    ) : null}
+                    {(notes || quickFeedbackLabel) ? (
+                      <div className="rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <p className="font-semibold text-ink">Notas del deportista</p>
+                        {notes ? <p className="mt-1">{notes}</p> : null}
+                        {quickFeedbackLabel ? <p className="mt-1">{quickFeedbackLabel}{session.athleteQuickFeedbackNote ? ` · ${session.athleteQuickFeedbackNote}` : ""}</p> : null}
+                      </div>
+                    ) : null}
+                    {session.reviewStatus === "reviewed" ? (
+                      <div className="rounded-md border border-line bg-mint/50 p-3 text-sm text-ink/70">
+                        <p className="font-semibold text-ink">Feedback del entrenador</p>
+                        <p className="mt-1">{session.reviewNotes || "Sesión revisada por tu entrenador."}</p>
+                      </div>
+                    ) : session.reviewStatus === "pending" ? (
+                      <p className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-medium text-ink/55">
+                        Pendiente de revisión
+                      </p>
+                    ) : null}
                       </div>
                     </div>
                   </div>
