@@ -40,8 +40,8 @@ import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
-import { ankleDomainLabels, ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
-import { getKneeDomainStatuses, kneeDomainLabels, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
+import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
+import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
 import {
   acwrRanges,
   calculateACWR,
@@ -8803,7 +8803,6 @@ function AssessmentsView({
 
   function renderAssessmentGroupCard(group: AssessmentGroup) {
     const latestEntry = group.entries[group.entries.length - 1];
-    const firstEntry = group.entries[0];
     const previousEntry = group.entries[group.entries.length - 2] ?? null;
     const numericEntries = group.entries.filter((entry) => entry.parsedValue !== null);
     const bestEntry = numericEntries.length > 0
@@ -8817,58 +8816,59 @@ function AssessmentsView({
     const isFavorite = favoriteTests.includes(group.key);
 
     return (
-      <article className="coach-subtle-card rounded-md p-4" key={group.key}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <article className="coach-subtle-card flex h-full flex-col rounded-md p-3" key={group.key}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
-            <h4 className="mt-1 font-semibold text-ink">{group.name}</h4>
-            <p className="mt-1 text-sm text-ink/55">{assessmentImprovementDirectionLabels[group.direction]}</p>
+            <h4 className="mt-1 truncate font-semibold text-ink" title={group.name}>{group.name}</h4>
           </div>
           <button
-            className={`w-fit rounded-md border px-2.5 py-1 text-xs font-semibold ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/60"}`}
+            aria-label={isFavorite ? `Quitar ${group.name} de valoraciones principales` : `Marcar ${group.name} como valoración principal`}
+            className={`grid size-8 shrink-0 place-items-center rounded-md border transition ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/55 hover:bg-panel"}`}
             onClick={() => toggleFavoriteAssessment(group.key)}
+            title={isFavorite ? "Quitar de principales" : "Marcar como principal"}
             type="button"
           >
-            {isFavorite ? "Principal" : "Marcar como principal"}
+            <Target size={15} />
           </button>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <ClientInfoCard label="Último" value={`${latestEntry.result}`} />
           <ClientInfoCard label="Mejor" value={`${bestEntry?.result ?? latestEntry.result}`} />
-          <ClientInfoCard label="Cambio anterior" value={getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)} />
-          <ClientInfoCard label="Desde inicio" value={getAssessmentChangeLabel(firstEntry.parsedValue, latestEntry.parsedValue, group.unit)} />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink/55">
-          <span>Última valoración: {formatDisplayDate(latestEntry.date)}</span>
-          <span>{group.entries.length} registros</span>
-          <span>{getAssessmentStatusLabel(group)}</span>
-          {reassessmentState.label ? (
-            <span className={`rounded-md border px-2 py-1 ${reassessmentState.tone}`}>{reassessmentState.label}</span>
-          ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-ink/55">
+          <span className="rounded-md border border-line bg-white px-2 py-1">{getAssessmentStatusLabel(group)}</span>
+          <span className="rounded-md border border-line bg-white px-2 py-1">Cambio: {getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)}</span>
+          <span className="px-1">{formatDisplayDate(latestEntry.date)} · {group.entries.length} registros</span>
         </div>
 
-        <label className="mt-4 block text-xs font-semibold text-ink/60">
-          Próxima reevaluación
-          <input
-            className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
-            onChange={(event) => updateReassessmentDate(group.key, event.target.value)}
-            type="date"
-            value={reassessmentDate ?? ""}
-          />
-        </label>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => setSelectedEvolutionKey(group.key)} type="button">
-            Ver evolución
+        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+          <details className="group text-xs text-ink/55">
+            <summary className="cursor-pointer font-semibold hover:text-ink">Opciones</summary>
+            <label className="mt-2 block min-w-44 font-semibold text-ink/60">
+              Próxima reevaluación
+              <input
+                className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss"
+                onChange={(event) => updateReassessmentDate(group.key, event.target.value)}
+                type="date"
+                value={reassessmentDate ?? ""}
+              />
+            </label>
+            {reassessmentState.label ? <span className={`mt-2 inline-flex rounded-md border px-2 py-1 ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+          </details>
+          <div className="flex gap-1.5">
+          <button aria-label={`Ver evolución de ${group.name}`} className="grid size-8 place-items-center rounded-md border border-line bg-white text-ink/65 transition hover:bg-panel hover:text-ink" onClick={() => setSelectedEvolutionKey(group.key)} title="Ver evolución" type="button">
+            <Search size={15} />
           </button>
-          <button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => handleEditAssessment(latestEntry, latestEntry.originalIndex)} type="button">
-            Editar último
+          <button aria-label={`Editar última valoración de ${group.name}`} className="grid size-8 place-items-center rounded-md border border-line bg-white text-ink/65 transition hover:bg-panel hover:text-ink" onClick={() => handleEditAssessment(latestEntry, latestEntry.originalIndex)} title="Editar último" type="button">
+            <Settings2 size={15} />
           </button>
-          <button className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700" onClick={() => handleDeleteAssessment(latestEntry.originalIndex)} type="button">
-            Eliminar último
+          <button aria-label={`Eliminar última valoración de ${group.name}`} className="grid size-8 place-items-center rounded-md border border-coral/35 bg-coral/10 text-coral transition hover:bg-coral/15" onClick={() => handleDeleteAssessment(latestEntry.originalIndex)} title="Eliminar último" type="button">
+            <Trash2 size={15} />
           </button>
+          </div>
         </div>
       </article>
     );
@@ -8906,11 +8906,12 @@ function AssessmentsView({
           </div>
           <button className="w-fit rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45" disabled={!client} onClick={() => { setSelectedKneeAssessment(null); setShowKneeAssessment(true); }} type="button">{client?.kneeAssessments?.length ? "Repetir valoración" : "+ Valoración de rodilla"}</button>
         </div>
-        {client?.kneeAssessments?.length ? <div className="mt-4 grid gap-2">{client.kneeAssessments.map((assessment) => {
+        {client?.kneeAssessments?.length ? <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{client.kneeAssessments.map((assessment) => {
           const statuses = getKneeDomainStatuses(assessment);
           const tones: Record<KneeDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-orange-50 text-orange-800" };
           const dots: Record<KneeDomainStatus, string> = { incomplete: "bg-ink/25", adequate: "bg-moss", finding: "bg-amber-500", priority: "bg-orange-500" };
-          return <article className="rounded-md border border-line bg-white p-3" key={assessment.id}><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(statuses).map(([domain, status]) => <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${tones[status]}`} key={domain}><span className={`size-1.5 rounded-full ${dots[status]}`} />{kneeDomainLabels[domain as keyof typeof kneeDomainLabels]} · {kneeStatusLabels[status]}</span>)}</div></div><div className="flex flex-wrap gap-2"><button className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => { setSelectedKneeAssessment(assessment); setShowKneeAssessment(true); }} type="button">Ver valoración</button><button className="w-fit rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/55" onClick={() => deleteKneeAssessment(assessment.id)} type="button">Borrar</button></div></div></article>;
+          const mainStatus = (Object.values(statuses).find((status) => status === "priority") ?? Object.values(statuses).find((status) => status === "finding") ?? Object.values(statuses).find((status) => status === "incomplete") ?? "adequate") as KneeDomainStatus;
+          return <article className="flex items-center justify-between gap-3 rounded-md border border-line bg-white p-3" key={assessment.id}><div className="min-w-0"><p className="text-xs font-semibold uppercase text-moss">Rodilla</p><p className="mt-1 text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><span className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${tones[mainStatus]}`}><span className={`size-1.5 rounded-full ${dots[mainStatus]}`} />{kneeStatusLabels[mainStatus]}</span></div><div className="flex shrink-0 gap-1.5"><button aria-label={`Ver valoración de rodilla del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-line bg-panel text-ink/65 transition hover:text-ink" onClick={() => { setSelectedKneeAssessment(assessment); setShowKneeAssessment(true); }} title="Ver valoración" type="button"><Search size={15} /></button><button aria-label={`Borrar valoración de rodilla del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-coral/35 bg-coral/10 text-coral transition hover:bg-coral/15" onClick={() => deleteKneeAssessment(assessment.id)} title="Borrar" type="button"><Trash2 size={15} /></button></div></article>;
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
       </section>
 
@@ -8924,11 +8925,12 @@ function AssessmentsView({
           </div>
           <button className="w-fit rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45" disabled={!client} onClick={() => { setSelectedAnkleAssessment(null); setShowAnkleAssessment(true); }} type="button">{client?.ankleAssessments?.length ? "Repetir valoración" : "+ Valoración de tobillo"}</button>
         </div>
-        {client?.ankleAssessments?.length ? <div className="mt-4 grid gap-2">{client.ankleAssessments.map((assessment) => {
+        {client?.ankleAssessments?.length ? <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{client.ankleAssessments.map((assessment) => {
           const ankleStatuses = getAnkleDomainStatuses(assessment);
           const ankleTone: Record<AnkleDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-orange-50 text-orange-800" };
           const ankleDots: Record<AnkleDomainStatus, string> = { incomplete: "bg-ink/25", adequate: "bg-moss", finding: "bg-amber-500", priority: "bg-orange-500" };
-          return <article className="rounded-md border border-line bg-white p-3" key={assessment.id}><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(ankleStatuses).map(([domain, status]) => <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${ankleTone[status]}`} key={domain}><span className={`size-1.5 rounded-full ${ankleDots[status]}`} />{ankleDomainLabels[domain as keyof typeof ankleDomainLabels]} · {ankleStatusLabels[status]}</span>)}</div></div><div className="flex flex-wrap gap-2"><button className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => { setSelectedAnkleAssessment(assessment); setShowAnkleAssessment(true); }} type="button">Ver valoración</button><button className="w-fit rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/55" onClick={() => deleteAnkleAssessment(assessment.id)} type="button">Borrar</button></div></div></article>;
+          const mainStatus = (Object.values(ankleStatuses).find((status) => status === "priority") ?? Object.values(ankleStatuses).find((status) => status === "finding") ?? Object.values(ankleStatuses).find((status) => status === "incomplete") ?? "adequate") as AnkleDomainStatus;
+          return <article className="flex items-center justify-between gap-3 rounded-md border border-line bg-white p-3" key={assessment.id}><div className="min-w-0"><p className="text-xs font-semibold uppercase text-moss">Tobillo</p><p className="mt-1 text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><span className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${ankleTone[mainStatus]}`}><span className={`size-1.5 rounded-full ${ankleDots[mainStatus]}`} />{ankleStatusLabels[mainStatus]}</span></div><div className="flex shrink-0 gap-1.5"><button aria-label={`Ver valoración de tobillo del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-line bg-panel text-ink/65 transition hover:text-ink" onClick={() => { setSelectedAnkleAssessment(assessment); setShowAnkleAssessment(true); }} title="Ver valoración" type="button"><Search size={15} /></button><button aria-label={`Borrar valoración de tobillo del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-coral/35 bg-coral/10 text-coral transition hover:bg-coral/15" onClick={() => deleteAnkleAssessment(assessment.id)} title="Borrar" type="button"><Trash2 size={15} /></button></div></article>;
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
       </section>
 
@@ -8944,15 +8946,12 @@ function AssessmentsView({
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {favoriteGroups.map((group) => {
               const latestEntry = group.entries[group.entries.length - 1];
-              const reassessmentDate = reassessmentDates[group.key];
-              const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
               return (
                 <article className="rounded-md border border-line bg-panel/35 p-3" key={group.key}>
                   <p className="text-xs font-semibold uppercase text-moss">{group.category}</p>
                   <p className="mt-1 font-semibold text-ink">{group.name}</p>
                   <p className="mt-1 text-sm font-semibold text-ink/70">{latestEntry.result}</p>
-                  {reassessmentDate ? <p className="mt-2 text-xs text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
-                  {reassessmentState.label ? <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
+                  <p className="mt-2 text-xs font-semibold text-ink/50">{getAssessmentStatusLabel(group)}</p>
                 </article>
               );
             })}
@@ -8964,21 +8963,20 @@ function AssessmentsView({
         )}
       </section>
 
-      {assessmentCategoriesSimple.map((category) => {
-        const categoryGroups = assessmentGroups.filter((group) => group.category === category);
-        if (categoryGroups.length === 0) return null;
-        return (
-          <section className="coach-surface rounded-md p-4" key={category}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold text-ink">{category}</h3>
-              <span className="rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{categoryGroups.length}</span>
+      {assessmentGroups.length > 0 ? (
+        <section className="coach-surface rounded-md p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-ink">Tests y mediciones</h3>
+              <p className="mt-1 text-sm text-ink/55">Último valor, mejor registro y cambio reciente.</p>
             </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {categoryGroups.map((group) => renderAssessmentGroupCard(group))}
-            </div>
-          </section>
-        );
-      })}
+            <span className="rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">{assessmentGroups.length}</span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {assessmentGroups.map((group) => renderAssessmentGroupCard(group))}
+          </div>
+        </section>
+      ) : null}
 
       {assessments.length === 0 ? (
         <div className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-center text-sm text-ink/55">
