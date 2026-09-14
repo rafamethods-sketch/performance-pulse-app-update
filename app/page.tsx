@@ -6554,6 +6554,10 @@ function PlanningView({
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
+  const [pendingPlanningDurationChange, setPendingPlanningDurationChange] = useState<{
+    blockId: string;
+    direction: -1 | 1;
+  } | null>(null);
   const [copiedPlanningWeek, setCopiedPlanningWeek] = useState<{
     sessions: Array<{ dayOffset: number; sessionIndex: number; time?: string | null }>;
     sourceWeekNumber: number;
@@ -6633,6 +6637,7 @@ function PlanningView({
     setSelectedPlanningBlockId(null);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
+    setPendingPlanningDurationChange(null);
     setCopiedPlanningWeek(null);
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
@@ -6647,6 +6652,49 @@ function PlanningView({
     setPlanningBlocks((blocks) =>
       blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
     );
+  }
+
+  function applyPlanningBlockDuration(blockId: string, direction: -1 | 1) {
+    const block = roadmapBlocks.find((roadmapBlock) => roadmapBlock.id === blockId);
+    if (!block) return;
+
+    updateBlock(blockId, { durationWeeks: block.durationWeeks + direction });
+    setPlanningActionMessage(direction === 1 ? "Semana añadida al mesociclo." : "Semana quitada del mesociclo.");
+  }
+
+  function changePlanningBlockDuration(blockId: string, direction: -1 | 1) {
+    const blockIndex = roadmapBlocks.findIndex((roadmapBlock) => roadmapBlock.id === blockId);
+    const block = roadmapBlocks[blockIndex];
+    if (!block) return;
+
+    if (direction === -1) {
+      if (block.durationWeeks <= 1) return;
+      const lastWeek = planningDistribution.find((week) => week.weekNumber === block.endWeek);
+      if ((lastWeek?.sessions.length ?? 0) > 0) {
+        setPlanningActionMessage("No puedes quitar esta semana porque contiene sesiones.");
+        return;
+      }
+    }
+
+    const laterBlocks = roadmapBlocks.slice(blockIndex + 1);
+    const hasAffectedLaterSessions = laterBlocks.some((laterBlock) =>
+      planningDistribution.some(
+        (week) => week.weekNumber >= laterBlock.startWeek && week.weekNumber <= laterBlock.endWeek && week.sessions.length > 0
+      )
+    );
+
+    if (hasAffectedLaterSessions) {
+      setPendingPlanningDurationChange({ blockId, direction });
+      return;
+    }
+
+    applyPlanningBlockDuration(blockId, direction);
+  }
+
+  function confirmPlanningDurationChange() {
+    if (!pendingPlanningDurationChange) return;
+    applyPlanningBlockDuration(pendingPlanningDurationChange.blockId, pendingPlanningDurationChange.direction);
+    setPendingPlanningDurationChange(null);
   }
 
   function openPlanningSessionDraft(date: Date, weekNumber: number) {
@@ -6934,6 +6982,7 @@ function PlanningView({
           onDeleteSession={deletePlanningSession}
           onDuplicateSession={duplicatePlanningSession}
           onPasteWeek={pastePlanningWeek}
+          onChangeDuration={changePlanningBlockDuration}
           onUpdateBlock={updateBlock}
           planningActionMessage={planningActionMessage}
           planningDistribution={planningDistribution}
@@ -7074,6 +7123,50 @@ function PlanningView({
           </section>
         </div>
       ) : null}
+
+      {pendingPlanningDurationChange ? (
+        <div className="assessment-modal-overlay" onClick={() => setPendingPlanningDurationChange(null)} role="presentation">
+          <section
+            aria-labelledby="planning-duration-warning-title"
+            aria-modal="true"
+            className="assessment-modal-panel !w-[calc(100%-2rem)] !max-w-lg"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <header className="assessment-modal-header px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-clay">Cambio de estructura</p>
+              <h2 className="mt-1 text-lg font-semibold text-ink" id="planning-duration-warning-title">Revisar rangos posteriores</h2>
+            </header>
+            <div className="assessment-modal-body px-4 py-4 sm:px-5">
+              <p className="text-sm leading-6 text-ink/70">
+                Este cambio modificará el rango de los mesociclos posteriores.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-ink/70">
+                Las sesiones ya planificadas mantendrán sus fechas actuales y no se recolocarán automáticamente. Al cambiar los rangos, alguna sesión puede quedar fuera del mesociclo al que estaba asociada.
+              </p>
+              <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-xs font-medium text-ink/55">
+                No se moverá, modificará ni eliminará ninguna sesión.
+              </p>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  className="rounded-md border border-line bg-panel px-4 py-2.5 text-sm font-semibold text-ink/70 transition hover:bg-mint"
+                  onClick={() => setPendingPlanningDurationChange(null)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="rounded-md bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  onClick={confirmPlanningDurationChange}
+                  type="button"
+                >
+                  Mantener fechas y continuar
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -7089,6 +7182,7 @@ function PlanningBlockDetail({
   onDeleteSession,
   onDuplicateSession,
   onPasteWeek,
+  onChangeDuration,
   onUpdateBlock,
   planningActionMessage,
   planningDistribution
@@ -7103,6 +7197,7 @@ function PlanningBlockDetail({
   onDeleteSession: (sessionIndex: number, session: ReviewSessionRecord) => void;
   onDuplicateSession: (sessionIndex: number, date: Date, time?: string | null) => void;
   onPasteWeek: (week: PlanningCalendarWeek) => void;
+  onChangeDuration: (blockId: string, direction: -1 | 1) => void;
   onUpdateBlock: (blockId: string, updates: Partial<EditablePlanningBlock>) => void;
   planningActionMessage: string;
   planningDistribution: PlanningCalendarWeek[];
@@ -7220,17 +7315,26 @@ function PlanningBlockDetail({
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Duración
-                <select
-                  className="h-11 w-full cursor-not-allowed rounded-md border border-line bg-panel px-3 text-ink/55"
-                  disabled
-                  title="La edición segura de duración se añadirá en un siguiente paso."
-                  value={block.durationWeeks}
-                >
-                  {Array.from({ length: 12 }, (_, index) => index + 1).map((weeks) => (
-                    <option key={weeks} value={weeks}>{weeks} {weeks === 1 ? "semana" : "semanas"}</option>
-                  ))}
-                </select>
-                <span className="block text-xs font-normal text-ink/45">La edición segura de semanas se añadirá en el siguiente paso.</span>
+                <span className="block rounded-md border border-line bg-white px-3 py-2.5 text-sm font-semibold text-ink">
+                  {block.durationWeeks} {block.durationWeeks === 1 ? "semana" : "semanas"} · Semana {block.startWeek}-{block.endWeek}
+                </span>
+                <span className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={block.durationWeeks <= 1}
+                    onClick={() => onChangeDuration(block.id, -1)}
+                    type="button"
+                  >
+                    − Semana
+                  </button>
+                  <button
+                    className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss transition hover:bg-mint/70"
+                    onClick={() => onChangeDuration(block.id, 1)}
+                    type="button"
+                  >
+                    + Semana
+                  </button>
+                </span>
               </label>
               <label className="space-y-2 text-sm font-medium text-ink/75">
                 Distribución semanal
