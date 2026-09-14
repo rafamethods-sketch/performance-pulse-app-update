@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type CoachMessagesClient = {
@@ -135,8 +135,8 @@ export function CoachMessagesView({
     ];
     const messages = mode === "athlete"
       ? storedThread?.messages ?? []
-      : storedThread?.messages?.length ? storedThread.messages : fallbackMessages;
-    const lastMessage = messages[messages.length - 1]?.text ?? note;
+      : storedThread ? storedThread.messages : fallbackMessages;
+    const lastMessage = messages[messages.length - 1]?.text ?? (storedThread ? "Sin mensajes todavía." : note);
 
     return {
       clientId: listedClient.id,
@@ -209,6 +209,31 @@ export function CoachMessagesView({
     setMessageDraft("");
   }
 
+  function deleteMessage(messageId: string) {
+    if (!selectedThread || typeof window === "undefined") return;
+    const shouldDelete = window.confirm("¿Borrar este mensaje? Esta acción no se puede deshacer.");
+    if (!shouldDelete) return;
+
+    setMessageThreads((currentThreads) => {
+      const existingThread = currentThreads.find((thread) => thread.clientId === selectedThread.clientId);
+      if (existingThread) {
+        return currentThreads.map((thread) => thread.clientId === selectedThread.clientId
+          ? { ...thread, messages: thread.messages.filter((message) => message.id !== messageId) }
+          : thread);
+      }
+
+      return [
+        {
+          clientId: selectedThread.clientId,
+          clientName: selectedThread.clientName,
+          id: selectedThread.id,
+          messages: selectedThread.messages.filter((message) => message.id !== messageId)
+        },
+        ...currentThreads
+      ];
+    });
+  }
+
   function applyQuickMessageTemplate(template: CoachQuickMessageTemplate) {
     if (messageDraft.trim() && typeof window !== "undefined") {
       const shouldReplace = window.confirm("Esto reemplazará el mensaje actual. ¿Quieres continuar?");
@@ -233,14 +258,24 @@ export function CoachMessagesView({
   }
 
   return (
-    <div className={mode === "athlete" ? "mx-auto mt-5 grid w-full min-w-0 max-w-5xl gap-4" : "mt-6 grid gap-6 xl:grid-cols-[0.78fr_1.22fr]"}>
-      {mode === "coach" ? (
-      <section className="coach-surface rounded-md p-4">
+    <div
+      className={`grid h-[min(52rem,calc(100dvh-19rem))] min-h-[32rem] min-w-0 grid-rows-[minmax(9rem,0.35fr)_minmax(0,1fr)] gap-3 overflow-hidden md:grid-cols-[minmax(13rem,0.72fr)_minmax(0,1.28fr)] md:grid-rows-1 md:gap-4 ${
+        mode === "athlete"
+          ? "mx-auto mt-5 w-full max-w-5xl xl:h-[min(52rem,calc(100dvh-10.5rem))] xl:min-h-[34rem]"
+          : "mt-6 lg:h-[min(52rem,calc(100dvh-10.5rem))] lg:min-h-[34rem]"
+      }`}
+    >
+      <section className="coach-surface flex min-h-0 min-w-0 flex-col rounded-md p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">Conversaciones</h2>
-          <span className="rounded-md bg-mint px-2 py-1 text-xs font-medium text-moss">
-            {visibleThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
-          </span>
+          <div>
+            <h2 className="text-base font-semibold text-ink sm:text-lg">Conversaciones</h2>
+            {mode === "athlete" ? <p className="mt-0.5 text-xs text-ink/50">Tu entrenador y contactos disponibles.</p> : null}
+          </div>
+          {mode === "coach" ? (
+            <span className="shrink-0 rounded-md bg-mint px-2 py-1 text-xs font-medium text-moss">
+              {visibleThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
+            </span>
+          ) : null}
         </div>
         {!client ? (
           <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
@@ -258,7 +293,7 @@ export function CoachMessagesView({
           </label>
         ) : null}
         <p className="mt-4 text-xs font-semibold uppercase text-ink/45">Conversaciones recientes</p>
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
           {visibleThreads.length > 0 ? (
             visibleThreads.map((thread) => (
               <button
@@ -291,12 +326,11 @@ export function CoachMessagesView({
           )}
         </div>
       </section>
-      ) : null}
 
-      <section className="coach-surface min-w-0 rounded-md p-4">
+      <section className="coach-surface flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md p-3 sm:p-4">
         {selectedThread ? (
           <>
-            <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line pb-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{mode === "athlete" ? "Chat con tu entrenador" : selectedThread.clientName}</h2>
                 <p className="text-sm text-ink/50">{mode === "athlete" ? "Usa este espacio para dudas sobre tus sesiones y seguimiento." : selectedThread.status}</p>
@@ -312,10 +346,10 @@ export function CoachMessagesView({
               ) : null}
             </div>
 
-            <div className="mt-4 space-y-3">
-              {mode === "athlete" && visibleMessages.length === 0 ? (
+            <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 sm:mt-4">
+              {visibleMessages.length === 0 ? (
                 <p className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm text-ink/60">
-                  Todavía no hay mensajes. Escribe a tu entrenador cuando lo necesites.
+                  {mode === "athlete" ? "Todavía no hay mensajes. Escribe a tu entrenador cuando lo necesites." : "Todavía no hay mensajes."}
                 </p>
               ) : null}
               {hasHiddenMessages ? (
@@ -334,26 +368,37 @@ export function CoachMessagesView({
                   className={`flex ${message.sender === mode ? "justify-end" : "justify-start"}`}
                   key={message.id}
                 >
-                  <div
-                    className={`max-w-[80%] rounded-md border px-4 py-3 text-sm [overflow-wrap:anywhere] ${
-                      message.sender === mode
-                        ? mode === "athlete"
-                          ? "border-moss/30 bg-moss/15 text-ink"
-                          : "border-moss/20 bg-ink text-white"
-                        : "border-line bg-panel/60 text-ink"
-                    }`}
-                  >
-                    <p>{message.text}</p>
-                    <p className={`mt-2 text-xs ${mode === "coach" && message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
-                      {formatMessageTime(message.timestamp)}
-                    </p>
+                  <div className="group flex max-w-[88%] items-center gap-1.5">
+                    <div
+                      className={`min-w-0 rounded-md border px-4 py-3 text-sm [overflow-wrap:anywhere] ${
+                        message.sender === mode
+                          ? mode === "athlete"
+                            ? "border-moss/30 bg-moss/15 text-ink"
+                            : "border-moss/20 bg-ink text-white"
+                          : "border-line bg-panel/60 text-ink"
+                      }`}
+                    >
+                      <p>{message.text}</p>
+                      <p className={`mt-2 text-xs ${mode === "coach" && message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
+                        {formatMessageTime(message.timestamp)}
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Borrar mensaje"
+                      className="grid size-8 shrink-0 place-items-center rounded-md border border-coral/20 bg-coral/10 text-clay transition hover:bg-coral/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                      onClick={() => deleteMessage(message.id)}
+                      title="Borrar mensaje"
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
 
             {mode === "coach" ? (
-            <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
+            <div className="mt-3 shrink-0 rounded-md border border-line bg-panel/35 p-3">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-ink">Plantillas rápidas</h3>
@@ -386,7 +431,7 @@ export function CoachMessagesView({
             </div>
 
             ) : null}
-            <div className="mt-5 flex gap-2 rounded-md border border-line bg-panel/35 p-2">
+            <div className="mt-3 flex shrink-0 gap-2 rounded-md border border-line bg-panel/35 p-2">
               <input
                 className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/45 px-3 text-ink outline-none placeholder:text-ink/35 focus:border-moss"
                 onChange={(event) => setMessageDraft(event.target.value)}
