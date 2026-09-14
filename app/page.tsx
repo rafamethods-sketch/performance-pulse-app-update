@@ -63,7 +63,6 @@ import {
   type WeeklyReviewSession
 } from "@/lib/weekly-review";
 import {
-  getPlanningMethodDescription,
   getPlanningMethodLabel,
   planningConfig,
   type PlanningMethod,
@@ -6274,7 +6273,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   );
 }
 
-type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Sin evento definido";
+type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Otro" | "Sin evento definido";
 type EditablePlanningBlock = {
   durationWeeks: number;
   id: string;
@@ -6292,8 +6291,57 @@ const planningEventTypes: PlanningEventType[] = [
   "Test",
   "Pico de forma",
   "Control / seguimiento",
+  "Otro",
   "Sin evento definido"
 ];
+
+const planningMesocycleTypes = [
+  "Control motor",
+  "Acumulación",
+  "Intensificación",
+  "Realización / puesta a punto",
+  "Descarga",
+  "Retorno progresivo",
+  "Mantenimiento"
+];
+
+const planningObjectiveOptions = [
+  "Fuerza máxima",
+  "Hipertrofia funcional",
+  "Potencia",
+  "Control motor",
+  "Capacidad aeróbica",
+  "Potencia aeróbica",
+  "Work capacity",
+  "Tolerancia de tejidos",
+  "Técnica",
+  "Movilidad",
+  "Readaptación / retorno",
+  "Mantenimiento",
+  "Personalizado"
+];
+
+const planningWeeklyDistributionOptions = [
+  "Lineal",
+  "Ondulante",
+  "Concentrada",
+  "Alterna",
+  "Técnica / baja carga",
+  "Personalizada"
+];
+
+function createPlanningBlockDraft(index: number): EditablePlanningBlock {
+  return {
+    durationWeeks: 4,
+    id: "",
+    mainMetrics: [],
+    name: planningMesocycleTypes[Math.min(index, planningMesocycleTypes.length - 1)],
+    notes: "",
+    primaryObjective: "",
+    secondaryObjective: "",
+    weeklyDistribution: "Lineal"
+  };
+}
 
 function parsePlanningDate(value: string) {
   if (!value) return null;
@@ -6495,11 +6543,14 @@ function PlanningView({
   onOpenAssessments?: (clientId: string) => void;
   onOpenTrainingDraft?: (target: TargetTrainingSession) => void;
 }) {
-  const [planningEventType, setPlanningEventType] = useState<PlanningEventType>("Competicion");
+  const [planningEventType, setPlanningEventType] = useState<PlanningEventType>(
+    client?.planning.eventDate || client?.planning.eventName ? "Competicion" : "Sin evento definido"
+  );
   const [planningPeakDate, setPlanningPeakDate] = useState(client?.planning.eventDate ?? "");
   const [planningEventName, setPlanningEventName] = useState(client?.planning.eventName ?? "");
-  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method ?? "");
+  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>("blocks");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
+  const [newPlanningBlock, setNewPlanningBlock] = useState<EditablePlanningBlock>(() => createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
@@ -6576,7 +6627,9 @@ function PlanningView({
     setPlanningBlocks(client?.planning.blocks ?? []);
     setPlanningEventName(client?.planning.eventName ?? "");
     setPlanningPeakDate(client?.planning.eventDate ?? "");
-    setPlanningMethod(client?.planning.method ?? "");
+    setPlanningEventType(client?.planning.eventDate || client?.planning.eventName ? "Competicion" : "Sin evento definido");
+    setPlanningMethod("blocks");
+    setNewPlanningBlock(createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
     setSelectedPlanningBlockId(null);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
@@ -6584,43 +6637,16 @@ function PlanningView({
   }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
 
   function addMesocycle() {
-    const nextIndex = planningBlocks.length + 1;
-    setPlanningBlocks((blocks) => [
-      ...blocks,
-      {
-        durationWeeks: 4,
-        id: `mesocycle-${Date.now()}`,
-        mainMetrics: [],
-        name: `Mesociclo ${nextIndex}`,
-        notes: "",
-        primaryObjective: "",
-        secondaryObjective: "",
-        weeklyDistribution: "Lineal"
-      }
-    ]);
+    const nextBlock = { ...newPlanningBlock, id: `mesocycle-${Date.now()}` };
+    setPlanningBlocks((blocks) => [...blocks, nextBlock]);
+    setNewPlanningBlock(createPlanningBlockDraft(planningBlocks.length + 1));
+    setPlanningActionMessage(`${nextBlock.name} creado. Puedes abrir su detalle para editarlo o añadir sesiones.`);
   }
 
   function updateBlock(blockId: string, updates: Partial<EditablePlanningBlock>) {
     setPlanningBlocks((blocks) =>
       blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
     );
-  }
-
-  function deleteBlock(blockId: string) {
-    setPlanningBlocks((blocks) => blocks.filter((block) => block.id !== blockId));
-    setSelectedPlanningBlockId((current) => current === blockId ? null : current);
-  }
-
-  function moveBlock(blockId: string, direction: -1 | 1) {
-    setPlanningBlocks((blocks) => {
-      const index = blocks.findIndex((block) => block.id === blockId);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= blocks.length) return blocks;
-      const nextBlocks = [...blocks];
-      const [movedBlock] = nextBlocks.splice(index, 1);
-      nextBlocks.splice(nextIndex, 0, movedBlock);
-      return nextBlocks;
-    });
   }
 
   function openPlanningSessionDraft(date: Date, weekNumber: number) {
@@ -6794,12 +6820,12 @@ function PlanningView({
             onClick={() => setShowAdvancedPlanning(true)}
             type="button"
           >
-            Configuración avanzada
+            Nuevo mesociclo
           </button>
         </div>
         {planningBlocks.length === 0 ? (
           <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
-            Sin bloques definidos. Usa Configuración avanzada para crear la estructura del ciclo.
+            Sin bloques definidos. Crea el primer mesociclo para empezar la planificación.
           </div>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -6908,6 +6934,7 @@ function PlanningView({
           onDeleteSession={deletePlanningSession}
           onDuplicateSession={duplicatePlanningSession}
           onPasteWeek={pastePlanningWeek}
+          onUpdateBlock={updateBlock}
           planningActionMessage={planningActionMessage}
           planningDistribution={planningDistribution}
         />
@@ -6923,8 +6950,8 @@ function PlanningView({
           >
             <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-ink">Configuración avanzada</h2>
-                <p className="mt-1 text-sm text-ink/55">Edición estructural heredada: modelo, evento objetivo y mesociclos editables.</p>
+                <h2 className="text-lg font-semibold text-ink">Crear mesociclo</h2>
+                <p className="mt-1 text-sm text-ink/55">Define una referencia y crea los bloques uno a uno.</p>
               </div>
               <button
                 aria-label="Cerrar configuración avanzada"
@@ -6936,207 +6963,113 @@ function PlanningView({
               </button>
             </header>
             <div className="assessment-modal-body grid gap-4 px-5 py-5">
-      <section className="rounded-md border border-line bg-panel/35 p-4">
-        <label className="mt-5 block space-y-2 text-sm font-medium text-ink/75">
-          Metodo de planificación
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setPlanningMethod(event.target.value as PlanningMethod)}
-            value={planningMethod}
-          >
-            {planningConfig.methodOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
-        {planningMethod && (
-          <p className="mt-3 rounded-md bg-sky px-3 py-2 text-sm font-semibold text-ink">
-            {getPlanningMethodDescription(planningMethod)}
-          </p>
-        )}
-
-        <PlanningStep step="1" title="Evento objetivo">
-          <select
-            className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-            onChange={(event) => setPlanningEventType(event.target.value as PlanningEventType)}
-            value={planningEventType}
-          >
-            {planningEventTypes.map((eventType) => (
-              <option key={eventType}>{eventType}</option>
-            ))}
-          </select>
-        </PlanningStep>
-
-        {planningEventType !== "Sin evento definido" && (
-          <PlanningStep step="2" title="Fecha objetivo">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Nombre
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setPlanningEventName(event.target.value)}
-                  placeholder="Ej. Campeonato regional"
-                  value={planningEventName}
-                />
-              </label>
-              <label className="space-y-2 text-sm font-medium text-ink/75">
-                Fecha objetivo
-                <input
-                  className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setPlanningPeakDate(event.target.value)}
-                  type="date"
-                  value={planningPeakDate}
-                />
-              </label>
-            </div>
-            <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              Semanas disponibles: {planningWeeks > 0 ? planningWeeks : "Selecciona una fecha valida"}
-            </p>
-          </PlanningStep>
-        )}
-
-        {planningEventType === "Sin evento definido" && (
-          <PlanningStep step="2" title="Nombre del ciclo">
-            <label className="space-y-2 text-sm font-medium text-ink/75">
-              Nombre del ciclo
-              <input
-                className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                onChange={(event) => setPlanningEventName(event.target.value)}
-                placeholder="Ej. Desarrollo general"
-                value={planningEventName}
-              />
-            </label>
-            <p className="mt-3 rounded-md bg-wheat px-3 py-2 text-sm font-semibold text-ink">
-              Planificación sin fecha clave. El entrenador decide los mesociclos manualmente.
-            </p>
-          </PlanningStep>
-        )}
-
-        <PlanningStep step="3" title="Mesociclos">
-          <button
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white"
-            onClick={addMesocycle}
-            type="button"
-          >
-            <Plus size={18} />
-            Anadir mesociclo
-          </button>
-        </PlanningStep>
-      </section>
-
-      <section className="rounded-md border border-line bg-panel/35 p-4">
-        <PlanningStep step="4" title="Mesociclos editables">
-          {planningBlocks.length === 0 ? (
-            <div className="rounded-md bg-panel/50 px-3 py-3 text-sm text-ink/65">
-              Bloque / mesociclo: Sin asignar. Pulsa + Anadir mesociclo para crear la estructura manualmente.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {planningBlocks.map((block, index) => (
-                <section className="rounded-md border border-line bg-panel/25 p-4" key={block.id}>
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="font-semibold text-ink">Bloque {index + 1} - {block.name}</h3>
-                      <p className="mt-1 text-sm text-ink/55">{block.durationWeeks} semanas - {block.weeklyDistribution}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === 0} onClick={(event) => { event.stopPropagation(); moveBlock(block.id, -1); }} type="button">
-                        Subir
-                      </button>
-                      <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" disabled={index === planningBlocks.length - 1} onClick={(event) => { event.stopPropagation(); moveBlock(block.id, 1); }} type="button">
-                        Bajar
-                      </button>
-                      <button className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" onClick={(event) => { event.stopPropagation(); deleteBlock(block.id); }} type="button">
-                        Eliminar
-                      </button>
-                    </div>
+              <section className="rounded-md border border-line bg-panel/35 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Modelo de planificación</p>
+                    <h3 className="mt-1 font-semibold text-ink">Por bloques</h3>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <span className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/60">{planningBlocks.length} mesociclos</span>
+                </div>
+              </section>
+
+              <section className="rounded-md border border-line bg-panel/35 p-4">
+                <h3 className="font-semibold text-ink">¿Hay una fecha objetivo o evento deportivo a tener en cuenta?</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${planningEventType !== "Sin evento definido" ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/65"}`}
+                    onClick={() => setPlanningEventType("Competicion")}
+                    type="button"
+                  >
+                    Sí
+                  </button>
+                  <button
+                    className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${planningEventType === "Sin evento definido" ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/65"}`}
+                    onClick={() => setPlanningEventType("Sin evento definido")}
+                    type="button"
+                  >
+                    No / todavía no
+                  </button>
+                </div>
+                {planningEventType !== "Sin evento definido" ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Nombre del bloque
-                      <input
-                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { name: event.target.value })}
-                        placeholder={planningConfig.mesocycleNameExamples[0]}
-                        value={block.name}
-                      />
-                    </label>
-                    <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Duración en semanas
-                      <input
-                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        min={1}
-                        onChange={(event) => updateBlock(block.id, { durationWeeks: Number(event.target.value) })}
-                        type="number"
-                        value={block.durationWeeks}
-                      />
-                    </label>
-                    <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Objetivo principal
-                      <input
-                        list={`primary-objectives-${block.id}`}
-                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { primaryObjective: event.target.value })}
-                        placeholder="Ej. Fuerza máxima"
-                        value={block.primaryObjective}
-                      />
-                      <datalist id={`primary-objectives-${block.id}`}>
-                        {planningConfig.primaryObjectiveExamples.map((goal) => (
-                          <option key={goal} value={goal} />
-                        ))}
-                      </datalist>
-                    </label>
-                    <label className="space-y-2 text-sm font-medium text-ink/75">
-                      Objetivo secundario
-                      <input
-                        list={`secondary-objectives-${block.id}`}
-                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { secondaryObjective: event.target.value })}
-                        placeholder="Ej. Tecnica"
-                        value={block.secondaryObjective}
-                      />
-                      <datalist id={`secondary-objectives-${block.id}`}>
-                        {planningConfig.secondaryObjectiveExamples.map((goal) => (
-                          <option key={goal} value={goal} />
-                        ))}
-                      </datalist>
-                    </label>
-                    <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-                      Distribución semanal
-                      <select
-                        className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                        onChange={(event) => updateBlock(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
-                        value={block.weeklyDistribution}
-                      >
-                        {planningConfig.weeklyDistributionOptions.map((distribution) => (
-                          <option key={distribution}>{distribution}</option>
-                        ))}
+                      Tipo de evento
+                      <select className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setPlanningEventType(event.target.value as PlanningEventType)} value={planningEventType}>
+                        {planningEventTypes.filter((eventType) => eventType !== "Sin evento definido").map((eventType) => <option key={eventType}>{eventType}</option>)}
                       </select>
                     </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Nombre del evento
+                      <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setPlanningEventName(event.target.value)} placeholder="Ej. Campeonato regional" value={planningEventName} />
+                    </label>
+                    <label className="space-y-2 text-sm font-medium text-ink/75">
+                      Fecha objetivo
+                      <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setPlanningPeakDate(event.target.value)} type="date" value={planningPeakDate} />
+                    </label>
+                    <p className="text-xs font-semibold text-ink/50 sm:col-span-3">Semanas disponibles: {planningWeeks > 0 ? planningWeeks : "Selecciona una fecha válida"}</p>
                   </div>
-                  <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
-                    Notas
-                    <textarea
-                      className="min-h-12 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
-                      onChange={(event) => updateBlock(block.id, { notes: event.target.value })}
-                      placeholder="Notas del mesociclo"
-                      value={block.notes}
-                    />
-                  </label>
-                </section>
-              ))}
-            </div>
-          )}
-        </PlanningStep>
+                ) : (
+                  <p className="mt-3 text-sm text-ink/55">Puedes crear mesociclos sin definir todavía una fecha objetivo.</p>
+                )}
+              </section>
 
-        <PlanningSummary selectedPlan={selectedPlan} />
-        <PlanningCalendarPreview
-          blocks={planningBlocks}
-          eventName={planningEventName}
-          peakDate={planningPeakDate}
-          eventType={planningEventType}
-        />
-      </section>
+              <section className="rounded-md border border-line bg-panel/35 p-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">Nuevo mesociclo</p>
+                  <h3 className="mt-1 font-semibold text-ink">Crea un bloque cada vez</h3>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Tipo de mesociclo
+                    <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" list="new-mesocycle-types" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, name: event.target.value }))} value={newPlanningBlock.name} />
+                    <datalist id="new-mesocycle-types">{planningMesocycleTypes.map((type) => <option key={type} value={type} />)}</datalist>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Duración
+                    <select className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, durationWeeks: Number(event.target.value) }))} value={newPlanningBlock.durationWeeks}>
+                      {Array.from({ length: 12 }, (_, index) => index + 1).map((weeks) => <option key={weeks} value={weeks}>{weeks} {weeks === 1 ? "semana" : "semanas"}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Distribución semanal
+                    <select className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, weeklyDistribution: event.target.value as WeeklyDistribution }))} value={newPlanningBlock.weeklyDistribution}>
+                      {planningWeeklyDistributionOptions.map((distribution) => <option key={distribution}>{distribution}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Objetivo principal
+                    <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" list="new-primary-objectives" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, primaryObjective: event.target.value }))} placeholder="Selecciona o escribe" value={newPlanningBlock.primaryObjective} />
+                    <datalist id="new-primary-objectives">{planningObjectiveOptions.map((objective) => <option key={objective} value={objective} />)}</datalist>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Objetivo secundario
+                    <input className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss" list="new-secondary-objectives" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, secondaryObjective: event.target.value }))} placeholder="Selecciona o escribe" value={newPlanningBlock.secondaryObjective} />
+                    <datalist id="new-secondary-objectives">{planningObjectiveOptions.map((objective) => <option key={objective} value={objective} />)}</datalist>
+                  </label>
+                  <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                    Notas opcionales
+                    <textarea className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss" onChange={(event) => setNewPlanningBlock((block) => ({ ...block, notes: event.target.value }))} placeholder="Notas del mesociclo" value={newPlanningBlock.notes} />
+                  </label>
+                </div>
+                <button className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={addMesocycle} type="button">
+                  <Plus size={18} />
+                  Crear mesociclo
+                </button>
+                {planningActionMessage ? <p className="mt-3 text-sm font-semibold text-moss">{planningActionMessage}</p> : null}
+              </section>
+
+              <details className="group rounded-md border border-line bg-panel/20">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
+                  Resumen y exportación
+                  <span className="text-ink/45 group-open:hidden">+</span>
+                  <span className="hidden text-ink/45 group-open:inline">−</span>
+                </summary>
+                <div className="border-t border-line p-4">
+                  <PlanningSummary selectedPlan={selectedPlan} />
+                  <PlanningCalendarPreview blocks={planningBlocks} eventName={planningEventName} eventType={planningEventType} peakDate={planningPeakDate} />
+                </div>
+              </details>
             </div>
           </section>
         </div>
@@ -7156,6 +7089,7 @@ function PlanningBlockDetail({
   onDeleteSession,
   onDuplicateSession,
   onPasteWeek,
+  onUpdateBlock,
   planningActionMessage,
   planningDistribution
 }: {
@@ -7169,6 +7103,7 @@ function PlanningBlockDetail({
   onDeleteSession: (sessionIndex: number, session: ReviewSessionRecord) => void;
   onDuplicateSession: (sessionIndex: number, date: Date, time?: string | null) => void;
   onPasteWeek: (week: PlanningCalendarWeek) => void;
+  onUpdateBlock: (blockId: string, updates: Partial<EditablePlanningBlock>) => void;
   planningActionMessage: string;
   planningDistribution: PlanningCalendarWeek[];
 }) {
@@ -7263,6 +7198,86 @@ function PlanningBlockDetail({
           {block.notes ? (
             <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/60">{block.notes}</p>
           ) : null}
+
+          <details open className="group mt-3 rounded-md border border-line bg-panel/35">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-ink sm:px-4">
+              Editar mesociclo
+              <span className="text-ink/45 group-open:hidden">+</span>
+              <span className="hidden text-ink/45 group-open:inline">−</span>
+            </summary>
+            <div className="grid gap-3 border-t border-line p-3 sm:grid-cols-2 sm:p-4">
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Tipo de mesociclo
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  list={`mesocycle-types-${block.id}`}
+                  onChange={(event) => onUpdateBlock(block.id, { name: event.target.value })}
+                  value={block.name}
+                />
+                <datalist id={`mesocycle-types-${block.id}`}>
+                  {planningMesocycleTypes.map((type) => <option key={type} value={type} />)}
+                </datalist>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Duración
+                <select
+                  className="h-11 w-full cursor-not-allowed rounded-md border border-line bg-panel px-3 text-ink/55"
+                  disabled
+                  title="La edición segura de duración se añadirá en un siguiente paso."
+                  value={block.durationWeeks}
+                >
+                  {Array.from({ length: 12 }, (_, index) => index + 1).map((weeks) => (
+                    <option key={weeks} value={weeks}>{weeks} {weeks === 1 ? "semana" : "semanas"}</option>
+                  ))}
+                </select>
+                <span className="block text-xs font-normal text-ink/45">La edición segura de semanas se añadirá en el siguiente paso.</span>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Distribución semanal
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => onUpdateBlock(block.id, { weeklyDistribution: event.target.value as WeeklyDistribution })}
+                  value={block.weeklyDistribution}
+                >
+                  {planningWeeklyDistributionOptions.map((distribution) => <option key={distribution}>{distribution}</option>)}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Objetivo principal
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  list={`planning-primary-${block.id}`}
+                  onChange={(event) => onUpdateBlock(block.id, { primaryObjective: event.target.value })}
+                  placeholder="Selecciona o escribe un objetivo"
+                  value={block.primaryObjective}
+                />
+                <datalist id={`planning-primary-${block.id}`}>
+                  {planningObjectiveOptions.map((objective) => <option key={objective} value={objective} />)}
+                </datalist>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75">
+                Objetivo secundario
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  list={`planning-secondary-${block.id}`}
+                  onChange={(event) => onUpdateBlock(block.id, { secondaryObjective: event.target.value })}
+                  placeholder="Selecciona o escribe un objetivo"
+                  value={block.secondaryObjective}
+                />
+                <datalist id={`planning-secondary-${block.id}`}>
+                  {planningObjectiveOptions.map((objective) => <option key={objective} value={objective} />)}
+                </datalist>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
+                Notas opcionales
+                <textarea
+                  className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-ink outline-none focus:border-moss"
+                  onChange={(event) => onUpdateBlock(block.id, { notes: event.target.value })}
+                  value={block.notes}
+                />
+              </label>
+            </div>
+          </details>
 
       <div className="mt-4 rounded-md border border-line bg-white p-3 sm:p-4">
         <div>
@@ -7365,26 +7380,6 @@ function PlanningBlockDetail({
       </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function PlanningStep({
-  children,
-  step,
-  title
-}: {
-  children: React.ReactNode;
-  step: string;
-  title: string;
-}) {
-  return (
-    <div className="mt-5 first:mt-0">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="grid size-7 place-items-center rounded-md bg-ink text-xs font-semibold text-white">{step}</span>
-        <h3 className="font-semibold text-ink">{title}</h3>
-      </div>
-      {children}
     </div>
   );
 }
