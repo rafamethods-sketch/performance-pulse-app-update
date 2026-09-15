@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SheetId } from "@/lib/data";
 import type { CoachDecisionLogEntry } from "@/components/coach/types";
 import { fromWeeklyCoachReview, fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
@@ -678,11 +678,19 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
 export function ClientDashboardView({
   client,
   onBack,
-  onDeleteDecision,
   onOpenClientSheet,
   onOpenDetails,
   onSaveDecision
 }: ClientDashboardViewProps) {
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  useEffect(() => {
+    if (!showAnalytics) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowAnalytics(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showAnalytics]);
   const loadData = getDashboardLoadData(client);
   const dashboardData = getClientDashboardData(client, loadData);
   const today = new Date();
@@ -758,69 +766,52 @@ export function ClientDashboardView({
   }
 
   return (
-    <div className="mt-6 grid gap-5">
+    <div className="mt-6 grid gap-4">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
+      <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
       <DashboardCurrentState client={client} dashboardData={dashboardData} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <DashboardAttention clientId={client.id} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} review={weeklyReview} />
         <DashboardRelevantChanges dashboardData={dashboardData} />
       </div>
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <DashboardCurrentPlan client={client} onOpenClientSheet={onOpenClientSheet} />
-        <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
-      </div>
-
-      <details className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
-        <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
-          <span className="block font-semibold">Métricas y evolución</span>
-          <span className="mt-1 block text-sm font-normal text-ink/55">RAC Review, próxima sesión, carga, gráficos y señales disponibles.</span>
-        </summary>
-        <div className="mt-4 grid gap-4">
-          <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
-          <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
-          <div className="grid gap-4 xl:grid-cols-2">
-            <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
-            <DailyLoadReadinessBlock dashboardData={dashboardData} />
-          </div>
-          <LoadControlIndicatorsBlock dashboardData={dashboardData} />
-          <div className="grid gap-4 xl:grid-cols-2">
-            <LoadDistributionDecisionBlock dashboardData={dashboardData} />
-            <PatternZoneWatchBlock dashboardData={dashboardData} />
-          </div>
+      <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
+      <section className="coach-surface flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md px-4 py-3">
+        <div>
+          <h3 className="font-semibold text-ink">Métricas y evolución</h3>
+          <p className="mt-0.5 text-xs text-ink/55">Carga semanal, bienestar y distribución del trabajo.</p>
         </div>
-      </details>
-      <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <button className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white" onClick={() => setShowAnalytics(true)} type="button">Ver detalle</button>
+      </section>
+      <section className="coach-surface min-w-0 rounded-md p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-ink">Próxima sesión</h3>
-            <p className="mt-1 text-sm text-ink/55">Demanda prevista y contexto reciente, con lecturas separadas.</p>
           </div>
-          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">
+          <button className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-ink" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">
             Ver planificación
           </button>
         </div>
         {nextSession ? (
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="min-w-0 rounded-md border border-line bg-panel/35 p-3">
+          <div className="mt-3 min-w-0 rounded-md border border-line bg-panel/35 p-3">
               <p className="text-xs font-medium text-ink/55">{formatDashboardDate(nextSession.date)} · {nextSession.type}</p>
-              <p className="mt-2 break-words font-semibold text-ink">{nextSession.summary || "Sesión planificada"}</p>
+              <p className="mt-1 break-words font-semibold text-ink">{nextSession.summary || "Sesión planificada"}</p>
               {plannedImpact && plannedImpactStyle ? (
-                <span className={`mt-3 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${plannedImpactStyle.badgeClassName}`}>
+                <span className={`mt-2 inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-xs font-semibold ${plannedImpactStyle.badgeClassName}`}>
                   <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${plannedImpactStyle.dotClassName}`} />
                   Previsto: {plannedImpact.label}
                 </span>
               ) : null}
-            </div>
             {compatibility && compatibilityStyle ? (
-              <div className="min-w-0 rounded-md border border-line p-3">
-                <p className="text-xs font-semibold text-ink/55">Compatibilidad · Lectura orientativa</p>
-                <span className={`mt-2 inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${compatibilityStyle.badgeClassName}`}>
+              <div className="mt-2 min-w-0">
+                <span className={`inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-xs font-semibold ${compatibilityStyle.badgeClassName}`}>
                   <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${compatibilityStyle.dotClassName}`} />
                   {compatibility.label}
                 </span>
-                {compatibility.primaryReason ? <p className="mt-2 text-sm text-ink/65">{compatibility.primaryReason.label}</p> : null}
-                <p className="mt-2 text-sm text-ink/70"><span className="font-semibold text-ink">Próxima decisión:</span> {compatibility.suggestedAction}</p>
-                <DecisionExplanationDetails explanation={fromSessionCompatibility(compatibility)} summary="Ver contexto usado" />
+                {compatibility.level === "priority" || compatibility.level === "review" ? <p className="mt-1 text-xs text-ink/65">{compatibility.primaryReason?.label}</p> : null}
+                <details className="mt-2 text-sm text-ink/70">
+                  <summary className="cursor-pointer font-semibold">Ver contexto usado</summary>
+                  <p className="mt-2">{compatibility.suggestedAction}</p>
+                  <DecisionExplanationDetails explanation={fromSessionCompatibility(compatibility)} summary="Datos usados" />
                 <button
                   className="mt-3 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink transition hover:border-moss/35 disabled:cursor-default disabled:opacity-55"
                   disabled={compatibilityDecisionSaved}
@@ -829,12 +820,38 @@ export function ClientDashboardView({
                 >
                   {compatibilityDecisionSaved ? "Decisión de compatibilidad guardada" : "Guardar decisión de compatibilidad"}
                 </button>
+                </details>
               </div>
             ) : null}
           </div>
         ) : <DashboardEmptyState>No hay una próxima sesión pendiente con fecha disponible.</DashboardEmptyState>}
       </section>
-      <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
+      {showAnalytics ? (
+        <div className="assessment-modal-overlay" onClick={() => setShowAnalytics(false)} role="presentation">
+          <section aria-label="Métricas y evolución" aria-modal="true" className="assessment-modal-panel" onClick={(event) => event.stopPropagation()} role="dialog" style={{ width: "min(100%, 72rem)" }}>
+            <header className="assessment-modal-header flex items-center justify-between gap-3 px-4 py-3">
+              <h3 className="font-semibold text-ink">Métricas y evolución</h3>
+              <button className="rounded-md border border-line bg-panel px-3 py-1.5 text-sm font-semibold text-ink" onClick={() => setShowAnalytics(false)} type="button">Cerrar</button>
+            </header>
+            <div className="assessment-modal-body grid min-w-0 gap-4 px-4 py-4">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+                <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
+                <DailyLoadReadinessBlock dashboardData={dashboardData} />
+              </div>
+              <details className="rounded-md border border-line bg-panel/35 p-3">
+                <summary className="cursor-pointer font-semibold text-ink">Distribución e indicadores</summary>
+                <div className="mt-3 grid gap-4">
+                  <LoadControlIndicatorsBlock dashboardData={dashboardData} />
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <PatternZoneWatchBlock dashboardData={dashboardData} />
+                    <LoadDistributionDecisionBlock dashboardData={dashboardData} />
+                  </div>
+                </div>
+              </details>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -878,6 +895,13 @@ function DecisionExplanationDetails({ explanation, summary }: { explanation: Dec
   );
 }
 
+function getDashboardReadingBorder(reading: string) {
+  if (["Alto", "Similar a habitual", "Preparado", "Estable"].includes(reading)) return "border-l-moss";
+  if (["Bajo", "Subida alta", "Muy superior a habitual", "Descargar / revisar"].includes(reading)) return "border-l-coral";
+  if (["Medio", "Superior a habitual", "Subida suave", "A vigilar"].includes(reading)) return "border-l-clay";
+  return "border-l-steel";
+}
+
 function DashboardCurrentState({ client, dashboardData }: {
   client: CoachClient;
   dashboardData: ReturnType<typeof getClientDashboardData>;
@@ -889,15 +913,14 @@ function DashboardCurrentState({ client, dashboardData }: {
     { label: "Contexto", reading: client.status || "Sin estado disponible", detail: client.readiness ? `Readiness ${client.readiness}%` : "Lectura orientativa" }
   ];
   return (
-    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
-      <h3 className="text-lg font-semibold text-ink">Estado actual</h3>
-      <p className="mt-1 text-sm text-ink/55">Lectura rápida con los indicadores disponibles.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="coach-surface min-w-0 rounded-md p-4">
+      <h3 className="font-semibold text-ink">Estado actual</h3>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {indicators.map((indicator) => (
-          <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={indicator.label}>
+          <article className={`min-w-0 rounded-md border border-line border-l-[3px] bg-panel/35 px-3 py-2 ${indicator.label === "Bienestar" && dashboardData.watchSignals.some((signal) => signal.label === "Readiness bajo") ? "border-l-coral" : indicator.label === "Bienestar" || indicator.label === "Contexto" ? "border-l-steel" : getDashboardReadingBorder(indicator.reading)}`} key={indicator.label}>
             <p className="text-xs font-semibold text-ink/55">{indicator.label}</p>
-            <p className="mt-2 break-words text-base font-semibold text-ink">{indicator.reading}</p>
-            <p className="mt-1 break-words text-xs text-ink/55">{indicator.detail}</p>
+            <p className="mt-1 break-words text-sm font-semibold text-ink">{indicator.reading}</p>
+            <p className="mt-0.5 break-words text-xs text-ink/55">{indicator.detail}</p>
           </article>
         ))}
       </div>
@@ -915,15 +938,15 @@ function DashboardRelevantChanges({ dashboardData }: { dashboardData: ReturnType
       : null
   ].filter((change): change is { label: string; reading: string; detail: string } => Boolean(change)).slice(0, 3);
   return (
-    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+    <section className="coach-surface min-w-0 rounded-md p-4">
       <h3 className="font-semibold text-ink">Cambios relevantes</h3>
       {changes.length > 0 ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {changes.map((change) => (
-            <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={change.label}>
+            <article className={`min-w-0 rounded-md border border-line border-l-[3px] bg-panel/35 px-3 py-2 ${getDashboardReadingBorder(change.reading)}`} key={change.label}>
               <p className="text-xs font-semibold text-ink/55">{change.label}</p>
               <p className="mt-1 font-semibold text-ink">{change.reading}</p>
-              <p className="mt-1 text-xs text-ink/55">{change.detail}</p>
+              <p className="mt-0.5 text-xs text-ink/55">{change.detail}</p>
             </article>
           ))}
         </div>
@@ -940,7 +963,7 @@ function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, review
 }) {
   const signals = dashboardData.watchSignals.filter((signal) => signal.tone !== "calm" && !(signal.label === "Limitaciones registradas" && signal.meta.toLowerCase().includes("pendiente de completar"))).slice(0, 2);
   return (
-    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+    <section className="coach-surface min-w-0 rounded-md p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-ink">Atención</h3>
         <span className="text-xs font-semibold text-ink/55">{review.label}</span>
@@ -949,37 +972,18 @@ function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, review
         <p className="mt-2 text-sm font-semibold text-ink">Motivo principal: {review.primaryReason.label}</p>
       ) : null}
       {signals.length > 0 ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {signals.map((signal) => (
-            <article className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel/35 p-3" key={`${signal.label}-${signal.meta}`}>
+            <article className={`flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border border-line border-l-[3px] bg-panel/35 px-3 py-2 ${signal.tone === "danger" ? "border-l-coral" : "border-l-clay"}`} key={`${signal.label}-${signal.meta}`}>
               <div className="min-w-0">
                 <p className="font-semibold text-ink">{signal.label}</p>
-                <p className="mt-1 break-words text-xs text-ink/55">{signal.meta}</p>
+                <p className="mt-0.5 break-words text-xs text-ink/55">{signal.meta}</p>
               </div>
               <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => onOpenClientSheet(clientId, signal.action)} type="button">Revisar</button>
             </article>
           ))}
         </div>
       ) : <p className="mt-2 text-sm text-ink/55">Sin señales prioritarias.</p>}
-    </section>
-  );
-}
-
-function DashboardCurrentPlan({ client, onOpenClientSheet }: {
-  client: CoachClient;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
-}) {
-  return (
-    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-ink">Plan actual</h3>
-          <p className="mt-2 break-words text-lg font-semibold text-ink">{client.planning.currentBlock || "Sin mesociclo actual"}</p>
-          <p className="mt-1 text-sm text-ink/60">{client.planning.currentWeek || "Semana no disponible"}</p>
-          {client.planning.primaryGoal ? <p className="mt-2 text-sm text-ink/60">Objetivo principal: {client.planning.primaryGoal}</p> : null}
-        </div>
-        <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">Ver planificación</button>
-      </div>
     </section>
   );
 }
@@ -994,10 +998,6 @@ function WeeklyDecisionBlock({
   suggestedDecisionSaved: boolean;
 }) {
   const style = getWeeklyReviewStyle(review.level);
-  const secondaryReasons = review.reasons
-    .filter((reason) => reason !== review.primaryReason)
-    .slice(0, 3);
-  const confidenceLabel = review.confidence === "high" ? "alta" : review.confidence === "medium" ? "media" : "baja";
   const impactSummary = [
     `${review.stats.highImpactSessions} ${review.stats.highImpactSessions === 1 ? "alto" : "altos"}`,
     `${review.stats.moderateImpactSessions} ${review.stats.moderateImpactSessions === 1 ? "medio" : "medios"}`,
@@ -1006,57 +1006,38 @@ function WeeklyDecisionBlock({
   ].filter(Boolean).join(" · ");
 
   return (
-    <section className={`coach-surface overflow-hidden rounded-md border ${style.borderClassName}`}>
-      <div className="highlight-summary-card flex flex-col gap-4 border-0 p-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-2xl">
+    <section className={`coach-surface highlight-summary-card overflow-hidden rounded-md border p-4 sm:p-5 ${style.borderClassName}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">Lectura semanal</p>
-          <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">RAC Review semanal</h3>
-          <p className="mt-2 text-sm text-white/65">{review.description}</p>
+          <h3 className="mt-1 text-xl font-semibold text-white">RAC Review semanal</h3>
+          <p className="mt-1 text-sm text-white/70">{review.primaryReason?.label ?? review.description}</p>
         </div>
-        <span className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${style.badgeClassName}`}>
+        <span className={`inline-flex w-fit items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${style.badgeClassName}`}>
           <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${style.dotClassName}`} />
           {review.label}
         </span>
       </div>
-
-      <div className="grid gap-3 p-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-md border border-line bg-panel/45 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Qué significa</p>
-          <p className="mt-2 text-sm text-ink/70">
-            <span className="font-semibold text-ink">Motivo principal:</span>{" "}
-            {review.primaryReason?.label ?? "Sin aspectos principales a revisar."}
-          </p>
-          <p className="mt-3 text-sm text-ink/70">
-            <span className="font-semibold text-ink">Decisión sugerida:</span> {review.suggestedDecision}
-          </p>
-          <p className="mt-3 text-xs font-semibold text-ink/45">Confianza {confidenceLabel}</p>
-          <DecisionExplanationDetails explanation={fromWeeklyCoachReview(review)} summary="Ver en qué se basa" />
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-white/15 pt-3 text-xs text-white/75">
+        <span><span className="font-semibold text-white">Cumplimiento:</span> {review.stats.completedSessions}/{review.stats.plannedSessions}</span>
+        <span><span className="font-semibold text-white">Impacto:</span> {impactSummary}</span>
+        <span><span className="font-semibold text-white">Molestias:</span> {review.stats.discomfortSessions}</span>
+      </div>
+      <details className="mt-3 border-t border-white/15 pt-2 text-sm text-white/75">
+        <summary className="cursor-pointer font-semibold text-white/85">Ver en qué se basa</summary>
+        <div className="mt-2 rounded-md bg-white p-3 text-ink">
+          <p>{review.description}</p>
+          <DecisionExplanationDetails explanation={fromWeeklyCoachReview(review)} summary="Datos usados" />
           <button
-            className="mt-4 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink transition hover:border-moss/35 disabled:cursor-default disabled:opacity-55"
+            className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-55"
             disabled={suggestedDecisionSaved}
             onClick={onSaveSuggestedDecision}
             type="button"
           >
-            {suggestedDecisionSaved ? "Decisión sugerida guardada" : "Guardar decisión sugerida"}
+            {suggestedDecisionSaved ? "Lectura semanal guardada" : "Guardar lectura semanal"}
           </button>
         </div>
-
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-          <ClientInfoCard label="Cumplimiento" value={`${review.stats.completedSessions}/${review.stats.plannedSessions} sesiones`} />
-          <ClientInfoCard label="Impacto" value={impactSummary} />
-          <ClientInfoCard label="Molestias" value={`${review.stats.discomfortSessions}`} />
-        </div>
-      </div>
-
-      {secondaryReasons.length > 0 ? (
-        <div className="flex flex-wrap gap-2 px-5 pb-5">
-          {secondaryReasons.map((reason) => (
-            <span className="rounded-md border border-line bg-panel/55 px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={`${reason.type}-${reason.label}`}>
-              {reason.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      </details>
     </section>
   );
 }
@@ -1178,7 +1159,7 @@ function formatDecisionDate(value: string) {
   return date.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function CoachDecisionLog({
+export function CoachDecisionLog({
   decisions,
   onDeleteDecision,
   onSaveDecision
@@ -1445,11 +1426,11 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
               <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={`${entry.label}-${index}`}>
                 <div className="flex h-28 w-full items-end justify-center">
                   <div
-                    className={`w-full max-w-8 rounded-t ${entry.discomfort ? "bg-clay" : "bg-moss"}`}
+                    className={`w-full max-w-8 rounded-t ${entry.discomfort ? "bg-clay" : "bg-steel"}`}
                     style={{ height: `${entry.srpe > 0 ? Math.max(10, (entry.srpe / maxSrpe) * 100) : 4}%` }}
                   />
                 </div>
-                <span className="h-5 text-xs font-semibold text-ink/65">
+                <span className="h-5 text-xs font-semibold text-violet-600 dark:text-violet-300">
                   {entry.readiness !== null ? entry.readiness.toFixed(1) : "-"}
                 </span>
                 <span className="max-w-full truncate text-[10px] font-semibold text-ink/45">{entry.label}</span>
@@ -1457,8 +1438,8 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
-            <span className="rounded-md border border-line bg-panel px-2 py-1">Barras: sRPE</span>
-            <span className="rounded-md border border-line bg-panel px-2 py-1">Número: readiness / 5</span>
+            <span className="rounded-md border border-line bg-panel px-2 py-1 text-steel">Azul: sRPE</span>
+            <span className="rounded-md border border-line bg-panel px-2 py-1 text-violet-600 dark:text-violet-300">Violeta: readiness / 5</span>
             <span className="rounded-md border border-line bg-panel px-2 py-1">Arcilla: molestia registrada</span>
           </div>
         </div>
@@ -1665,30 +1646,29 @@ function DashboardWatchSignalsBlock({
   };
 
   return (
-    <details className="coach-surface rounded-md p-4 sm:p-5">
-      <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
-        <span className="block font-semibold">Qué revisar</span>
-        <span className="mt-1 block text-sm font-normal text-ink/55">
+    <section className="coach-surface rounded-md p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-ink">Qué revisar</h3>
+        <span className="text-xs text-ink/55">
           {dashboardData.watchSignals.length > 0
             ? `${dashboardData.watchSignals.length} ${dashboardData.watchSignals.length === 1 ? "aspecto disponible" : "aspectos disponibles"}`
             : "Sin señales relevantes ahora"}
         </span>
-      </summary>
-      <div className="mt-4">
-        <p className="text-sm text-ink/55">Motivos concretos para abrir la vista relacionada y decidir el siguiente ajuste.</p>
+      </div>
+      <div className="mt-2">
         {dashboardData.watchSignals.length > 0 ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-2">
             {dashboardData.watchSignals.map((signal) => (
-              <article className="rounded-md border border-line bg-panel/45 p-3" key={`${signal.label}-${signal.meta}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <article className="rounded-md border border-line bg-panel/45 px-3 py-2" key={`${signal.label}-${signal.meta}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${toneClass[signal.tone]}`}>
+                    <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${toneClass[signal.tone]}`}>
                       {signal.label}
                     </span>
-                    <p className="mt-2 text-sm font-semibold text-ink">{signal.meta}</p>
+                    <p className="mt-1 break-words text-xs font-medium text-ink/70">{signal.meta}</p>
                   </div>
                   <button
-                    className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink/70"
+                    className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70"
                     onClick={() => onOpenClientSheet(clientId, signal.action)}
                     type="button"
                   >
@@ -1702,57 +1682,7 @@ function DashboardWatchSignalsBlock({
           <DashboardEmptyState>Sin señales relevantes ahora.</DashboardEmptyState>
         )}
       </div>
-    </details>
-  );
-}
-
-function DashboardQuickActionsBlock({
-  client,
-  dashboardData,
-  onOpenClientSheet
-}: {
-  client: CoachClient;
-  dashboardData: ReturnType<typeof getClientDashboardData>;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
-}) {
-  const actions: Array<{ label: string; sheet: SheetId; meta: string }> = [
-    { label: "Planificar sesión", meta: "Abrir entrenamiento", sheet: "training" },
-    { label: "Ir a Planificación", meta: "Revisar semana y bloque", sheet: "planning" },
-    { label: "Ir a Valoraciones", meta: "Tests principales y reevaluación", sheet: "assessments" },
-    { label: "Ver Bienestar", meta: "Readiness, sueño y molestias", sheet: "clientWellness" },
-    { label: "Ver Progreso", meta: "Evolución y técnica", sheet: "clientProgress" }
-  ];
-
-  return (
-    <details className="coach-surface rounded-md p-4 sm:p-5">
-      <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
-        <span className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <span>
-            <span className="block font-semibold">Seguimiento</span>
-            <span className="mt-1 block text-sm font-normal text-ink/55">Atajos para actuar desde la lectura semanal.</span>
-          </span>
-          <span className="w-fit rounded-md border border-line bg-panel px-3 py-1 text-xs font-semibold text-ink/55">
-            {dashboardData.pendingReviews} revisión(es) pendiente(s)
-          </span>
-        </span>
-      </summary>
-      <div className="mt-4">
-        <p className="text-sm text-ink/55">Acciones disponibles para continuar el seguimiento sin duplicar pantallas.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {actions.map((action) => (
-            <button
-              className="rounded-md border border-line bg-panel/45 p-3 text-left transition hover:border-moss/35 hover:bg-panel"
-              key={action.label}
-              onClick={() => onOpenClientSheet(client.id, action.sheet)}
-              type="button"
-            >
-              <span className="text-sm font-semibold text-ink">{action.label}</span>
-              <span className="mt-1 block text-xs font-medium text-ink/55">{action.meta}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </details>
+    </section>
   );
 }
 
