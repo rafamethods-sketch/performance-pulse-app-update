@@ -6569,6 +6569,8 @@ function PlanningView({
     const endWeek = startWeek + block.durationWeeks - 1;
     return [...items, { ...block, endWeek, startWeek }];
   }, []);
+  const currentPlanningBlockId = client?.planning.blocks?.find((block) => block.name === client.planning.currentBlock)?.id;
+  const currentRoadmapBlockIndex = roadmapBlocks.findIndex((block) => block.id === currentPlanningBlockId || block.name === client?.planning.currentBlock);
   const selectedPlanningBlock =
     selectedPlanningBlockId ? roadmapBlocks.find((block) => block.id === selectedPlanningBlockId) ?? null : null;
   const selectedPlan = {
@@ -6762,31 +6764,20 @@ function PlanningView({
   }
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-      <section className="coach-surface rounded-md p-5 xl:col-span-2">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className="mt-6 grid grid-cols-1 gap-6">
+      <section className="coach-surface rounded-md px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase text-moss">Planificación visual</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">{client.name}</h2>
-            <p className="mt-1 text-sm text-ink/55">
-              {client.planning.currentBlock || "Bloque sin asignar"} · {client.planning.currentWeek || "Semana sin asignar"}
-            </p>
-            <p className="mt-2 max-w-3xl text-sm text-ink/60">
-              {client.planning.primaryGoal || client.planning.secondaryGoal
-                ? [client.planning.primaryGoal, client.planning.secondaryGoal].filter(Boolean).join(" · ")
-                : "Añade bloques y sesiones para construir una vista semanal más clara."}
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Plan actual · {client.name}</p>
+            <h2 className="mt-1 text-base font-semibold text-ink">{getPlanningMethodLabel(planningMethod)} · {planningBlocks.length} {planningBlocks.length === 1 ? "mesociclo" : "mesociclos"} · {totalWeeks} {totalWeeks === 1 ? "semana" : "semanas"}</h2>
+            <p className="mt-1 text-sm text-ink/60">Actual: {roadmapBlocks[currentRoadmapBlockIndex]?.name || client.planning.currentBlock || "Sin bloque asignado"} · {client.planning.currentWeek?.replace(/\s+de\s+\d+$/i, "") || "Semana sin asignar"}</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/65 lg:justify-end">
-            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{planningBlocks.length} mesociclos</span>
-            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{totalWeeks} semanas</span>
-            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{getPlanningMethodLabel(planningMethod) || "Sin modelo"}</span>
-            <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1.5">{planningEventName || client.nextEvent || "Sin evento objetivo"}</span>
-          </div>
+          <p className="text-xs font-medium text-ink/50">{planningEventName || client.nextEvent || "Sin evento objetivo"}</p>
         </div>
       </section>
 
-      <section className="coach-surface rounded-md p-4 xl:col-span-2">
+      <details className="coach-surface rounded-md p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-ink">Referencias de planificación · {planningReferenceCount} disponibles</summary>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Referencias de planificación</h3>
@@ -6855,73 +6846,57 @@ function PlanningView({
             Sin valoraciones principales. Añade una para usarla como referencia.
           </p>
         )}
-      </section>
+      </details>
 
-      <section className="coach-surface rounded-md p-5 xl:col-span-2">
+      <section className="coach-surface rounded-md p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">Mesociclos / bloques</h3>
-            <p className="mt-1 text-sm text-ink/55">Resumen visual de objetivos, duración, semanas y estado. El detalle se abre solo bajo demanda.</p>
+            <h3 className="text-lg font-semibold text-ink">Timeline de mesociclos</h3>
+            <p className="mt-1 text-sm text-ink/55">Del primer bloque al siguiente. Selecciona uno para consultar semanas, sesiones y edición.</p>
           </div>
           <button
-            className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
+            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             onClick={() => setShowAdvancedPlanning(true)}
             type="button"
           >
-            Nuevo mesociclo
+            + Añadir mesociclo
           </button>
         </div>
         {planningBlocks.length === 0 ? (
-          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
-            Sin bloques definidos. Crea el primer mesociclo para empezar la planificación.
+          <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/60">
+            <p>Aún no hay mesociclos en esta planificación.</p>
+            <button className="mt-2 text-sm font-semibold text-moss hover:underline" onClick={() => setShowAdvancedPlanning(true)} type="button">+ Crear primer mesociclo</button>
           </div>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ol className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {roadmapBlocks.map((block, index) => {
-              const status = getPlanningBlockStatus(block, client.planning.currentBlock);
-              const progress = getPlanningBlockProgress(client, block);
+              const isCurrent = index === currentRoadmapBlockIndex;
+              const periodLabel = currentRoadmapBlockIndex < 0 ? "Planificado" : isCurrent ? "Actual" : index < currentRoadmapBlockIndex ? "Anterior" : "Posterior";
 
               return (
-                <button
-                  className="rounded-md border border-line bg-panel/35 p-4 text-left transition hover:-translate-y-0.5 hover:border-moss hover:shadow-soft"
-                  key={block.id}
-                  onClick={() => setSelectedPlanningBlockId(block.id)}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase text-moss">Bloque {index + 1}</p>
-                      <h4 className="mt-1 truncate font-semibold text-ink">{block.name}</h4>
+                <li className="relative min-w-0 border-l-2 border-line pl-4 xl:border-l-0 xl:border-t-2 xl:pl-0 xl:pt-4" key={block.id}>
+                  <span aria-hidden="true" className={`absolute -left-[5px] top-4 size-2 rounded-full xl:-top-[5px] xl:left-4 ${isCurrent ? "bg-moss" : "bg-steel/45"}`} />
+                  <button
+                    className={`flex h-full w-full min-w-0 flex-col rounded-md border p-4 text-left transition hover:border-moss hover:shadow-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-moss ${isCurrent ? "border-moss/45 bg-mint/25 shadow-soft" : "border-line bg-panel/35"}`}
+                    onClick={() => setSelectedPlanningBlockId(block.id)}
+                    type="button"
+                  >
+                    <div className="flex w-full min-w-0 items-start justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{index + 1} · {periodLabel}</p>
+                      {isCurrent ? <span className="rounded-md border border-moss/25 bg-mint px-2 py-0.5 text-[11px] font-semibold text-moss">Actual</span> : null}
                     </div>
-                    <span className={`shrink-0 rounded-md border px-2 py-1 text-xs font-semibold ${getPlanningBlockStatusClass(status)}`}>
-                      {status}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-1 text-sm text-ink/60">
-                    <p>{block.durationWeeks} semanas · Semana {block.startWeek}-{block.endWeek}</p>
-                    <p>Objetivo: {block.primaryObjective || "Sin definir"}</p>
-                    {block.secondaryObjective ? <p>Secundario: {block.secondaryObjective}</p> : null}
-                    <p>Distribución: {block.weeklyDistribution || "Sin asignar"}</p>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-ink/55">
-                    <span>
-                      {progress.totalSessions > 0
-                        ? `${progress.completedSessions}/${progress.totalSessions} sesiones`
-                        : "Sin sesiones registradas"}
-                    </span>
-                    <span>Ver detalle</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-panel">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-moss to-steel"
-                      style={{ width: `${progress.completionPct}%` }}
-                    />
-                  </div>
-                </button>
+                    <h4 className="mt-3 break-words text-base font-semibold text-ink">{block.name}</h4>
+                    <p className="mt-2 text-sm font-medium text-ink/65">Semanas {block.startWeek}–{block.endWeek} · {block.durationWeeks} {block.durationWeeks === 1 ? "semana" : "semanas"}</p>
+                    <p className="mt-3 text-xs text-ink/50">Objetivo principal</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-ink/75">{block.primaryObjective || "Sin definir"}</p>
+                    <span className="mt-auto pt-4 text-xs font-semibold text-moss">Ver detalle</span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ol>
         )}
+        <p className="mt-4 text-xs text-ink/50">El calendario semanal y las sesiones se consultan dentro del detalle de cada mesociclo.</p>
       </section>
 
       <section className="hidden">
@@ -6976,6 +6951,7 @@ function PlanningView({
           client={client}
           copiedPlanningWeek={Boolean(copiedPlanningWeek)}
           currentPlanningWeekNumber={currentPlanningWeekNumber}
+          isCurrentBlock={selectedPlanningBlock.id === roadmapBlocks[currentRoadmapBlockIndex]?.id}
           onAddSession={openPlanningSessionDraft}
           onBack={() => setSelectedPlanningBlockId(null)}
           onCopyWeek={copyPlanningWeek}
@@ -7176,6 +7152,7 @@ function PlanningBlockDetail({
   client,
   copiedPlanningWeek,
   currentPlanningWeekNumber,
+  isCurrentBlock,
   onAddSession,
   onBack,
   onCopyWeek,
@@ -7191,6 +7168,7 @@ function PlanningBlockDetail({
   client: CoachClient;
   copiedPlanningWeek: boolean;
   currentPlanningWeekNumber: number | null;
+  isCurrentBlock: boolean;
   onAddSession: (date: Date, weekNumber: number) => void;
   onBack: () => void;
   onCopyWeek: (week: PlanningCalendarWeek) => void;
@@ -7202,7 +7180,7 @@ function PlanningBlockDetail({
   planningActionMessage: string;
   planningDistribution: PlanningCalendarWeek[];
 }) {
-  const status = getPlanningBlockStatus(block, client.planning.currentBlock);
+  const status = isCurrentBlock ? "En curso" : getPlanningBlockStatus(block, client.planning.currentBlock);
   const progress = getPlanningBlockProgress(client, block);
   const blockWeeks = planningDistribution.filter(
     (week) => week.weekNumber >= block.startWeek && week.weekNumber <= block.endWeek
@@ -7294,7 +7272,7 @@ function PlanningBlockDetail({
             <p className="mt-3 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/60">{block.notes}</p>
           ) : null}
 
-          <details open className="group mt-3 rounded-md border border-line bg-panel/35">
+          <details className="group mt-3 rounded-md border border-line bg-panel/35">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-ink sm:px-4">
               Editar mesociclo
               <span className="text-ink/45 group-open:hidden">+</span>
