@@ -760,7 +760,35 @@ export function ClientDashboardView({
   return (
     <div className="mt-6 grid gap-5">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
+      <DashboardCurrentState client={client} dashboardData={dashboardData} />
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <DashboardAttention clientId={client.id} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} review={weeklyReview} />
+        <DashboardRelevantChanges dashboardData={dashboardData} />
+      </div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <DashboardCurrentPlan client={client} onOpenClientSheet={onOpenClientSheet} />
+        <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
+      </div>
+
+      <details className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
+          <span className="block font-semibold">Métricas y evolución</span>
+          <span className="mt-1 block text-sm font-normal text-ink/55">RAC Review, próxima sesión, carga, gráficos y señales disponibles.</span>
+        </summary>
+        <div className="mt-4 grid gap-4">
+          <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
+          <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
+            <DailyLoadReadinessBlock dashboardData={dashboardData} />
+          </div>
+          <LoadControlIndicatorsBlock dashboardData={dashboardData} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <LoadDistributionDecisionBlock dashboardData={dashboardData} />
+            <PatternZoneWatchBlock dashboardData={dashboardData} />
+          </div>
+        </div>
+      </details>
       <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -806,30 +834,6 @@ export function ClientDashboardView({
           </div>
         ) : <DashboardEmptyState>No hay una próxima sesión pendiente con fecha disponible.</DashboardEmptyState>}
       </section>
-      <CoachDecisionLog decisions={client.decisionLog ?? []} onDeleteDecision={onDeleteDecision} onSaveDecision={onSaveDecision} />
-
-      <details className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
-        <summary className="cursor-pointer rounded-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-steel">
-          <span className="block font-semibold">Contexto de carga</span>
-          <span className="mt-1 block text-sm font-normal text-ink/55">Carga semanal, readiness y detalle técnico.</span>
-        </summary>
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <WeeklyLoadDecisionBlock dashboardData={dashboardData} loadData={loadData} />
-          <DailyLoadReadinessBlock dashboardData={dashboardData} />
-        </div>
-        <details className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-          <summary className="cursor-pointer font-semibold text-ink">Detalle de entrenamiento</summary>
-          <p className="mt-2 text-sm text-ink/55">Indicadores de carga, distribución muscular, patrones y zonas.</p>
-          <div className="mt-4 grid gap-4">
-            <LoadControlIndicatorsBlock dashboardData={dashboardData} />
-            <div className="grid gap-4 xl:grid-cols-2">
-              <LoadDistributionDecisionBlock dashboardData={dashboardData} />
-              <PatternZoneWatchBlock dashboardData={dashboardData} />
-            </div>
-          </div>
-        </details>
-      </details>
-      <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
       <DashboardQuickActionsBlock client={client} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} />
     </div>
   );
@@ -871,6 +875,112 @@ function DecisionExplanationDetails({ explanation, summary }: { explanation: Dec
         <p className="text-xs text-ink/60">Confianza {confidenceLabel} · Lectura orientativa</p>
       </div>
     </details>
+  );
+}
+
+function DashboardCurrentState({ client, dashboardData }: {
+  client: CoachClient;
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+}) {
+  const indicators = [
+    { label: "Carga", reading: dashboardData.loadControlIndicators.recentHabitualLabel, detail: dashboardData.currentWeekLoad > 0 ? `${formatDashboardNumber(dashboardData.currentWeekLoad)} UA esta semana` : "Sin carga reciente" },
+    { label: "Bienestar", reading: dashboardData.latestReadiness !== null ? "Último readiness" : "Sin registro reciente", detail: dashboardData.latestReadiness !== null ? `${dashboardData.latestReadiness.toFixed(1)} / 5` : "Sin lectura reciente" },
+    { label: "Asistencia", reading: dashboardData.adherencePercent !== null ? dashboardData.loadControlIndicators.adherenceLabel : "Sin referencia", detail: dashboardData.adherencePercent !== null ? `${dashboardData.adherencePercent}% según los registros disponibles` : "Sin sesiones planificadas" },
+    { label: "Contexto", reading: client.status || "Sin estado disponible", detail: client.readiness ? `Readiness ${client.readiness}%` : "Lectura orientativa" }
+  ];
+  return (
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <h3 className="text-lg font-semibold text-ink">Estado actual</h3>
+      <p className="mt-1 text-sm text-ink/55">Lectura rápida con los indicadores disponibles.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {indicators.map((indicator) => (
+          <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={indicator.label}>
+            <p className="text-xs font-semibold text-ink/55">{indicator.label}</p>
+            <p className="mt-2 break-words text-base font-semibold text-ink">{indicator.reading}</p>
+            <p className="mt-1 break-words text-xs text-ink/55">{indicator.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardRelevantChanges({ dashboardData }: { dashboardData: ReturnType<typeof getClientDashboardData> }) {
+  const changes = [
+    dashboardData.loadControlIndicators.weeklyChangeLabel !== "Datos insuficientes" && dashboardData.loadControlIndicators.weeklyChangeLabel !== "Estable"
+      ? { label: "Carga semanal", reading: dashboardData.loadControlIndicators.weeklyChangeLabel, detail: dashboardData.weeklyChangePct !== null ? `${dashboardData.weeklyChangePct > 0 ? "+" : ""}${dashboardData.weeklyChangePct}% frente a la semana previa` : "" }
+      : null,
+    dashboardData.loadControlIndicators.recentHabitualLabel !== "Datos insuficientes" && dashboardData.loadControlIndicators.recentHabitualLabel !== "Similar a habitual"
+      ? { label: "Carga habitual", reading: dashboardData.loadControlIndicators.recentHabitualLabel, detail: "Comparación con registros recientes" }
+      : null
+  ].filter((change): change is { label: string; reading: string; detail: string } => Boolean(change)).slice(0, 3);
+  return (
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <h3 className="font-semibold text-ink">Cambios relevantes</h3>
+      {changes.length > 0 ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {changes.map((change) => (
+            <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={change.label}>
+              <p className="text-xs font-semibold text-ink/55">{change.label}</p>
+              <p className="mt-1 font-semibold text-ink">{change.reading}</p>
+              <p className="mt-1 text-xs text-ink/55">{change.detail}</p>
+            </article>
+          ))}
+        </div>
+      ) : <p className="mt-2 text-sm text-ink/55">No hay cambios relevantes esta semana.</p>}
+    </section>
+  );
+}
+
+function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, review }: {
+  clientId: string;
+  dashboardData: ReturnType<typeof getClientDashboardData>;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  review: WeeklyCoachReview;
+}) {
+  const signals = dashboardData.watchSignals.filter((signal) => signal.tone !== "calm" && !(signal.label === "Limitaciones registradas" && signal.meta.toLowerCase().includes("pendiente de completar"))).slice(0, 2);
+  return (
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-ink">Atención</h3>
+        <span className="text-xs font-semibold text-ink/55">{review.label}</span>
+      </div>
+      {review.level === "priority" && review.primaryReason ? (
+        <p className="mt-2 text-sm font-semibold text-ink">Motivo principal: {review.primaryReason.label}</p>
+      ) : null}
+      {signals.length > 0 ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {signals.map((signal) => (
+            <article className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel/35 p-3" key={`${signal.label}-${signal.meta}`}>
+              <div className="min-w-0">
+                <p className="font-semibold text-ink">{signal.label}</p>
+                <p className="mt-1 break-words text-xs text-ink/55">{signal.meta}</p>
+              </div>
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => onOpenClientSheet(clientId, signal.action)} type="button">Revisar</button>
+            </article>
+          ))}
+        </div>
+      ) : <p className="mt-2 text-sm text-ink/55">Sin señales prioritarias.</p>}
+    </section>
+  );
+}
+
+function DashboardCurrentPlan({ client, onOpenClientSheet }: {
+  client: CoachClient;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+}) {
+  return (
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-ink">Plan actual</h3>
+          <p className="mt-2 break-words text-lg font-semibold text-ink">{client.planning.currentBlock || "Sin mesociclo actual"}</p>
+          <p className="mt-1 text-sm text-ink/60">{client.planning.currentWeek || "Semana no disponible"}</p>
+          {client.planning.primaryGoal ? <p className="mt-2 text-sm text-ink/60">Objetivo principal: {client.planning.primaryGoal}</p> : null}
+        </div>
+        <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenClientSheet(client.id, "planning")} type="button">Ver planificación</button>
+      </div>
+    </section>
   );
 }
 
@@ -1093,7 +1203,7 @@ function CoachDecisionLog({
   const filteredDecisions = sourceFilter === "all"
     ? sortedDecisions
     : sortedDecisions.filter((entry) => (entry.source ?? "manual") === sourceFilter);
-  const displayedDecisions = showFullHistory ? filteredDecisions : sortedDecisions.slice(0, 3);
+  const displayedDecisions = showFullHistory ? filteredDecisions : sortedDecisions.slice(0, 1);
   const decisionCountLabel = decisions.length === 0
     ? "Sin decisiones registradas"
     : `${decisions.length} ${decisions.length === 1 ? "decisión registrada" : "decisiones registradas"}`;
@@ -1231,7 +1341,7 @@ function CoachDecisionLog({
             </p>
           )}
 
-          {decisions.length > 3 ? (
+          {decisions.length > 1 ? (
             <button
               className="mt-4 text-sm font-semibold text-moss underline-offset-4 hover:underline"
               onClick={() => {
@@ -1246,7 +1356,7 @@ function CoachDecisionLog({
         </>
       ) : (
         <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/55">
-          Todavía no hay decisiones registradas.
+          Aún no hay ninguna decisión registrada.
         </p>
       )}
     </section>
@@ -1308,6 +1418,9 @@ function WeeklyLoadDecisionBlock({
             <ClientInfoCard label="Media 4 semanas" value={formatDashboardNumber(dashboardData.weeklyAverage4, " UA")} />
             <ClientInfoCard label="Sesiones con sRPE" value={`${dashboardData.sessionsWithSrpe.length}`} />
             <ClientInfoCard label="ACWR" value={`${loadData.acwr.toFixed(2)} · ${loadData.acwrStatus === "Riesgo" ? "A revisar" : loadData.acwrStatus}`} />
+            <ClientInfoCard label="Monotony" value={loadData.monotony > 0 ? `${loadData.monotony.toFixed(2)} · ${loadData.monotonyStatus}` : "Sin datos"} />
+            <ClientInfoCard label="Strain" value={loadData.strain > 0 ? `${formatDashboardNumber(loadData.strain)} · ${loadData.strainStatus}` : "Sin datos"} />
+            <ClientInfoCard label="Hooper" value={loadData.hooper > 0 ? `${loadData.hooper} · ${loadData.hooperStatus}` : "Sin datos"} />
           </div>
         </>
       ) : (
