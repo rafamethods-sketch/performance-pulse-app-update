@@ -121,7 +121,7 @@ export function CoachMessagesView({
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
-  const visibleThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : mode === "athlete" ? [] : clients).map((listedClient) => {
+  const allThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : mode === "athlete" ? [] : clients).map((listedClient) => {
     const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavía.";
     const storedThread = messageThreads.find((thread) => thread.clientId === listedClient.id);
     const fallbackMessages: CoachThreadMessage[] = [
@@ -148,8 +148,8 @@ export function CoachMessagesView({
       status: listedClient.status,
       unread: messages.filter((message) => message.sender === "athlete" && !message.read).length
     };
-  })
-    .filter((thread) => visibleClientIds.has(thread.clientId))
+  }).filter((thread) => visibleClientIds.has(thread.clientId));
+  const visibleThreads = allThreads
     .filter((thread) => {
       if (mode === "athlete") return true;
       const query = messageSearch.trim().toLowerCase();
@@ -165,6 +165,16 @@ export function CoachMessagesView({
     });
   const selectedThread =
     visibleThreads.find((thread) => thread.id === selectedThreadId) ?? visibleThreads[0] ?? null;
+  const totalUnread = allThreads.reduce((total, thread) => total + thread.unread, 0);
+
+  useEffect(() => {
+    if (mode !== "coach" || !messagesHydrated || !selectedThread) return;
+    if (!selectedThreadId) setSelectedThreadId(selectedThread.id);
+    if (selectedThread.unread === 0) return;
+    setMessageThreads((currentThreads) => currentThreads.map((thread) => thread.clientId === selectedThread.clientId
+      ? { ...thread, messages: thread.messages.map((message) => message.sender === "athlete" && !message.read ? { ...message, read: true } : message) }
+      : thread));
+  }, [mode, messagesHydrated, selectedThread, selectedThreadId]);
   const visibleMessages = useMemo(() => {
     if (!selectedThread) return [];
     return selectedThread.messages.slice(Math.max(0, selectedThread.messages.length - visibleMessageCount));
@@ -273,7 +283,7 @@ export function CoachMessagesView({
           </div>
           {mode === "coach" ? (
             <span className="shrink-0 rounded-md bg-mint px-2 py-1 text-xs font-medium text-moss">
-              {visibleThreads.reduce((total, thread) => total + thread.unread, 0)} sin leer
+              {totalUnread} sin leer
             </span>
           ) : null}
         </div>
@@ -346,7 +356,7 @@ export function CoachMessagesView({
               ) : null}
             </div>
 
-            <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 sm:mt-4">
+            <div className={`mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:mt-4 ${mode === "coach" ? "space-y-2" : "space-y-3"}`}>
               {visibleMessages.length === 0 ? (
                 <p className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm text-ink/60">
                   {mode === "athlete" ? "Todavía no hay mensajes. Escribe a tu entrenador cuando lo necesites." : "Todavía no hay mensajes."}
@@ -370,16 +380,16 @@ export function CoachMessagesView({
                 >
                   <div className="group flex max-w-[88%] items-center gap-1.5">
                     <div
-                      className={`min-w-0 rounded-md border px-4 py-3 text-sm [overflow-wrap:anywhere] ${
+                      className={`min-w-0 rounded-md border text-sm [overflow-wrap:anywhere] ${mode === "coach" ? "px-3 py-2" : "px-4 py-3"} ${
                         message.sender === mode
                           ? mode === "athlete"
                             ? "border-moss/30 bg-moss/15 text-ink"
-                            : "border-moss/20 bg-ink text-white"
+                            : "border-slate-700 bg-slate-900 text-slate-100"
                           : "border-line bg-panel/60 text-ink"
                       }`}
                     >
                       <p>{message.text}</p>
-                      <p className={`mt-2 text-xs ${mode === "coach" && message.sender === "coach" ? "text-white/60" : "text-ink/45"}`}>
+                      <p className={`text-xs ${mode === "coach" ? "mt-1" : "mt-2"} ${mode === "coach" && message.sender === "coach" ? "text-slate-300" : "text-ink/60"}`}>
                         {formatMessageTime(message.timestamp)}
                       </p>
                     </div>
@@ -398,12 +408,9 @@ export function CoachMessagesView({
             </div>
 
             {mode === "coach" ? (
-            <div className="mt-3 shrink-0 rounded-md border border-line bg-panel/35 p-3">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-ink">Plantillas rápidas</h3>
-                  <p className="text-xs text-ink/50">Inserta respuestas habituales cuando las necesites.</p>
-                </div>
+            <div className="mt-3 shrink-0 rounded-md border border-line bg-panel/35 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-ink">Plantillas rápidas</h3>
                 <button
                   className="w-fit rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:bg-panel"
                   onClick={() => setShowQuickTemplates((current) => !current)}
