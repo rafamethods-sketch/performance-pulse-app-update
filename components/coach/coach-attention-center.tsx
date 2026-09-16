@@ -1,7 +1,6 @@
 "use client";
 
 import { fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
-import { getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import {
   getNextSessionCompatibility,
   getSessionCompatibilityStyle,
@@ -168,6 +167,22 @@ type CoachAttentionItem = {
   suggestedAction?: string;
   title: string;
 };
+
+type ClientAttentionGroup = { clientId: string; items: CoachAttentionItem[]; mainItem: CoachAttentionItem };
+
+function groupAttentionItemsByClient(items: CoachAttentionItem[], section: AttentionSectionId): ClientAttentionGroup[] {
+  const groups = new Map<string, ClientAttentionGroup>();
+  items.forEach((item) => {
+    const group = groups.get(item.clientId);
+    if (group) group.items.push(item);
+    else groups.set(item.clientId, { clientId: item.clientId, items: [item], mainItem: item });
+  });
+  const clientGroups = [...groups.values()];
+  // The existing item order remains the primary order for every other category.
+  return section === "pendingSessions"
+    ? clientGroups.sort((left, right) => right.items.length - left.items.length)
+    : clientGroups;
+}
 
 function isAnkleRelatedDiscomfort(discomfort?: ReviewSessionRecord["discomfort"]) {
   const text = [discomfort?.bodyArea, discomfort?.exerciseName, discomfort?.notes].filter(Boolean).join(" ").toLocaleLowerCase("es");
@@ -858,8 +873,6 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 
 export function CoachAttentionCenter({
   clients,
-  onOpenAnkleAssessment,
-  onOpenKneeAssessment,
   onOpenClientAssessments,
   onOpenClientDetails,
   onOpenClientProgress,
@@ -1012,85 +1025,60 @@ export function CoachAttentionCenter({
       ) : (
         visibleSections.map(({ items: sectionItems, section }) => {
           const sectionMeta = attentionSectionLabels[section];
+          const clientGroups = groupAttentionItemsByClient(sectionItems, section);
+          const sectionCountLabel = section === "pendingSessions" || section === "sessionCompatibility"
+            ? sectionItems.length === 1 ? "sesión" : "sesiones"
+            : section === "unreviewedVideos" ? sectionItems.length === 1 ? "vídeo" : "vídeos"
+            : sectionItems.length === 1 ? "incidencia" : "incidencias";
 
           return (
-            <section className="coach-surface rounded-md p-4" key={section}>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <section className="coach-surface rounded-md p-3 sm:p-4" key={section}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="font-semibold text-ink">{sectionMeta.title}</h3>
-                  <p className="mt-1 text-sm text-ink/55">{sectionMeta.description}</p>
+                  <p className="mt-0.5 text-xs text-ink/55">{sectionMeta.description}</p>
                 </div>
                 <span className="w-fit rounded-md border border-line bg-panel/60 px-3 py-1 text-xs font-semibold text-ink/60">
-                  {sectionItems.length}
+                  {sectionItems.length} {sectionCountLabel} · {clientGroups.length} {clientGroups.length === 1 ? "cliente" : "clientes"}
                 </span>
               </div>
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {sectionItems.slice(0, 8).map((item) => {
-                  const session = item.section === "pendingSessions" && item.sessionIndex !== undefined
-                    ? clients.find((client) => client.id === item.clientId)?.sessionRecords?.[item.sessionIndex]
-                    : undefined;
-                  const impact = session && hasRealSessionData(session) ? getSessionImpact(session) : null;
-                  const impactStyle = impact ? getSessionImpactStyle(impact.level) : null;
+              <div className="mt-3 grid gap-1.5">
+                {clientGroups.map((group) => {
+                  const item = group.mainItem;
                   const compatibilityStyle = item.compatibilityLevel
                     ? getSessionCompatibilityStyle(item.compatibilityLevel)
                     : null;
+                  const itemCount = group.items.length;
+                  const countLabel = section === "pendingSessions"
+                    ? `${itemCount} ${itemCount === 1 ? "sesión pendiente" : "sesiones pendientes"}`
+                    : itemCount > 1 ? `${itemCount} incidencias` : item.badge || item.title;
+                  const actionLabel = section === "pendingSessions" ? "Revisar sesiones"
+                    : item.action === "session" ? "Ver detalle"
+                    : item.action === "progress" ? "Ver progreso"
+                    : item.action === "assessments" ? "Ver valoración" : "Ver cliente";
 
                   return (
-                  <article className="coach-subtle-card rounded-md p-3.5" key={item.id}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-ink/45">{item.clientName}</p>
-                        <h4 className="mt-1 font-semibold text-ink">{item.title}</h4>
-                        <p className="mt-1 text-sm text-ink/60">
-                          {[item.date ? formatDisplayDate(item.date) : "", item.meta].filter(Boolean).join(" · ")}
-                        </p>
+                  <article className="flex min-w-0 flex-col gap-2 rounded-md border border-line bg-panel/35 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between" key={`${section}-${group.clientId}`}>
+                    <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                      <span aria-hidden="true" className={`mt-1.5 size-2 shrink-0 rounded-full ${item.compatibilityLevel === "priority" || section === "highPriorityTechnique" ? "bg-coral" : section === "discomfort" || section === "negativeFeedback" || section === "lowReadiness" ? "bg-clay" : "bg-steel"}`} />
+                      <div className="min-w-0">
+                        <h4 className="break-words text-sm font-semibold text-ink">{item.clientName}</h4>
+                        <p className="truncate text-xs text-ink/55" title={item.detail || item.title}>{section === "pendingSessions" ? "Revisión de sesiones completadas" : item.title}</p>
                       </div>
-                      {item.badge ? (
-                        <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${compatibilityStyle?.badgeClassName ?? "border border-line bg-white text-ink/65"}`}>
-                          {compatibilityStyle ? <span aria-hidden="true" className={`mr-1.5 inline-block size-1.5 rounded-full ${compatibilityStyle.dotClassName}`} /> : null}
-                          {item.badge}
-                        </span>
-                      ) : null}
                     </div>
-                    {item.detail ? <p className="mt-3 text-sm text-ink/65">{item.detail}</p> : null}
-                    {item.suggestedAction ? (
-                      <p className="mt-1 text-sm text-ink/65">
-                        <span className="font-semibold text-ink">Acción:</span> {item.suggestedAction}
-                      </p>
-                    ) : null}
+                    <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+                      <span className={`w-fit rounded-md px-2 py-0.5 text-xs font-semibold ${compatibilityStyle?.badgeClassName ?? "border border-line bg-white text-ink/65"}`}>{countLabel}</span>
+                      <button
+                        className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-panel"
+                        onClick={() => section === "pendingSessions" ? onOpenTrainingSession(item.clientId) : openItem(item)}
+                        type="button"
+                      >
+                        {actionLabel}
+                      </button>
+                    </div>
                     {item.decisionExplanation ? (
                       <AttentionDecisionContext explanation={item.decisionExplanation} />
                     ) : null}
-                    {impact && impactStyle ? (
-                      <div className="mt-2">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
-                          <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${impactStyle.dotClassName}`} />
-                          {impact.label}
-                        </span>
-                      </div>
-                    ) : null}
-                    {item.ankleRelated ? (
-                      <div className="mt-3 rounded-md border border-line bg-white p-3">
-                        <p className="text-sm text-ink/65">Molestia reportada en zona tobillo/pie. Puedes hacer una valoración breve si lo consideras necesario.</p>
-                        <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenAnkleAssessment(item.clientId)} type="button">Valorar tobillo</button>
-                      </div>
-                    ) : null}
-                    {item.kneeRelated ? (
-                      <div className="mt-3 rounded-md border border-line bg-white p-3">
-                        <p className="text-sm text-ink/65">Molestia reportada en zona de rodilla. Puedes hacer una valoración funcional breve si lo consideras necesario.</p>
-                        <button className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink" onClick={() => onOpenKneeAssessment(item.clientId)} type="button">Valorar rodilla</button>
-                      </div>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-3">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/40">Próxima acción</span>
-                      <button
-                        className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
-                        onClick={() => openItem(item)}
-                        type="button"
-                      >
-                        {item.action === "session" ? "Ver detalle" : item.action === "progress" ? "Ver progreso" : "Ver información"}
-                      </button>
-                    </div>
                   </article>
                   );
                 })}
@@ -1111,7 +1099,7 @@ function AttentionDecisionContext({ explanation }: { explanation: DecisionExplan
   const confidenceLabel = explanation.confidence === "high" ? "alta" : explanation.confidence === "medium" ? "media" : "baja";
 
   return (
-    <details className="mt-2 min-w-0 rounded-md border border-line/70 bg-panel/35 px-3 py-2">
+    <details className="min-w-0 w-full rounded-md border border-line/70 bg-panel/35 px-3 py-2">
       <summary className="cursor-pointer text-xs font-semibold text-ink/65 transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel">
         Ver contexto usado
       </summary>
