@@ -69,6 +69,7 @@ export type CoachCalendarEventForViews = {
   id: string;
   notes?: string;
   status: "planned" | "active";
+  time?: string;
   title: string;
   type: string;
 };

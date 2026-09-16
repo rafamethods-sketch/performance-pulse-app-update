@@ -20,7 +20,6 @@ import {
 import type { CoachCalendarEventForViews, CoachClientForViews, CoachSessionRecordForViews, TargetTrainingSession } from "./types";
 
 const primaryCardClass = "mt-6 rounded-md border border-line bg-white p-4 shadow-soft sm:p-5";
-const dayCardClass = "min-h-[156px] rounded-md border border-line bg-panel/35 p-3";
 const primaryButtonClass = "rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90";
 const secondaryButtonClass = "rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-panel/60";
 const emptyStateClass = "rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm font-semibold text-ink/55";
@@ -87,7 +86,29 @@ type CalendarDraftSelection = {
   kind: CalendarDraftKind;
   label: string;
   planSessionType?: "Fuerza" | "Cardio" | "Mixta";
+  time?: string;
 };
+
+const defaultCalendarStartHour = 6;
+const defaultCalendarEndHour = 22;
+
+const calendarEventActionLabels: Record<string, string> = {
+  "Test fuerza": "Añadir test de fuerza",
+  "Test resistencia": "Añadir test de resistencia",
+  "Test salto": "Añadir test de salto",
+  "Competición": "Añadir competición",
+  "Lesión": "Registrar lesión",
+  "Nota": "Añadir nota",
+  "Foto": "Añadir foto",
+  "Archivo": "Añadir archivo"
+};
+
+function getCalendarHour(value?: string | null) {
+  const match = `${value ?? ""}`.match(/^(\d{1,2}):([0-5]\d)/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  return hour >= 0 && hour <= 23 ? hour : null;
+}
 
 const calendarDragDataType = "application/rac-calendar-palette";
 const calendarTrashDataType = "application/rac-calendar-trash";
@@ -223,6 +244,7 @@ function getCalendarSessionDetail(session: WeeklyCalendarSession) {
   return [
     `Deportista: ${session.clientName}`,
     `Fecha: ${formatDateShort(getDateKey(session.date))}`,
+    `Hora: ${session.time || "Sin hora"}`,
     `Estado: ${session.status}`,
     `Tipo: ${session.type}`,
     `Sesión: ${session.summary}`,
@@ -269,6 +291,7 @@ function buildWeeklyCalendarSessions(clients: CoachClientForViews[], weekDates: 
         itemKind: "event",
         status: "Planificada" as const,
         summary: calendarEvent.title,
+        time: calendarEvent.time,
         type: calendarEvent.type
       } satisfies WeeklyCalendarSession];
     })
@@ -310,13 +333,14 @@ type CalendarViewProps = {
   onDeleteCalendarEvent: (clientId: string, eventId: string) => { ok: boolean; message: string };
   onDuplicateSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
+  onMoveCalendarEvent: (clientId: string, eventId: string, newDate: string) => { ok: boolean; message: string };
   onMoveSessionFromCalendar: (clientId: string, sessionIndex: number, newDate: string) => { ok: boolean; message: string };
   onDeleteSession: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onOpenTrainingDraft: (target: TargetTrainingSession) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, draftClient, onCreateCalendarEvent, onCreateRecurringSessions, onDeleteCalendarEvent, onDeleteSession, onDuplicateSession, onMoveSession, onMoveSessionFromCalendar, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, draftClient, onCreateCalendarEvent, onCreateRecurringSessions, onDeleteCalendarEvent, onDeleteSession, onDuplicateSession, onMoveCalendarEvent, onMoveSession, onMoveSessionFromCalendar, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<CalendarDraftSelection | null>(null);
@@ -337,10 +361,18 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
   const visibleClients = client ? [client] : clients;
   const associatedDraftClient = client ?? draftClient ?? null;
   const weeklySessions = buildWeeklyCalendarSessions(visibleClients, weekDates);
+  const timedSessionHours = weeklySessions.map((session) => getCalendarHour(session.time)).filter((hour): hour is number => hour !== null);
+  const visibleStartHour = Math.min(defaultCalendarStartHour, ...timedSessionHours);
+  const visibleEndHour = Math.max(defaultCalendarEndHour, ...timedSessionHours);
+  const calendarHours = Array.from({ length: visibleEndHour - visibleStartHour + 1 }, (_, index) => visibleStartHour + index);
   const sessionsByDay = weekDates.map((date) => ({
     date,
     label: weekLabels[(date.getDay() + 6) % 7],
     sessions: weeklySessions.filter((session) => getDateKey(session.date) === getDateKey(date))
+  }));
+  const sessionsWithoutTimeByDay = sessionsByDay.map((day) => ({
+    ...day,
+    sessions: day.sessions.filter((session) => getCalendarHour(session.time) === null)
   }));
   const weekEnd = weekDates[6];
   const weekRangeLabel = `Semana del ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(selectedWeekStart)} al ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" }).format(weekEnd)}`;
@@ -498,6 +530,17 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
     try {
       if (rawCalendarItem) {
         const payload = JSON.parse(rawCalendarItem) as CalendarTrashPayload;
+        if (payload.kind === "event") {
+          if (!payload.clientId || !payload.eventId) return;
+          if (!window.confirm("¿Mover este evento al día seleccionado?")) return;
+          const result = onMoveCalendarEvent(payload.clientId, payload.eventId, getDateKey(date));
+          setTrashMessage(result.message);
+          if (result.ok) {
+            setSelectedSession(null);
+            setSelectedDraft(null);
+          }
+          return;
+        }
         if (payload.kind !== "session" || payload.sessionIndex === undefined || !payload.clientId) return;
 
         if (payload.status === "Completada" || payload.status === "Pendiente de revisar") {
@@ -544,6 +587,7 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
       date: getDateKey(selectedDraft.date),
       notes: "",
       status: "planned",
+      time: selectedDraft.time || undefined,
       title: selectedDraft.label,
       type: selectedDraft.label
     });
@@ -558,6 +602,7 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
       itemKind: "event",
       status: "Planificada",
       summary: createdEvent.title,
+      time: createdEvent.time,
       type: createdEvent.type
     });
   }
@@ -651,6 +696,35 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
     }
   }
 
+  function renderCalendarItem(session: WeeklyCalendarSession, key: string) {
+    const typeConfig = getCalendarTypeConfig(session);
+    const Icon = typeConfig.Icon;
+    const detail = getCalendarSessionDetail(session);
+
+    return (
+      <button
+        aria-label={detail}
+        className={`${compactChipClass} w-full ${typeConfig.className}`}
+        draggable={session.sessionIndex !== undefined || Boolean(session.calendarEventId)}
+        key={key}
+        onDragStart={(event) => handleCalendarItemDragStart(event, session.itemKind === "event"
+          ? { clientId: session.clientId, eventId: session.calendarEventId, kind: "event", summary: session.summary }
+          : { clientId: session.clientId, kind: "session", sessionIndex: session.sessionIndex, status: session.status, summary: session.summary })}
+        onClick={() => {
+          setSelectedDraft(null);
+          setSelectedSession(session);
+        }}
+        title={detail}
+        type="button"
+      >
+        <Icon className="shrink-0" size={13} />
+        <span className={`size-1.5 shrink-0 rounded-full ${getCalendarStatusDotClass(session.status)}`} />
+        {session.time ? <span className="shrink-0 text-[10px] opacity-70">{session.time}</span> : null}
+        <span className="truncate">{client || session.itemKind === "event" ? session.summary : session.clientName}</span>
+      </button>
+    );
+  }
+
   return (
     <section className={primaryCardClass}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -702,85 +776,6 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-          {sessionsByDay.map(({ date, label, sessions }) => {
-            const dateKey = getDateKey(date);
-            const dayDraft = selectedDraft && getDateKey(selectedDraft.date) === dateKey ? selectedDraft : null;
-
-            return (
-            <section
-              className={`${dayCardClass} transition ${draggedOverDateKey === dateKey ? "border-moss bg-mint/35 ring-2 ring-moss/20" : ""}`}
-              key={dateKey}
-              onDragLeave={() => setDraggedOverDateKey((current) => current === dateKey ? null : current)}
-              onDragOver={(event) => handleDayDragOver(event, date)}
-              onDrop={(event) => handleDayDrop(event, date)}
-            >
-              <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                <div>
-                  <p className="text-sm font-semibold text-ink">{label}</p>
-                  <p className="mt-1 text-2xl font-semibold text-moss">
-                    {new Intl.DateTimeFormat("es-ES", { day: "2-digit" }).format(date)}
-                  </p>
-                </div>
-                <p className="rounded-md bg-white px-2 py-1 text-xs font-semibold uppercase text-ink/45">
-                  {new Intl.DateTimeFormat("es-ES", { month: "short" }).format(date)}
-                </p>
-              </div>
-              <div className="mt-3 flex flex-col gap-2">
-                {sessions.length > 0 ? (
-                  sessions.map((session, index) => {
-                    const typeConfig = getCalendarTypeConfig(session);
-                    const Icon = typeConfig.Icon;
-                    const detail = getCalendarSessionDetail(session);
-
-                    return (
-                      <button
-                        aria-label={detail}
-                        className={`${compactChipClass} ${typeConfig.className}`}
-                        draggable={session.sessionIndex !== undefined || Boolean(session.calendarEventId)}
-                        key={`${session.calendarEventId ?? session.clientId}-${session.summary}-${index}`}
-                        onDragStart={(event) => handleCalendarItemDragStart(event, session.itemKind === "event"
-                          ? { clientId: session.clientId, eventId: session.calendarEventId, kind: "event", summary: session.summary }
-                          : { clientId: session.clientId, kind: "session", sessionIndex: session.sessionIndex, status: session.status, summary: session.summary })}
-                        onClick={() => {
-                          setSelectedDraft(null);
-                          setSelectedSession(session);
-                        }}
-                        title={detail}
-                        type="button"
-                      >
-                        <Icon className="shrink-0" size={14} />
-                        <span className={`size-1.5 shrink-0 rounded-full ${getCalendarStatusDotClass(session.status)}`} />
-                        <span className="truncate">{client || session.itemKind === "event" ? session.summary : session.clientName}</span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="px-1 py-2 text-xs font-semibold text-ink/35">
-                    Sin sesiones
-                  </p>
-                )}
-                {dayDraft ? (
-                  <button
-                    className={`${compactChipClass} ${dayDraft.className} border-dashed`}
-                    draggable
-                    onDragStart={(event) => handleCalendarItemDragStart(event, { kind: "draft" })}
-                    onClick={() => {
-                      setSelectedSession(null);
-                      setSelectedDraft(dayDraft);
-                    }}
-                    type="button"
-                  >
-                    <span className="size-1.5 shrink-0 rounded-full bg-moss" />
-                    <span className="truncate">Borrador · {dayDraft.label}{dayDraft.clientName ? ` · ${dayDraft.clientName}` : ""}</span>
-                  </button>
-                ) : null}
-              </div>
-            </section>
-            );
-          })}
-      </div>
-
       <div className="mt-5 rounded-md border border-line bg-panel/35 p-3">
         <div className="grid gap-3 lg:grid-cols-2">
           <CalendarLegendGroup items={draggableSessionItems} onDragStart={handlePaletteDragStart} title="Sesiones" />
@@ -788,6 +783,63 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
         </div>
       </div>
 
+      <div className="mt-6 overflow-x-auto rounded-md border border-line">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[64px_repeat(7,minmax(126px,1fr))] border-b border-line bg-panel/55">
+            <div className="sticky left-0 z-20 border-r border-line bg-panel/95 px-2 py-3 text-[10px] font-semibold uppercase tracking-wide text-ink/45">Hora</div>
+            {sessionsByDay.map(({ date, label }) => (
+              <div className="border-r border-line px-2 py-2 text-center last:border-r-0" key={getDateKey(date)}>
+                <p className="text-xs font-semibold text-ink">{label}</p>
+                <p className="mt-0.5 text-sm font-semibold text-moss">{new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date)}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-[64px_repeat(7,minmax(126px,1fr))] border-b border-line bg-white">
+            <div className="sticky left-0 z-20 border-r border-line bg-white px-2 py-3 text-[10px] font-semibold uppercase text-ink/45">Sin hora</div>
+            {sessionsWithoutTimeByDay.map(({ date, sessions }) => {
+              const dateKey = getDateKey(date);
+              const dayDraft = selectedDraft && getDateKey(selectedDraft.date) === dateKey ? selectedDraft : null;
+              return (
+                <div
+                  className={`min-h-20 border-r border-line p-1.5 transition last:border-r-0 ${draggedOverDateKey === dateKey ? "bg-mint/35 ring-2 ring-inset ring-moss/20" : ""}`}
+                  key={dateKey}
+                  onDragLeave={() => setDraggedOverDateKey((current) => current === dateKey ? null : current)}
+                  onDragOver={(event) => handleDayDragOver(event, date)}
+                  onDrop={(event) => handleDayDrop(event, date)}
+                >
+                  <div className="grid gap-1">
+                    {sessions.map((session, index) => renderCalendarItem(session, `unscheduled-${session.calendarEventId ?? session.clientId}-${index}`))}
+                    {dayDraft ? (
+                      <button className={`${compactChipClass} ${dayDraft.className} border-dashed`} draggable onDragStart={(event) => handleCalendarItemDragStart(event, { kind: "draft" })} onClick={() => { setSelectedSession(null); setSelectedDraft(dayDraft); }} type="button">
+                        <span className="size-1.5 shrink-0 rounded-full bg-moss" />
+                        <span className="truncate">Borrador · {dayDraft.label}</span>
+                      </button>
+                    ) : null}
+                    {sessions.length === 0 && !dayDraft ? <span className="px-1 py-2 text-[10px] font-medium text-ink/30">Sin elementos</span> : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {calendarHours.map((hour) => (
+            <div className="grid grid-cols-[64px_repeat(7,minmax(126px,1fr))] border-b border-line/70 last:border-b-0" key={hour}>
+              <div className="sticky left-0 z-20 border-r border-line bg-white px-2 py-2 text-right text-[10px] font-semibold text-ink/40">{String(hour).padStart(2, "0")}:00</div>
+              {sessionsByDay.map(({ date, sessions }) => {
+                const hourSessions = sessions.filter((session) => getCalendarHour(session.time) === hour);
+                return (
+                  <div className="min-h-16 border-r border-line/70 p-1 last:border-r-0" key={getDateKey(date)}>
+                    <div className={`grid gap-1 ${hourSessions.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                      {hourSessions.map((session, index) => renderCalendarItem(session, `${hour}-${session.calendarEventId ?? session.clientId}-${index}`))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <section
         className={`mt-4 rounded-md border border-dashed p-3 transition ${isTrashActive ? "border-coral bg-coral/10" : "border-line bg-panel/35"}`}
@@ -827,17 +879,45 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
                 </button>
               ) : (
                 <button className={primaryButtonClass} disabled={!selectedDraft.clientId} onClick={createDraftEvent} type="button">
-                  Crear evento
+                  {calendarEventActionLabels[selectedDraft.label] ?? "Crear evento"}
                 </button>
               )}
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <ClientInfoCard label={selectedDraft.kind === "session" ? "Tipo de sesión" : "Tipo de evento"} value={selectedDraft.label} />
             <ClientInfoCard label="Deportista" value={selectedDraft.clientName ?? "Sin deportista asignado"} />
             <ClientInfoCard label="Fecha" value={formatDateShort(getDateKey(selectedDraft.date))} />
+            <ClientInfoCard label="Hora" value={selectedDraft.time || "Sin hora"} />
             <ClientInfoCard label="Estado" value="Borrador" />
           </div>
+          {selectedDraft.kind === "event" ? (
+            <div className="mt-3 grid max-w-2xl gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-semibold text-ink/70">
+                Deportista
+                <select
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => {
+                    const selectedClient = clients.find((listedClient) => listedClient.id === event.target.value);
+                    setSelectedDraft((current) => current ? { ...current, clientId: selectedClient?.id, clientName: selectedClient?.name } : current);
+                  }}
+                  value={selectedDraft.clientId ?? ""}
+                >
+                  <option value="">Seleccionar deportista</option>
+                  {clients.map((listedClient) => <option key={listedClient.id} value={listedClient.id}>{listedClient.name}</option>)}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-semibold text-ink/70">
+                Hora opcional
+                <input
+                  className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => setSelectedDraft((current) => current ? { ...current, time: event.target.value } : current)}
+                  type="time"
+                  value={selectedDraft.time ?? ""}
+                />
+              </label>
+            </div>
+          ) : null}
           {selectedDraft.kind === "event" && !selectedDraft.clientName ? (
             <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm font-semibold text-ink/60">Selecciona un deportista para configurar este evento.</p>
           ) : null}
@@ -883,17 +963,19 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
               ) : null}
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {selectedSession.itemKind === "event" ? (
               <>
                 <ClientInfoCard label="Tipo de evento" value={selectedSession.type || "Sin especificar"} />
                 <ClientInfoCard label="Deportista" value={selectedSession.clientName ?? "Sin deportista asignado"} />
                 <ClientInfoCard label="Fecha" value={formatDateShort(getDateKey(selectedSession.date))} />
+                <ClientInfoCard label="Hora" value={selectedSession.time || "Sin hora"} />
                 <ClientInfoCard label="Estado" value="Planificado" />
               </>
             ) : (
               <>
                 <ClientInfoCard label="Tipo" value={selectedSession.type || "Sin especificar"} />
+                <ClientInfoCard label="Hora" value={selectedSession.time || "Sin hora"} />
                 <ClientInfoCard label="Bloque / mesociclo" value={selectedSession.block ?? "Sin asignar"} />
                 <ClientInfoCard label="Semana y sesión" value={[selectedSession.week, selectedSession.sessionNumber].filter(Boolean).join(" - ") || "Sin especificar"} />
                 <ClientInfoCard label="RPE objetivo" value={selectedSession.rpeTarget ?? "Sin especificar"} />

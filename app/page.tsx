@@ -588,6 +588,15 @@ export default function ClientsPage() {
     return { ok: true, message: "Evento eliminado del calendario." };
   }
 
+  function moveCalendarEvent(clientId: string, eventId: string, newDate: string) {
+    setClients((currentClients) =>
+      currentClients.map((listedClient) => listedClient.id === clientId
+        ? { ...listedClient, calendarEvents: (listedClient.calendarEvents ?? []).map((event) => event.id === eventId ? { ...event, date: newDate } : event) }
+        : listedClient)
+    );
+    return { ok: true, message: "Evento movido en el calendario." };
+  }
+
   function createRecurringCalendarSessions(clientId: string, sessionIndex: number, dates: string[], time?: string) {
     const clientForCheck = clients.find((listedClient) => listedClient.id === clientId);
     const sourceSession = clientForCheck?.sessionRecords?.[sessionIndex];
@@ -900,6 +909,7 @@ export default function ClientsPage() {
                 onDeleteSession={deleteCalendarSession}
                 onDuplicateSession={duplicateCalendarSession}
                 onMoveSession={moveCalendarSession}
+                onMoveCalendarEvent={moveCalendarEvent}
                 onMoveSessionFromCalendar={moveCalendarSessionFromCalendar}
                 onOpenTrainingDraft={openTrainingDraft}
                 onOpenTrainingSession={openTrainingSession}
@@ -1311,6 +1321,7 @@ type CoachCalendarEvent = {
   id: string;
   notes?: string;
   status: "planned" | "active";
+  time?: string;
   title: string;
   type: string;
 };
