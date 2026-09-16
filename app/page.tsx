@@ -2922,12 +2922,14 @@ function CoachClientsView({
   panel: TrainerClientPanel;
   setClients: React.Dispatch<React.SetStateAction<CoachClient[]>>;
 }) {
+  const CLIENTS_PER_PAGE = 15;
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientStep, setNewClientStep] = useState(1);
   const [showSearch, setShowSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [goalFilter, setGoalFilter] = useState<"all" | "Salud" | "Rendimiento">("all");
+  const [clientPage, setClientPage] = useState(1);
   const [newClientDraft, setNewClientDraft] = useState({
     age: 30,
     availability: "",
@@ -2957,9 +2959,9 @@ function CoachClientsView({
   });
   const reviewReferenceDate = new Date();
   reviewReferenceDate.setHours(0, 0, 0, 0);
-  const reviewLevelOrder = { priority: 0, review: 1, unknown: 2, stable: 3 } as const;
-  const reviewedClients = filteredClients
-    .map((listedClient, originalIndex) => {
+  const reviewedClients = [...filteredClients]
+    .sort((left, right) => left.name.localeCompare(right.name, "es", { sensitivity: "base" }))
+    .map((listedClient) => {
       const nextSession = (listedClient.sessionRecords ?? [])
         .map((session) => {
           const rawDate = session.date?.trim();
@@ -2980,12 +2982,30 @@ function CoachClientsView({
         sessions: (listedClient.sessionRecords ?? []) as WeeklyReviewSession[]
       });
 
-      return { listedClient, originalIndex, review };
-    })
-    .sort((left, right) =>
-      reviewLevelOrder[left.review.level] - reviewLevelOrder[right.review.level] ||
-      left.originalIndex - right.originalIndex
-    );
+      return { listedClient, review };
+    });
+  const clientPageCount = Math.max(1, Math.ceil(reviewedClients.length / CLIENTS_PER_PAGE));
+  const visibleClientPage = Math.min(clientPage, clientPageCount);
+  const paginatedClients = reviewedClients.slice(
+    (visibleClientPage - 1) * CLIENTS_PER_PAGE,
+    visibleClientPage * CLIENTS_PER_PAGE
+  );
+  const clientPageItems: Array<number | "ellipsis-start" | "ellipsis-end"> = clientPageCount <= 7
+    ? Array.from({ length: clientPageCount }, (_, index) => index + 1)
+    : [
+        1,
+        ...(visibleClientPage > 3 ? ["ellipsis-start" as const] : []),
+        ...Array.from(
+          { length: Math.min(clientPageCount - 2, 3) },
+          (_, index) => Math.max(2, Math.min(visibleClientPage - 1, clientPageCount - 3)) + index
+        ),
+        ...(visibleClientPage < clientPageCount - 2 ? ["ellipsis-end" as const] : []),
+        clientPageCount
+      ];
+
+  useEffect(() => {
+    if (clientPage > clientPageCount) setClientPage(clientPageCount);
+  }, [clientPage, clientPageCount]);
 
   function resetNewClientDraft() {
     setNewClientDraft({
@@ -3614,7 +3634,10 @@ function CoachClientsView({
                 Buscar por nombre, deporte, estado o evento
                 <input
                   className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setClientPage(1);
+                  }}
                   placeholder="Ej. Lucia, running, carga alta..."
                   value={searchTerm}
                 />
@@ -3634,7 +3657,10 @@ function CoachClientsView({
                         : "border border-line bg-white text-ink/70"
                     }`}
                     key={filter.value}
-                    onClick={() => setGoalFilter(filter.value as typeof goalFilter)}
+                    onClick={() => {
+                      setGoalFilter(filter.value as typeof goalFilter);
+                      setClientPage(1);
+                    }}
                     type="button"
                   >
                     {filter.label}
@@ -3645,10 +3671,35 @@ function CoachClientsView({
           </div>
         )}
 
+        {clientPageCount > 1 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-1.5" aria-label="Paginación de clientes">
+            {clientPageItems.map((pageItem) => pageItem === "ellipsis-start" || pageItem === "ellipsis-end" ? (
+              <span className="px-1 text-sm text-ink/45" key={pageItem} aria-hidden="true">…</span>
+            ) : (
+              <button
+                aria-current={pageItem === visibleClientPage ? "page" : undefined}
+                aria-label={`Página ${pageItem}`}
+                className={`inline-flex size-9 items-center justify-center rounded-md border text-sm font-semibold transition ${
+                  pageItem === visibleClientPage
+                    ? "border-ink bg-ink text-white"
+                    : "border-line bg-white text-ink/70 hover:border-moss/50 hover:text-ink"
+                }`}
+                key={pageItem}
+                onClick={() => setClientPage(pageItem)}
+                type="button"
+              >
+                {pageItem}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-4 space-y-2">
-          {reviewedClients.map(({ listedClient, review }) => {
+          {paginatedClients.map(({ listedClient, review }) => {
             const onboardingCompletion = getOnboardingCompletion(listedClient);
             const reviewStyle = getWeeklyReviewStyle(review.level);
+            const accessInfo = getClientAccessInfo(listedClient);
+            const accessHasEnded = accessInfo.status === "expired";
 
             return (
               <article
@@ -3659,12 +3710,16 @@ function CoachClientsView({
                   <div className="min-w-0 flex-1 lg:basis-48">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <h3 className="min-w-0 break-words text-sm font-semibold text-ink sm:text-base">{listedClient.name}</h3>
-                      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${reviewStyle.badgeClassName}`}>
-                        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${reviewStyle.dotClassName}`} />
-                        {review.label}
+                      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                        accessHasEnded
+                          ? "border border-red-200 bg-red-50 text-red-700"
+                          : reviewStyle.badgeClassName
+                      }`}>
+                        <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${accessHasEnded ? "bg-red-500" : reviewStyle.dotClassName}`} />
+                        {accessHasEnded ? accessInfo.label : review.label}
                       </span>
                     </div>
-                    {review.primaryReason?.label ? (
+                    {!accessHasEnded && review.primaryReason?.label ? (
                       <p className="mt-1 truncate text-xs text-ink/60" title={review.primaryReason.label}>{review.primaryReason.label}</p>
                     ) : null}
                   </div>
