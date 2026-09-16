@@ -3,6 +3,7 @@ export type TargetTrainingSession = {
   draftSessionSummary?: string;
   draftSessionType?: string;
   sessionDate?: string;
+  sessionId?: string;
   sessionIndex?: number;
 };
 

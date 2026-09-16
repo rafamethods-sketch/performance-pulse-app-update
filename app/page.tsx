@@ -896,7 +896,19 @@ export default function ClientsPage() {
               />
             ) : <DecisionDashboardView />
           ) : activeSheet === "clientWellness" ? (
-            role === "coach" ? <ClientWellnessView client={scopedClient} /> : <DecisionDashboardView />
+            role === "coach" ? (
+              <ClientWellnessView
+                client={scopedClient}
+                onOpenTrainingSession={openTrainingSession}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) =>
+                    currentClients.map((listedClient) =>
+                      listedClient.id === updatedClient.id ? updatedClient : listedClient
+                    )
+                  )
+                }
+              />
+            ) : <DecisionDashboardView />
           ) : activeSheet === "calendar" ? (
             role === "coach" ? (
               <CalendarView
@@ -1258,7 +1270,7 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   cardioResult?: ResistanceCardioResult;
   completed?: boolean;
   date: string;
-  discomfort?: SessionDiscomfort;
+  discomfort?: SessionDiscomfort & { reviewedAt?: string };
   enduranceMethod?: EnduranceIntensityMethod;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
@@ -5751,16 +5763,31 @@ function ClientProgressView({
     </div>
   );
 }
-function ClientWellnessView({ client }: { client?: CoachClient | null }) {
+function ClientWellnessView({
+  client,
+  onOpenTrainingSession,
+  onUpdateClient
+}: {
+  client?: CoachClient | null;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
+  onUpdateClient: (client: CoachClient) => void;
+}) {
   const [wellnessRange, setWellnessRange] = useState<7 | 14 | 28>(7);
-  const [wellnessMetric, setWellnessMetric] = useState<"calm" | "energy" | "global" | "readiness" | "recovery" | "sleep">("global");
+  const [wellnessMetric, setWellnessMetric] = useState<"calm" | "energy" | "readiness" | "recovery" | "sleep">("readiness");
   const [showWellnessDetails, setShowWellnessDetails] = useState(false);
+  const [showAllWellnessNotes, setShowAllWellnessNotes] = useState(false);
   const records = client?.sessionRecords ?? [];
   const wellnessRecords = records
     .filter((session) => session.wellness)
     .sort((a, b) => (getReviewSessionDate(b.date)?.getTime() ?? 0) - (getReviewSessionDate(a.date)?.getTime() ?? 0));
   const latestWellness = wellnessRecords[0]?.wellness;
-  const discomfortRecords = records.filter((session) => session.discomfort?.hasDiscomfort || session.discomfort?.notes);
+  const discomfortRecords = records
+    .filter((session) => session.discomfort?.hasDiscomfort || session.discomfort?.notes)
+    .sort((left, right) => {
+      const reviewOrder = Number(Boolean(left.discomfort?.reviewedAt)) - Number(Boolean(right.discomfort?.reviewedAt));
+      if (reviewOrder !== 0) return reviewOrder;
+      return (getReviewSessionDate(right.date)?.getTime() ?? 0) - (getReviewSessionDate(left.date)?.getTime() ?? 0);
+    });
   const positiveWellnessValue = (wellness: ClientWellness | undefined, key: "calm" | "energy" | "motivation" | "recovery" | "sleep") => {
     if (!wellness) return 0;
     if (key === "energy") return wellness.energy ?? Math.max(1, 6 - wellness.fatigue);
@@ -5783,7 +5810,6 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
   const visibleWellnessRecords = wellnessRecords.slice(0, wellnessRange).reverse();
   const latestReadiness = readinessScore(latestWellness);
   const wellnessMetricOptions: Array<{ label: string; value: typeof wellnessMetric }> = [
-    { label: "Global", value: "global" },
     { label: "Readiness", value: "readiness" },
     { label: "Sueño", value: "sleep" },
     { label: "Energía", value: "energy" },
@@ -5791,13 +5817,13 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
     { label: "Calma", value: "calm" }
   ];
   const getWellnessMetricScore = (wellness: ClientWellness | undefined) => {
-    if (wellnessMetric === "global" || wellnessMetric === "readiness") return readinessScore(wellness);
+    if (wellnessMetric === "readiness") return readinessScore(wellness);
     return positiveWellnessValue(wellness, wellnessMetric);
   };
   const wellnessChartPoints = visibleWellnessRecords.map((session, index) => {
     const score = getWellnessMetricScore(session.wellness);
-    const x = visibleWellnessRecords.length <= 1 ? 50 : (index / (visibleWellnessRecords.length - 1)) * 100;
-    const y = 100 - Math.max(0, Math.min(5, score)) * 20;
+    const x = visibleWellnessRecords.length <= 1 ? 52 : 10 + (index / (visibleWellnessRecords.length - 1)) * 86;
+    const y = 88 - ((Math.max(1, Math.min(5, score)) - 1) / 4) * 78;
     return { date: session.date, score, x, y };
   });
   const wellnessCurvePath = wellnessChartPoints.reduce((path, point, index) => {
@@ -5815,13 +5841,80 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
     ["Motivación", positiveWellnessValue(detailWellness, "motivation")]
   ] : [];
 
+  function markDiscomfortReviewed(session: ClientSessionRecord) {
+    if (!client || session.discomfort?.reviewedAt) return;
+    const recordIndex = records.indexOf(session);
+    if (recordIndex < 0) return;
+
+    onUpdateClient({
+      ...client,
+      sessionRecords: records.map((record, index) => index === recordIndex
+        ? {
+            ...record,
+            discomfort: record.discomfort
+              ? { ...record.discomfort, reviewedAt: new Date().toISOString() }
+              : record.discomfort
+          }
+        : record)
+    });
+  }
+
+  function openDiscomfortSession(session: ClientSessionRecord) {
+    if (!client || !session.id) return;
+    onOpenTrainingSession(client.id, { clientId: client.id, sessionDate: session.date, sessionId: session.id });
+  }
+
+  function renderWellnessNote(session: ClientSessionRecord, compact = false) {
+    const reviewed = Boolean(session.discomfort?.reviewedAt);
+    return (
+      <article
+        className={`rounded-md border p-3 transition ${reviewed ? "border-line bg-panel/25 opacity-70" : "border-clay/35 bg-clay/5"}`}
+        key={session.id ?? `${session.date}-${session.summary}`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className={`size-1.5 rounded-full ${reviewed ? "bg-steel" : "bg-clay"}`} />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Molestia</span>
+          </div>
+          <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(session.date)}</span>
+        </div>
+        <p className={`mt-2 text-sm leading-relaxed text-ink/65 ${compact ? "line-clamp-2" : ""}`}>
+          {session.discomfort?.notes || "Molestia registrada sin notas."}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {session.id ? (
+            <button
+              className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs font-semibold text-ink/65 transition hover:bg-mint"
+              onClick={() => openDiscomfortSession(session)}
+              type="button"
+            >
+              Ver sesión
+            </button>
+          ) : null}
+          {reviewed ? (
+            <span className="text-xs font-semibold text-ink/45">✓ Revisada</span>
+          ) : (
+            <button
+              aria-label="Marcar molestia como revisada"
+              className="rounded-md border border-moss/30 bg-mint px-2.5 py-1.5 text-xs font-semibold text-moss transition hover:border-moss/50"
+              onClick={() => markDiscomfortReviewed(session)}
+              title="Marcar como revisada"
+              type="button"
+            >
+              ✓ Marcar como revisada
+            </button>
+          )}
+        </div>
+      </article>
+    );
+  }
+
   if (!client) return <SelectClientFirst onGoClients={() => undefined} />;
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="coach-surface overflow-hidden rounded-md">
-        <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <div className="highlight-summary-card border-0 p-5 sm:p-6">
+      <section className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <div className="highlight-summary-card min-h-64 p-5 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Último readiness</p>
             {latestReadiness > 0 ? (
               <>
@@ -5836,22 +5929,29 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
               </>
             )}
           </div>
-          <div className="p-4 sm:p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">Bienestar de {client.name}</h2>
-              <p className="mt-1 text-sm text-ink/55">Últimos registros de wellness y seguimiento.</p>
+          <div className="coach-surface min-h-64 rounded-md p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Notas y molestias recientes</h2>
+                <p className="mt-1 text-sm text-ink/55">Pendientes primero; las revisadas se mantienen al final.</p>
+              </div>
+              <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{discomfortRecords.length}</span>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <ClientInfoCard label="Sueño" value={latestWellness?.sleep ? `${latestWellness.sleep}/5` : "Sin datos todavía"} />
-              <ClientInfoCard label="Energía" value={latestWellness ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "Sin datos todavía"} />
-              <ClientInfoCard label="Recuperación" value={latestWellness ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "Sin datos todavía"} />
-              <ClientInfoCard label="Calma / ánimo" value={latestWellness ? `${positiveWellnessValue(latestWellness, "calm")}/5` : "Sin datos todavía"} />
-            </div>
+            {discomfortRecords.length > 0 ? (
+              <div className="mt-4 grid gap-2">
+                {discomfortRecords.slice(0, 4).map((session) => renderWellnessNote(session, true))}
+                {discomfortRecords.length > 4 ? (
+                  <button className="w-fit text-xs font-semibold text-moss" onClick={() => setShowAllWellnessNotes(true)} type="button">
+                    Ver todas ({discomfortRecords.length})
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm font-semibold text-ink/45">Sin notas o molestias recientes.</p>
+            )}
           </div>
-        </div>
       </section>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
       <section className="coach-surface min-w-0 rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -5895,19 +5995,24 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
 
         {visibleWellnessRecords.length > 0 ? (
           <div className="mt-5 grid min-w-0 gap-4">
-            <div className="min-w-0 overflow-hidden rounded-md border border-line bg-panel/35 p-3">
-              <svg aria-label="Evolución temporal del bienestar" className="h-44 w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-                {[0, 25, 50, 75, 100].map((y) => (
-                  <line className="stroke-line" key={y} strokeWidth="0.4" x1="0" x2="100" y1={y} y2={y} />
-                ))}
+            <div className="min-w-0 overflow-hidden rounded-md border border-line bg-panel/35 p-3 sm:p-4">
+              <svg aria-label={`Evolución temporal de ${wellnessMetricOptions.find((option) => option.value === wellnessMetric)?.label ?? "bienestar"}, escala de 1 a 5`} className="h-64 w-full overflow-visible sm:h-72" preserveAspectRatio="none" viewBox="0 0 100 100">
+                {[5, 4, 3, 2, 1].map((value) => {
+                  const y = 88 - ((value - 1) / 4) * 78;
+                  return (
+                    <g key={value}>
+                      <line className="stroke-line" strokeWidth="0.4" x1="9" x2="98" y1={y} y2={y} />
+                      <text className="fill-ink/50 text-[4px] font-semibold" textAnchor="end" x="6.5" y={y + 1.4}>{value}</text>
+                    </g>
+                  );
+                })}
                 {wellnessChartPoints.length > 1 ? (
-                  <path className="stroke-moss" d={wellnessCurvePath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                  <path className="stroke-moss" d={wellnessCurvePath} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" />
                 ) : null}
-                {wellnessChartPoints.map((point) => (
-                  <g key={point.date}>
-                    <circle className="fill-moss/15" cx={point.x} cy={point.y} r="4.5" />
-                    <circle className="fill-panel stroke-moss" cx={point.x} cy={point.y} r="2.6" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
-                      <title>{`${formatDisplayDate(point.date)} · ${point.score.toFixed(1)}/5`}</title>
+                {wellnessChartPoints.map((point, index) => (
+                  <g key={`${point.date}-${index}`}>
+                    <circle className="fill-panel stroke-moss" cx={point.x} cy={point.y} r="2" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+                      <title>{`${wellnessMetricOptions.find((option) => option.value === wellnessMetric)?.label ?? "Bienestar"} · ${formatDisplayDate(point.date)} · ${point.score.toFixed(1)}/5`}</title>
                     </circle>
                   </g>
                 ))}
@@ -5918,6 +6023,11 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
                 ))}
               </div>
             </div>
+            <p className="text-xs font-semibold text-ink/50">
+              {latestReadiness > 0 && wellnessRecords[0]?.date
+                ? `Último readiness registrado: ${latestReadiness.toFixed(1)}/5 · ${formatDisplayDate(wellnessRecords[0].date)}`
+                : "Sin un último readiness registrado."}
+            </p>
             <div className="grid gap-3 md:grid-cols-4">
               {[
                 ["Sueño", positiveWellnessValue(latestWellness, "sleep")],
@@ -5938,34 +6048,41 @@ function ClientWellnessView({ client }: { client?: CoachClient | null }) {
             </div>
           </div>
         ) : (
-          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
+          <p className="mt-4 text-sm font-semibold text-ink/50">Aún no hay suficientes registros para mostrar la evolución.</p>
         )}
       </section>
-
-      <section className="coach-surface min-w-0 rounded-md p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h3 className="font-semibold text-ink">Notas recientes</h3>
-            <p className="mt-1 text-sm text-ink/55">Contexto de los últimos registros.</p>
-          </div>
-          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{discomfortRecords.length}</span>
-        </div>
-        {discomfortRecords.length > 0 ? (
-          <div className="mt-3 grid gap-2">
-            {discomfortRecords.slice(0, 3).map((session, index) => (
-              <article className="rounded-md border border-line bg-panel/35 p-3" key={`${session.date}-${index}`}>
-                <p className="text-sm font-semibold text-ink">{formatDisplayDate(session.date)}</p>
-                <p className="mt-1 text-sm text-ink/60">{session.discomfort?.notes || "Molestia registrada sin notas."}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos todavía.</p>
-        )}
-      </section>
-      </div>
 
       <MenstrualCoachContextCard client={client} />
+
+      {showAllWellnessNotes ? (
+        <div className="assessment-modal-overlay" onClick={() => setShowAllWellnessNotes(false)} role="presentation">
+          <section
+            aria-label="Todas las notas y molestias recientes"
+            aria-modal="true"
+            className="assessment-modal-panel max-h-[88vh] max-w-3xl overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-ink">Notas y molestias</h3>
+                <p className="mt-1 text-sm text-ink/55">Pendientes de revisar primero; las revisadas permanecen disponibles.</p>
+              </div>
+              <button
+                aria-label="Cerrar notas y molestias"
+                className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
+                onClick={() => setShowAllWellnessNotes(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </header>
+            <div className="assessment-modal-body grid gap-3 px-5 py-5">
+              {discomfortRecords.map((session) => renderWellnessNote(session))}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {showWellnessDetails ? (
         <div className="assessment-modal-overlay" onClick={() => setShowWellnessDetails(false)} role="presentation">
@@ -10470,6 +10587,7 @@ function CoachTrainingPlanner({
       completed: false,
       date: sessionDate,
       enduranceMethod: sessionEnduranceMethod,
+      id: `session-${Date.now()}`,
       performedExercises: [],
       plannedExercises,
       resistanceMethodId: sessionType === "Cardio" ? selectedResistanceMethodId || undefined : undefined,
@@ -12425,16 +12543,25 @@ function SessionHistoryPanel({
   useEffect(() => {
     if (targetTrainingSession?.clientId !== client.id) return;
 
-    const targetIndex =
-      targetTrainingSession.sessionIndex ??
-      sessions.findIndex((session) => session.date === targetTrainingSession.sessionDate);
+    const targetIndex = targetTrainingSession.sessionId
+      ? sessions.findIndex((session) => session.id === targetTrainingSession.sessionId)
+      : targetTrainingSession.sessionIndex ??
+        sessions.findIndex((session) => session.date === targetTrainingSession.sessionDate);
 
     if (targetIndex >= 0 && sessions[targetIndex]) {
       setOpenSessionKey(getSessionHistoryKey(sessions[targetIndex], targetIndex));
+      const targetBlock = sessionGroups.find((blockGroup) =>
+        blockGroup.weeks.some((weekGroup) =>
+          weekGroup.sessions.some(({ originalIndex }) => originalIndex === targetIndex)
+        )
+      );
+      if (targetBlock) {
+        setOpenSessionBlockStates((current) => ({ ...current, [targetBlock.label]: true }));
+      }
     }
 
     onConsumeTargetTrainingSession();
-  }, [client.id, onConsumeTargetTrainingSession, sessions, targetTrainingSession]);
+  }, [client.id, onConsumeTargetTrainingSession, sessionGroups, sessions, targetTrainingSession]);
 
   useEffect(() => {
     if (!openSessionKey && !selectedExerciseDetail && !reviewFeedbackModal) return;
