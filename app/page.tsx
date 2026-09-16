@@ -3752,7 +3752,13 @@ function CoachInfoModal({
 }) {
   return (
     <div className="assessment-modal-overlay" onClick={onClose} role="presentation">
-      <section className="assessment-modal-panel max-w-5xl" onClick={(event) => event.stopPropagation()}>
+      <section
+        aria-label={title}
+        aria-modal="true"
+        className="assessment-modal-panel max-w-5xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
         <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
           <h3 className="text-xl font-semibold text-ink">{title}</h3>
           <button
@@ -3839,7 +3845,7 @@ function ClientDetailsView({
     status: sourceClient.status ?? ""
   });
   const [isEditing, setIsEditing] = useState(false);
-  const [activeInfoPanel, setActiveInfoPanel] = useState<"details" | "intake" | "notes" | null>(null);
+  const [activeInfoPanel, setActiveInfoPanel] = useState<"anamnesis" | "details" | "intake" | "notes" | null>(null);
   const [draft, setDraft] = useState(() => createDetailsDraft(client));
   const [accessDraft, setAccessDraft] = useState({
     accessEndDate: client.accessEndDate ?? "",
@@ -4177,6 +4183,35 @@ function ClientDetailsView({
   const performanceTestEntries = getSortedPerformanceTests(client);
   const coachIntakeStatus = getCoachIntakeStatusLabel(client.intakeQuestionnaire);
   const intakeReview = getCoachIntakeReview(client);
+  const onboardingCompletion = getOnboardingCompletion(client);
+  const healthReviewBlock = intakeReview.blocks.find((block) => block.title === "Salud / limitaciones");
+  const anamnesisCandidates: Array<[string, string]> = [
+    ...(healthReviewBlock?.items ?? []).map(([label, value]): [string, string] => [label, value]),
+    ["Contraindicaciones comunicadas", client.onboarding?.limitations?.contraindications ?? ""],
+    ["Lesiones previas", client.onboarding?.limitations?.injuries ?? ""],
+    ["Notas médicas comunicadas", client.onboarding?.limitations?.medicalNotes ?? ""],
+    ["Limitaciones de movimiento", client.onboarding?.limitations?.movementLimitations ?? ""],
+    ["Zonas con molestias", (client.onboarding?.limitations?.painAreas ?? []).join(", ")]
+  ];
+  const anamnesisItems = anamnesisCandidates.filter(([, value], index, entries) => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || [
+      "ninguna",
+      "ninguno",
+      "no",
+      "pendiente de completar.",
+      "sin datos",
+      "sin especificar",
+      "sin registrar"
+    ].includes(normalized)) return false;
+    return entries.findIndex(([label, listedValue]) => label === entries[index][0] && listedValue === value) === index;
+  });
+  const anamnesisStatus = anamnesisItems.length > 0
+    ? "Revisar"
+    : client.intakeQuestionnaire?.completed || client.onboarding?.completed
+      ? "Sin antecedentes relevantes"
+      : "Pendiente";
+  const latestPrivateNote = sortedPrivateNotes[0];
 
   const updateIntakeQuestionnaire = (intakeQuestionnaire: IntakeQuestionnaire) => {
     onUpdateClient({
@@ -4280,8 +4315,8 @@ function ClientDetailsView({
           <button className="mb-3 text-sm font-semibold text-moss" onClick={onBack} type="button">
             ← Volver a Gestión
           </button>
-          <h2 className="text-xl font-semibold text-ink">Ficha inicial</h2>
-          <p className="mt-1 text-sm text-ink/60">{client.name}</p>
+          <h2 className="text-xl font-semibold text-ink">Información del cliente</h2>
+          <p className="mt-1 text-sm text-ink/60">{client.name} · Acceso y documentación relevante</p>
         </div>
         {isEditing ? (
           <div className="flex flex-wrap gap-2">
@@ -4292,11 +4327,7 @@ function ClientDetailsView({
               Guardar cambios
             </button>
           </div>
-        ) : (
-          <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => setIsEditing(true)} type="button">
-            Editar detalles
-          </button>
-        )}
+        ) : null}
       </div>
 
       <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -4347,12 +4378,67 @@ function ClientDetailsView({
         </div>
       </section>
 
-      <div className="mt-5">
-        <OnboardingSummaryCard client={client} />
-      </div>
+      {!isEditing ? (
+        <section className="mt-5">
+          <div>
+            <h3 className="font-semibold text-ink">Información del cliente</h3>
+            <p className="mt-1 text-sm text-ink/55">Accede al detalle solo cuando necesites consultarlo o actualizarlo.</p>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                action: "Abrir",
+                detail: onboardingCompletion.isComplete ? "Contexto inicial disponible." : "Pendiente de completar.",
+                panel: "details" as const,
+                status: onboardingCompletion.isComplete ? "Completa" : "Pendiente",
+                title: "Ficha inicial"
+              },
+              {
+                action: "Ver respuestas",
+                detail: client.intakeQuestionnaire?.updatedAt ? `Actualizado ${formatDisplayDate(client.intakeQuestionnaire.updatedAt)}` : "Sin respuestas registradas.",
+                panel: "intake" as const,
+                status: coachIntakeStatus,
+                title: "Cuestionario de ingreso"
+              },
+              {
+                action: "Abrir",
+                detail: latestPrivateNote ? `Última nota: ${formatDisplayDate(latestPrivateNote.updatedAt ?? latestPrivateNote.createdAt)}` : "Sin notas internas.",
+                panel: "notes" as const,
+                status: sortedPrivateNotes.length === 0 ? "Sin notas" : `${sortedPrivateNotes.length} ${sortedPrivateNotes.length === 1 ? "nota" : "notas"}`,
+                title: "Notas internas"
+              },
+              {
+                action: "Abrir",
+                detail: anamnesisItems.length > 0 ? "Información comunicada que conviene consultar." : "Sin información relevante registrada.",
+                panel: "anamnesis" as const,
+                status: anamnesisStatus,
+                title: "Anamnesis"
+              }
+            ].map((item) => {
+              const statusClass = item.status === "Completa" || item.status === "Completo" || item.status === "Sin antecedentes relevantes"
+                ? "border-moss/30 bg-mint text-moss"
+                : item.status === "Revisar" || item.status === "Pendiente" || item.status === "Sin revisar"
+                  ? "border-clay/35 bg-clay/10 text-clay"
+                  : "border-line bg-panel/60 text-ink/55";
+              return (
+                <article className="coach-surface flex min-h-40 flex-col rounded-md p-4" key={item.title}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h4 className="font-semibold text-ink">{item.title}</h4>
+                    <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${statusClass}`}>{item.status}</span>
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-ink/55">{item.detail}</p>
+                  <button className="mt-auto pt-4 text-left text-xs font-semibold text-moss" onClick={() => setActiveInfoPanel(item.panel)} type="button">
+                    {item.action} →
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {!isEditing ? (
-        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <section className="hidden">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="font-semibold text-ink">Cuestionario de ingreso</h3>
@@ -4443,7 +4529,7 @@ function ClientDetailsView({
       ) : null}
 
       {!isEditing ? (
-        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        <section className="hidden">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <h3 className="font-semibold text-ink">Acciones secundarias</h3>
@@ -5144,6 +5230,18 @@ function ClientDetailsView({
 
       {activeInfoPanel === "details" ? (
         <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Ficha completa">
+          <div className="flex justify-end">
+            <button
+              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white"
+              onClick={() => {
+                setActiveInfoPanel(null);
+                setIsEditing(true);
+              }}
+              type="button"
+            >
+              Editar ficha
+            </button>
+          </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {detailSections.map((section) => (
               <article className="rounded-md border border-line bg-panel/35 p-4" key={section.title}>
@@ -5205,6 +5303,19 @@ function ClientDetailsView({
               El deportista todavía no ha completado el cuestionario de ingreso.
             </p>
           )}
+          <article className="rounded-md border border-line bg-panel/35 p-4">
+            <h3 className="font-semibold text-ink">Impacto en planificación</h3>
+            <p className="mt-1 text-xs font-medium text-ink/50">Recordatorios existentes para revisar antes de programar.</p>
+            {intakeReview.impactItems.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {intakeReview.impactItems.map((item) => (
+                  <span className="rounded-md border border-line bg-panel/60 px-2.5 py-1 text-xs font-semibold text-ink/65" key={item}>{item}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-semibold text-ink/50">Sin condicionantes declarados en el cuestionario.</p>
+            )}
+          </article>
           <div className="flex flex-wrap gap-2">
             {client.intakeQuestionnaire?.completed ? (
               <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleMarkIntakeReviewed} type="button">
@@ -5219,6 +5330,32 @@ function ClientDetailsView({
               Marcar como pendiente
             </button>
           </div>
+        </CoachInfoModal>
+      ) : null}
+
+      {activeInfoPanel === "anamnesis" ? (
+        <CoachInfoModal onClose={() => setActiveInfoPanel(null)} title="Anamnesis">
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line bg-panel/35 p-4">
+            <div>
+              <p className="font-semibold text-ink">Antecedentes comunicados</p>
+              <p className="mt-1 text-sm text-ink/55">Información declarada por el cliente o registrada por el entrenador. Sin interpretación clínica.</p>
+            </div>
+            <span className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${anamnesisItems.length > 0 ? "border-clay/35 bg-clay/10 text-clay" : "border-moss/30 bg-mint text-moss"}`}>
+              {anamnesisStatus}
+            </span>
+          </div>
+          {anamnesisItems.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {anamnesisItems.map(([label, value], index) => (
+                <article className="rounded-md border border-line bg-panel/35 p-3" key={`${label}-${index}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-ink/75">{value}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm font-semibold text-ink/50">Sin antecedentes relevantes registrados.</p>
+          )}
         </CoachInfoModal>
       ) : null}
 
