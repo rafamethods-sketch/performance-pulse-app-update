@@ -597,6 +597,20 @@ export default function ClientsPage() {
     return { ok: true, message: "Evento movido en el calendario." };
   }
 
+  function updateCalendarEventTime(clientId: string, eventId: string, time?: string) {
+    setClients((currentClients) =>
+      currentClients.map((listedClient) => listedClient.id === clientId
+        ? {
+            ...listedClient,
+            calendarEvents: (listedClient.calendarEvents ?? []).map((event) =>
+              event.id === eventId ? { ...event, time: time || undefined } : event
+            )
+          }
+        : listedClient)
+    );
+    return { ok: true, message: time ? "Hora del evento actualizada." : "Evento movido a Sin hora." };
+  }
+
   function createRecurringCalendarSessions(clientId: string, sessionIndex: number, dates: string[], time?: string) {
     const clientForCheck = clients.find((listedClient) => listedClient.id === clientId);
     const sourceSession = clientForCheck?.sessionRecords?.[sessionIndex];
@@ -925,6 +939,7 @@ export default function ClientsPage() {
                 onMoveSessionFromCalendar={moveCalendarSessionFromCalendar}
                 onOpenTrainingDraft={openTrainingDraft}
                 onOpenTrainingSession={openTrainingSession}
+                onUpdateCalendarEventTime={updateCalendarEventTime}
               />
             ) : (
               <AthleteCalendarView client={athleteClient} />

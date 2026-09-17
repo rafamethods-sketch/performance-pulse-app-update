@@ -335,12 +335,13 @@ type CalendarViewProps = {
   onMoveSession: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onMoveCalendarEvent: (clientId: string, eventId: string, newDate: string) => { ok: boolean; message: string };
   onMoveSessionFromCalendar: (clientId: string, sessionIndex: number, newDate: string) => { ok: boolean; message: string };
+  onUpdateCalendarEventTime: (clientId: string, eventId: string, time?: string) => { ok: boolean; message: string };
   onDeleteSession: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onOpenTrainingDraft: (target: TargetTrainingSession) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 };
 
-export function CalendarView({ client, clients, draftClient, onCreateCalendarEvent, onCreateRecurringSessions, onDeleteCalendarEvent, onDeleteSession, onDuplicateSession, onMoveCalendarEvent, onMoveSession, onMoveSessionFromCalendar, onOpenTrainingDraft, onOpenTrainingSession }: CalendarViewProps) {
+export function CalendarView({ client, clients, draftClient, onCreateCalendarEvent, onCreateRecurringSessions, onDeleteCalendarEvent, onDeleteSession, onDuplicateSession, onMoveCalendarEvent, onMoveSession, onMoveSessionFromCalendar, onOpenTrainingDraft, onOpenTrainingSession, onUpdateCalendarEventTime }: CalendarViewProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedSession, setSelectedSession] = useState<WeeklyCalendarSession | null>(null);
   const [selectedDraft, setSelectedDraft] = useState<CalendarDraftSelection | null>(null);
@@ -352,6 +353,7 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
   const [actionTime, setActionTime] = useState("");
   const [recurringEndDate, setRecurringEndDate] = useState("");
   const [recurringMessage, setRecurringMessage] = useState("");
+  const [eventTimeMessage, setEventTimeMessage] = useState("");
   const [recurringWeekdays, setRecurringWeekdays] = useState<number[]>([]);
   const [recurringWeeks, setRecurringWeeks] = useState("4");
   const baseWeekStart = getWeekStartDate(new Date());
@@ -592,6 +594,7 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
       type: selectedDraft.label
     });
 
+    setEventTimeMessage("");
     setSelectedDraft(null);
     setSelectedSession({
       calendarEventId: createdEvent.id,
@@ -614,6 +617,17 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
     const result = onDeleteCalendarEvent(selectedSession.clientId, selectedSession.calendarEventId);
     setTrashMessage(result.message);
     if (result.ok) setSelectedSession(null);
+  }
+
+  function saveSelectedEventTime() {
+    if (!selectedSession?.clientId || !selectedSession.calendarEventId) return;
+
+    const result = onUpdateCalendarEventTime(
+      selectedSession.clientId,
+      selectedSession.calendarEventId,
+      selectedSession.time || undefined
+    );
+    setEventTimeMessage(result.message);
   }
 
   function closeSessionAction() {
@@ -713,6 +727,7 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
         onClick={() => {
           setSelectedDraft(null);
           setSelectedSession(session);
+          setEventTimeMessage("");
         }}
         title={detail}
         type="button"
@@ -982,6 +997,26 @@ export function CalendarView({ client, clients, draftClient, onCreateCalendarEve
               </>
             )}
           </div>
+          {selectedSession.itemKind === "event" ? (
+            <div className="mt-4 flex max-w-sm flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex-1 space-y-2 text-sm font-semibold text-ink/70">
+                Hora
+                <input
+                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
+                  onChange={(event) => {
+                    setSelectedSession((current) => current ? { ...current, time: event.target.value || undefined } : current);
+                    setEventTimeMessage("");
+                  }}
+                  type="time"
+                  value={selectedSession.time ?? ""}
+                />
+              </label>
+              <button className={primaryButtonClass} onClick={saveSelectedEventTime} type="button">
+                Guardar cambio
+              </button>
+            </div>
+          ) : null}
+          {eventTimeMessage ? <p className="mt-2 text-sm font-semibold text-moss">{eventTimeMessage}</p> : null}
         </section>
       ) : null}
 
