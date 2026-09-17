@@ -55,6 +55,14 @@ import {
   strainRanges
 } from "@/lib/client-metrics";
 import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
+import {
+  assessmentAnalysisRequirements,
+  assessmentCatalog,
+  getAssessmentCatalogCategory,
+  type AssessmentCatalogCategoryId,
+  type AssessmentMetricValue,
+  type AssessmentCatalogTest
+} from "@/lib/assessment-catalog";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import {
@@ -1356,7 +1364,12 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessEndDate?: string;
   accessStartDate?: string;
   assessmentPreferences?: AssessmentPreferences;
-  assessments: Array<BaseCoachClient["assessments"][number] & { id?: string; isDemo?: boolean }>;
+  assessments: Array<BaseCoachClient["assessments"][number] & {
+    id?: string;
+    isDemo?: boolean;
+    metrics?: AssessmentMetricValue[];
+    protocolId?: string;
+  }>;
   ankleAssessments?: AnkleAssessment[];
   kneeAssessments?: KneeAssessment[];
   availableEquipment?: string;
@@ -8871,16 +8884,12 @@ type AssessmentEntry = ClientAssessment & {
   unit?: string;
 };
 
-const assessmentCategoriesSimple = ["Fuerza", "Resistencia", "Salto", "Movilidad / FMS", "Antropometría", "Otro"];
-
-const assessmentTestOptions: Record<string, string[]> = {
-  "Antropometría": ["Peso corporal", "Perímetro cintura", "Perímetro cadera", "Pliegues", "Porcentaje graso", "Masa muscular", "Otro"],
-  Fuerza: ["1RM estimado", "3RM", "5RM", "Repeticiones máximas", "Carga para X reps", "Otro"],
-  "Movilidad / FMS": ["FMS total", "Movilidad tobillo", "Movilidad cadera", "Movilidad hombro", "Otro"],
-  Otro: ["Otro"],
-  Resistencia: ["Test 6 min", "Cooper 12 min", "1000 m", "3000 m", "5 km", "VAM", "FTP", "CSS", "Otro"],
-  Salto: ["CMJ", "SJ", "Drop jump", "RSI", "Salto horizontal", "Otro"]
-};
+const assessmentReadableCategories = [
+  ...assessmentCatalog.map((category) => category.label),
+  "Salto",
+  "Movilidad / FMS",
+  "Otro"
+];
 
 const assessmentImprovementDirectionLabels: Record<AssessmentImprovementDirection, string> = {
   higher_is_better: "Más alto es mejor",
@@ -8911,7 +8920,7 @@ function normalizeAssessmentCategory(category?: string | null) {
   const value = `${category ?? ""}`.trim();
   if (value === "FMS" || value === "Movilidad") return "Movilidad / FMS";
   if (value === "AntropometrÃ­a") return "Antropometría";
-  if (assessmentCategoriesSimple.includes(value)) return value;
+  if (assessmentReadableCategories.includes(value)) return value;
   return "Otro";
 }
 
@@ -9040,6 +9049,10 @@ function AssessmentsView({
   const [showKneeAssessment, setShowKneeAssessment] = useState(false);
   const [selectedKneeAssessment, setSelectedKneeAssessment] = useState<KneeAssessment | null>(null);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
+  const [assessmentFlowCategory, setAssessmentFlowCategory] = useState<AssessmentCatalogCategoryId | null>(null);
+  const [assessmentFlowStep, setAssessmentFlowStep] = useState<"category" | "tests" | "manual" | "structured">("category");
+  const [selectedCatalogTest, setSelectedCatalogTest] = useState<AssessmentCatalogTest | null>(null);
+  const [structuredMetricValues, setStructuredMetricValues] = useState<Record<string, string>>({});
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
@@ -9053,6 +9066,10 @@ function AssessmentsView({
   useEffect(() => {
     setShowNewAssessmentForm(false);
     setAssessmentDraft(emptyAssessmentDraft);
+    setAssessmentFlowCategory(null);
+    setAssessmentFlowStep("category");
+    setSelectedCatalogTest(null);
+    setStructuredMetricValues({});
     setEditingAssessmentIndex(null);
     setSelectedEvolutionKey(null);
     setSelectedAnkleAssessment(null);
@@ -9101,15 +9118,58 @@ function AssessmentsView({
 
   const resetAssessmentForm = () => {
     setAssessmentDraft(emptyAssessmentDraft);
+    setAssessmentFlowCategory(null);
+    setAssessmentFlowStep("category");
+    setSelectedCatalogTest(null);
+    setStructuredMetricValues({});
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(false);
   };
 
   const openNewAssessmentForm = () => {
     setAssessmentDraft(emptyAssessmentDraft);
+    setAssessmentFlowCategory(null);
+    setAssessmentFlowStep("category");
+    setSelectedCatalogTest(null);
+    setStructuredMetricValues({});
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(true);
   };
+
+  function openManualAssessment(category = "Otro", name = "") {
+    setAssessmentDraft({ ...emptyAssessmentDraft, category, name });
+    setAssessmentFlowStep("manual");
+  }
+
+  function selectCatalogTest(test: AssessmentCatalogTest) {
+    if (test.mode === "ankle") {
+      resetAssessmentForm();
+      setSelectedAnkleAssessment(null);
+      setShowAnkleAssessment(true);
+      return;
+    }
+    if (test.mode === "knee") {
+      resetAssessmentForm();
+      setSelectedKneeAssessment(null);
+      setShowKneeAssessment(true);
+      return;
+    }
+
+    if (test.mode === "structured") {
+      setSelectedCatalogTest(test);
+      setStructuredMetricValues({});
+      setAssessmentDraft((currentDraft) => ({
+        ...currentDraft,
+        category: getAssessmentCatalogCategory(assessmentFlowCategory)?.label ?? "Otro",
+        name: test.label
+      }));
+      setAssessmentFlowStep("structured");
+      return;
+    }
+
+    const category = getAssessmentCatalogCategory(assessmentFlowCategory);
+    openManualAssessment(category?.label ?? "Otro", test.label);
+  }
 
   function updateAssessmentPreferences(nextPreferences: AssessmentPreferences) {
     if (!client || !onUpdateClient) return;
@@ -9172,7 +9232,75 @@ function AssessmentsView({
     resetAssessmentForm();
   };
 
+  const handleSaveStructuredAssessment = () => {
+    if (!client || !onUpdateClient || !selectedCatalogTest?.metrics) return;
+
+    const missingRequiredMetric = selectedCatalogTest.metrics.some(
+      (metric) => metric.required && !structuredMetricValues[metric.id]?.trim()
+    );
+    if (missingRequiredMetric) return;
+
+    const metrics = selectedCatalogTest.metrics
+      .filter((metric) => structuredMetricValues[metric.id]?.trim())
+      .map((metric) => ({
+        id: metric.id,
+        label: metric.label,
+        unit: metric.unit,
+        value: structuredMetricValues[metric.id].trim()
+      }));
+    const primaryMetricDefinition = selectedCatalogTest.metrics.find((metric) => metric.primary);
+    if (!primaryMetricDefinition) return;
+    const primaryMetric = metrics.find((metric) => metric.id === primaryMetricDefinition.id);
+    if (!primaryMetric) return;
+
+    const newAssessment: AssessmentEntry = {
+      action: "Ver evolución",
+      date: assessmentDraft.date || "Sin fecha",
+      improvementDirection: assessmentDraft.improvementDirection,
+      metrics,
+      name: selectedCatalogTest.label,
+      notes: assessmentDraft.notes.trim(),
+      protocolId: selectedCatalogTest.id,
+      result: `${primaryMetric.value} ${primaryMetric.unit}`,
+      type: assessmentDraft.category,
+      unit: primaryMetric.unit
+    };
+
+    if (editingAssessmentIndex !== null) {
+      onUpdateClient({
+        ...client,
+        assessments: (client.assessments ?? []).map((assessment, index) =>
+          index === editingAssessmentIndex ? newAssessment : assessment
+        )
+      });
+    } else {
+      onUpdateClient({ ...client, assessments: [newAssessment, ...(client.assessments ?? [])] });
+    }
+    resetAssessmentForm();
+  };
+
   const handleEditAssessment = (assessment: AssessmentEntry, index: number) => {
+    const structuredTest = assessmentCatalog
+      .flatMap((category) => category.subcategories.flatMap((subcategory) => subcategory.tests))
+      .find((test) => test.id === assessment.protocolId && test.mode === "structured");
+    if (structuredTest?.metrics && assessment.metrics) {
+      setAssessmentDraft({
+        category: normalizeAssessmentCategory(assessment.type),
+        date: assessment.date === "Sin fecha" ? "" : assessment.date,
+        improvementDirection: assessment.improvementDirection ?? "neutral",
+        name: assessment.name,
+        notes: assessment.notes ?? "",
+        result: "",
+        unit: ""
+      });
+      setStructuredMetricValues(Object.fromEntries(assessment.metrics.map((metric) => [metric.id, metric.value])));
+      setSelectedCatalogTest(structuredTest);
+      setAssessmentFlowCategory(null);
+      setAssessmentFlowStep("structured");
+      setEditingAssessmentIndex(index);
+      setShowNewAssessmentForm(true);
+      return;
+    }
     setAssessmentDraft({
       category: normalizeAssessmentCategory(assessment.type),
       date: assessment.date === "Sin fecha" ? "" : assessment.date,
@@ -9182,6 +9310,8 @@ function AssessmentsView({
       result: getAssessmentDisplayValue(assessment),
       unit: assessment.unit ?? getAssessmentDisplayUnit(assessment)
     });
+    setAssessmentFlowCategory(null);
+    setAssessmentFlowStep("manual");
     setEditingAssessmentIndex(index);
     setShowNewAssessmentForm(true);
   };
@@ -9381,6 +9511,27 @@ function AssessmentsView({
         )}
       </section>
 
+      <section className="coach-surface rounded-md p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-ink">Análisis disponibles</h3>
+            <p className="mt-1 text-sm text-ink/55">Análisis derivados de tests compatibles, sin reconstruir datos ausentes.</p>
+          </div>
+          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">Lectura orientativa</span>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {assessmentAnalysisRequirements.map((analysis) => (
+            <article className="rounded-md border border-line bg-panel/30 p-3" key={analysis.id}>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-ink">{analysis.label}</h4>
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-ink/55">Faltan datos</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-ink/50">{analysis.requirement}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {assessmentGroups.length > 0 ? (
         <section className="coach-surface rounded-md p-4">
           <div className="flex items-center justify-between gap-3">
@@ -9416,57 +9567,173 @@ function AssessmentsView({
             </header>
 
             <div className="assessment-modal-body px-5 py-5">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm font-semibold text-ink/70">
-                  Categoría
-                  <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("category", event.target.value)} value={assessmentDraft.category}>
-                    {assessmentCategoriesSimple.map((category) => <option key={category}>{category}</option>)}
-                  </select>
-                </label>
-                <label className="text-sm font-semibold text-ink/70">
-                  Tipo sugerido
-                  <select
-                    className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateAssessmentDraft("name", event.target.value === "Otro" ? "" : event.target.value)}
-                    value={assessmentTestOptions[assessmentDraft.category]?.includes(assessmentDraft.name) ? assessmentDraft.name : "Otro"}
-                  >
-                    {(assessmentTestOptions[assessmentDraft.category] ?? ["Otro"]).map((option) => <option key={option}>{option}</option>)}
-                  </select>
-                </label>
-                <label className="text-sm font-semibold text-ink/70 md:col-span-2">
-                  Nombre del test / valoración
-                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("name", event.target.value)} value={assessmentDraft.name} />
-                </label>
-                <label className="text-sm font-semibold text-ink/70">
-                  Fecha
-                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("date", event.target.value)} type="date" value={assessmentDraft.date} />
-                </label>
-                <label className="text-sm font-semibold text-ink/70">
-                  Valor
-                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("result", event.target.value)} value={assessmentDraft.result} />
-                </label>
-                <label className="text-sm font-semibold text-ink/70">
-                  Unidad
-                  <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("unit", event.target.value)} placeholder="kg, cm, segundos, puntos, %, m, W" value={assessmentDraft.unit} />
-                </label>
-                <label className="text-sm font-semibold text-ink/70">
-                  Dirección de mejora
-                  <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("improvementDirection", event.target.value as AssessmentImprovementDirection)} value={assessmentDraft.improvementDirection}>
-                    {Object.entries(assessmentImprovementDirectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                  </select>
-                </label>
-                <label className="text-sm font-semibold text-ink/70 md:col-span-2">
-                  Notas
-                  <textarea className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
-                </label>
-              </div>
+              {assessmentFlowStep === "category" ? (
+                <div>
+                  <h4 className="font-semibold text-ink">¿Qué quieres valorar?</h4>
+                  <p className="mt-1 text-sm text-ink/55">Selecciona una categoría para ver los tests disponibles.</p>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {assessmentCatalog.map((category) => (
+                      <button
+                        className="rounded-md border border-line bg-white px-3 py-3 text-left text-sm font-semibold text-ink transition hover:border-moss/50 hover:bg-panel"
+                        key={category.id}
+                        onClick={() => {
+                          setAssessmentFlowCategory(category.id);
+                          setAssessmentFlowStep("tests");
+                        }}
+                        type="button"
+                      >
+                        {category.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="mt-3 rounded-md border border-dashed border-line px-3 py-2 text-sm font-semibold text-ink/65" onClick={() => openManualAssessment()} type="button">
+                    Otro / Registro manual
+                  </button>
+                </div>
+              ) : null}
+
+              {assessmentFlowStep === "tests" ? (() => {
+                const category = getAssessmentCatalogCategory(assessmentFlowCategory);
+                if (!category) return null;
+                return (
+                  <div>
+                    <button className="text-sm font-semibold text-moss" onClick={() => setAssessmentFlowStep("category")} type="button">← Volver a categorías</button>
+                    <h4 className="mt-3 text-lg font-semibold text-ink">{category.label}</h4>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {category.subcategories.map((subcategory) => (
+                        <section className="rounded-md border border-line bg-panel/30 p-3" key={subcategory.id}>
+                          <h5 className="text-sm font-semibold text-ink">{subcategory.label}</h5>
+                          {subcategory.tests.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {subcategory.tests.map((test) => (
+                                <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-moss/50 hover:text-ink" key={test.id} onClick={() => selectCatalogTest(test)} type="button">
+                                  {test.label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-xs text-ink/45">Sin tests activos todavía.</p>
+                          )}
+                        </section>
+                      ))}
+                    </div>
+                    {category.id !== "functionality" ? (
+                      <button className="mt-3 rounded-md border border-dashed border-line px-3 py-2 text-sm font-semibold text-ink/65" onClick={() => openManualAssessment(category.label)} type="button">
+                        Registro manual en {category.label}
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })() : null}
+
+              {assessmentFlowStep === "manual" ? (
+                <div>
+                  {!isEditingAssessment ? <button className="mb-3 text-sm font-semibold text-moss" onClick={() => setAssessmentFlowStep(assessmentFlowCategory ? "tests" : "category")} type="button">← Volver</button> : null}
+                  <div className="mb-4 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/60">
+                    <span className="font-semibold text-ink">Registro manual</span> · {assessmentDraft.category}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                      Nombre del test / valoración
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("name", event.target.value)} value={assessmentDraft.name} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Fecha
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("date", event.target.value)} type="date" value={assessmentDraft.date} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Valor
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("result", event.target.value)} value={assessmentDraft.result} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Unidad
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("unit", event.target.value)} placeholder="kg, cm, segundos, puntos, %, m, W" value={assessmentDraft.unit} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Dirección de mejora
+                      <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("improvementDirection", event.target.value as AssessmentImprovementDirection)} value={assessmentDraft.improvementDirection}>
+                        {Object.entries(assessmentImprovementDirectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                      Notas
+                      <textarea className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
+                    </label>
+                  </div>
+                </div>
+              ) : null}
+
+              {assessmentFlowStep === "structured" && selectedCatalogTest?.metrics ? (
+                <div>
+                  {!isEditingAssessment ? (
+                    <button className="mb-3 text-sm font-semibold text-moss" onClick={() => setAssessmentFlowStep("tests")} type="button">
+                      ← Volver
+                    </button>
+                  ) : null}
+                  <div className="mb-4 rounded-md border border-line bg-panel/35 px-3 py-2">
+                    <p className="text-sm font-semibold text-ink">{selectedCatalogTest.label}</p>
+                    <p className="mt-1 text-xs text-ink/50">Introduce los valores medidos. Las unidades están definidas por el protocolo.</p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="text-sm font-semibold text-ink/70">
+                      Fecha
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("date", event.target.value)} type="date" value={assessmentDraft.date} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Dirección de mejora
+                      <select className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("improvementDirection", event.target.value as AssessmentImprovementDirection)} value={assessmentDraft.improvementDirection}>
+                        {Object.entries(assessmentImprovementDirectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+                      {selectedCatalogTest.metrics.map((metric) => (
+                        <label className="text-sm font-semibold text-ink/70" key={metric.id}>
+                          <span className="flex items-center justify-between gap-2">
+                            <span>{metric.label}</span>
+                            <span className="text-xs font-medium text-ink/40">{metric.required ? "Requerida" : "Opcional"}</span>
+                          </span>
+                          <span className="mt-1 flex h-11 overflow-hidden rounded-md border border-line bg-white focus-within:border-moss">
+                            <input
+                              aria-label={`${metric.label} en ${metric.unit}`}
+                              className="min-w-0 flex-1 bg-transparent px-3 text-sm text-ink outline-none"
+                              inputMode="decimal"
+                              onChange={(event) => setStructuredMetricValues((currentValues) => ({ ...currentValues, [metric.id]: event.target.value }))}
+                              required={metric.required}
+                              step="any"
+                              type="number"
+                              value={structuredMetricValues[metric.id] ?? ""}
+                            />
+                            <span className="grid min-w-14 place-items-center border-l border-line bg-panel/55 px-3 text-xs font-semibold text-ink/60">{metric.unit}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <label className="text-sm font-semibold text-ink/70 md:col-span-2">
+                      Notas
+                      <textarea className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
+                    </label>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
               <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/70" onClick={resetAssessmentForm} type="button">Cancelar</button>
-              <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
-                {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
-              </button>
+              {assessmentFlowStep === "manual" ? (
+                <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={handleSaveAssessment} type="button">
+                  {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
+                </button>
+              ) : null}
+              {assessmentFlowStep === "structured" ? (
+                <button
+                  className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={selectedCatalogTest?.metrics?.some((metric) => metric.required && !structuredMetricValues[metric.id]?.trim())}
+                  onClick={handleSaveStructuredAssessment}
+                  type="button"
+                >
+                  {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
+                </button>
+              ) : null}
             </footer>
           </form>
         </div>
@@ -9564,6 +9831,15 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
                     <span className="text-ink/50">{formatDisplayDate(entry.date)}</span>
                   </div>
                   {entry.notes ? <p className="mt-2 text-ink/60">{entry.notes}</p> : null}
+                  {entry.metrics && entry.metrics.length > 1 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {entry.metrics.map((metric) => (
+                        <span className="rounded-md border border-line bg-panel/45 px-2 py-1 text-xs font-semibold text-ink/55" key={metric.id}>
+                          {metric.label}: {metric.value} {metric.unit}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
