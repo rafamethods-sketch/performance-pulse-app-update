@@ -8939,6 +8939,127 @@ function StructuredAssessmentDetails({ assessment, includeMeasured = false }: { 
   );
 }
 
+type AssessmentMetricSource = {
+  assessment: AssessmentEntry;
+  value: number;
+};
+
+function getLatestAssessmentMetricSource(
+  assessments: AssessmentEntry[],
+  protocolId: string,
+  metricId: string,
+  requirePositive = false
+): AssessmentMetricSource | null {
+  return assessments
+    .flatMap((assessment, index) => {
+      if (assessment.protocolId !== protocolId) return [];
+      const metric = assessment.metrics?.find((candidate) => candidate.id === metricId);
+      const value = Number(metric?.value);
+      if (!metric || !Number.isFinite(value) || value < 0 || (requirePositive && value === 0)) return [];
+      return [{ assessment, index, value }];
+    })
+    .sort((left, right) => {
+      const dateDifference = getAssessmentDateValue(right.assessment.date) - getAssessmentDateValue(left.assessment.date);
+      return dateDifference || left.index - right.index;
+    })[0] ?? null;
+}
+
+function DsiAnalysisCard({ assessments }: { assessments: AssessmentEntry[] }) {
+  const ballisticPeakForce = getLatestAssessmentMetricSource(assessments, "cmj", "peak_force");
+  const isometricPeakForce = getLatestAssessmentMetricSource(assessments, "imtp", "peak_force", true);
+  const ballisticDate = ballisticPeakForce?.assessment.date && ballisticPeakForce.assessment.date !== "Sin fecha"
+    ? new Date(`${ballisticPeakForce.assessment.date}T00:00:00`).getTime()
+    : null;
+  const isometricDate = isometricPeakForce?.assessment.date && isometricPeakForce.assessment.date !== "Sin fecha"
+    ? new Date(`${isometricPeakForce.assessment.date}T00:00:00`).getTime()
+    : null;
+  const testSeparationDays = ballisticDate !== null && isometricDate !== null && Number.isFinite(ballisticDate) && Number.isFinite(isometricDate)
+    ? Math.round(Math.abs(ballisticDate - isometricDate) / 86400000)
+    : null;
+  const dsi = ballisticPeakForce && isometricPeakForce
+    ? ballisticPeakForce.value / isometricPeakForce.value
+    : null;
+  const validDsi = dsi !== null && Number.isFinite(dsi) && dsi >= 0 ? dsi : null;
+  const markerPosition = validDsi === null ? null : Math.min(validDsi, 1) * 100;
+  const missingLabel = !ballisticPeakForce && !isometricPeakForce
+    ? "Faltan datos"
+    : !ballisticPeakForce
+      ? "Falta Fuerza pico del CMJ"
+      : !isometricPeakForce
+        ? "Falta IMTP"
+        : "Faltan datos";
+
+  return (
+    <article className="rounded-md border border-line bg-panel/30 p-4 md:col-span-2 xl:col-span-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="font-semibold text-ink">DSI</h4>
+          <p className="mt-1 text-sm text-ink/55">Dynamic Strength Index</p>
+        </div>
+        <span className="rounded-md border border-line bg-white px-3 py-1 text-sm font-semibold text-ink/70">
+          {validDsi === null ? missingLabel : validDsi.toFixed(2)}
+        </span>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-end justify-between gap-3 text-[11px] font-semibold text-ink/55 sm:text-xs">
+          <span className="max-w-32">Fuerza máxima iso</span>
+          <span className="max-w-32 text-right">Expresión balística</span>
+        </div>
+        <div className="relative mt-2 h-3 rounded-full border border-line bg-white/75">
+          <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-gradient-to-r from-slate-400/30 via-blue-400/30 to-slate-700/35" />
+          {markerPosition !== null ? (
+            <span
+              aria-label={`DSI ${validDsi?.toFixed(2)}`}
+              className="absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ink shadow-md"
+              role="img"
+              style={{ left: `clamp(10px, ${markerPosition}%, calc(100% - 10px))` }}
+            />
+          ) : null}
+        </div>
+        <div className="mt-2 flex justify-between text-[10px] font-semibold text-ink/35">
+          <span>0</span>
+          <span>1</span>
+        </div>
+        {validDsi !== null && validDsi > 1 ? (
+          <p className="mt-2 text-xs font-medium text-ink/50">El valor real supera el rango 0–1 representado en la escala.</p>
+        ) : null}
+      </div>
+
+      <div className="mt-5 rounded-md border border-line bg-white/65 p-3">
+        <h5 className="text-xs font-semibold uppercase text-moss">Datos utilizados</h5>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-semibold text-ink/45">CMJ · Fuerza pico</p>
+            <p className="mt-1 text-sm font-semibold text-ink">{ballisticPeakForce ? `${ballisticPeakForce.value} N` : "Sin dato"}</p>
+            {ballisticPeakForce ? <p className="mt-1 text-xs text-ink/45">{formatDisplayDate(ballisticPeakForce.assessment.date)}</p> : null}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink/45">IMTP · Fuerza pico</p>
+            <p className="mt-1 text-sm font-semibold text-ink">{isometricPeakForce ? `${isometricPeakForce.value} N` : "Sin dato"}</p>
+            {isometricPeakForce ? <p className="mt-1 text-xs text-ink/45">{formatDisplayDate(isometricPeakForce.assessment.date)}</p> : null}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink/45">DSI</p>
+            <p className="mt-1 text-sm font-semibold text-ink">{validDsi === null ? "Sin calcular" : validDsi.toFixed(2)}</p>
+          </div>
+        </div>
+        {testSeparationDays !== null ? (
+          <p className="mt-3 border-t border-line pt-2 text-xs font-medium text-ink/50">
+            {testSeparationDays === 0 ? "Pruebas realizadas el mismo día" : `Separación entre pruebas: ${testSeparationDays} días`}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-1.5 text-xs leading-relaxed text-ink/50">
+        <p>El DSI expresa la relación entre la fuerza pico producida en una acción balística y la fuerza máxima isométrica registrada.</p>
+        <p>El resultado describe el perfil del deportista y debe interpretarse según las demandas del deporte, posición, nivel, fase de entrenamiento e historial individual.</p>
+        <p className="font-medium text-ink/55">Izquierda: predominio relativo de fuerza máxima isométrica · Derecha: mayor expresión balística relativa.</p>
+      </div>
+    </article>
+  );
+}
+
 const assessmentReadableCategories = [
   ...assessmentCatalog.map((category) => category.label),
   "Salto",
@@ -9587,7 +9708,9 @@ function AssessmentsView({
           <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">Lectura orientativa</span>
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {assessmentAnalysisRequirements.map((analysis) => (
+          {assessmentAnalysisRequirements.map((analysis) => analysis.id === "dsi" ? (
+            <DsiAnalysisCard assessments={assessments} key={analysis.id} />
+          ) : (
             <article className="rounded-md border border-line bg-panel/30 p-3" key={analysis.id}>
               <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold text-ink">{analysis.label}</h4>

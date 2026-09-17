@@ -178,7 +178,8 @@ export const assessmentCatalog: AssessmentCatalogCategory[] = [
             metrics: [
               { id: "jump_height", label: "Altura de salto", unit: "cm", required: true, primary: true },
               { id: "takeoff_velocity", label: "Velocidad de despegue", unit: "m/s", required: false },
-              { id: "time_to_takeoff", label: "Tiempo hasta el despegue", unit: "s", required: false }
+              { id: "time_to_takeoff", label: "Tiempo hasta el despegue", unit: "s", required: false },
+              { id: "peak_force", label: "Fuerza pico", unit: "N", required: false }
             ]
           },
           ...["SJ", "Drop jump", "Salto horizontal"].map((label) => ({
