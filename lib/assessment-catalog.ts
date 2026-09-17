@@ -11,11 +11,19 @@ export type AssessmentCatalogTest = {
   label: string;
   metrics?: AssessmentMetricDefinition[];
   mode: "manual" | "structured" | "ankle" | "knee";
+  summary?: {
+    metricIds: string[];
+    mode: "bilateral";
+  };
 };
 
 export type AssessmentMetricDefinition = {
   id: string;
   label: string;
+  normalization?: {
+    factor: number;
+    unit: string;
+  };
   primary?: boolean;
   required: boolean;
   unit: string;
@@ -27,6 +35,52 @@ export type AssessmentMetricValue = {
   unit: string;
   value: string;
 };
+
+export type AssessmentMetricNormalizedValue = {
+  unit: string;
+  value: number;
+};
+
+export type BilateralAssessmentResult = {
+  asymmetryPercent: number;
+  lowerSide: string;
+};
+
+export function getNormalizedAssessmentMetric(
+  definition: AssessmentMetricDefinition,
+  value: string
+): AssessmentMetricNormalizedValue | null {
+  if (!definition.normalization) return null;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) return null;
+  return {
+    unit: definition.normalization.unit,
+    value: Number((numericValue * definition.normalization.factor).toFixed(2))
+  };
+}
+
+export function getBilateralAssessmentResult(
+  definitions: AssessmentMetricDefinition[],
+  values: AssessmentMetricValue[],
+  metricIds: string[]
+): BilateralAssessmentResult | null {
+  const bilateralValues = metricIds.map((metricId) => {
+    const definition = definitions.find((metric) => metric.id === metricId);
+    const metric = values.find((value) => value.id === metricId);
+    const numericValue = Number(metric?.value);
+    if (!definition || !metric || !Number.isFinite(numericValue) || numericValue < 0) return null;
+    return { label: definition.label, value: numericValue };
+  });
+  if (bilateralValues.some((value) => value === null)) return null;
+  const [first, second] = bilateralValues as Array<{ label: string; value: number }>;
+  if (first.value === second.value) return { asymmetryPercent: 0, lowerSide: "Sin diferencia" };
+  const higherValue = Math.max(first.value, second.value);
+  const lowerValue = Math.min(first.value, second.value);
+  return {
+    asymmetryPercent: Number((((higherValue - lowerValue) / higherValue) * 100).toFixed(1)),
+    lowerSide: first.value <= second.value ? first.label : second.label
+  };
+}
 
 export type AssessmentCatalogSubcategory = {
   id: string;
@@ -45,7 +99,57 @@ export const assessmentCatalog: AssessmentCatalogCategory[] = [
     id: "strength",
     label: "Fuerza",
     subcategories: [
-      { id: "isometric", label: "Isométrica", tests: [{ id: "handgrip", label: "Handgrip", mode: "manual" }] },
+      {
+        id: "isometric",
+        label: "Isométrica",
+        tests: [
+          {
+            id: "handgrip",
+            label: "Handgrip",
+            mode: "structured",
+            metrics: [
+              {
+                id: "peak_force_right",
+                label: "Derecha",
+                unit: "kgf",
+                required: true,
+                normalization: { factor: 9.80665, unit: "N" }
+              },
+              {
+                id: "peak_force_left",
+                label: "Izquierda",
+                unit: "kgf",
+                required: true,
+                normalization: { factor: 9.80665, unit: "N" }
+              }
+            ],
+            summary: {
+              mode: "bilateral",
+              metricIds: ["peak_force_right", "peak_force_left"]
+            }
+          },
+          {
+            id: "imtp",
+            label: "IMTP",
+            mode: "structured",
+            metrics: [
+              { id: "peak_force", label: "Fuerza pico", unit: "N", required: true, primary: true },
+              { id: "force_100ms", label: "Fuerza a 100 ms", unit: "N", required: false },
+              { id: "force_200ms", label: "Fuerza a 200 ms", unit: "N", required: false }
+            ]
+          },
+          {
+            id: "belt_squat_isometric",
+            label: "Belt Squat isométrico",
+            mode: "structured",
+            metrics: [
+              { id: "peak_force", label: "Fuerza pico", unit: "N", required: true, primary: true },
+              { id: "force_100ms", label: "Fuerza a 100 ms", unit: "N", required: false },
+              { id: "force_200ms", label: "Fuerza a 200 ms", unit: "N", required: false }
+            ]
+          }
+        ]
+      },
       {
         id: "dynamic",
         label: "Dinámica",
@@ -156,4 +260,11 @@ export const assessmentAnalysisRequirements = [
 
 export function getAssessmentCatalogCategory(id: AssessmentCatalogCategoryId | null) {
   return assessmentCatalog.find((category) => category.id === id) ?? null;
+}
+
+export function getAssessmentCatalogTest(protocolId?: string | null) {
+  if (!protocolId) return null;
+  return assessmentCatalog
+    .flatMap((category) => category.subcategories.flatMap((subcategory) => subcategory.tests))
+    .find((test) => test.id === protocolId) ?? null;
 }

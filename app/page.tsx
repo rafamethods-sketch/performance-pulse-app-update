@@ -58,7 +58,10 @@ import { getPlannedSessionImpact, getSessionImpact, getSessionImpactStyle } from
 import {
   assessmentAnalysisRequirements,
   assessmentCatalog,
+  getAssessmentCatalogTest,
+  getBilateralAssessmentResult,
   getAssessmentCatalogCategory,
+  getNormalizedAssessmentMetric,
   type AssessmentCatalogCategoryId,
   type AssessmentMetricValue,
   type AssessmentCatalogTest
@@ -8884,6 +8887,58 @@ type AssessmentEntry = ClientAssessment & {
   unit?: string;
 };
 
+function isValidStructuredMetricValue(value?: string) {
+  if (!value?.trim()) return false;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0;
+}
+
+function getStructuredAssessmentDerivedData(assessment: AssessmentEntry) {
+  const test = getAssessmentCatalogTest(assessment.protocolId);
+  if (!test?.metrics || !assessment.metrics) return null;
+  const normalizedMetrics = assessment.metrics.flatMap((metric) => {
+    const definition = test.metrics?.find((candidate) => candidate.id === metric.id);
+    if (!definition) return [];
+    const normalized = getNormalizedAssessmentMetric(definition, metric.value);
+    return normalized ? [{ id: metric.id, ...normalized }] : [];
+  });
+  const bilateral = test.summary?.mode === "bilateral"
+    ? getBilateralAssessmentResult(test.metrics, assessment.metrics, test.summary.metricIds)
+    : null;
+  return { bilateral, normalizedMetrics, test };
+}
+
+function StructuredAssessmentDetails({ assessment, includeMeasured = false }: { assessment: AssessmentEntry; includeMeasured?: boolean }) {
+  const derived = getStructuredAssessmentDerivedData(assessment);
+  if (!derived || (!includeMeasured && derived.normalizedMetrics.length === 0 && !derived.bilateral)) return null;
+
+  return (
+    <div className="mt-2 grid gap-1.5 text-xs text-ink/55">
+      {includeMeasured ? assessment.metrics?.map((metric) => {
+        const normalized = derived.normalizedMetrics.find((item) => item.id === metric.id);
+        return (
+          <p className="rounded-md border border-line bg-panel/45 px-2 py-1.5" key={metric.id}>
+            <span className="font-semibold text-ink/70">{metric.label}</span> {metric.value} {metric.unit}
+            {normalized ? <span> · {normalized.value} {normalized.unit}</span> : null}
+          </p>
+        );
+      }) : derived.normalizedMetrics.map((normalized) => {
+        const metric = assessment.metrics?.find((item) => item.id === normalized.id);
+        return metric ? (
+          <p key={metric.id}>
+            <span className="font-semibold text-ink/70">{metric.label}</span> {metric.value} {metric.unit} · {normalized.value} {normalized.unit}
+          </p>
+        ) : null;
+      })}
+      {derived.bilateral ? (
+        <p className="font-semibold text-ink/60">
+          Asimetría {derived.bilateral.asymmetryPercent}% · Lado menor: {derived.bilateral.lowerSide}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 const assessmentReadableCategories = [
   ...assessmentCatalog.map((category) => category.label),
   "Salto",
@@ -9236,9 +9291,13 @@ function AssessmentsView({
     if (!client || !onUpdateClient || !selectedCatalogTest?.metrics) return;
 
     const missingRequiredMetric = selectedCatalogTest.metrics.some(
-      (metric) => metric.required && !structuredMetricValues[metric.id]?.trim()
+      (metric) => metric.required && !isValidStructuredMetricValue(structuredMetricValues[metric.id])
     );
-    if (missingRequiredMetric) return;
+    const hasInvalidMetric = selectedCatalogTest.metrics.some((metric) => {
+      const value = structuredMetricValues[metric.id];
+      return Boolean(value?.trim()) && !isValidStructuredMetricValue(value);
+    });
+    if (missingRequiredMetric || hasInvalidMetric) return;
 
     const metrics = selectedCatalogTest.metrics
       .filter((metric) => structuredMetricValues[metric.id]?.trim())
@@ -9249,9 +9308,17 @@ function AssessmentsView({
         value: structuredMetricValues[metric.id].trim()
       }));
     const primaryMetricDefinition = selectedCatalogTest.metrics.find((metric) => metric.primary);
-    if (!primaryMetricDefinition) return;
-    const primaryMetric = metrics.find((metric) => metric.id === primaryMetricDefinition.id);
-    if (!primaryMetric) return;
+    const primaryMetric = primaryMetricDefinition
+      ? metrics.find((metric) => metric.id === primaryMetricDefinition.id)
+      : null;
+    const bilateralMetrics = selectedCatalogTest.summary?.mode === "bilateral"
+      ? selectedCatalogTest.summary.metricIds.map((metricId) => metrics.find((metric) => metric.id === metricId))
+      : [];
+    if (!primaryMetric && bilateralMetrics.some((metric) => !metric)) return;
+    const result = primaryMetric
+      ? `${primaryMetric.value} ${primaryMetric.unit}`
+      : bilateralMetrics.map((metric) => `${metric?.label} ${metric?.value} ${metric?.unit}`).join(" · ");
+    const summaryUnit = primaryMetric?.unit ?? bilateralMetrics[0]?.unit ?? "";
 
     const newAssessment: AssessmentEntry = {
       action: "Ver evolución",
@@ -9261,9 +9328,9 @@ function AssessmentsView({
       name: selectedCatalogTest.label,
       notes: assessmentDraft.notes.trim(),
       protocolId: selectedCatalogTest.id,
-      result: `${primaryMetric.value} ${primaryMetric.unit}`,
+      result,
       type: assessmentDraft.category,
-      unit: primaryMetric.unit
+      unit: summaryUnit
     };
 
     if (editingAssessmentIndex !== null) {
@@ -9280,9 +9347,7 @@ function AssessmentsView({
   };
 
   const handleEditAssessment = (assessment: AssessmentEntry, index: number) => {
-    const structuredTest = assessmentCatalog
-      .flatMap((category) => category.subcategories.flatMap((subcategory) => subcategory.tests))
-      .find((test) => test.id === assessment.protocolId && test.mode === "structured");
+    const structuredTest = getAssessmentCatalogTest(assessment.protocolId);
     if (structuredTest?.metrics && assessment.metrics) {
       setAssessmentDraft({
         category: normalizeAssessmentCategory(assessment.type),
@@ -9362,6 +9427,7 @@ function AssessmentsView({
     const reassessmentDate = reassessmentDates[group.key];
     const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
     const isFavorite = favoriteTests.includes(group.key);
+    const isBilateral = getAssessmentCatalogTest(latestEntry.protocolId)?.summary?.mode === "bilateral";
 
     return (
       <article className="coach-subtle-card flex h-full flex-col rounded-md p-3" key={group.key}>
@@ -9383,12 +9449,13 @@ function AssessmentsView({
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <ClientInfoCard label="Último" value={`${latestEntry.result}`} />
-          <ClientInfoCard label="Mejor" value={`${bestEntry?.result ?? latestEntry.result}`} />
+          <ClientInfoCard label={isBilateral ? "Registros" : "Mejor"} value={isBilateral ? `${group.entries.length}` : `${bestEntry?.result ?? latestEntry.result}`} />
         </div>
+        <StructuredAssessmentDetails assessment={latestEntry} />
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-ink/55">
-          <span className="rounded-md border border-line bg-white px-2 py-1">{getAssessmentStatusLabel(group)}</span>
-          <span className="rounded-md border border-line bg-white px-2 py-1">Cambio: {getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)}</span>
+          <span className="rounded-md border border-line bg-white px-2 py-1">{isBilateral ? "Seguimiento bilateral" : getAssessmentStatusLabel(group)}</span>
+          {!isBilateral ? <span className="rounded-md border border-line bg-white px-2 py-1">Cambio: {getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)}</span> : null}
           <span className="px-1">{formatDisplayDate(latestEntry.date)} · {group.entries.length} registros</span>
         </div>
 
@@ -9686,28 +9753,50 @@ function AssessmentsView({
                       </select>
                     </label>
                     <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
-                      {selectedCatalogTest.metrics.map((metric) => (
-                        <label className="text-sm font-semibold text-ink/70" key={metric.id}>
-                          <span className="flex items-center justify-between gap-2">
-                            <span>{metric.label}</span>
-                            <span className="text-xs font-medium text-ink/40">{metric.required ? "Requerida" : "Opcional"}</span>
-                          </span>
-                          <span className="mt-1 flex h-11 overflow-hidden rounded-md border border-line bg-white focus-within:border-moss">
-                            <input
-                              aria-label={`${metric.label} en ${metric.unit}`}
-                              className="min-w-0 flex-1 bg-transparent px-3 text-sm text-ink outline-none"
-                              inputMode="decimal"
-                              onChange={(event) => setStructuredMetricValues((currentValues) => ({ ...currentValues, [metric.id]: event.target.value }))}
-                              required={metric.required}
-                              step="any"
-                              type="number"
-                              value={structuredMetricValues[metric.id] ?? ""}
-                            />
-                            <span className="grid min-w-14 place-items-center border-l border-line bg-panel/55 px-3 text-xs font-semibold text-ink/60">{metric.unit}</span>
-                          </span>
-                        </label>
-                      ))}
+                      {selectedCatalogTest.metrics.map((metric) => {
+                        const normalized = getNormalizedAssessmentMetric(metric, structuredMetricValues[metric.id] ?? "");
+                        return (
+                          <label className="text-sm font-semibold text-ink/70" key={metric.id}>
+                            <span className="flex items-center justify-between gap-2">
+                              <span>{metric.label}</span>
+                              <span className="text-xs font-medium text-ink/40">{metric.required ? "Requerida" : "Opcional"}</span>
+                            </span>
+                            <span className="mt-1 flex h-11 overflow-hidden rounded-md border border-line bg-white focus-within:border-moss">
+                              <input
+                                aria-label={`${metric.label} en ${metric.unit}`}
+                                className="min-w-0 flex-1 bg-transparent px-3 text-sm text-ink outline-none"
+                                inputMode="decimal"
+                                min="0"
+                                onChange={(event) => setStructuredMetricValues((currentValues) => ({ ...currentValues, [metric.id]: event.target.value }))}
+                                required={metric.required}
+                                step="any"
+                                type="number"
+                                value={structuredMetricValues[metric.id] ?? ""}
+                              />
+                              <span className="grid min-w-14 place-items-center border-l border-line bg-panel/55 px-3 text-xs font-semibold text-ink/60">{metric.unit}</span>
+                            </span>
+                            {normalized ? <span className="mt-1 block text-xs font-medium text-ink/45">≈ {normalized.value} {normalized.unit}</span> : null}
+                          </label>
+                        );
+                      })}
                     </div>
+                    {selectedCatalogTest.summary?.mode === "bilateral" ? (() => {
+                      const currentMetrics = selectedCatalogTest.metrics
+                        .filter((metric) => isValidStructuredMetricValue(structuredMetricValues[metric.id]))
+                        .map((metric) => ({ id: metric.id, label: metric.label, unit: metric.unit, value: structuredMetricValues[metric.id] }));
+                      const bilateral = getBilateralAssessmentResult(
+                        selectedCatalogTest.metrics,
+                        currentMetrics,
+                        selectedCatalogTest.summary.metricIds
+                      );
+                      return bilateral ? (
+                        <div className="rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/60 md:col-span-2">
+                          <span className="font-semibold text-ink">Asimetría: {bilateral.asymmetryPercent}%</span>
+                          <span className="mx-2 text-ink/25">·</span>
+                          Lado menor: {bilateral.lowerSide}
+                        </div>
+                      ) : null;
+                    })() : null}
                     <label className="text-sm font-semibold text-ink/70 md:col-span-2">
                       Notas
                       <textarea className="mt-1 min-h-28 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
@@ -9727,7 +9816,10 @@ function AssessmentsView({
               {assessmentFlowStep === "structured" ? (
                 <button
                   className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={selectedCatalogTest?.metrics?.some((metric) => metric.required && !structuredMetricValues[metric.id]?.trim())}
+                  disabled={selectedCatalogTest?.metrics?.some((metric) => {
+                    const value = structuredMetricValues[metric.id];
+                    return metric.required ? !isValidStructuredMetricValue(value) : Boolean(value?.trim()) && !isValidStructuredMetricValue(value);
+                  })}
                   onClick={handleSaveStructuredAssessment}
                   type="button"
                 >
@@ -9775,6 +9867,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
   const latestEntry = group.entries[group.entries.length - 1];
   const firstEntry = group.entries[0];
   const previousEntry = group.entries[group.entries.length - 2] ?? null;
+  const isBilateral = getAssessmentCatalogTest(latestEntry.protocolId)?.summary?.mode === "bilateral";
   const bestEntry = values.length > 0
     ? group.entries.filter((entry) => entry.parsedValue !== null).reduce((best, entry) => {
         if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
@@ -9798,11 +9891,17 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
         <div className="assessment-modal-body grid gap-4 px-5 py-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ClientInfoCard label="Último valor" value={latestEntry.result} />
-            <ClientInfoCard label="Mejor valor" value={bestEntry.result} />
-            <ClientInfoCard label="Cambio anterior" value={getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)} />
-            <ClientInfoCard label="Desde inicio" value={getAssessmentChangeLabel(firstEntry.parsedValue, latestEntry.parsedValue, group.unit)} />
+            {isBilateral ? (
+              <ClientInfoCard label="Mediciones" value={`${group.entries.length}`} />
+            ) : (
+              <>
+                <ClientInfoCard label="Mejor valor" value={bestEntry.result} />
+                <ClientInfoCard label="Cambio anterior" value={getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)} />
+                <ClientInfoCard label="Desde inicio" value={getAssessmentChangeLabel(firstEntry.parsedValue, latestEntry.parsedValue, group.unit)} />
+              </>
+            )}
           </div>
-          <div className="rounded-md border border-line bg-panel/35 p-4">
+          {!isBilateral ? <div className="rounded-md border border-line bg-panel/35 p-4">
             <h4 className="font-semibold text-ink">Gráfico simple</h4>
             {values.length > 0 ? (
               <div className="mt-4 flex h-40 items-end gap-2 rounded-md bg-white/60 p-3">
@@ -9820,7 +9919,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
             ) : (
               <p className="mt-3 text-sm text-ink/55">Sin valores numéricos suficientes para dibujar evolución.</p>
             )}
-          </div>
+          </div> : null}
           <div className="rounded-md border border-line bg-panel/35 p-4">
             <h4 className="font-semibold text-ink">Historial de mediciones</h4>
             <div className="mt-3 grid gap-2">
@@ -9831,15 +9930,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
                     <span className="text-ink/50">{formatDisplayDate(entry.date)}</span>
                   </div>
                   {entry.notes ? <p className="mt-2 text-ink/60">{entry.notes}</p> : null}
-                  {entry.metrics && entry.metrics.length > 1 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {entry.metrics.map((metric) => (
-                        <span className="rounded-md border border-line bg-panel/45 px-2 py-1 text-xs font-semibold text-ink/55" key={metric.id}>
-                          {metric.label}: {metric.value} {metric.unit}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                  <StructuredAssessmentDetails assessment={entry} includeMeasured />
                 </div>
               ))}
             </div>
