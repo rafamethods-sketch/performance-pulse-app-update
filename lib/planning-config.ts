@@ -1,4 +1,4 @@
-export type PlanningMethod = "" | "linear" | "undulating" | "blocks";
+export type PlanningMethod = "" | "linear" | "undulating" | "blocks" | "flexible";
 export type WeeklyDistribution = "Lineal" | "Ondulante" | "Flexible" | "Personalizada";
 
 export const planningConfig = {
@@ -16,8 +16,13 @@ export const planningConfig = {
     },
     {
       description: "La planificacion se organiza en mesociclos con objetivos principales y secundarios.",
-      label: "Por bloques",
+      label: "Bloques / ATR",
       value: "blocks"
+    },
+    {
+      description: "La estructura se ajusta segun el contexto manteniendo decisiones explicitas del entrenador.",
+      label: "Flexible",
+      value: "flexible"
     }
   ],
   mesocycleNameExamples: [

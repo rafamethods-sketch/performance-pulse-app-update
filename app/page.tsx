@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
@@ -76,6 +76,7 @@ import {
   type WeeklyReviewSession
 } from "@/lib/weekly-review";
 import {
+  getPlanningMethodDescription,
   getPlanningMethodLabel,
   planningConfig,
   type PlanningMethod,
@@ -969,6 +970,9 @@ export default function ClientsPage() {
                 onDuplicateSession={duplicateCalendarSession}
                 onOpenAssessments={(clientId) => openClientSheet(clientId, "assessments")}
                 onOpenTrainingDraft={openTrainingDraft}
+                onUpdateClient={(updatedClient) =>
+                  setClients((currentClients) => currentClients.map((listedClient) => listedClient.id === updatedClient.id ? updatedClient : listedClient))
+                }
               />
             ) : <AthletePlanningView client={athleteClient} />
           ) : activeSheet === "athleteProfile" ? (
@@ -1288,6 +1292,9 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   techniqueVideoView?: TechniqueVideoView | null;
   videoNote?: string | null;
   videoUrl?: string | null;
+  prescriptionBlockId?: string | null;
+  prescriptionRole?: PlanningPrescriptionRole | null;
+  prescriptionSource?: "default" | "custom" | "legacy" | null;
 };
 type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & {
   actualDurationMinutes?: number | string | null;
@@ -1398,6 +1405,11 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
     eventName?: string;
     eventNotes?: string;
     method?: PlanningMethod;
+    planName?: string;
+    primaryObjective?: string;
+    secondaryObjective?: string;
+    startDate?: string;
+    weeklyFrequency?: number;
   };
   sex?: ClientSex;
   sessionRecords: ClientSessionRecord[];
@@ -6565,6 +6577,22 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
 }
 
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Otro" | "Sin evento definido";
+type PlanningPrescriptionRole = "principal" | "secondary" | "accessory";
+type PlanningPrescriptionDefault = {
+  repsMax: string;
+  repsMin: string;
+  restMaxSeconds: string;
+  restMinSeconds: string;
+  rirMax: string;
+  rirMin: string;
+  sets: string;
+};
+type PlanningWeeklyTemplateDay = {
+  dayIndex: number;
+  notes: string;
+  sessionName: string;
+  sessionType: string;
+};
 type EditablePlanningBlock = {
   durationWeeks: number;
   id: string;
@@ -6574,6 +6602,8 @@ type EditablePlanningBlock = {
   primaryObjective: string;
   secondaryObjective: string;
   weeklyDistribution: WeeklyDistribution;
+  prescriptionDefaults?: Partial<Record<PlanningPrescriptionRole, PlanningPrescriptionDefault>>;
+  weeklyTemplate?: PlanningWeeklyTemplateDay[];
 };
 type PlanningRoadmapBlock = EditablePlanningBlock & { endWeek: number; startWeek: number };
 
@@ -6621,6 +6651,40 @@ const planningWeeklyDistributionOptions = [
   "Personalizada"
 ];
 
+const planningPrescriptionRoles: Array<{ id: PlanningPrescriptionRole; label: string }> = [
+  { id: "principal", label: "Principal" },
+  { id: "secondary", label: "Secundario" },
+  { id: "accessory", label: "Accesorio" }
+];
+
+function createEmptyPrescriptionDefault(): PlanningPrescriptionDefault {
+  return {
+    repsMax: "",
+    repsMin: "",
+    restMaxSeconds: "",
+    restMinSeconds: "",
+    rirMax: "",
+    rirMin: "",
+    sets: ""
+  };
+}
+
+function getBlockPrescriptionDefault(block: EditablePlanningBlock | undefined, role: PlanningPrescriptionRole) {
+  return block?.prescriptionDefaults?.[role] ?? createEmptyPrescriptionDefault();
+}
+
+function getPrescriptionRange(minimum: string, maximum: string) {
+  if (minimum && maximum && minimum !== maximum) return `${minimum}-${maximum}`;
+  return minimum || maximum;
+}
+
+function getPrescriptionDefaultSummary(defaults: PlanningPrescriptionDefault) {
+  const volume = [defaults.sets, getPrescriptionRange(defaults.repsMin, defaults.repsMax)].filter(Boolean).join("×");
+  const rir = getPrescriptionRange(defaults.rirMin, defaults.rirMax);
+  const rest = getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds);
+  return [volume, rir ? `RIR ${rir}` : "", rest ? `${rest} s` : ""].filter(Boolean).join(" · ") || "Sin definir";
+}
+
 function createPlanningBlockDraft(index: number): EditablePlanningBlock {
   return {
     durationWeeks: 4,
@@ -6630,7 +6694,13 @@ function createPlanningBlockDraft(index: number): EditablePlanningBlock {
     notes: "",
     primaryObjective: "",
     secondaryObjective: "",
-    weeklyDistribution: "Lineal"
+    weeklyDistribution: "Lineal",
+    prescriptionDefaults: {
+      accessory: createEmptyPrescriptionDefault(),
+      principal: createEmptyPrescriptionDefault(),
+      secondary: createEmptyPrescriptionDefault()
+    },
+    weeklyTemplate: []
   };
 }
 
@@ -6826,25 +6896,33 @@ function PlanningView({
   onDeleteSession,
   onDuplicateSession,
   onOpenAssessments,
-  onOpenTrainingDraft
+  onOpenTrainingDraft,
+  onUpdateClient
 }: {
   client?: CoachClient | null;
   onDeleteSession?: (clientId: string, sessionIndex: number) => { ok: boolean; message: string };
   onDuplicateSession?: (clientId: string, sessionIndex: number, newDate: string, newTime?: string) => void;
   onOpenAssessments?: (clientId: string) => void;
   onOpenTrainingDraft?: (target: TargetTrainingSession) => void;
+  onUpdateClient: (updatedClient: CoachClient) => void;
 }) {
   const [planningEventType, setPlanningEventType] = useState<PlanningEventType>(
     client?.planning.eventDate || client?.planning.eventName ? "Competicion" : "Sin evento definido"
   );
   const [planningPeakDate, setPlanningPeakDate] = useState(client?.planning.eventDate ?? "");
   const [planningEventName, setPlanningEventName] = useState(client?.planning.eventName ?? "");
-  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>("blocks");
+  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>(client?.planning.method || "blocks");
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const [newPlanningBlock, setNewPlanningBlock] = useState<EditablePlanningBlock>(() => createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
+  const [planningWizardStep, setPlanningWizardStep] = useState(0);
+  const [planningPlanName, setPlanningPlanName] = useState(client?.planning.planName ?? "");
+  const [planningStartDate, setPlanningStartDate] = useState(client?.planning.startDate ?? "");
+  const [planningPrimaryObjective, setPlanningPrimaryObjective] = useState(client?.planning.primaryObjective ?? "");
+  const [planningSecondaryObjective, setPlanningSecondaryObjective] = useState(client?.planning.secondaryObjective ?? "");
+  const [planningWeeklyFrequency, setPlanningWeeklyFrequency] = useState(client?.planning.weeklyFrequency ?? 3);
   const [pendingPlanningDurationChange, setPendingPlanningDurationChange] = useState<{
     blockId: string;
     direction: -1 | 1;
@@ -6925,14 +7003,110 @@ function PlanningView({
     setPlanningEventName(client?.planning.eventName ?? "");
     setPlanningPeakDate(client?.planning.eventDate ?? "");
     setPlanningEventType(client?.planning.eventDate || client?.planning.eventName ? "Competicion" : "Sin evento definido");
-    setPlanningMethod("blocks");
+    setPlanningMethod(client?.planning.method || "blocks");
+    setPlanningPlanName(client?.planning.planName ?? "");
+    setPlanningStartDate(client?.planning.startDate ?? "");
+    setPlanningPrimaryObjective(client?.planning.primaryObjective ?? "");
+    setPlanningSecondaryObjective(client?.planning.secondaryObjective ?? "");
+    setPlanningWeeklyFrequency(client?.planning.weeklyFrequency ?? 3);
+    setPlanningWizardStep(0);
     setNewPlanningBlock(createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
     setSelectedPlanningBlockId(null);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
     setPendingPlanningDurationChange(null);
     setCopiedPlanningWeek(null);
-  }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method]);
+  }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method, client?.planning.planName, client?.planning.primaryObjective, client?.planning.secondaryObjective, client?.planning.startDate, client?.planning.weeklyFrequency]);
+
+  function openPlanningWizard() {
+    setPlanningWizardStep(0);
+    setShowAdvancedPlanning(true);
+  }
+
+  function updatePlanningBlockDraft(blockId: string, updates: Partial<EditablePlanningBlock>) {
+    setPlanningBlocks((blocks) => blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block));
+  }
+
+  function updateBlockWeeklyDay(blockId: string, dayIndex: number, updates: Partial<PlanningWeeklyTemplateDay>) {
+    setPlanningBlocks((blocks) => blocks.map((block) => {
+      if (block.id !== blockId) return block;
+      const currentDays = block.weeklyTemplate ?? [];
+      const currentDay = currentDays.find((day) => day.dayIndex === dayIndex);
+      const nextDays = currentDay
+        ? currentDays.map((day) => day.dayIndex === dayIndex ? { ...day, ...updates } : day)
+        : [...currentDays, { dayIndex, notes: "", sessionName: "", sessionType: "", ...updates }];
+      return { ...block, weeklyTemplate: nextDays.filter((day) => day.sessionName.trim() || day.sessionType.trim() || day.notes.trim()) };
+    }));
+  }
+
+  function updateBlockPrescriptionDefault(blockId: string, role: PlanningPrescriptionRole, updates: Partial<PlanningPrescriptionDefault>) {
+    setPlanningBlocks((blocks) => blocks.map((block) => block.id === blockId ? {
+      ...block,
+      prescriptionDefaults: {
+        ...block.prescriptionDefaults,
+        [role]: { ...getBlockPrescriptionDefault(block, role), ...updates }
+      }
+    } : block));
+  }
+
+  function copyBlockConfiguration(sourceIndex: number, targetIndex: number, mode: "week" | "prescription") {
+    const source = planningBlocks[sourceIndex];
+    const target = planningBlocks[targetIndex];
+    if (!source || !target) return;
+    updatePlanningBlockDraft(target.id, mode === "week"
+      ? { weeklyTemplate: (source.weeklyTemplate ?? []).map((day) => ({ ...day })) }
+      : { prescriptionDefaults: Object.fromEntries(Object.entries(source.prescriptionDefaults ?? {}).map(([role, defaults]) => [role, { ...defaults }])) }
+    );
+  }
+
+  function savePlanningWizard() {
+    if (!client) return;
+    const previousBlocks = client.planning.blocks ?? [];
+    const changedDefaults = planningBlocks.filter((block) => {
+      const previous = previousBlocks.find((candidate) => candidate.id === block.id);
+      return previous && JSON.stringify(previous.prescriptionDefaults ?? {}) !== JSON.stringify(block.prescriptionDefaults ?? {});
+    });
+    const inheritedExercises = (client.sessionRecords ?? []).flatMap((session) => session.plannedExercises ?? []).filter((exercise) =>
+      exercise.prescriptionSource === "default" && changedDefaults.some((block) => block.id === exercise.prescriptionBlockId)
+    );
+    const shouldUpdateInherited = inheritedExercises.length > 0
+      ? window.confirm(`La prescripción del mesociclo ha cambiado. Hay ${inheritedExercises.length} ejercicios creados con el default anterior.\n\nAceptar: actualizar solo los heredados.\nCancelar: conservar como están.`)
+      : false;
+    const nextSessions = shouldUpdateInherited ? (client.sessionRecords ?? []).map((session) => ({
+      ...session,
+      plannedExercises: (session.plannedExercises ?? []).map((exercise) => {
+        if (exercise.prescriptionSource !== "default" || !exercise.prescriptionRole || !exercise.prescriptionBlockId) return exercise;
+        const block = planningBlocks.find((candidate) => candidate.id === exercise.prescriptionBlockId);
+        const defaults = getBlockPrescriptionDefault(block, exercise.prescriptionRole);
+        return {
+          ...exercise,
+          plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
+          plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
+          plannedRir: getPrescriptionRange(defaults.rirMin, defaults.rirMax),
+          plannedSets: defaults.sets
+        };
+      })
+    })) : client.sessionRecords;
+
+    onUpdateClient({
+      ...client,
+      planning: {
+        ...client.planning,
+        blocks: planningBlocks,
+        eventDate: planningPeakDate,
+        eventName: planningEventName,
+        method: planningMethod,
+        planName: planningPlanName.trim(),
+        primaryObjective: planningPrimaryObjective.trim(),
+        secondaryObjective: planningSecondaryObjective.trim(),
+        startDate: planningStartDate,
+        weeklyFrequency: planningWeeklyFrequency
+      },
+      sessionRecords: nextSessions
+    });
+    setPlanningActionMessage("Planificación guardada.");
+    setShowAdvancedPlanning(false);
+  }
 
   function addMesocycle() {
     const nextBlock = { ...newPlanningBlock, id: `mesocycle-${Date.now()}` };
@@ -6942,9 +7116,11 @@ function PlanningView({
   }
 
   function updateBlock(blockId: string, updates: Partial<EditablePlanningBlock>) {
-    setPlanningBlocks((blocks) =>
-      blocks.map((block) => block.id === blockId ? { ...block, ...updates } : block)
-    );
+    const nextBlocks = planningBlocks.map((block) => block.id === blockId ? { ...block, ...updates } : block);
+    setPlanningBlocks(nextBlocks);
+    if (!showAdvancedPlanning && client) {
+      onUpdateClient({ ...client, planning: { ...client.planning, blocks: nextBlocks } });
+    }
   }
 
   function applyPlanningBlockDuration(blockId: string, direction: -1 | 1) {
@@ -7147,16 +7323,16 @@ function PlanningView({
           </div>
           <button
             className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-            onClick={() => setShowAdvancedPlanning(true)}
+            onClick={openPlanningWizard}
             type="button"
           >
-            + Añadir mesociclo
+            {planningBlocks.length > 0 ? "Configurar plan" : "Crear planificación"}
           </button>
         </div>
         {planningBlocks.length === 0 ? (
           <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/60">
             <p>Aún no hay mesociclos en esta planificación.</p>
-            <button className="mt-2 text-sm font-semibold text-moss hover:underline" onClick={() => setShowAdvancedPlanning(true)} type="button">+ Crear primer mesociclo</button>
+            <button className="mt-2 text-sm font-semibold text-moss hover:underline" onClick={openPlanningWizard} type="button">Crear planificación</button>
           </div>
         ) : (
           <ol className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -7257,6 +7433,43 @@ function PlanningView({
       ) : null}
 
       {showAdvancedPlanning ? (
+        <PlanningWizard
+          blocks={roadmapBlocks}
+          clientName={client.name}
+          eventName={planningEventName}
+          eventType={planningEventType}
+          newBlock={newPlanningBlock}
+          onAddBlock={addMesocycle}
+          onChangeBlockDuration={changePlanningBlockDuration}
+          onClose={() => setShowAdvancedPlanning(false)}
+          onCopyBlockConfiguration={copyBlockConfiguration}
+          onFinish={savePlanningWizard}
+          onSetEventName={setPlanningEventName}
+          onSetEventType={setPlanningEventType}
+          onSetMethod={setPlanningMethod}
+          onSetNewBlock={setNewPlanningBlock}
+          onSetPeakDate={setPlanningPeakDate}
+          onSetPlanName={setPlanningPlanName}
+          onSetPrimaryObjective={setPlanningPrimaryObjective}
+          onSetSecondaryObjective={setPlanningSecondaryObjective}
+          onSetStartDate={setPlanningStartDate}
+          onSetStep={setPlanningWizardStep}
+          onSetWeeklyFrequency={setPlanningWeeklyFrequency}
+          onUpdateBlock={updatePlanningBlockDraft}
+          onUpdateDay={updateBlockWeeklyDay}
+          onUpdatePrescription={updateBlockPrescriptionDefault}
+          peakDate={planningPeakDate}
+          planName={planningPlanName}
+          planningMethod={planningMethod}
+          primaryObjective={planningPrimaryObjective}
+          secondaryObjective={planningSecondaryObjective}
+          startDate={planningStartDate}
+          step={planningWizardStep}
+          weeklyFrequency={planningWeeklyFrequency}
+        />
+      ) : null}
+
+      {false && showAdvancedPlanning ? (
         <div className="assessment-modal-overlay" onClick={() => setShowAdvancedPlanning(false)} role="presentation">
           <section
             aria-modal="true"
@@ -7434,6 +7647,169 @@ function PlanningView({
           </section>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+const planningWizardSteps = ["Contexto", "Mesociclos", "Semana", "Prescripción", "Revisión"];
+
+function PlanningWizard({
+  blocks,
+  clientName,
+  eventName,
+  eventType,
+  newBlock,
+  onAddBlock,
+  onChangeBlockDuration,
+  onClose,
+  onCopyBlockConfiguration,
+  onFinish,
+  onSetEventName,
+  onSetEventType,
+  onSetMethod,
+  onSetNewBlock,
+  onSetPeakDate,
+  onSetPlanName,
+  onSetPrimaryObjective,
+  onSetSecondaryObjective,
+  onSetStartDate,
+  onSetStep,
+  onSetWeeklyFrequency,
+  onUpdateBlock,
+  onUpdateDay,
+  onUpdatePrescription,
+  peakDate,
+  planName,
+  planningMethod,
+  primaryObjective,
+  secondaryObjective,
+  startDate,
+  step,
+  weeklyFrequency
+}: {
+  blocks: PlanningRoadmapBlock[];
+  clientName: string;
+  eventName: string;
+  eventType: PlanningEventType;
+  newBlock: EditablePlanningBlock;
+  onAddBlock: () => void;
+  onChangeBlockDuration: (blockId: string, direction: -1 | 1) => void;
+  onClose: () => void;
+  onCopyBlockConfiguration: (sourceIndex: number, targetIndex: number, mode: "week" | "prescription") => void;
+  onFinish: () => void;
+  onSetEventName: (value: string) => void;
+  onSetEventType: (value: PlanningEventType) => void;
+  onSetMethod: (value: PlanningMethod) => void;
+  onSetNewBlock: Dispatch<SetStateAction<EditablePlanningBlock>>;
+  onSetPeakDate: (value: string) => void;
+  onSetPlanName: (value: string) => void;
+  onSetPrimaryObjective: (value: string) => void;
+  onSetSecondaryObjective: (value: string) => void;
+  onSetStartDate: (value: string) => void;
+  onSetStep: (value: number) => void;
+  onSetWeeklyFrequency: (value: number) => void;
+  onUpdateBlock: (blockId: string, updates: Partial<EditablePlanningBlock>) => void;
+  onUpdateDay: (blockId: string, dayIndex: number, updates: Partial<PlanningWeeklyTemplateDay>) => void;
+  onUpdatePrescription: (blockId: string, role: PlanningPrescriptionRole, updates: Partial<PlanningPrescriptionDefault>) => void;
+  peakDate: string;
+  planName: string;
+  planningMethod: PlanningMethod;
+  primaryObjective: string;
+  secondaryObjective: string;
+  startDate: string;
+  step: number;
+  weeklyFrequency: number;
+}) {
+  const totalWeeks = blocks.reduce((total, block) => total + block.durationWeeks, 0);
+  const canContinue = step !== 1 || blocks.length > 0;
+
+  return (
+    <div className="assessment-modal-overlay" onClick={onClose} role="presentation">
+      <section aria-labelledby="planning-wizard-title" aria-modal="true" className="assessment-modal-panel !max-h-[92vh] !w-full !max-w-6xl" onClick={(event) => event.stopPropagation()} role="dialog">
+        <header className="assessment-modal-header px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-moss">Paso {step + 1} de {planningWizardSteps.length} · {clientName}</p>
+              <h2 className="mt-1 text-xl font-semibold text-ink" id="planning-wizard-title">Construir planificación</h2>
+            </div>
+            <button aria-label="Cerrar asistente" className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink/65" onClick={onClose} type="button"><X size={16} /></button>
+          </div>
+          <ol className="mt-4 grid grid-cols-5 gap-1" aria-label="Progreso de configuración">
+            {planningWizardSteps.map((label, index) => (
+              <li className={`min-w-0 rounded-md border px-2 py-2 text-center text-[10px] font-semibold sm:text-xs ${index === step ? "border-moss bg-mint text-moss" : index < step ? "border-steel/25 bg-sky text-steel" : "border-line bg-panel/40 text-ink/40"}`} key={label}>
+                <span className="hidden sm:inline">{label}</span><span className="sm:hidden">{index + 1}</span>
+              </li>
+            ))}
+          </ol>
+        </header>
+
+        <div className="assessment-modal-body px-4 py-5 sm:px-6">
+          {step === 0 ? (
+            <div className="grid gap-5">
+              <div><h3 className="text-xl font-semibold text-ink">¿Qué quieres construir?</h3><p className="mt-1 text-sm text-ink/55">Define el contexto fundamental. RAC no elegirá el modelo por ti.</p></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-ink/65">Nombre del plan<input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-ink" onChange={(event) => onSetPlanName(event.target.value)} placeholder="Ej. Preparación temporada" value={planName} /></label>
+                <label className="text-sm font-semibold text-ink/65">Fecha de inicio<input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-ink" onChange={(event) => onSetStartDate(event.target.value)} type="date" value={startDate} /></label>
+                <label className="text-sm font-semibold text-ink/65">Objetivo principal<input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-ink" onChange={(event) => onSetPrimaryObjective(event.target.value)} value={primaryObjective} /></label>
+                <label className="text-sm font-semibold text-ink/65">Objetivo secundario<input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-ink" onChange={(event) => onSetSecondaryObjective(event.target.value)} value={secondaryObjective} /></label>
+                <label className="text-sm font-semibold text-ink/65">Frecuencia semanal<input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-ink" min="1" onChange={(event) => onSetWeeklyFrequency(Math.max(1, Number(event.target.value) || 1))} type="number" value={weeklyFrequency} /></label>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink">Modelo de periodización</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {planningConfig.methodOptions.filter((option) => option.value).map((option) => (
+                    <button className={`rounded-md border p-3 text-left ${planningMethod === option.value ? "border-moss bg-mint/45" : "border-line bg-panel/30"}`} key={option.value} onClick={() => onSetMethod(option.value as PlanningMethod)} type="button">
+                      <span className="block font-semibold text-ink">{option.label}</span>
+                      <span className="mt-2 block font-mono text-sm tracking-widest text-steel">{option.value === "linear" ? "▂▄▆█" : option.value === "undulating" ? "▂▇▃▆▂▇" : option.value === "blocks" ? "██ ▓▓ ▒▒" : "▂▄▃▆▄▇"}</span>
+                      <span className="mt-2 block text-xs leading-relaxed text-ink/50">{getPlanningMethodDescription(option.value as PlanningMethod)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <details className="rounded-md border border-line bg-panel/25 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-ink">Evento objetivo opcional</summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <select className="h-10 rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onSetEventType(event.target.value as PlanningEventType)} value={eventType}>{planningEventTypes.map((type) => <option key={type}>{type}</option>)}</select>
+                  <input className="h-10 rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onSetEventName(event.target.value)} placeholder="Nombre del evento" value={eventName} />
+                  <input className="h-10 rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onSetPeakDate(event.target.value)} type="date" value={peakDate} />
+                </div>
+              </details>
+            </div>
+          ) : null}
+
+          {step === 1 ? (
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-xl font-semibold text-ink">¿Cómo se divide el plan?</h3><p className="mt-1 text-sm text-ink/55">{totalWeeks} semanas · {blocks.length} mesociclos</p></div></div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {blocks.map((block, index) => (
+                  <article className="rounded-md border border-line bg-panel/30 p-3" key={block.id}>
+                    <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase text-moss">Mesociclo {index + 1}</p><span className="text-xs font-semibold text-ink/45">Semanas {block.startWeek}-{block.endWeek}</span></div>
+                    <input className="mt-2 h-10 w-full rounded-md border border-line bg-white px-3 font-semibold text-ink" onChange={(event) => onUpdateBlock(block.id, { name: event.target.value })} value={block.name} />
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2"><input className="h-9 rounded-md border border-line bg-white px-2 text-sm text-ink" onChange={(event) => onUpdateBlock(block.id, { primaryObjective: event.target.value })} placeholder="Objetivo principal" value={block.primaryObjective} /><input className="h-9 rounded-md border border-line bg-white px-2 text-sm text-ink" onChange={(event) => onUpdateBlock(block.id, { secondaryObjective: event.target.value })} placeholder="Objetivo secundario" value={block.secondaryObjective} /></div>
+                    <textarea className="mt-2 min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => onUpdateBlock(block.id, { notes: event.target.value })} placeholder="Notas opcionales del mesociclo" value={block.notes} />
+                    <div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm font-semibold text-ink">{block.durationWeeks} semanas</span><div className="flex gap-2"><button className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold disabled:opacity-40" disabled={block.durationWeeks <= 1} onClick={() => onChangeBlockDuration(block.id, -1)} type="button">− Semana</button><button className="rounded-md border border-moss/25 bg-mint px-3 py-1.5 text-xs font-semibold text-moss" onClick={() => onChangeBlockDuration(block.id, 1)} type="button">+ Semana</button></div></div>
+                  </article>
+                ))}
+              </div>
+              <section className="rounded-md border border-dashed border-line p-3"><p className="text-sm font-semibold text-ink">Añadir mesociclo</p><div className="mt-2 grid gap-2 sm:grid-cols-[1fr_140px_auto]"><input className="h-10 rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onSetNewBlock((block) => ({ ...block, name: event.target.value }))} value={newBlock.name} /><select className="h-10 rounded-md border border-line bg-white px-2 text-sm text-ink" onChange={(event) => onSetNewBlock((block) => ({ ...block, durationWeeks: Number(event.target.value) }))} value={newBlock.durationWeeks}>{Array.from({ length: 12 }, (_, index) => index + 1).map((weeks) => <option key={weeks} value={weeks}>{weeks} sem.</option>)}</select><button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={onAddBlock} type="button">Añadir</button></div></section>
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">¿Cómo se organiza una semana tipo?</h3><p className="mt-1 text-sm text-ink/55">Activa solo los días de entrenamiento. Los demás quedan como descanso.</p></div>{blocks.map((block, blockIndex) => <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold text-ink">{block.name}</h4>{blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "week")} type="button">Copiar semana anterior</button> : null}</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-7">{planningWeekdayLabels.map((day, dayIndex) => { const value = block.weeklyTemplate?.find((item) => item.dayIndex === dayIndex); return <article className="rounded-md border border-line bg-white p-2" key={day}><p className="text-xs font-semibold text-ink/50">{day.slice(0, 3)}</p><input className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { sessionName: event.target.value })} placeholder="Descanso / Sin sesión" value={value?.sessionName ?? ""} /><input className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { sessionType: event.target.value })} placeholder="Objetivo / tipo" value={value?.sessionType ?? ""} /><input className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { notes: event.target.value })} placeholder="Notas opcionales" value={value?.notes ?? ""} /></article>; })}</div></section>)}</div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Prescripción por defecto</h3><p className="mt-1 text-sm text-ink/55">Una propuesta inicial por rol. Cada ejercicio podrá personalizarse después.</p></div>{blocks.map((block, blockIndex) => <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold text-ink">{block.name}</h4><div className="flex gap-3">{blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "prescription")} type="button">Copiar anterior</button> : null}<button className="text-xs font-semibold text-steel" onClick={() => blocks.forEach((candidate, index) => index > blockIndex && onCopyBlockConfiguration(blockIndex, index, "prescription"))} type="button">Aplicar al resto</button></div></div><div className="mt-3 grid gap-3 lg:grid-cols-3">{planningPrescriptionRoles.map((role) => { const defaults = getBlockPrescriptionDefault(block, role.id); return <article className="rounded-md border border-line bg-white p-3" key={role.id}><p className="text-xs font-semibold uppercase text-moss">{role.label}</p><div className="mt-3 grid grid-cols-2 gap-2"><label className="col-span-2 text-xs font-semibold text-ink/55">Series<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { sets: event.target.value })} value={defaults.sets} /></label><label className="text-xs font-semibold text-ink/55">Reps mín.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { repsMin: event.target.value })} value={defaults.repsMin} /></label><label className="text-xs font-semibold text-ink/55">Reps máx.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { repsMax: event.target.value })} value={defaults.repsMax} /></label><label className="text-xs font-semibold text-ink/55">RIR mín.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { rirMin: event.target.value })} value={defaults.rirMin} /></label><label className="text-xs font-semibold text-ink/55">RIR máx.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { rirMax: event.target.value })} value={defaults.rirMax} /></label><label className="text-xs font-semibold text-ink/55">Descanso mín. (s)<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { restMinSeconds: event.target.value })} value={defaults.restMinSeconds} /></label><label className="text-xs font-semibold text-ink/55">Descanso máx. (s)<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { restMaxSeconds: event.target.value })} value={defaults.restMaxSeconds} /></label></div></article>; })}</div></section>)}</div>
+          ) : null}
+
+          {step === 4 ? (
+            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Revisa la planificación</h3><p className="mt-1 text-sm text-ink/55">Comprueba la estructura antes de volver al timeline.</p></div><section className="highlight-summary-card rounded-md p-4"><p className="text-xs font-semibold uppercase text-blue-300">Plan</p><h4 className="mt-1 text-lg font-semibold text-white">{planName || "Plan sin nombre"}</h4><p className="mt-1 text-sm text-white/65">{getPlanningMethodLabel(planningMethod)} · {totalWeeks} semanas · {weeklyFrequency} sesiones/semana</p></section><div className="grid gap-3 md:grid-cols-2">{blocks.map((block, index) => <article className="rounded-md border border-line bg-panel/30 p-3" key={block.id}><p className="text-xs font-semibold uppercase text-moss">M{index + 1} · {block.durationWeeks} semanas</p><h4 className="mt-1 font-semibold text-ink">{block.name}</h4><p className="mt-1 text-sm text-ink/55">{block.primaryObjective || "Objetivo sin definir"}</p><div className="mt-3 flex flex-wrap gap-1.5">{planningPrescriptionRoles.map((role) => <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55" key={role.id}>{role.label}: {getPrescriptionDefaultSummary(getBlockPrescriptionDefault(block, role.id))}</span>)}</div><p className="mt-3 text-xs text-ink/50">Semana tipo: {(block.weeklyTemplate ?? []).map((day) => `${planningWeekdayLabels[day.dayIndex].slice(0, 1)} · ${day.sessionName}`).join(" · ") || "Sin sesiones tipo"}</p></article>)}</div></div>
+          ) : null}
+        </div>
+
+        <footer className="assessment-modal-footer flex items-center justify-between gap-3 px-4 py-4 sm:px-6"><button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/65 disabled:opacity-40" disabled={step === 0} onClick={() => onSetStep(Math.max(0, step - 1))} type="button">Atrás</button>{step < planningWizardSteps.length - 1 ? <button className="rounded-md bg-ink px-5 py-2 text-sm font-semibold text-white disabled:opacity-40" disabled={!canContinue} onClick={() => onSetStep(step + 1)} type="button">Continuar</button> : <button className="rounded-md bg-ink px-5 py-2 text-sm font-semibold text-white" onClick={onFinish} type="button">Guardar planificación</button>}</footer>
+      </section>
     </div>
   );
 }
@@ -10694,6 +11070,9 @@ type PlannedStrengthExerciseDraft = {
   load: string;
   observation: string;
   percent1RM?: string;
+  prescriptionBlockId?: string;
+  prescriptionRole?: PlanningPrescriptionRole;
+  prescriptionSource?: "default" | "custom" | "legacy";
   reps: string;
   rest: string;
   selectedEquipment?: string;
@@ -11311,10 +11690,20 @@ function CoachTrainingPlanner({
   };
   const visibleSystemTemplates = systemSessionTemplates.filter(filterTemplate);
   const visibleCustomTemplates = sessionTemplates.filter(filterTemplate);
-  const plannedTonnage = strengthExercises.reduce(
-    (total, exercise) => total + Number(exercise.sets || 0) * Number(exercise.reps || 0) * Number(exercise.load || 0),
-    0
-  );
+  const plannedTonnage = strengthExercises.reduce((total, exercise) => {
+    const sets = Number.parseFloat(exercise.sets) || 0;
+    const load = Number.parseFloat(exercise.load) || 0;
+    const [minimumReps, maximumReps = minimumReps] = exercise.reps
+      .split(/[-–]/)
+      .map((value) => Number.parseFloat(value.trim()) || 0);
+    return {
+      maximum: total.maximum + sets * maximumReps * load,
+      minimum: total.minimum + sets * minimumReps * load
+    };
+  }, { maximum: 0, minimum: 0 });
+  const plannedTonnageLabel = plannedTonnage.minimum === plannedTonnage.maximum
+    ? `${plannedTonnage.minimum.toLocaleString("es-ES")} kg`
+    : `${plannedTonnage.minimum.toLocaleString("es-ES")}-${plannedTonnage.maximum.toLocaleString("es-ES")} kg`;
   const plannedSessionsInSelectedWeek =
     activeSessionClient && selectedBlockWeek > 0
       ? (activeSessionClient.sessionRecords ?? []).filter((session) => Number(session.week) === selectedBlockWeek).length
@@ -11323,7 +11712,13 @@ function CoachTrainingPlanner({
     selectedBlockWeek > 0
       ? (selectedBlockWeek === activePlanningWeek ? plannedSessionsInSelectedWeek : 0) + 1
       : null;
-  const currentBlockLabel = activeSessionClient?.planning.currentBlock || "Sin asignar";
+  const activePlanningBlocks = activeSessionClient?.planning.blocks ?? [];
+  const activePlanningRoadmap = activePlanningBlocks.reduce<Array<EditablePlanningBlock & { startWeek: number; endWeek: number }>>((items, block) => {
+    const startWeek = items.length > 0 ? items[items.length - 1].endWeek + 1 : 1;
+    return [...items, { ...block, startWeek, endWeek: startWeek + block.durationWeeks - 1 }];
+  }, []);
+  const selectedSessionPlanningBlock = activePlanningRoadmap.find((block) => selectedBlockWeek >= block.startWeek && selectedBlockWeek <= block.endWeek);
+  const currentBlockLabel = selectedSessionPlanningBlock?.name || activeSessionClient?.planning.currentBlock || "Sin asignar";
   const fatigueAlerts = calculateMuscleFatigue(getClientTrainingSessionInputs(activeSessionClient))
     .filter((item) => ["Rojo", "Naranja"].includes(item.status))
     .slice(0, 4);
@@ -11480,6 +11875,30 @@ function CoachTrainingPlanner({
       current.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...updates } : exercise)
     );
   };
+  const updateStrengthPrescription = (exerciseId: string, updates: Partial<PlannedStrengthExerciseDraft>) => {
+    setStrengthExercises((current) => current.map((exercise) => exercise.id === exerciseId ? {
+      ...exercise,
+      ...updates,
+      prescriptionSource: exercise.prescriptionSource === "default" ? "custom" : exercise.prescriptionSource ?? "legacy"
+    } : exercise));
+  };
+  const applyStrengthExerciseRole = (exerciseId: string, role: PlanningPrescriptionRole) => {
+    const defaults = getBlockPrescriptionDefault(selectedSessionPlanningBlock, role);
+    updateStrengthExercise(exerciseId, {
+      intensityMethod: "rir",
+      prescriptionBlockId: selectedSessionPlanningBlock?.id,
+      prescriptionRole: role,
+      prescriptionSource: "default",
+      reps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
+      rest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
+      sets: defaults.sets,
+      targetRir: getPrescriptionRange(defaults.rirMin, defaults.rirMax)
+    });
+  };
+  const restoreStrengthExerciseDefault = (exerciseId: string) => {
+    const exercise = strengthExercises.find((candidate) => candidate.id === exerciseId);
+    if (exercise?.prescriptionRole) applyStrengthExerciseRole(exerciseId, exercise.prescriptionRole);
+  };
   const selectStrengthLibraryExercise = (draftExerciseId: string, libraryExercise: ExerciseDefinition) => {
     updateStrengthExercise(draftExerciseId, {
       exerciseId: libraryExercise.id,
@@ -11556,6 +11975,9 @@ function CoachTrainingPlanner({
     load: exercise.load,
     observation: exercise.observation,
     percent1RM: exercise.percent1RM,
+    prescriptionBlockId: exercise.prescriptionBlockId,
+    prescriptionRole: exercise.prescriptionRole,
+    prescriptionSource: exercise.prescriptionSource,
     reps: exercise.reps,
     rest: exercise.rest,
     selectedEquipment: exercise.selectedEquipment || undefined,
@@ -11596,6 +12018,9 @@ function CoachTrainingPlanner({
       intensityMethod: exercise.intensityMethod || undefined,
       observation: exercise.observation,
       percent1RM: exercise.percent1RM,
+      prescriptionBlockId: exercise.prescriptionBlockId,
+      prescriptionRole: exercise.prescriptionRole,
+      prescriptionSource: exercise.prescriptionSource ?? "legacy",
       plannedLoad: exercise.load,
       plannedReps: exercise.reps,
       plannedRest: exercise.rest,
@@ -11811,9 +12236,10 @@ function CoachTrainingPlanner({
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
               <div className="mb-3 flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-ink/65">
-                  Ejercicio {blockExercises.findIndex((item) => item.id === exercise.id) + 1}
-                </p>
+                <div>
+                  <p className="text-sm font-semibold text-ink/65">Ejercicio {blockExercises.findIndex((item) => item.id === exercise.id) + 1}</p>
+                  <p className="mt-1 text-xs font-semibold text-ink/45">{exercise.prescriptionSource === "default" ? "Default del mesociclo" : exercise.prescriptionSource === "custom" ? "Personalizado" : "Personalizado / Legacy"}</p>
+                </div>
                 <button
                   aria-label="Eliminar ejercicio"
                   className="grid size-9 shrink-0 place-items-center rounded-md border border-line text-ink/45 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
@@ -11823,6 +12249,17 @@ function CoachTrainingPlanner({
                 >
                   <Trash2 size={16} />
                 </button>
+              </div>
+              <div className="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-line bg-panel/30 p-2">
+                <label className="min-w-44 flex-1 text-xs font-semibold text-ink/55">
+                  Rol del ejercicio
+                  <select className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" onChange={(event) => applyStrengthExerciseRole(exercise.id, event.target.value as PlanningPrescriptionRole)} value={exercise.prescriptionRole ?? ""}>
+                    <option value="">Sin rol / Legacy</option>
+                    {planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
+                  </select>
+                </label>
+                {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
+                <span className="text-xs font-medium text-ink/45">{selectedSessionPlanningBlock ? `Mesociclo: ${selectedSessionPlanningBlock.name}` : "Semana sin mesociclo configurado"}</span>
               </div>
               <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
                 <div className="space-y-1 text-xs font-semibold text-ink/55">
@@ -12005,7 +12442,7 @@ function CoachTrainingPlanner({
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-sets`}
                     inputMode="numeric"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { sets: event.target.value })}
+                    onChange={(event) => updateStrengthPrescription(exercise.id, { sets: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "sets")}
                     type="text"
                     value={exercise.sets}
@@ -12017,7 +12454,7 @@ function CoachTrainingPlanner({
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-reps`}
                     inputMode="numeric"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { reps: event.target.value })}
+                    onChange={(event) => updateStrengthPrescription(exercise.id, { reps: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "reps")}
                     type="text"
                     value={exercise.reps}
@@ -12043,7 +12480,7 @@ function CoachTrainingPlanner({
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-rest`}
-                    onChange={(event) => updateStrengthExercise(exercise.id, { rest: event.target.value })}
+                    onChange={(event) => updateStrengthPrescription(exercise.id, { rest: event.target.value })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "rest")}
                     inputMode="numeric"
                     placeholder="02:30"
@@ -12102,7 +12539,7 @@ function CoachTrainingPlanner({
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
                       inputMode="decimal"
-                      onChange={(event) => updateStrengthExercise(exercise.id, { targetRir: event.target.value })}
+                      onChange={(event) => updateStrengthPrescription(exercise.id, { targetRir: event.target.value })}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
                       placeholder="RIR"
                       type="text"
@@ -12528,7 +12965,7 @@ function CoachTrainingPlanner({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="font-semibold text-ink">Bloques de fuerza</h3>
                 <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
-                  Tonelaje planificado: {plannedTonnage.toLocaleString("es-ES")} kg
+                  Tonelaje planificado: {plannedTonnageLabel}
                 </span>
               </div>
             </div>
