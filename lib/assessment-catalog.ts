@@ -10,11 +10,28 @@ export type AssessmentCatalogTest = {
   id: string;
   label: string;
   metrics?: AssessmentMetricDefinition[];
-  mode: "manual" | "structured" | "ankle" | "knee";
+  mode: "manual" | "structured" | "load_velocity" | "ankle" | "knee";
   summary?: {
     metricIds: string[];
     mode: "bilateral";
   };
+};
+
+export type LoadVelocityRepetition = {
+  excluded: boolean;
+  id: string;
+  mpv: string;
+};
+
+export type LoadVelocityPoint = {
+  id: string;
+  loadKg: string;
+  repetitions: LoadVelocityRepetition[];
+};
+
+export type LoadVelocityProfile = {
+  exercise: string;
+  loads: LoadVelocityPoint[];
 };
 
 export type AssessmentMetricDefinition = {
@@ -160,7 +177,11 @@ export const assessmentCatalog: AssessmentCatalogCategory[] = [
         }))
       },
       { id: "eccentric", label: "Excéntrica", tests: [] },
-      { id: "load-velocity", label: "VBT / Carga-velocidad", tests: [] }
+      {
+        id: "load-velocity",
+        label: "VBT / Carga-velocidad",
+        tests: [{ id: "load_velocity_profile", label: "Perfil carga–velocidad", mode: "load_velocity" }]
+      }
     ]
   },
   {

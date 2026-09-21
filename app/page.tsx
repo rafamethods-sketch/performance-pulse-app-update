@@ -64,7 +64,9 @@ import {
   getNormalizedAssessmentMetric,
   type AssessmentCatalogCategoryId,
   type AssessmentMetricValue,
-  type AssessmentCatalogTest
+  type AssessmentCatalogTest,
+  type LoadVelocityPoint,
+  type LoadVelocityProfile
 } from "@/lib/assessment-catalog";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
@@ -1371,6 +1373,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
     id?: string;
     isDemo?: boolean;
     metrics?: AssessmentMetricValue[];
+    loadVelocityProfile?: LoadVelocityProfile;
     protocolId?: string;
   }>;
   ankleAssessments?: AnkleAssessment[];
@@ -9060,6 +9063,131 @@ function DsiAnalysisCard({ assessments }: { assessments: AssessmentEntry[] }) {
   );
 }
 
+function createLoadVelocityId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createLoadVelocityPoint(): LoadVelocityPoint {
+  return {
+    id: createLoadVelocityId("load"),
+    loadKg: "",
+    repetitions: [{ excluded: false, id: createLoadVelocityId("rep"), mpv: "" }]
+  };
+}
+
+function getLoadVelocityProfilePoints(profile?: LoadVelocityProfile) {
+  if (!profile) return [];
+  return profile.loads.flatMap((load) => {
+    if (!load.loadKg.trim()) return [];
+    const loadKg = Number(load.loadKg);
+    if (!Number.isFinite(loadKg) || loadKg < 0) return [];
+    const validMpvValues = load.repetitions
+      .filter((repetition) => !repetition.excluded && repetition.mpv.trim())
+      .map((repetition) => Number(repetition.mpv))
+      .filter((mpv) => Number.isFinite(mpv) && mpv >= 0);
+    if (validMpvValues.length === 0) return [];
+    return [{ loadId: load.id, loadKg, mpv: Math.max(...validMpvValues) }];
+  }).sort((left, right) => left.loadKg - right.loadKg);
+}
+
+function LoadVelocityProfileChart({ profile }: { profile: LoadVelocityProfile }) {
+  const points = getLoadVelocityProfilePoints(profile);
+  if (points.length === 0) {
+    return <p className="rounded-md border border-dashed border-line bg-panel/30 p-4 text-sm text-ink/50">Sin puntos válidos para representar.</p>;
+  }
+  const width = 520;
+  const height = 240;
+  const padding = { bottom: 40, left: 48, right: 20, top: 20 };
+  const minLoad = Math.min(...points.map((point) => point.loadKg));
+  const maxLoad = Math.max(...points.map((point) => point.loadKg));
+  const minMpv = Math.min(...points.map((point) => point.mpv));
+  const maxMpv = Math.max(...points.map((point) => point.mpv));
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const getX = (load: number) => padding.left + (maxLoad === minLoad ? plotWidth / 2 : ((load - minLoad) / (maxLoad - minLoad)) * plotWidth);
+  const getY = (mpv: number) => padding.top + (maxMpv === minMpv ? plotHeight / 2 : (1 - (mpv - minMpv) / (maxMpv - minMpv)) * plotHeight);
+
+  return (
+    <div className="overflow-hidden rounded-md border border-line bg-white/65 p-3">
+      <svg aria-label={`Perfil carga–velocidad de ${profile.exercise}`} className="h-auto w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
+        <line stroke="currentColor" className="text-ink/20" strokeWidth="1" x1={padding.left} x2={padding.left} y1={padding.top} y2={height - padding.bottom} />
+        <line stroke="currentColor" className="text-ink/20" strokeWidth="1" x1={padding.left} x2={width - padding.right} y1={height - padding.bottom} y2={height - padding.bottom} />
+        {points.map((point) => (
+          <g key={point.loadId}>
+            <circle className="fill-blue-600 stroke-white" cx={getX(point.loadKg)} cy={getY(point.mpv)} r="6" strokeWidth="2" />
+            <text className="fill-ink/60 text-[10px] font-semibold" textAnchor="middle" x={getX(point.loadKg)} y={getY(point.mpv) - 11}>{point.mpv} m/s</text>
+            <text className="fill-ink/45 text-[10px] font-semibold" textAnchor="middle" x={getX(point.loadKg)} y={height - 20}>{point.loadKg}</text>
+          </g>
+        ))}
+        <text className="fill-ink/50 text-[10px] font-semibold" textAnchor="middle" x={width / 2} y={height - 3}>Carga (kg)</text>
+        <text className="fill-ink/50 text-[10px] font-semibold" textAnchor="middle" transform={`rotate(-90 12 ${height / 2})`} x="12" y={height / 2}>MPV (m/s)</text>
+      </svg>
+    </div>
+  );
+}
+
+function LoadVelocityProfileDetails({ assessment }: { assessment: AssessmentEntry }) {
+  const profile = assessment.loadVelocityProfile;
+  if (!profile) return null;
+  const validPoints = getLoadVelocityProfilePoints(profile);
+  return (
+    <div className="mt-2 grid gap-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
+        <span className="rounded-md border border-line bg-panel/45 px-2 py-1">{profile.exercise || "Ejercicio sin especificar"}</span>
+        <span className="rounded-md border border-line bg-panel/45 px-2 py-1">{profile.loads.length} cargas</span>
+        <span className="rounded-md border border-line bg-panel/45 px-2 py-1">{validPoints.length} puntos válidos</span>
+        {validPoints.length < 2 ? <span className="rounded-md border border-line bg-panel/45 px-2 py-1">Perfil incompleto</span> : null}
+      </div>
+      <LoadVelocityProfileChart profile={profile} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {profile.loads.map((load) => {
+          const validRepetitions = load.repetitions.filter((repetition) => !repetition.excluded && isValidStructuredMetricValue(repetition.mpv));
+          const bestMpv = validRepetitions.length > 0 ? Math.max(...validRepetitions.map((repetition) => Number(repetition.mpv))) : null;
+          return (
+            <div className="rounded-md border border-line bg-white/65 p-3" key={load.id}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink">{load.loadKg} kg</p>
+                <span className="text-xs font-semibold text-ink/50">{bestMpv === null ? "Sin repetición válida" : `Mejor MPV ${bestMpv} m/s`}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {load.repetitions.map((repetition, index) => (
+                  <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${repetition.excluded ? "border-line bg-panel text-ink/35 line-through" : Number(repetition.mpv) === bestMpv ? "border-blue-200 bg-blue-50 text-blue-800" : "border-line bg-panel/40 text-ink/55"}`} key={repetition.id}>
+                    Rep {index + 1}: {repetition.mpv} m/s{repetition.excluded ? " · Excluida" : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LoadVelocityAnalysisCard({ assessments }: { assessments: AssessmentEntry[] }) {
+  const latestProfile = assessments.find(
+    (assessment) => assessment.protocolId === "load_velocity_profile" && assessment.loadVelocityProfile
+  );
+  const validPointCount = getLoadVelocityProfilePoints(latestProfile?.loadVelocityProfile).length;
+  const isAvailable = validPointCount >= 2;
+
+  return (
+    <article className="rounded-md border border-line bg-panel/30 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-ink">Perfil carga–velocidad</h4>
+        <span className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-ink/55">
+          {isAvailable ? "Disponible" : "Faltan datos"}
+        </span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-ink/50">
+        {isAvailable
+          ? `${validPointCount} puntos válidos en el último perfil registrado.`
+          : "Necesita al menos dos cargas con una repetición válida."}
+      </p>
+    </article>
+  );
+}
+
 const assessmentReadableCategories = [
   ...assessmentCatalog.map((category) => category.label),
   "Salto",
@@ -9226,9 +9354,10 @@ function AssessmentsView({
   const [selectedKneeAssessment, setSelectedKneeAssessment] = useState<KneeAssessment | null>(null);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
   const [assessmentFlowCategory, setAssessmentFlowCategory] = useState<AssessmentCatalogCategoryId | null>(null);
-  const [assessmentFlowStep, setAssessmentFlowStep] = useState<"category" | "tests" | "manual" | "structured">("category");
+  const [assessmentFlowStep, setAssessmentFlowStep] = useState<"category" | "tests" | "manual" | "structured" | "loadVelocity">("category");
   const [selectedCatalogTest, setSelectedCatalogTest] = useState<AssessmentCatalogTest | null>(null);
   const [structuredMetricValues, setStructuredMetricValues] = useState<Record<string, string>>({});
+  const [loadVelocityProfile, setLoadVelocityProfile] = useState<LoadVelocityProfile>({ exercise: "", loads: [createLoadVelocityPoint()] });
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
@@ -9246,6 +9375,7 @@ function AssessmentsView({
     setAssessmentFlowStep("category");
     setSelectedCatalogTest(null);
     setStructuredMetricValues({});
+    setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
     setEditingAssessmentIndex(null);
     setSelectedEvolutionKey(null);
     setSelectedAnkleAssessment(null);
@@ -9298,6 +9428,7 @@ function AssessmentsView({
     setAssessmentFlowStep("category");
     setSelectedCatalogTest(null);
     setStructuredMetricValues({});
+    setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(false);
   };
@@ -9308,6 +9439,7 @@ function AssessmentsView({
     setAssessmentFlowStep("category");
     setSelectedCatalogTest(null);
     setStructuredMetricValues({});
+    setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
     setEditingAssessmentIndex(null);
     setShowNewAssessmentForm(true);
   };
@@ -9340,6 +9472,18 @@ function AssessmentsView({
         name: test.label
       }));
       setAssessmentFlowStep("structured");
+      return;
+    }
+
+    if (test.mode === "load_velocity") {
+      setSelectedCatalogTest(test);
+      setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
+      setAssessmentDraft((currentDraft) => ({
+        ...currentDraft,
+        category: getAssessmentCatalogCategory(assessmentFlowCategory)?.label ?? "Fuerza",
+        name: test.label
+      }));
+      setAssessmentFlowStep("loadVelocity");
       return;
     }
 
@@ -9467,8 +9611,97 @@ function AssessmentsView({
     resetAssessmentForm();
   };
 
+  const updateLoadVelocityLoad = (loadId: string, value: string) => {
+    setLoadVelocityProfile((currentProfile) => ({
+      ...currentProfile,
+      loads: currentProfile.loads.map((load) => load.id === loadId ? { ...load, loadKg: value } : load)
+    }));
+  };
+
+  const updateLoadVelocityRepetition = (loadId: string, repetitionId: string, updates: Partial<LoadVelocityPoint["repetitions"][number]>) => {
+    setLoadVelocityProfile((currentProfile) => ({
+      ...currentProfile,
+      loads: currentProfile.loads.map((load) => load.id === loadId
+        ? { ...load, repetitions: load.repetitions.map((repetition) => repetition.id === repetitionId ? { ...repetition, ...updates } : repetition) }
+        : load)
+    }));
+  };
+
+  const addLoadVelocityRepetition = (loadId: string) => {
+    setLoadVelocityProfile((currentProfile) => ({
+      ...currentProfile,
+      loads: currentProfile.loads.map((load) => load.id === loadId
+        ? { ...load, repetitions: [...load.repetitions, { excluded: false, id: createLoadVelocityId("rep"), mpv: "" }] }
+        : load)
+    }));
+  };
+
+  const removeLoadVelocityRepetition = (loadId: string, repetitionId: string) => {
+    setLoadVelocityProfile((currentProfile) => ({
+      ...currentProfile,
+      loads: currentProfile.loads.map((load) => load.id === loadId && load.repetitions.length > 1
+        ? { ...load, repetitions: load.repetitions.filter((repetition) => repetition.id !== repetitionId) }
+        : load)
+    }));
+  };
+
+  const isLoadVelocityProfileValid = Boolean(loadVelocityProfile.exercise.trim()) && loadVelocityProfile.loads.length > 0 && loadVelocityProfile.loads.every((load) =>
+    isValidStructuredMetricValue(load.loadKg) && load.repetitions.length > 0 && load.repetitions.every((repetition) => isValidStructuredMetricValue(repetition.mpv))
+  );
+
+  const handleSaveLoadVelocityProfile = () => {
+    if (!client || !onUpdateClient || !selectedCatalogTest || !isLoadVelocityProfileValid) return;
+    const normalizedProfile: LoadVelocityProfile = {
+      exercise: loadVelocityProfile.exercise.trim(),
+      loads: loadVelocityProfile.loads.map((load) => ({
+        ...load,
+        loadKg: load.loadKg.trim(),
+        repetitions: load.repetitions.map((repetition) => ({ ...repetition, mpv: repetition.mpv.trim() }))
+      }))
+    };
+    const newAssessment: AssessmentEntry = {
+      action: "Ver perfil",
+      date: assessmentDraft.date || "Sin fecha",
+      improvementDirection: "neutral",
+      loadVelocityProfile: normalizedProfile,
+      name: selectedCatalogTest.label,
+      notes: assessmentDraft.notes.trim(),
+      protocolId: selectedCatalogTest.id,
+      result: `${normalizedProfile.exercise} · ${normalizedProfile.loads.length} ${normalizedProfile.loads.length === 1 ? "carga" : "cargas"}`,
+      type: assessmentDraft.category,
+      unit: ""
+    };
+    if (editingAssessmentIndex !== null) {
+      onUpdateClient({
+        ...client,
+        assessments: (client.assessments ?? []).map((assessment, index) => index === editingAssessmentIndex ? newAssessment : assessment)
+      });
+    } else {
+      onUpdateClient({ ...client, assessments: [newAssessment, ...(client.assessments ?? [])] });
+    }
+    resetAssessmentForm();
+  };
+
   const handleEditAssessment = (assessment: AssessmentEntry, index: number) => {
     const structuredTest = getAssessmentCatalogTest(assessment.protocolId);
+    if (structuredTest?.mode === "load_velocity" && assessment.loadVelocityProfile) {
+      setAssessmentDraft({
+        category: normalizeAssessmentCategory(assessment.type),
+        date: assessment.date === "Sin fecha" ? "" : assessment.date,
+        improvementDirection: "neutral",
+        name: assessment.name,
+        notes: assessment.notes ?? "",
+        result: "",
+        unit: ""
+      });
+      setLoadVelocityProfile(assessment.loadVelocityProfile);
+      setSelectedCatalogTest(structuredTest);
+      setAssessmentFlowCategory(null);
+      setAssessmentFlowStep("loadVelocity");
+      setEditingAssessmentIndex(index);
+      setShowNewAssessmentForm(true);
+      return;
+    }
     if (structuredTest?.metrics && assessment.metrics) {
       setAssessmentDraft({
         category: normalizeAssessmentCategory(assessment.type),
@@ -9549,6 +9782,8 @@ function AssessmentsView({
     const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
     const isFavorite = favoriteTests.includes(group.key);
     const isBilateral = getAssessmentCatalogTest(latestEntry.protocolId)?.summary?.mode === "bilateral";
+    const isLoadVelocity = Boolean(latestEntry.loadVelocityProfile);
+    const loadVelocityPointCount = getLoadVelocityProfilePoints(latestEntry.loadVelocityProfile).length;
 
     return (
       <article className="coach-subtle-card flex h-full flex-col rounded-md p-3" key={group.key}>
@@ -9570,13 +9805,16 @@ function AssessmentsView({
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <ClientInfoCard label="Último" value={`${latestEntry.result}`} />
-          <ClientInfoCard label={isBilateral ? "Registros" : "Mejor"} value={isBilateral ? `${group.entries.length}` : `${bestEntry?.result ?? latestEntry.result}`} />
+          <ClientInfoCard
+            label={isLoadVelocity ? "Puntos válidos" : isBilateral ? "Registros" : "Mejor"}
+            value={isLoadVelocity ? `${loadVelocityPointCount}` : isBilateral ? `${group.entries.length}` : `${bestEntry?.result ?? latestEntry.result}`}
+          />
         </div>
-        <StructuredAssessmentDetails assessment={latestEntry} />
+        {isLoadVelocity ? null : <StructuredAssessmentDetails assessment={latestEntry} />}
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-ink/55">
-          <span className="rounded-md border border-line bg-white px-2 py-1">{isBilateral ? "Seguimiento bilateral" : getAssessmentStatusLabel(group)}</span>
-          {!isBilateral ? <span className="rounded-md border border-line bg-white px-2 py-1">Cambio: {getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)}</span> : null}
+          <span className="rounded-md border border-line bg-white px-2 py-1">{isLoadVelocity ? (loadVelocityPointCount >= 2 ? "Perfil disponible" : "Perfil incompleto") : isBilateral ? "Seguimiento bilateral" : getAssessmentStatusLabel(group)}</span>
+          {!isBilateral && !isLoadVelocity ? <span className="rounded-md border border-line bg-white px-2 py-1">Cambio: {getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit)}</span> : null}
           <span className="px-1">{formatDisplayDate(latestEntry.date)} · {group.entries.length} registros</span>
         </div>
 
@@ -9710,6 +9948,8 @@ function AssessmentsView({
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {assessmentAnalysisRequirements.map((analysis) => analysis.id === "dsi" ? (
             <DsiAnalysisCard assessments={assessments} key={analysis.id} />
+          ) : analysis.id === "load-velocity" ? (
+            <LoadVelocityAnalysisCard assessments={assessments} key={analysis.id} />
           ) : (
             <article className="rounded-md border border-line bg-panel/30 p-3" key={analysis.id}>
               <div className="flex items-center justify-between gap-2">
@@ -9927,6 +10167,91 @@ function AssessmentsView({
                   </div>
                 </div>
               ) : null}
+
+              {assessmentFlowStep === "loadVelocity" ? (
+                <div>
+                  {!isEditingAssessment ? <button className="mb-3 text-sm font-semibold text-moss" onClick={() => setAssessmentFlowStep("tests")} type="button">← Volver</button> : null}
+                  <div className="mb-4 rounded-md border border-line bg-panel/35 px-3 py-2">
+                    <p className="text-sm font-semibold text-ink">Perfil carga–velocidad</p>
+                    <p className="mt-1 text-xs text-ink/50">Registra todas las repeticiones. La gráfica utiliza la mejor MPV válida de cada carga.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-sm font-semibold text-ink/70">
+                      Ejercicio
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => setLoadVelocityProfile((profile) => ({ ...profile, exercise: event.target.value }))} placeholder="Ej. Sentadilla" value={loadVelocityProfile.exercise} />
+                    </label>
+                    <label className="text-sm font-semibold text-ink/70">
+                      Fecha
+                      <input className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("date", event.target.value)} type="date" value={assessmentDraft.date} />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    {loadVelocityProfile.loads.map((load, loadIndex) => {
+                      const validMpvValues = load.repetitions
+                        .filter((repetition) => !repetition.excluded && isValidStructuredMetricValue(repetition.mpv))
+                        .map((repetition) => Number(repetition.mpv));
+                      const bestMpv = validMpvValues.length > 0 ? Math.max(...validMpvValues) : null;
+                      return (
+                        <section className="rounded-md border border-line bg-panel/30 p-3" key={load.id}>
+                          <div className="flex flex-wrap items-end justify-between gap-3">
+                            <label className="min-w-40 flex-1 text-sm font-semibold text-ink/70">
+                              Carga {loadIndex + 1}
+                              <span className="mt-1 flex h-10 overflow-hidden rounded-md border border-line bg-white focus-within:border-moss">
+                                <input aria-label={`Carga ${loadIndex + 1} en kg`} className="min-w-0 flex-1 bg-transparent px-3 text-sm text-ink outline-none" inputMode="decimal" min="0" onChange={(event) => updateLoadVelocityLoad(load.id, event.target.value)} step="any" type="number" value={load.loadKg} />
+                                <span className="grid min-w-14 place-items-center border-l border-line bg-panel/55 px-3 text-xs font-semibold text-ink/60">kg</span>
+                              </span>
+                            </label>
+                            {loadVelocityProfile.loads.length > 1 ? (
+                              <button aria-label={`Eliminar carga ${loadIndex + 1}`} className="grid size-9 place-items-center rounded-md border border-line bg-white text-ink/50 transition hover:text-coral" onClick={() => setLoadVelocityProfile((profile) => ({ ...profile, loads: profile.loads.filter((candidate) => candidate.id !== load.id) }))} title="Eliminar carga" type="button"><Trash2 size={15} /></button>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-3 grid gap-2">
+                            {load.repetitions.map((repetition, repetitionIndex) => {
+                              const isBest = !repetition.excluded && bestMpv !== null && Number(repetition.mpv) === bestMpv;
+                              return (
+                                <div className={`grid gap-2 rounded-md border p-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center ${repetition.excluded ? "border-line bg-panel/60 opacity-70" : isBest ? "border-blue-200 bg-blue-50/70" : "border-line bg-white"}`} key={repetition.id}>
+                                  <label className="text-xs font-semibold text-ink/60">
+                                    Rep {repetitionIndex + 1}{isBest ? " · Mejor válida" : ""}
+                                    <span className="mt-1 flex h-9 overflow-hidden rounded-md border border-line bg-white focus-within:border-moss">
+                                      <input aria-label={`Carga ${loadIndex + 1}, repetición ${repetitionIndex + 1} MPV`} className="min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none" inputMode="decimal" min="0" onChange={(event) => updateLoadVelocityRepetition(load.id, repetition.id, { mpv: event.target.value })} step="any" type="number" value={repetition.mpv} />
+                                      <span className="grid min-w-14 place-items-center border-l border-line bg-panel/55 px-2 text-[11px] font-semibold text-ink/60">m/s</span>
+                                    </span>
+                                  </label>
+                                  <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-ink/55">
+                                    <input checked={repetition.excluded} onChange={(event) => updateLoadVelocityRepetition(load.id, repetition.id, { excluded: event.target.checked })} type="checkbox" />
+                                    Excluir
+                                  </label>
+                                  {load.repetitions.length > 1 ? (
+                                    <button aria-label={`Eliminar repetición ${repetitionIndex + 1} de carga ${loadIndex + 1}`} className="grid size-9 place-items-center rounded-md border border-line bg-white text-ink/45 transition hover:text-coral" onClick={() => removeLoadVelocityRepetition(load.id, repetition.id)} title="Eliminar repetición" type="button"><Trash2 size={14} /></button>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65" onClick={() => addLoadVelocityRepetition(load.id)} type="button">+ Añadir repetición</button>
+                            <span className="text-xs font-semibold text-ink/50">{bestMpv === null ? "Sin repetición válida" : `Punto: ${load.loadKg || "—"} kg · ${bestMpv} m/s`}</span>
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+
+                  <button className="mt-3 rounded-md border border-dashed border-line px-3 py-2 text-sm font-semibold text-ink/65" onClick={() => setLoadVelocityProfile((profile) => ({ ...profile, loads: [...profile.loads, createLoadVelocityPoint()] }))} type="button">+ Añadir carga</button>
+
+                  <div className="mt-4">
+                    <LoadVelocityProfileChart profile={loadVelocityProfile} />
+                    {getLoadVelocityProfilePoints(loadVelocityProfile).length < 2 ? <p className="mt-2 text-xs font-medium text-ink/50">Perfil incompleto · añade al menos dos cargas con una repetición válida para visualizar una relación multipunto.</p> : null}
+                  </div>
+
+                  <label className="mt-4 block text-sm font-semibold text-ink/70">
+                    Notas
+                    <textarea className="mt-1 min-h-24 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => updateAssessmentDraft("notes", event.target.value)} value={assessmentDraft.notes} />
+                  </label>
+                </div>
+              ) : null}
             </div>
 
             <footer className="assessment-modal-footer flex flex-wrap justify-end gap-2 px-5 py-4">
@@ -9947,6 +10272,11 @@ function AssessmentsView({
                   type="button"
                 >
                   {isEditingAssessment ? "Guardar cambios" : "Guardar valoración"}
+                </button>
+              ) : null}
+              {assessmentFlowStep === "loadVelocity" ? (
+                <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!isLoadVelocityProfileValid} onClick={handleSaveLoadVelocityProfile} type="button">
+                  {isEditingAssessment ? "Guardar cambios" : "Guardar perfil"}
                 </button>
               ) : null}
             </footer>
@@ -9991,6 +10321,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
   const firstEntry = group.entries[0];
   const previousEntry = group.entries[group.entries.length - 2] ?? null;
   const isBilateral = getAssessmentCatalogTest(latestEntry.protocolId)?.summary?.mode === "bilateral";
+  const isLoadVelocity = Boolean(latestEntry.loadVelocityProfile);
   const bestEntry = values.length > 0
     ? group.entries.filter((entry) => entry.parsedValue !== null).reduce((best, entry) => {
         if (group.direction === "lower_is_better") return (entry.parsedValue ?? Infinity) < (best.parsedValue ?? Infinity) ? entry : best;
@@ -10013,8 +10344,10 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
         </header>
         <div className="assessment-modal-body grid gap-4 px-5 py-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <ClientInfoCard label="Último valor" value={latestEntry.result} />
-            {isBilateral ? (
+            <ClientInfoCard label={isLoadVelocity ? "Último perfil" : "Último valor"} value={latestEntry.result} />
+            {isLoadVelocity ? (
+              <ClientInfoCard label="Perfiles registrados" value={`${group.entries.length}`} />
+            ) : isBilateral ? (
               <ClientInfoCard label="Mediciones" value={`${group.entries.length}`} />
             ) : (
               <>
@@ -10024,7 +10357,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
               </>
             )}
           </div>
-          {!isBilateral ? <div className="rounded-md border border-line bg-panel/35 p-4">
+          {!isBilateral && !isLoadVelocity ? <div className="rounded-md border border-line bg-panel/35 p-4">
             <h4 className="font-semibold text-ink">Gráfico simple</h4>
             {values.length > 0 ? (
               <div className="mt-4 flex h-40 items-end gap-2 rounded-md bg-white/60 p-3">
@@ -10053,7 +10386,7 @@ function AssessmentEvolutionModal({ group, onClose }: { group: AssessmentGroup; 
                     <span className="text-ink/50">{formatDisplayDate(entry.date)}</span>
                   </div>
                   {entry.notes ? <p className="mt-2 text-ink/60">{entry.notes}</p> : null}
-                  <StructuredAssessmentDetails assessment={entry} includeMeasured />
+                  {entry.loadVelocityProfile ? <LoadVelocityProfileDetails assessment={entry} /> : <StructuredAssessmentDetails assessment={entry} includeMeasured />}
                 </div>
               ))}
             </div>
