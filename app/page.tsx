@@ -1410,6 +1410,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
     secondaryObjective?: string;
     startDate?: string;
     weeklyFrequency?: number;
+    exerciseSlots?: PlanningExerciseSlot[];
   };
   sex?: ClientSex;
   sessionRecords: ClientSessionRecord[];
@@ -6593,6 +6594,13 @@ type PlanningWeeklyTemplateDay = {
   sessionName: string;
   sessionType: string;
 };
+type PlanningExerciseSlot = {
+  dayIndex: number;
+  exerciseByBlock: Record<string, string | null>;
+  id: string;
+  order: number;
+  role: PlanningPrescriptionRole;
+};
 type EditablePlanningBlock = {
   durationWeeks: number;
   id: string;
@@ -6923,6 +6931,7 @@ function PlanningView({
   const [planningPrimaryObjective, setPlanningPrimaryObjective] = useState(client?.planning.primaryObjective ?? "");
   const [planningSecondaryObjective, setPlanningSecondaryObjective] = useState(client?.planning.secondaryObjective ?? "");
   const [planningWeeklyFrequency, setPlanningWeeklyFrequency] = useState(client?.planning.weeklyFrequency ?? 3);
+  const [planningExerciseSlots, setPlanningExerciseSlots] = useState<PlanningExerciseSlot[]>(client?.planning.exerciseSlots ?? []);
   const [pendingPlanningDurationChange, setPendingPlanningDurationChange] = useState<{
     blockId: string;
     direction: -1 | 1;
@@ -7009,6 +7018,7 @@ function PlanningView({
     setPlanningPrimaryObjective(client?.planning.primaryObjective ?? "");
     setPlanningSecondaryObjective(client?.planning.secondaryObjective ?? "");
     setPlanningWeeklyFrequency(client?.planning.weeklyFrequency ?? 3);
+    setPlanningExerciseSlots(client?.planning.exerciseSlots ?? []);
     setPlanningWizardStep(0);
     setNewPlanningBlock(createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
     setSelectedPlanningBlockId(null);
@@ -7016,7 +7026,7 @@ function PlanningView({
     setShowAdvancedPlanning(false);
     setPendingPlanningDurationChange(null);
     setCopiedPlanningWeek(null);
-  }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.method, client?.planning.planName, client?.planning.primaryObjective, client?.planning.secondaryObjective, client?.planning.startDate, client?.planning.weeklyFrequency]);
+  }, [client?.id, client?.planning.blocks, client?.planning.eventDate, client?.planning.eventName, client?.planning.exerciseSlots, client?.planning.method, client?.planning.planName, client?.planning.primaryObjective, client?.planning.secondaryObjective, client?.planning.startDate, client?.planning.weeklyFrequency]);
 
   function openPlanningWizard() {
     setPlanningWizardStep(0);
@@ -7059,8 +7069,63 @@ function PlanningView({
     );
   }
 
+  function addPlanningExerciseSlot(dayIndex: number, role: PlanningPrescriptionRole) {
+    const nextOrder = planningExerciseSlots
+      .filter((slot) => slot.dayIndex === dayIndex && slot.role === role)
+      .reduce((highestOrder, slot) => Math.max(highestOrder, slot.order + 1), 0);
+    setPlanningExerciseSlots((slots) => [...slots, {
+      dayIndex,
+      exerciseByBlock: {},
+      id: `exercise-slot-${Date.now()}-${dayIndex}-${role}`,
+      order: nextOrder,
+      role
+    }]);
+  }
+
+  function updatePlanningExerciseSlot(slotId: string, blockId: string, exerciseId: string | null) {
+    setPlanningExerciseSlots((slots) => slots.map((slot) => slot.id === slotId ? {
+      ...slot,
+      exerciseByBlock: { ...slot.exerciseByBlock, [blockId]: exerciseId }
+    } : slot));
+  }
+
+  function copyPlanningExerciseForward(slotId: string, sourceBlockIndex: number) {
+    setPlanningExerciseSlots((slots) => slots.map((slot) => {
+      if (slot.id !== slotId) return slot;
+      const sourceBlock = planningBlocks[sourceBlockIndex];
+      const exerciseId = sourceBlock ? slot.exerciseByBlock[sourceBlock.id] ?? null : null;
+      const exerciseByBlock = { ...slot.exerciseByBlock };
+      planningBlocks.slice(sourceBlockIndex + 1).forEach((block) => { exerciseByBlock[block.id] = exerciseId; });
+      return { ...slot, exerciseByBlock };
+    }));
+  }
+
+  function copyPlanningExercisesFromBlock(sourceBlockIndex: number, targetBlockIndex: number) {
+    const sourceBlock = planningBlocks[sourceBlockIndex];
+    const targetBlock = planningBlocks[targetBlockIndex];
+    if (!sourceBlock || !targetBlock) return;
+    setPlanningExerciseSlots((slots) => slots.map((slot) => ({
+      ...slot,
+      exerciseByBlock: {
+        ...slot.exerciseByBlock,
+        [targetBlock.id]: slot.exerciseByBlock[sourceBlock.id] ?? null
+      }
+    })));
+  }
+
+  function deletePlanningExerciseSlot(slotId: string) {
+    const slot = planningExerciseSlots.find((candidate) => candidate.id === slotId);
+    if (!slot) return;
+    const hasConfiguredExercises = Object.values(slot.exerciseByBlock).some(Boolean);
+    if (hasConfiguredExercises && !window.confirm("¿Eliminar este slot de la planificación? Las sesiones reales existentes no se modificarán.")) return;
+    setPlanningExerciseSlots((slots) => slots.filter((candidate) => candidate.id !== slotId));
+  }
+
   function savePlanningWizard() {
     if (!client) return;
+    const activeExerciseDayIndexes = new Set(planningBlocks.flatMap((block) =>
+      (block.weeklyTemplate ?? []).filter((day) => day.sessionName.trim()).map((day) => day.dayIndex)
+    ));
     const previousBlocks = client.planning.blocks ?? [];
     const changedDefaults = planningBlocks.filter((block) => {
       const previous = previousBlocks.find((candidate) => candidate.id === block.id);
@@ -7100,7 +7165,8 @@ function PlanningView({
         primaryObjective: planningPrimaryObjective.trim(),
         secondaryObjective: planningSecondaryObjective.trim(),
         startDate: planningStartDate,
-        weeklyFrequency: planningWeeklyFrequency
+        weeklyFrequency: planningWeeklyFrequency,
+        exerciseSlots: planningExerciseSlots.filter((slot) => activeExerciseDayIndexes.has(slot.dayIndex))
       },
       sessionRecords: nextSessions
     });
@@ -7439,10 +7505,15 @@ function PlanningView({
           eventName={planningEventName}
           eventType={planningEventType}
           newBlock={newPlanningBlock}
+          exerciseSlots={planningExerciseSlots}
+          onAddExerciseSlot={addPlanningExerciseSlot}
           onAddBlock={addMesocycle}
           onChangeBlockDuration={changePlanningBlockDuration}
           onClose={() => setShowAdvancedPlanning(false)}
           onCopyBlockConfiguration={copyBlockConfiguration}
+          onCopyExerciseForward={copyPlanningExerciseForward}
+          onCopyExercisesFromBlock={copyPlanningExercisesFromBlock}
+          onDeleteExerciseSlot={deletePlanningExerciseSlot}
           onFinish={savePlanningWizard}
           onSetEventName={setPlanningEventName}
           onSetEventType={setPlanningEventType}
@@ -7458,6 +7529,7 @@ function PlanningView({
           onUpdateBlock={updatePlanningBlockDraft}
           onUpdateDay={updateBlockWeeklyDay}
           onUpdatePrescription={updateBlockPrescriptionDefault}
+          onUpdateExerciseSlot={updatePlanningExerciseSlot}
           peakDate={planningPeakDate}
           planName={planningPlanName}
           planningMethod={planningMethod}
@@ -7651,18 +7723,23 @@ function PlanningView({
   );
 }
 
-const planningWizardSteps = ["Contexto", "Mesociclos", "Semana", "Prescripción", "Revisión"];
+const planningWizardSteps = ["Contexto", "Mesociclos", "Semana", "Prescripción", "Ejercicios", "Revisión"];
 
 function PlanningWizard({
   blocks,
   clientName,
   eventName,
   eventType,
+  exerciseSlots,
   newBlock,
+  onAddExerciseSlot,
   onAddBlock,
   onChangeBlockDuration,
   onClose,
   onCopyBlockConfiguration,
+  onCopyExerciseForward,
+  onCopyExercisesFromBlock,
+  onDeleteExerciseSlot,
   onFinish,
   onSetEventName,
   onSetEventType,
@@ -7677,6 +7754,7 @@ function PlanningWizard({
   onSetWeeklyFrequency,
   onUpdateBlock,
   onUpdateDay,
+  onUpdateExerciseSlot,
   onUpdatePrescription,
   peakDate,
   planName,
@@ -7691,11 +7769,16 @@ function PlanningWizard({
   clientName: string;
   eventName: string;
   eventType: PlanningEventType;
+  exerciseSlots: PlanningExerciseSlot[];
   newBlock: EditablePlanningBlock;
+  onAddExerciseSlot: (dayIndex: number, role: PlanningPrescriptionRole) => void;
   onAddBlock: () => void;
   onChangeBlockDuration: (blockId: string, direction: -1 | 1) => void;
   onClose: () => void;
   onCopyBlockConfiguration: (sourceIndex: number, targetIndex: number, mode: "week" | "prescription") => void;
+  onCopyExerciseForward: (slotId: string, sourceBlockIndex: number) => void;
+  onCopyExercisesFromBlock: (sourceBlockIndex: number, targetBlockIndex: number) => void;
+  onDeleteExerciseSlot: (slotId: string) => void;
   onFinish: () => void;
   onSetEventName: (value: string) => void;
   onSetEventType: (value: PlanningEventType) => void;
@@ -7710,6 +7793,7 @@ function PlanningWizard({
   onSetWeeklyFrequency: (value: number) => void;
   onUpdateBlock: (blockId: string, updates: Partial<EditablePlanningBlock>) => void;
   onUpdateDay: (blockId: string, dayIndex: number, updates: Partial<PlanningWeeklyTemplateDay>) => void;
+  onUpdateExerciseSlot: (slotId: string, blockId: string, exerciseId: string | null) => void;
   onUpdatePrescription: (blockId: string, role: PlanningPrescriptionRole, updates: Partial<PlanningPrescriptionDefault>) => void;
   peakDate: string;
   planName: string;
@@ -7734,7 +7818,7 @@ function PlanningWizard({
             </div>
             <button aria-label="Cerrar asistente" className="grid size-9 place-items-center rounded-md border border-line bg-panel text-ink/65" onClick={onClose} type="button"><X size={16} /></button>
           </div>
-          <ol className="mt-4 grid grid-cols-5 gap-1" aria-label="Progreso de configuración">
+          <ol className="mt-4 grid grid-cols-6 gap-1" aria-label="Progreso de configuración">
             {planningWizardSteps.map((label, index) => (
               <li className={`min-w-0 rounded-md border px-2 py-2 text-center text-[10px] font-semibold sm:text-xs ${index === step ? "border-moss bg-mint text-moss" : index < step ? "border-steel/25 bg-sky text-steel" : "border-line bg-panel/40 text-ink/40"}`} key={label}>
                 <span className="hidden sm:inline">{label}</span><span className="sm:hidden">{index + 1}</span>
@@ -7804,12 +7888,148 @@ function PlanningWizard({
           ) : null}
 
           {step === 4 ? (
-            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Revisa la planificación</h3><p className="mt-1 text-sm text-ink/55">Comprueba la estructura antes de volver al timeline.</p></div><section className="highlight-summary-card rounded-md p-4"><p className="text-xs font-semibold uppercase text-blue-300">Plan</p><h4 className="mt-1 text-lg font-semibold text-white">{planName || "Plan sin nombre"}</h4><p className="mt-1 text-sm text-white/65">{getPlanningMethodLabel(planningMethod)} · {totalWeeks} semanas · {weeklyFrequency} sesiones/semana</p></section><div className="grid gap-3 md:grid-cols-2">{blocks.map((block, index) => <article className="rounded-md border border-line bg-panel/30 p-3" key={block.id}><p className="text-xs font-semibold uppercase text-moss">M{index + 1} · {block.durationWeeks} semanas</p><h4 className="mt-1 font-semibold text-ink">{block.name}</h4><p className="mt-1 text-sm text-ink/55">{block.primaryObjective || "Objetivo sin definir"}</p><div className="mt-3 flex flex-wrap gap-1.5">{planningPrescriptionRoles.map((role) => <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55" key={role.id}>{role.label}: {getPrescriptionDefaultSummary(getBlockPrescriptionDefault(block, role.id))}</span>)}</div><p className="mt-3 text-xs text-ink/50">Semana tipo: {(block.weeklyTemplate ?? []).map((day) => `${planningWeekdayLabels[day.dayIndex].slice(0, 1)} · ${day.sessionName}`).join(" · ") || "Sin sesiones tipo"}</p></article>)}</div></div>
+            <PlanningExerciseMatrix
+              blocks={blocks}
+              exerciseSlots={exerciseSlots}
+              onAddSlot={onAddExerciseSlot}
+              onCopyForward={onCopyExerciseForward}
+              onCopyFromBlock={onCopyExercisesFromBlock}
+              onDeleteSlot={onDeleteExerciseSlot}
+              onUpdateSlot={onUpdateExerciseSlot}
+            />
+          ) : null}
+
+          {step === 5 ? (
+            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Revisa la planificación</h3><p className="mt-1 text-sm text-ink/55">Comprueba la estructura antes de volver al timeline.</p></div><section className="highlight-summary-card rounded-md p-4"><p className="text-xs font-semibold uppercase text-blue-300">Plan</p><h4 className="mt-1 text-lg font-semibold text-white">{planName || "Plan sin nombre"}</h4><p className="mt-1 text-sm text-white/65">{getPlanningMethodLabel(planningMethod)} · {totalWeeks} semanas · {weeklyFrequency} sesiones/semana</p></section><div className="grid gap-3 md:grid-cols-2">{blocks.map((block, index) => { const activeDayIndexes = new Set(blocks.flatMap((candidate) => (candidate.weeklyTemplate ?? []).filter((day) => day.sessionName.trim()).map((day) => day.dayIndex))); const activeSlots = exerciseSlots.filter((slot) => activeDayIndexes.has(slot.dayIndex)); const exerciseCount = activeSlots.filter((slot) => slot.exerciseByBlock[block.id]).length; const changeCount = index === 0 ? 0 : activeSlots.filter((slot) => (slot.exerciseByBlock[block.id] ?? null) !== (slot.exerciseByBlock[blocks[index - 1].id] ?? null)).length; return <article className="rounded-md border border-line bg-panel/30 p-3" key={block.id}><p className="text-xs font-semibold uppercase text-moss">M{index + 1} · {block.durationWeeks} semanas</p><h4 className="mt-1 font-semibold text-ink">{block.name}</h4><p className="mt-1 text-sm text-ink/55">{block.primaryObjective || "Objetivo sin definir"}</p><div className="mt-3 flex flex-wrap gap-1.5">{planningPrescriptionRoles.map((role) => <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55" key={role.id}>{role.label}: {getPrescriptionDefaultSummary(getBlockPrescriptionDefault(block, role.id))}</span>)}</div><p className="mt-3 text-xs text-ink/50">Semana tipo: {(block.weeklyTemplate ?? []).map((day) => `${planningWeekdayLabels[day.dayIndex].slice(0, 1)} · ${day.sessionName}`).join(" · ") || "Sin sesiones tipo"}</p><p className="mt-2 text-xs font-semibold text-steel">Ejercicios: {exerciseCount}{index > 0 ? ` · ${changeCount} cambios` : ""}</p></article>; })}</div></div>
           ) : null}
         </div>
 
         <footer className="assessment-modal-footer flex items-center justify-between gap-3 px-4 py-4 sm:px-6"><button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/65 disabled:opacity-40" disabled={step === 0} onClick={() => onSetStep(Math.max(0, step - 1))} type="button">Atrás</button>{step < planningWizardSteps.length - 1 ? <button className="rounded-md bg-ink px-5 py-2 text-sm font-semibold text-white disabled:opacity-40" disabled={!canContinue} onClick={() => onSetStep(step + 1)} type="button">Continuar</button> : <button className="rounded-md bg-ink px-5 py-2 text-sm font-semibold text-white" onClick={onFinish} type="button">Guardar planificación</button>}</footer>
       </section>
+    </div>
+  );
+}
+
+function PlanningExerciseCell({
+  blockIndex,
+  changed,
+  exerciseId,
+  onChange,
+  onCopyForward,
+  showCopyForward
+}: {
+  blockIndex: number;
+  changed: boolean;
+  exerciseId: string | null;
+  onChange: (exerciseId: string | null) => void;
+  onCopyForward: () => void;
+  showCopyForward: boolean;
+}) {
+  const selectedExercise = exerciseId ? getExerciseById(exerciseId) : null;
+  const [query, setQuery] = useState("");
+  const matches = searchExercises(query).slice(0, 8);
+
+  return (
+    <div className={`min-w-44 rounded-md border p-2 ${changed ? "border-steel/50 bg-sky/35" : "border-line bg-white"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase text-ink/40">M{blockIndex + 1}</span>
+        {changed ? <span className="text-[10px] font-semibold text-steel">Cambio</span> : null}
+      </div>
+      <input
+        className="mt-1 h-8 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink"
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder={selectedExercise?.name ?? "Buscar ejercicio"}
+        value={query}
+      />
+      <select
+        aria-label={`Ejercicio M${blockIndex + 1}`}
+        className="mt-1 h-9 w-full rounded border border-line bg-white px-2 text-xs font-semibold text-ink"
+        onChange={(event) => { onChange(event.target.value || null); setQuery(""); }}
+        value={exerciseId ?? ""}
+      >
+        <option value="">Sin ejercicio</option>
+        {selectedExercise && !matches.some((exercise) => exercise.id === selectedExercise.id) ? <option value={selectedExercise.id}>{selectedExercise.name}</option> : null}
+        {matches.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+      </select>
+      {showCopyForward && exerciseId ? <button className="mt-1 text-[11px] font-semibold text-moss" onClick={onCopyForward} type="button">Copiar hacia delante</button> : null}
+    </div>
+  );
+}
+
+function PlanningExerciseMatrix({
+  blocks,
+  exerciseSlots,
+  onAddSlot,
+  onCopyForward,
+  onCopyFromBlock,
+  onDeleteSlot,
+  onUpdateSlot
+}: {
+  blocks: PlanningRoadmapBlock[];
+  exerciseSlots: PlanningExerciseSlot[];
+  onAddSlot: (dayIndex: number, role: PlanningPrescriptionRole) => void;
+  onCopyForward: (slotId: string, sourceBlockIndex: number) => void;
+  onCopyFromBlock: (sourceBlockIndex: number, targetBlockIndex: number) => void;
+  onDeleteSlot: (slotId: string) => void;
+  onUpdateSlot: (slotId: string, blockId: string, exerciseId: string | null) => void;
+}) {
+  const [onlyChanges, setOnlyChanges] = useState(false);
+  const [mobileBlockId, setMobileBlockId] = useState(blocks[0]?.id ?? "");
+  const [newRoleByDay, setNewRoleByDay] = useState<Record<number, PlanningPrescriptionRole>>({});
+  const roleOrder = new Map(planningPrescriptionRoles.map((role, index) => [role.id, index]));
+  const sortSlots = (first: PlanningExerciseSlot, second: PlanningExerciseSlot) =>
+    (roleOrder.get(first.role) ?? 0) - (roleOrder.get(second.role) ?? 0) || first.order - second.order;
+  const configuredDayIndexes = planningWeekdayLabels
+    .map((_, dayIndex) => dayIndex)
+    .filter((dayIndex) => blocks.some((block) => block.weeklyTemplate?.some((day) => day.dayIndex === dayIndex && day.sessionName.trim())));
+  const activeExerciseSlots = exerciseSlots.filter((slot) => configuredDayIndexes.includes(slot.dayIndex));
+  const visibleSlots = activeExerciseSlots.filter((slot) => {
+    if (!onlyChanges) return true;
+    return blocks.some((block, index) => index > 0 && (slot.exerciseByBlock[block.id] ?? null) !== (slot.exerciseByBlock[blocks[index - 1].id] ?? null));
+  });
+  const activeMobileBlockIndex = Math.max(0, blocks.findIndex((block) => block.id === mobileBlockId));
+  const activeMobileBlock = blocks[activeMobileBlockIndex] ?? blocks[0];
+  const roleLabel = (role: PlanningPrescriptionRole) => planningPrescriptionRoles.find((item) => item.id === role)?.label ?? role;
+  const getSessionLabel = (dayIndex: number) => {
+    const day = blocks.flatMap((block) => block.weeklyTemplate ?? []).find((item) => item.dayIndex === dayIndex && item.sessionName.trim());
+    return `${planningWeekdayLabels[dayIndex]}${day ? ` · ${day.sessionName}` : ""}`;
+  };
+  const getSlotLabel = (slot: PlanningExerciseSlot) => {
+    const sameRole = exerciseSlots.filter((candidate) => candidate.dayIndex === slot.dayIndex && candidate.role === slot.role).sort((a, b) => a.order - b.order);
+    return `${roleLabel(slot.role)} ${sameRole.findIndex((candidate) => candidate.id === slot.id) + 1}`;
+  };
+
+  if (configuredDayIndexes.length === 0) {
+    return <div className="rounded-md border border-dashed border-line bg-panel/30 p-5"><h3 className="font-semibold text-ink">Ejercicios</h3><p className="mt-1 text-sm text-ink/55">Configura primero al menos una sesión en la semana tipo.</p></div>;
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h3 className="text-xl font-semibold text-ink">Evolución de ejercicios</h3><p className="mt-1 text-sm text-ink/55">Configura M1, copia lo repetido y modifica solo las excepciones.</p></div>
+        <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/65"><input checked={onlyChanges} onChange={(event) => setOnlyChanges(event.target.checked)} type="checkbox" />Solo cambios</label>
+      </div>
+      {activeExerciseSlots.length > 0 && blocks.length > 1 ? <button className="w-fit rounded-md border border-moss/25 bg-mint px-3 py-2 text-sm font-semibold text-moss" onClick={() => blocks.slice(1).forEach((_, index) => onCopyFromBlock(0, index + 1))} type="button">Copiar M1 al resto</button> : null}
+
+      <div className="hidden overflow-x-auto rounded-md border border-line md:block">
+        <div style={{ minWidth: `${260 + blocks.length * 210}px` }}>
+          <div className="grid border-b border-line bg-panel/55" style={{ gridTemplateColumns: `260px repeat(${blocks.length}, minmax(190px, 1fr))` }}>
+            <div className="sticky left-0 z-10 bg-panel/95 p-3 text-xs font-semibold uppercase text-ink/45">Sesión / slot</div>
+            {blocks.map((block, index) => <div className="border-l border-line p-3" key={block.id}><p className="text-xs font-semibold text-moss">M{index + 1}</p><p className="truncate text-sm font-semibold text-ink">{block.name}</p>{index > 0 ? <button className="mt-1 text-xs font-semibold text-steel" onClick={() => onCopyFromBlock(index - 1, index)} type="button">Copiar anterior</button> : null}</div>)}
+          </div>
+          {configuredDayIndexes.map((dayIndex) => {
+            const daySlots = visibleSlots.filter((slot) => slot.dayIndex === dayIndex).sort(sortSlots);
+            return <section className="border-b border-line last:border-b-0" key={dayIndex}><div className="bg-panel/35 px-3 py-2 text-xs font-semibold uppercase text-ink/55">{getSessionLabel(dayIndex)}</div>{daySlots.map((slot) => <div className="grid border-t border-line/70" key={slot.id} style={{ gridTemplateColumns: `260px repeat(${blocks.length}, minmax(190px, 1fr))` }}><div className="sticky left-0 z-10 flex items-center justify-between gap-2 bg-white p-3"><div><p className="text-sm font-semibold text-ink">{getSlotLabel(slot)}</p><p className="text-xs text-ink/45">Rol estable del programa</p></div><button aria-label={`Eliminar ${getSlotLabel(slot)}`} className="grid size-8 place-items-center rounded border border-line text-ink/40" onClick={() => onDeleteSlot(slot.id)} type="button"><Trash2 size={14} /></button></div>{blocks.map((block, index) => { const current = slot.exerciseByBlock[block.id] ?? null; const previous = index > 0 ? slot.exerciseByBlock[blocks[index - 1].id] ?? null : null; return <div className="border-l border-line p-2" key={block.id}><PlanningExerciseCell blockIndex={index} changed={index > 0 && current !== previous} exerciseId={current} onChange={(exerciseId) => onUpdateSlot(slot.id, block.id, exerciseId)} onCopyForward={() => onCopyForward(slot.id, index)} showCopyForward={index < blocks.length - 1} /></div>; })}</div>)}{!onlyChanges ? <div className="flex items-center gap-2 border-t border-line/70 p-2"><select className="h-9 rounded border border-line bg-white px-2 text-xs font-semibold text-ink" onChange={(event) => setNewRoleByDay((current) => ({ ...current, [dayIndex]: event.target.value as PlanningPrescriptionRole }))} value={newRoleByDay[dayIndex] ?? "principal"}>{planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}</select><button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink" onClick={() => onAddSlot(dayIndex, newRoleByDay[dayIndex] ?? "principal")} type="button">+ Añadir ejercicio</button></div> : null}</section>;
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        <div className="flex gap-2 overflow-x-auto pb-1">{blocks.map((block, index) => <button className={`shrink-0 rounded-md border px-3 py-2 text-xs font-semibold ${activeMobileBlock?.id === block.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/55"}`} key={block.id} onClick={() => setMobileBlockId(block.id)} type="button">M{index + 1}</button>)}</div>
+        {activeMobileBlockIndex > 0 ? <button className="w-fit text-xs font-semibold text-steel" onClick={() => onCopyFromBlock(activeMobileBlockIndex - 1, activeMobileBlockIndex)} type="button">Copiar anterior</button> : null}
+        {configuredDayIndexes.map((dayIndex) => { const daySlots = visibleSlots.filter((slot) => slot.dayIndex === dayIndex).sort(sortSlots); return <section className="rounded-md border border-line bg-panel/25 p-3" key={dayIndex}><h4 className="text-xs font-semibold uppercase text-ink/55">{getSessionLabel(dayIndex)}</h4><div className="mt-2 grid gap-2">{daySlots.map((slot) => { const current = activeMobileBlock ? slot.exerciseByBlock[activeMobileBlock.id] ?? null : null; const previous = activeMobileBlockIndex > 0 ? slot.exerciseByBlock[blocks[activeMobileBlockIndex - 1].id] ?? null : null; return <article className="rounded-md border border-line bg-white p-2" key={slot.id}><div className="mb-2 flex items-center justify-between"><p className="text-sm font-semibold text-ink">{getSlotLabel(slot)}</p><button aria-label={`Eliminar ${getSlotLabel(slot)}`} className="text-ink/40" onClick={() => onDeleteSlot(slot.id)} type="button"><Trash2 size={14} /></button></div>{activeMobileBlock ? <PlanningExerciseCell blockIndex={activeMobileBlockIndex} changed={activeMobileBlockIndex > 0 && current !== previous} exerciseId={current} onChange={(exerciseId) => onUpdateSlot(slot.id, activeMobileBlock.id, exerciseId)} onCopyForward={() => onCopyForward(slot.id, activeMobileBlockIndex)} showCopyForward={activeMobileBlockIndex < blocks.length - 1} /> : null}</article>; })}</div>{!onlyChanges ? <div className="mt-2 flex gap-2"><select className="h-9 min-w-0 flex-1 rounded border border-line bg-white px-2 text-xs font-semibold text-ink" onChange={(event) => setNewRoleByDay((current) => ({ ...current, [dayIndex]: event.target.value as PlanningPrescriptionRole }))} value={newRoleByDay[dayIndex] ?? "principal"}>{planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}</select><button className="rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink" onClick={() => onAddSlot(dayIndex, newRoleByDay[dayIndex] ?? "principal")} type="button">+ Añadir ejercicio</button></div> : null}</section>; })}
+      </div>
+      {activeExerciseSlots.length === 0 ? <p className="rounded-md border border-dashed border-line p-4 text-sm text-ink/55">Sin estructura de ejercicios configurada.</p> : onlyChanges && visibleSlots.length === 0 ? <p className="rounded-md border border-dashed border-line p-4 text-sm text-ink/55">No hay cambios de ejercicios entre mesociclos.</p> : null}
     </div>
   );
 }
