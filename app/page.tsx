@@ -6965,6 +6965,7 @@ function PlanningView({
   const [planningBlocks, setPlanningBlocks] = useState<EditablePlanningBlock[]>(client?.planning.blocks ?? []);
   const [newPlanningBlock, setNewPlanningBlock] = useState<EditablePlanningBlock>(() => createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
   const [selectedPlanningBlockId, setSelectedPlanningBlockId] = useState<string | null>(null);
+  const [showPlanningGlobalReview, setShowPlanningGlobalReview] = useState(false);
   const [planningActionMessage, setPlanningActionMessage] = useState("");
   const [showAdvancedPlanning, setShowAdvancedPlanning] = useState(false);
   const [planningWizardStep, setPlanningWizardStep] = useState(0);
@@ -7064,6 +7065,7 @@ function PlanningView({
     setPlanningWizardStep(0);
     setNewPlanningBlock(createPlanningBlockDraft(client?.planning.blocks?.length ?? 0));
     setSelectedPlanningBlockId(null);
+    setShowPlanningGlobalReview(false);
     setPlanningActionMessage("");
     setShowAdvancedPlanning(false);
     setPendingPlanningDurationChange(null);
@@ -7429,13 +7431,20 @@ function PlanningView({
             <h3 className="text-lg font-semibold text-ink">Timeline de mesociclos</h3>
             <p className="mt-1 text-sm text-ink/55">Del primer bloque al siguiente. Selecciona uno para consultar semanas, sesiones y edición.</p>
           </div>
-          <button
-            className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-            onClick={openPlanningWizard}
-            type="button"
-          >
-            {planningBlocks.length > 0 ? "Configurar plan" : "Crear planificación"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {planningBlocks.length > 0 ? (
+              <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-moss" onClick={() => setShowPlanningGlobalReview(true)} type="button">
+                Revisión global
+              </button>
+            ) : null}
+            <button
+              className="rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              onClick={openPlanningWizard}
+              type="button"
+            >
+              {planningBlocks.length > 0 ? "Configurar plan" : "Crear planificación"}
+            </button>
+          </div>
         </div>
         {planningBlocks.length === 0 ? (
           <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/60">
@@ -7579,6 +7588,16 @@ function PlanningView({
           secondaryObjective={planningSecondaryObjective}
           startDate={planningStartDate}
           step={planningWizardStep}
+          weeklyFrequency={planningWeeklyFrequency}
+        />
+      ) : null}
+
+      {showPlanningGlobalReview ? (
+        <PlanningGlobalReview
+          blocks={roadmapBlocks}
+          exerciseSlots={planningExerciseSlots}
+          onClose={() => setShowPlanningGlobalReview(false)}
+          planName={planningPlanName}
           weeklyFrequency={planningWeeklyFrequency}
         />
       ) : null}
@@ -8172,6 +8191,217 @@ function PlanningExerciseMatrix({
         {configuredDayIndexes.map((dayIndex) => { const daySlots = visibleSlots.filter((slot) => slot.dayIndex === dayIndex).sort(sortSlots); return <section className="rounded-md border border-line bg-panel/25 p-3" key={dayIndex}><h4 className="text-xs font-semibold uppercase text-ink/55">{getSessionLabel(dayIndex)}</h4><div className="mt-2 grid gap-2">{daySlots.map((slot) => { const current = activeMobileBlock ? slot.exerciseByBlock[activeMobileBlock.id] ?? null : null; const previous = activeMobileBlockIndex > 0 ? slot.exerciseByBlock[blocks[activeMobileBlockIndex - 1].id] ?? null : null; return <article className="rounded-md border border-line bg-white p-2" key={slot.id}><div className="mb-2 flex items-center justify-between"><p className="text-sm font-semibold text-ink">{getSlotLabel(slot)}</p><button aria-label={`Eliminar ${getSlotLabel(slot)}`} className="text-ink/40" onClick={() => onDeleteSlot(slot.id)} type="button"><Trash2 size={14} /></button></div>{activeMobileBlock ? <PlanningExerciseCell blockIndex={activeMobileBlockIndex} changed={activeMobileBlockIndex > 0 && current !== previous} exerciseId={current} onChange={(exerciseId) => onUpdateSlot(slot.id, activeMobileBlock.id, exerciseId)} onCopyForward={() => onCopyForward(slot.id, activeMobileBlockIndex)} showCopyForward={activeMobileBlockIndex < blocks.length - 1} /> : null}</article>; })}</div>{!onlyChanges ? <div className="mt-2 flex gap-2"><select className="h-9 min-w-0 flex-1 rounded border border-line bg-white px-2 text-xs font-semibold text-ink" onChange={(event) => setNewRoleByDay((current) => ({ ...current, [dayIndex]: event.target.value as PlanningPrescriptionRole }))} value={newRoleByDay[dayIndex] ?? "principal"}>{planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}</select><button className="rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink" onClick={() => onAddSlot(dayIndex, newRoleByDay[dayIndex] ?? "principal")} type="button">+ Añadir ejercicio</button></div> : null}</section>; })}
       </div>
       {activeExerciseSlots.length === 0 ? <p className="rounded-md border border-dashed border-line p-4 text-sm text-ink/55">Sin estructura de ejercicios configurada.</p> : onlyChanges && visibleSlots.length === 0 ? <p className="rounded-md border border-dashed border-line p-4 text-sm text-ink/55">No hay cambios de ejercicios entre mesociclos.</p> : null}
+    </div>
+  );
+}
+
+type PlanningExerciseChange = {
+  currentExerciseId: string | null;
+  previousExerciseId: string | null;
+  slot: PlanningExerciseSlot;
+  type: "added" | "changed" | "removed";
+};
+
+function getPlanningActiveDayIndexes(block: EditablePlanningBlock) {
+  return new Set((block.weeklyTemplate ?? []).filter((day) => day.sessionName.trim()).map((day) => day.dayIndex));
+}
+
+function getPlanningSets(value: string) {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) return null;
+  const sets = Number(normalized);
+  return sets > 0 ? sets : null;
+}
+
+function getPlanningSlotLabel(slot: PlanningExerciseSlot, slots: PlanningExerciseSlot[]) {
+  const roleLabel = planningPrescriptionRoles.find((role) => role.id === slot.role)?.label ?? slot.role;
+  const roleSlots = slots
+    .filter((candidate) => candidate.dayIndex === slot.dayIndex && candidate.role === slot.role)
+    .sort((first, second) => first.order - second.order);
+  return `${planningWeekdayLabels[slot.dayIndex]} · ${roleLabel} ${roleSlots.findIndex((candidate) => candidate.id === slot.id) + 1}`;
+}
+
+function PlanningGlobalReview({
+  blocks,
+  exerciseSlots,
+  onClose,
+  planName,
+  weeklyFrequency
+}: {
+  blocks: PlanningRoadmapBlock[];
+  exerciseSlots: PlanningExerciseSlot[];
+  onClose: () => void;
+  planName: string;
+  weeklyFrequency: number;
+}) {
+  const [selectedBlockId, setSelectedBlockId] = useState(blocks[0]?.id ?? "");
+  const selectedBlockIndex = Math.max(0, blocks.findIndex((block) => block.id === selectedBlockId));
+  const selectedBlock = blocks[selectedBlockIndex] ?? blocks[0];
+  const totalWeeks = blocks.reduce((total, block) => total + block.durationWeeks, 0);
+  const configuredSlots = exerciseSlots.filter((slot) => blocks.some((block) =>
+    getPlanningActiveDayIndexes(block).has(slot.dayIndex) && Boolean(slot.exerciseByBlock[block.id])
+  ));
+  const goalOrientation = new Map<string, { primary: number; secondary: number }>();
+
+  blocks.forEach((block) => {
+    const primaryLabel = getBlockPrimaryGoalLabel(block);
+    if (primaryLabel !== "Sin definir") {
+      const current = goalOrientation.get(primaryLabel) ?? { primary: 0, secondary: 0 };
+      goalOrientation.set(primaryLabel, { ...current, primary: current.primary + 1 });
+    }
+    getBlockSecondaryGoalLabels(block).forEach((label) => {
+      const current = goalOrientation.get(label) ?? { primary: 0, secondary: 0 };
+      goalOrientation.set(label, { ...current, secondary: current.secondary + 1 });
+    });
+  });
+
+  const blockReviews = blocks.map((block, blockIndex) => {
+    const activeDayIndexes = getPlanningActiveDayIndexes(block);
+    const activeDays = (block.weeklyTemplate ?? []).filter((day) => day.sessionName.trim());
+    const blockSlots = exerciseSlots.filter((slot) => activeDayIndexes.has(slot.dayIndex) && Boolean(slot.exerciseByBlock[block.id]));
+    const roleSeries = Object.fromEntries(planningPrescriptionRoles.map((role) => [role.id, 0])) as Record<PlanningPrescriptionRole, number>;
+    const invalidSeriesSlots = blockSlots.filter((slot) => {
+      const sets = getPlanningSets(getBlockPrescriptionDefault(block, slot.role).sets);
+      if (sets === null) return true;
+      roleSeries[slot.role] += sets;
+      return false;
+    });
+    const weeklySeries = blockSlots.length > 0 && invalidSeriesSlots.length === 0
+      ? Object.values(roleSeries).reduce((total, series) => total + series, 0)
+      : null;
+    const sessionTypes = activeDays.reduce<Map<string, number>>((counts, day) => {
+      const label = getPlanningDaySessionTypeLabel(day);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+      return counts;
+    }, new Map());
+    const sessionGoals = activeDays.reduce<Map<string, number>>((counts, day) => {
+      const label = getPlanningDaySessionGoalLabel(day);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+      return counts;
+    }, new Map());
+    const previousBlock = blockIndex > 0 ? blocks[blockIndex - 1] : null;
+    const previousActiveDays = previousBlock ? getPlanningActiveDayIndexes(previousBlock) : new Set<number>();
+    const changes: PlanningExerciseChange[] = [];
+    let maintained = 0;
+
+    if (previousBlock) {
+      exerciseSlots.forEach((slot) => {
+        const previousExerciseId = previousActiveDays.has(slot.dayIndex) ? slot.exerciseByBlock[previousBlock.id] ?? null : null;
+        const currentExerciseId = activeDayIndexes.has(slot.dayIndex) ? slot.exerciseByBlock[block.id] ?? null : null;
+        if (previousExerciseId && currentExerciseId && previousExerciseId === currentExerciseId) maintained += 1;
+        else if (previousExerciseId && currentExerciseId) changes.push({ currentExerciseId, previousExerciseId, slot, type: "changed" });
+        else if (currentExerciseId) changes.push({ currentExerciseId, previousExerciseId: null, slot, type: "added" });
+        else if (previousExerciseId) changes.push({ currentExerciseId: null, previousExerciseId, slot, type: "removed" });
+      });
+    }
+
+    return {
+      activeDays,
+      block,
+      changes,
+      invalidSeriesSlots,
+      maintained,
+      roleSeries,
+      sessionGoals,
+      sessionTypes,
+      weeklySeries
+    };
+  });
+  const selectedReview = blockReviews[selectedBlockIndex] ?? blockReviews[0];
+  const maxWeeklySeries = Math.max(1, ...blockReviews.map((review) => review.weeklySeries ?? 0));
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  if (!selectedBlock || !selectedReview) return null;
+
+  return (
+    <div className="assessment-modal-overlay" onClick={onClose} role="presentation">
+      <section aria-labelledby="planning-global-review-title" aria-modal="true" className="assessment-modal-panel !max-h-[92vh] !w-full !max-w-7xl" onClick={(event) => event.stopPropagation()} role="dialog">
+        <header className="assessment-modal-header flex items-start justify-between gap-4 px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-moss">Planificación</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink sm:text-2xl" id="planning-global-review-title">Revisión global</h2>
+            <p className="mt-1 text-sm text-ink/55">Lectura descriptiva de la configuración planificada.</p>
+          </div>
+          <button aria-label="Cerrar revisión global" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-lg font-semibold text-ink/70" onClick={onClose} type="button">×</button>
+        </header>
+
+        <div className="assessment-modal-body grid gap-5 px-4 py-4 sm:px-5 sm:py-5">
+          <section className="highlight-summary-card rounded-md p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Plan</p>
+            <h3 className="mt-1 text-lg font-semibold text-white">{planName || "Plan sin nombre"}</h3>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div><p className="text-white/55">Duración</p><p className="mt-0.5 font-semibold text-white">{totalWeeks} semanas</p></div>
+              <div><p className="text-white/55">Mesociclos</p><p className="mt-0.5 font-semibold text-white">{blocks.length}</p></div>
+              <div><p className="text-white/55">Sesiones tipo</p><p className="mt-0.5 font-semibold text-white">{weeklyFrequency > 0 ? `${weeklyFrequency} por semana` : "Sin configurar"}</p></div>
+              <div><p className="text-white/55">Ejercicios configurados</p><p className="mt-0.5 font-semibold text-white">{configuredSlots.length} {configuredSlots.length === 1 ? "slot" : "slots"}</p></div>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/30 p-4">
+            <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink">Timeline resumido</h3><p className="mt-1 text-xs text-ink/50">Fase, objetivo principal y duración de cada mesociclo.</p></div></div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {blocks.map((block, index) => <button className={`min-w-[180px] flex-1 rounded-md border p-3 text-left transition ${selectedBlock.id === block.id ? "border-moss bg-mint/45" : "border-line bg-white"}`} key={block.id} onClick={() => setSelectedBlockId(block.id)} type="button"><p className="text-xs font-semibold text-moss">M{index + 1}</p><p className="mt-1 truncate text-sm font-semibold text-ink">{getBlockPhaseLabel(block)}</p><p className="mt-1 truncate text-xs text-ink/60">{getBlockPrimaryGoalLabel(block)}</p><p className="mt-2 text-xs font-semibold text-steel">{block.durationWeeks} {block.durationWeeks === 1 ? "semana" : "semanas"}</p></button>)}
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-md border border-line bg-white p-4">
+              <h3 className="font-semibold text-ink">Orientación del plan</h3>
+              <p className="mt-1 text-xs text-ink/50">Presencia descriptiva de objetivos principales y secundarios.</p>
+              {goalOrientation.size > 0 ? <div className="mt-3 grid gap-2">{[...goalOrientation.entries()].map(([label, counts]) => <div className="flex items-center justify-between gap-3 rounded-md bg-panel/45 px-3 py-2 text-sm" key={label}><span className="font-semibold text-ink">{label}</span><span className="text-right text-xs text-ink/55">{counts.primary > 0 ? `${counts.primary} ${counts.primary === 1 ? "principal" : "principales"}` : ""}{counts.primary > 0 && counts.secondary > 0 ? " · " : ""}{counts.secondary > 0 ? `${counts.secondary} ${counts.secondary === 1 ? "secundario" : "secundarios"}` : ""}</span></div>)}</div> : <p className="mt-3 text-sm text-ink/50">Sin objetivos configurados.</p>}
+            </section>
+
+            <section className="rounded-md border border-line bg-white p-4">
+              <div><h3 className="font-semibold text-ink">Series planificadas / semana</h3><p className="mt-1 text-xs text-ink/50" title="Estimación estructural a partir de los ejercicios configurados y los defaults de prescripción del mesociclo.">Estimación estructural basada en slots configurados y prescripción por rol.</p></div>
+              <div className="mt-4 grid gap-3">{blockReviews.map((review, index) => <div className="grid grid-cols-[36px_1fr_auto] items-center gap-2" key={review.block.id}><span className="text-xs font-semibold text-moss">M{index + 1}</span><div className="h-2 overflow-hidden rounded-full bg-panel"><div className="h-full rounded-full bg-steel" style={{ width: review.weeklySeries === null ? "0%" : `${Math.max(5, (review.weeklySeries / maxWeeklySeries) * 100)}%` }} /></div><span className="min-w-24 text-right text-xs font-semibold text-ink/60">{review.weeklySeries === null ? "Datos insuficientes" : `${review.weeklySeries} series`}</span></div>)}</div>
+            </section>
+          </div>
+
+          <section className="rounded-md border border-line bg-panel/30 p-4">
+            <h3 className="font-semibold text-ink">Tipos y objetivos de sesión</h3>
+            <p className="mt-1 text-xs text-ink/50">Conteos de la semana tipo de cada mesociclo.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{blockReviews.map((review, index) => <article className="rounded-md border border-line bg-white p-3" key={review.block.id}><p className="text-xs font-semibold text-moss">M{index + 1} · {review.activeDays.length} {review.activeDays.length === 1 ? "sesión" : "sesiones"}</p><div className="mt-2 grid gap-1">{review.sessionTypes.size > 0 ? [...review.sessionTypes.entries()].map(([label, count]) => <div className="flex justify-between gap-2 text-sm" key={label}><span className="text-ink/65">{label}</span><span className="font-semibold text-ink">{count}</span></div>) : <p className="text-sm text-ink/45">Sin configurar</p>}</div>{review.sessionGoals.size > 0 ? <details className="mt-3 border-t border-line pt-2"><summary className="cursor-pointer text-xs font-semibold text-steel">Objetivos de sesión</summary><div className="mt-2 grid gap-1">{[...review.sessionGoals.entries()].map(([label, count]) => <div className="flex justify-between gap-2 text-xs" key={label}><span className="text-ink/55">{label}</span><span className="font-semibold text-ink/70">{count}</span></div>)}</div></details> : null}</article>)}</div>
+          </section>
+
+          <section className="rounded-md border border-line bg-white p-4">
+            <h3 className="font-semibold text-ink">Prescripción por rol</h3>
+            <p className="mt-1 text-xs text-ink/50">Comparación de series, repeticiones, RIR y descanso configurados. No representa intensidad externa.</p>
+            <div className="mt-3 overflow-x-auto rounded-md border border-line">
+              <div style={{ minWidth: `${190 + blocks.length * 170}px` }}>
+                <div className="grid bg-panel/60" style={{ gridTemplateColumns: `190px repeat(${blocks.length}, minmax(160px, 1fr))` }}><div className="p-3 text-xs font-semibold uppercase text-ink/45">Rol</div>{blocks.map((block, index) => <div className="border-l border-line p-3 text-xs font-semibold text-moss" key={block.id}>M{index + 1}</div>)}</div>
+                {planningPrescriptionRoles.map((role) => <details className="border-t border-line" key={role.id} open={role.id === "principal"}><summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink">{role.label}</summary><div className="grid border-t border-line/70" style={{ gridTemplateColumns: `190px repeat(${blocks.length}, minmax(160px, 1fr))` }}><div className="p-3 text-xs text-ink/50">Series · Reps · RIR · Descanso</div>{blocks.map((block) => { const defaults = getBlockPrescriptionDefault(block, role.id); return <div className="border-l border-line p-3 text-xs font-semibold text-ink/65" key={block.id}>{getPrescriptionDefaultSummary(defaults)}</div>; })}</div></details>)}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-line bg-panel/30 p-4">
+            <h3 className="font-semibold text-ink">Continuidad de ejercicios</h3>
+            <p className="mt-1 text-xs text-ink/50">Comparación de los slots configurados respecto al mesociclo anterior.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{blockReviews.map((review, index) => { const changed = review.changes.filter((change) => change.type === "changed").length; const added = review.changes.filter((change) => change.type === "added").length; const removed = review.changes.filter((change) => change.type === "removed").length; return <article className="rounded-md border border-line bg-white p-3" key={review.block.id}><p className="text-xs font-semibold text-moss">M{index + 1}</p>{index === 0 ? <p className="mt-2 text-sm text-ink/50">Bloque de referencia</p> : <><p className="mt-2 text-sm font-semibold text-ink">{review.changes.length} {review.changes.length === 1 ? "cambio" : "cambios"}</p><p className="mt-1 text-xs text-ink/50">{review.maintained} se mantienen · {changed} cambian · {added} aparecen · {removed} desaparecen</p>{review.changes.length > 0 ? <details className="mt-3"><summary className="cursor-pointer text-xs font-semibold text-steel">Ver cambios</summary><div className="mt-2 grid gap-2">{review.changes.map((change) => <div className="rounded bg-panel/55 p-2 text-xs" key={`${review.block.id}-${change.slot.id}`}><p className="font-semibold text-ink/60">{getPlanningSlotLabel(change.slot, exerciseSlots)}</p><p className="mt-1 text-ink/55">{change.previousExerciseId ? getExerciseById(change.previousExerciseId)?.name ?? change.previousExerciseId : "Sin ejercicio"} → {change.currentExerciseId ? getExerciseById(change.currentExerciseId)?.name ?? change.currentExerciseId : "Sin ejercicio"}</p></div>)}</div></details> : null}</>}</article>; })}</div>
+          </section>
+
+          <section className="rounded-md border border-moss/25 bg-mint/25 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase text-moss">M{selectedBlockIndex + 1} · {getBlockPhaseLabel(selectedBlock)}</p><h3 className="mt-1 text-lg font-semibold text-ink">{selectedBlock.name}</h3></div><span className="rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink/55">{selectedBlock.durationWeeks} semanas</span></div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div><p className="text-xs font-semibold text-ink/45">Objetivo principal</p><p className="mt-1 text-sm font-semibold text-ink">{getBlockPrimaryGoalLabel(selectedBlock)}</p>{getBlockSecondaryGoalLabels(selectedBlock).length > 0 ? <p className="mt-1 text-xs text-ink/55">Secundarios: {getBlockSecondaryGoalLabels(selectedBlock).join(" · ")}</p> : null}</div>
+              <div><p className="text-xs font-semibold text-ink/45">Semana tipo</p><p className="mt-1 text-sm font-semibold text-ink">{selectedReview.activeDays.length} {selectedReview.activeDays.length === 1 ? "sesión" : "sesiones"}</p></div>
+              <div><p className="text-xs font-semibold text-ink/45">Series planificadas</p><p className="mt-1 text-sm font-semibold text-ink">{selectedReview.weeklySeries === null ? "Datos insuficientes" : `${selectedReview.weeklySeries} por semana`}</p></div>
+              <div><p className="text-xs font-semibold text-ink/45">Cambios de ejercicio</p><p className="mt-1 text-sm font-semibold text-ink">{selectedBlockIndex === 0 ? "Bloque de referencia" : `${selectedReview.changes.length} respecto a M${selectedBlockIndex}`}</p></div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">{planningPrescriptionRoles.map((role) => <div className="rounded-md border border-line bg-white p-3" key={role.id}><p className="text-xs font-semibold text-moss">{role.label}</p><p className="mt-1 text-xs text-ink/60">{getPrescriptionDefaultSummary(getBlockPrescriptionDefault(selectedBlock, role.id))}</p>{selectedReview.weeklySeries !== null ? <p className="mt-1 text-xs font-semibold text-steel">{selectedReview.roleSeries[role.id]} series/semana</p> : null}</div>)}</div>
+          </section>
+        </div>
+      </section>
     </div>
   );
 }
