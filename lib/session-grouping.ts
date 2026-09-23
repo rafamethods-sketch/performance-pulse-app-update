@@ -31,15 +31,29 @@ function cleanLabel(value: unknown) {
 }
 
 function getDateTime(value?: string | null) {
-  if (!value) return 0;
+  if (!value) return null;
+  const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDate) {
+    const [, year, month, day] = isoDate;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return date.getFullYear() === Number(year)
+      && date.getMonth() === Number(month) - 1
+      && date.getDate() === Number(day)
+      ? date.getTime()
+      : null;
+  }
   const localizedDate = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (localizedDate) {
     const [, day, month, year] = localizedDate;
-    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return date.getFullYear() === Number(year)
+      && date.getMonth() === Number(month) - 1
+      && date.getDate() === Number(day)
+      ? date.getTime()
+      : null;
   }
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
-  const timestamp = new Date(normalized).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function getBlockLabel(session: SessionGroupingFields) {
@@ -64,42 +78,54 @@ function getWeekNumber(label: string) {
 
 export function groupSessionsByBlockAndWeek<T extends SessionGroupingFields>(sessions: readonly T[]): Array<SessionBlockGroup<T>> {
   const blocks = new Map<string, {
-    firstDate: number;
+    latestDate: number | null;
     label: string;
-    weeks: Map<string, { firstDate: number; label: string; sessions: Array<GroupedSessionEntry<T>> }>;
+    originalIndex: number;
+    weeks: Map<string, { latestDate: number | null; label: string; originalIndex: number; sessions: Array<GroupedSessionEntry<T>> }>;
   }>();
 
   sessions.forEach((session, originalIndex) => {
     const blockLabel = getBlockLabel(session);
     const weekLabel = getWeekLabel(session);
     const dateTime = getDateTime(session.date);
-    const block = blocks.get(blockLabel) ?? { firstDate: dateTime, label: blockLabel, weeks: new Map() };
-    const week = block.weeks.get(weekLabel) ?? { firstDate: dateTime, label: weekLabel, sessions: [] };
+    const block = blocks.get(blockLabel) ?? { latestDate: dateTime, label: blockLabel, originalIndex, weeks: new Map() };
+    const week = block.weeks.get(weekLabel) ?? { latestDate: dateTime, label: weekLabel, originalIndex, sessions: [] };
 
     week.sessions.push({ originalIndex, session });
-    if (!week.firstDate || (dateTime && dateTime < week.firstDate)) week.firstDate = dateTime;
-    if (!block.firstDate || (dateTime && dateTime < block.firstDate)) block.firstDate = dateTime;
+    if (dateTime !== null && (week.latestDate === null || dateTime > week.latestDate)) week.latestDate = dateTime;
+    if (dateTime !== null && (block.latestDate === null || dateTime > block.latestDate)) block.latestDate = dateTime;
     block.weeks.set(weekLabel, week);
     blocks.set(blockLabel, block);
   });
 
   return [...blocks.values()]
-    .sort((left, right) => right.firstDate - left.firstDate)
+    .sort((left, right) => {
+      if (left.latestDate === null && right.latestDate !== null) return 1;
+      if (left.latestDate !== null && right.latestDate === null) return -1;
+      if (left.latestDate !== right.latestDate) return (right.latestDate ?? 0) - (left.latestDate ?? 0);
+      return left.originalIndex - right.originalIndex;
+    })
     .map((block) => ({
       label: block.label,
       weeks: [...block.weeks.values()]
         .sort((left, right) => {
+          if (left.latestDate === null && right.latestDate !== null) return 1;
+          if (left.latestDate !== null && right.latestDate === null) return -1;
+          if (left.latestDate !== right.latestDate) return (right.latestDate ?? 0) - (left.latestDate ?? 0);
           const leftNumber = getWeekNumber(left.label);
           const rightNumber = getWeekNumber(right.label);
-          if (leftNumber !== null && rightNumber !== null) return leftNumber - rightNumber;
-          return left.firstDate - right.firstDate;
+          if (leftNumber !== null && rightNumber !== null && leftNumber !== rightNumber) return rightNumber - leftNumber;
+          return left.originalIndex - right.originalIndex;
         })
         .map((week) => ({
           label: week.label,
           sessions: [...week.sessions].sort((left, right) => {
-            const dateDifference = getDateTime(left.session.date) - getDateTime(right.session.date);
-            if (dateDifference !== 0) return dateDifference;
-            return Number(left.session.sessionNumber ?? 0) - Number(right.session.sessionNumber ?? 0);
+            const leftDate = getDateTime(left.session.date);
+            const rightDate = getDateTime(right.session.date);
+            if (leftDate === null && rightDate !== null) return 1;
+            if (leftDate !== null && rightDate === null) return -1;
+            if (leftDate !== rightDate) return (rightDate ?? 0) - (leftDate ?? 0);
+            return left.originalIndex - right.originalIndex;
           })
         }))
     }));

@@ -15067,11 +15067,7 @@ function SessionHistoryPanel({
   const [reviewFeedbackModal, setReviewFeedbackModal] = useState<ReviewFeedbackModal | null>(null);
   const [techniqueReviewDrafts, setTechniqueReviewDrafts] = useState<Record<string, TechniqueReview>>({});
   const sessions = useMemo(
-    () => ([...(client.sessionRecords ?? [])] as ReviewSessionRecord[]).sort((left, right) => {
-      const leftDate = getReviewSessionDate(left.date)?.getTime() ?? 0;
-      const rightDate = getReviewSessionDate(right.date)?.getTime() ?? 0;
-      return rightDate - leftDate;
-    }),
+    () => [...(client.sessionRecords ?? [])] as ReviewSessionRecord[],
     [client.sessionRecords]
   );
   const sessionGroups = useMemo(() => groupSessionsByBlockAndWeek(sessions), [sessions]);
@@ -15432,11 +15428,6 @@ function SessionHistoryPanel({
                     {compactResistanceDistance ? (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
                         {compactResistanceDistance}
-                      </span>
-                    ) : null}
-                    {athleteQuickFeedbackLabel ? (
-                      <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/60">
-                        {athleteQuickFeedbackLabel}
                       </span>
                     ) : null}
                     <button
