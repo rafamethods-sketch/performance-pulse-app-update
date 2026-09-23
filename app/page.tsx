@@ -449,6 +449,7 @@ export default function ClientsPage() {
       athleteNotes: undefined,
       exerciseRpe: undefined,
       performedRpe: undefined,
+      planningSlotId: undefined,
       setDetails: undefined,
       techniqueReview: undefined,
       techniqueVideoNote: undefined,
@@ -475,6 +476,7 @@ export default function ClientsPage() {
       notes: undefined,
       performedExercises: [],
       plannedExercises: getPlannedSessionCopy(sourceSession),
+      planningOrigin: undefined,
       reviewedAt: undefined,
       reviewNotes: undefined,
       reviewStatus: undefined,
@@ -1289,6 +1291,7 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
   plannedRpe?: number | string | null;
+  planningSlotId?: string | null;
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
@@ -1326,12 +1329,19 @@ type ClientSessionRecord = Partial<BaseCoachClient["sessionRecords"][number]> & 
   linkedCardioActivityId?: string;
   performedExercises?: ConnectedSessionExercise[];
   plannedExercises?: ConnectedSessionExercise[];
+  planningOrigin?: {
+    blockId: string;
+    templateDayIndex: number;
+    weekNumber: number;
+  };
   resistanceMethodId?: string;
   resistanceSport?: ResistanceSport;
   reviewedAt?: string;
   reviewNotes?: string;
   reviewStatus?: "pending" | "reviewed";
   sessionNumber?: number | string | null;
+  sessionGoalId?: PlanningSessionGoalId;
+  sessionTypeId?: PlanningSessionTypeId;
   srpe?: number | string | null;
   sRPE?: number | string | null;
   status?: string | null;
@@ -6618,6 +6628,11 @@ type PlanningExerciseSlot = {
   order: number;
   role: PlanningPrescriptionRole;
 };
+
+type PlanningSessionCreationTarget = {
+  day: PlanningWeeklyTemplateDay;
+  weekNumber: number;
+};
 type EditablePlanningBlock = {
   durationWeeks: number;
   phaseId?: PlanningPhaseId;
@@ -6871,6 +6886,16 @@ function addPlanningDays(date: Date, days: number) {
   const nextDate = new Date(date);
   nextDate.setDate(date.getDate() + days);
   return nextDate;
+}
+
+function getPlanningTemplateSessionDate(startDate: string | undefined, weekNumber: number, dayIndex: number) {
+  const parsedStartDate = parsePlanningDate(startDate ?? "");
+  if (!parsedStartDate) return "";
+  return getPlanningDateKey(addPlanningDays(parsedStartDate, (weekNumber - 1) * 7 + dayIndex));
+}
+
+function getPlanningExerciseSection(role: PlanningPrescriptionRole): StrengthSessionBlock {
+  return role === "accessory" ? "auxiliary" : "main";
 }
 
 function getPlanningWeekStart(date: Date) {
@@ -7175,13 +7200,13 @@ function PlanningView({
       const previous = previousBlocks.find((candidate) => candidate.id === block.id);
       return previous && JSON.stringify(previous.prescriptionDefaults ?? {}) !== JSON.stringify(block.prescriptionDefaults ?? {});
     });
-    const inheritedExercises = (client.sessionRecords ?? []).flatMap((session) => session.plannedExercises ?? []).filter((exercise) =>
+    const inheritedExercises = (client.sessionRecords ?? []).flatMap((session) => session.planningOrigin ? [] : session.plannedExercises ?? []).filter((exercise) =>
       exercise.prescriptionSource === "default" && changedDefaults.some((block) => block.id === exercise.prescriptionBlockId)
     );
     const shouldUpdateInherited = inheritedExercises.length > 0
       ? window.confirm(`La prescripción del mesociclo ha cambiado. Hay ${inheritedExercises.length} ejercicios creados con el default anterior.\n\nAceptar: actualizar solo los heredados.\nCancelar: conservar como están.`)
       : false;
-    const nextSessions = shouldUpdateInherited ? (client.sessionRecords ?? []).map((session) => ({
+    const nextSessions = shouldUpdateInherited ? (client.sessionRecords ?? []).map((session) => session.planningOrigin ? session : ({
       ...session,
       plannedExercises: (session.plannedExercises ?? []).map((exercise) => {
         if (exercise.prescriptionSource !== "default" || !exercise.prescriptionRole || !exercise.prescriptionBlockId) return exercise;
@@ -7328,6 +7353,80 @@ function PlanningView({
     if (!window.confirm("¿Eliminar esta sesión planificada?")) return;
     const result = onDeleteSession(client.id, sessionIndex);
     setPlanningActionMessage(result.message);
+  }
+
+  function createSessionFromPlanning(block: PlanningRoadmapBlock, target: PlanningSessionCreationTarget) {
+    if (!client) return;
+    const duplicateSession = (client.sessionRecords ?? []).some((session) =>
+      session.planningOrigin?.blockId === block.id &&
+      session.planningOrigin.weekNumber === target.weekNumber &&
+      session.planningOrigin.templateDayIndex === target.day.dayIndex
+    );
+    if (duplicateSession) {
+      setPlanningActionMessage("Esta sesión ya existe para la semana y el día seleccionados.");
+      return;
+    }
+
+    const plannedExercises = planningExerciseSlots.flatMap<ConnectedSessionExercise>((slot) => {
+      if (slot.dayIndex !== target.day.dayIndex) return [];
+      const exerciseId = slot.exerciseByBlock[block.id];
+      const exercise = exerciseId ? getExerciseById(exerciseId) : null;
+      if (!exerciseId || !exercise) return [];
+      const defaults = getBlockPrescriptionDefault(block, slot.role);
+      const section = getPlanningExerciseSection(slot.role);
+
+      return [{
+        block: section,
+        exerciseId,
+        exerciseName: exercise.name,
+        id: `planned-exercise-${Date.now()}-${slot.id}`,
+        intensityMethod: "rir",
+        planningSlotId: slot.id,
+        prescriptionBlockId: block.id,
+        prescriptionRole: slot.role,
+        prescriptionSource: "default",
+        plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax) || undefined,
+        plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds) || undefined,
+        plannedRir: getPrescriptionRange(defaults.rirMin, defaults.rirMax) || undefined,
+        plannedSets: defaults.sets || undefined,
+        section
+      }];
+    });
+    const sessionNumber = (client.sessionRecords ?? []).filter((session) => Number(session.week) === target.weekNumber).length + 1;
+    const sessionId = `session-${Date.now()}`;
+    const plannedRecord: ClientSessionRecord = {
+      block: block.name,
+      completed: false,
+      date: getPlanningTemplateSessionDate(planningStartDate || client.planning.startDate, target.weekNumber, target.day.dayIndex),
+      notes: target.day.notes || undefined,
+      id: sessionId,
+      performedExercises: [],
+      plannedExercises,
+      planningOrigin: {
+        blockId: block.id,
+        templateDayIndex: target.day.dayIndex,
+        weekNumber: target.weekNumber
+      },
+      sessionGoalId: target.day.sessionGoalId,
+      sessionNumber,
+      sessionTypeId: target.day.sessionTypeId,
+      status: "Planificada",
+      summary: target.day.sessionName.trim() || getPlanningDaySessionGoalLabel(target.day),
+      type: getPlanningDaySessionTypeLabel(target.day),
+      week: target.weekNumber,
+      weekLabel: `Semana ${target.weekNumber}`
+    };
+
+    onUpdateClient({
+      ...client,
+      sessionRecords: [plannedRecord, ...(client.sessionRecords ?? [])]
+    });
+    setPlanningActionMessage("Sesión creada correctamente.");
+  }
+
+  function openCreatedPlanningSession(session: ClientSessionRecord) {
+    if (!client || !onOpenTrainingDraft) return;
+    onOpenTrainingDraft({ clientId: client.id, sessionDate: session.date, sessionId: session.id });
   }
 
   if (!client) {
@@ -7543,7 +7642,10 @@ function PlanningView({
           onDuplicateSession={duplicatePlanningSession}
           onPasteWeek={pastePlanningWeek}
           onChangeDuration={changePlanningBlockDuration}
+          onCreateSession={createSessionFromPlanning}
+          onOpenCreatedSession={openCreatedPlanningSession}
           onUpdateBlock={updateBlock}
+          exerciseSlots={planningExerciseSlots}
           planningActionMessage={planningActionMessage}
           planningDistribution={planningDistribution}
         />
@@ -8411,12 +8513,15 @@ function PlanningBlockDetail({
   client,
   copiedPlanningWeek,
   currentPlanningWeekNumber,
+  exerciseSlots,
   isCurrentBlock,
   onAddSession,
   onBack,
   onCopyWeek,
+  onCreateSession,
   onDeleteSession,
   onDuplicateSession,
+  onOpenCreatedSession,
   onPasteWeek,
   onChangeDuration,
   onUpdateBlock,
@@ -8427,23 +8532,42 @@ function PlanningBlockDetail({
   client: CoachClient;
   copiedPlanningWeek: boolean;
   currentPlanningWeekNumber: number | null;
+  exerciseSlots: PlanningExerciseSlot[];
   isCurrentBlock: boolean;
   onAddSession: (date: Date, weekNumber: number) => void;
   onBack: () => void;
   onCopyWeek: (week: PlanningCalendarWeek) => void;
+  onCreateSession: (block: PlanningRoadmapBlock, target: PlanningSessionCreationTarget) => void;
   onDeleteSession: (sessionIndex: number, session: ReviewSessionRecord) => void;
   onDuplicateSession: (sessionIndex: number, date: Date, time?: string | null) => void;
+  onOpenCreatedSession: (session: ClientSessionRecord) => void;
   onPasteWeek: (week: PlanningCalendarWeek) => void;
   onChangeDuration: (blockId: string, direction: -1 | 1) => void;
   onUpdateBlock: (blockId: string, updates: Partial<EditablePlanningBlock>) => void;
   planningActionMessage: string;
   planningDistribution: PlanningCalendarWeek[];
 }) {
+  const [creationWeekNumber, setCreationWeekNumber] = useState(block.startWeek);
+  const [creationTarget, setCreationTarget] = useState<PlanningSessionCreationTarget | null>(null);
   const status = isCurrentBlock ? "En curso" : getPlanningBlockStatus(block, client.planning.currentBlock);
   const progress = getPlanningBlockProgress(client, block);
   const blockWeeks = planningDistribution.filter(
     (week) => week.weekNumber >= block.startWeek && week.weekNumber <= block.endWeek
   );
+  const templateDays = [...(block.weeklyTemplate ?? [])]
+    .filter((day) => day.sessionName.trim() || day.sessionType.trim() || day.sessionGoal?.trim())
+    .sort((left, right) => left.dayIndex - right.dayIndex);
+  const previewExercises = creationTarget ? exerciseSlots.flatMap((slot) => {
+    if (slot.dayIndex !== creationTarget.day.dayIndex) return [];
+    const exerciseId = slot.exerciseByBlock[block.id];
+    const exercise = exerciseId ? getExerciseById(exerciseId) : null;
+    return exercise ? [{ defaults: getBlockPrescriptionDefault(block, slot.role), exercise, slot }] : [];
+  }) : [];
+
+  useEffect(() => {
+    setCreationWeekNumber(block.startWeek);
+    setCreationTarget(null);
+  }, [block.id, block.startWeek]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -8595,6 +8719,61 @@ function PlanningBlockDetail({
             </div>
           </details>
 
+          <section className="mt-4 rounded-md border border-line bg-white p-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-moss">Semana tipo</p>
+                <h3 className="mt-1 font-semibold text-ink">Crear una sesión real</h3>
+                <p className="mt-1 text-sm text-ink/55">Elige la semana del mesociclo. La sesión se creará como un snapshot independiente.</p>
+              </div>
+              <label className="w-full text-xs font-semibold text-ink/60 sm:w-44">
+                Semana
+                <select
+                  className="mt-1 h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink"
+                  onChange={(event) => setCreationWeekNumber(Number(event.target.value))}
+                  value={creationWeekNumber}
+                >
+                  {Array.from({ length: block.durationWeeks }, (_, index) => block.startWeek + index).map((weekNumber) => (
+                    <option key={weekNumber} value={weekNumber}>Semana {weekNumber}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {templateDays.length > 0 ? (
+              <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {templateDays.map((day) => {
+                  const createdSession = (client.sessionRecords ?? []).find((session) =>
+                    session.planningOrigin?.blockId === block.id &&
+                    session.planningOrigin.weekNumber === creationWeekNumber &&
+                    session.planningOrigin.templateDayIndex === day.dayIndex
+                  );
+                  const configuredExercises = exerciseSlots.filter((slot) =>
+                    slot.dayIndex === day.dayIndex && Boolean(slot.exerciseByBlock[block.id]) && Boolean(getExerciseById(slot.exerciseByBlock[block.id] ?? ""))
+                  ).length;
+
+                  return (
+                    <article className="rounded-md border border-line bg-panel/30 p-3" key={`${block.id}-${day.dayIndex}`}>
+                      <p className="text-xs font-semibold text-moss">{planningWeekdayLabels[day.dayIndex]} · Semana {creationWeekNumber}</p>
+                      <h4 className="mt-1 font-semibold text-ink">{day.sessionName || getPlanningDaySessionTypeLabel(day)}</h4>
+                      <p className="mt-1 text-xs text-ink/55">{getPlanningDaySessionTypeLabel(day)} · {getPlanningDaySessionGoalLabel(day)}</p>
+                      <p className="mt-2 text-xs font-semibold text-ink/45">{configuredExercises} {configuredExercises === 1 ? "ejercicio" : "ejercicios"}</p>
+                      {createdSession ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-md border border-moss/25 bg-mint px-2.5 py-1.5 text-xs font-semibold text-moss">✓ Sesión creada</span>
+                          <button className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/70" onClick={() => onOpenCreatedSession(createdSession)} type="button">Abrir sesión</button>
+                        </div>
+                      ) : (
+                        <button className="mt-3 rounded-md bg-ink px-3 py-2 text-xs font-semibold text-white" onClick={() => setCreationTarget({ day, weekNumber: creationWeekNumber })} type="button">Crear sesión</button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm text-ink/55">No hay sesiones configuradas en la semana tipo de este mesociclo.</p>
+            )}
+          </section>
+
       <div className="mt-4 rounded-md border border-line bg-white p-3 sm:p-4">
         <div>
           <div>
@@ -8694,6 +8873,53 @@ function PlanningBlockDetail({
           </div>
         </div>
       </div>
+          {creationTarget ? (
+            <div className="assessment-modal-overlay !z-[80]" onClick={() => setCreationTarget(null)} role="presentation">
+              <section
+                aria-labelledby="planning-session-preview-title"
+                aria-modal="true"
+                className="assessment-modal-panel !max-h-[86vh] !w-[calc(100%-1.5rem)] !max-w-2xl"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+              >
+                <header className="assessment-modal-header flex items-start justify-between gap-3 px-4 py-4 sm:px-5">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Crear sesión</p>
+                    <h3 className="mt-1 text-xl font-semibold text-ink" id="planning-session-preview-title">{block.name} · Semana {creationTarget.weekNumber}</h3>
+                    <p className="mt-1 text-sm text-ink/55">{planningWeekdayLabels[creationTarget.day.dayIndex]} · {getPlanningDaySessionTypeLabel(creationTarget.day)} · {getPlanningDaySessionGoalLabel(creationTarget.day)}</p>
+                  </div>
+                  <button aria-label="Cancelar creación" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-lg text-ink/70" onClick={() => setCreationTarget(null)} type="button">×</button>
+                </header>
+                <div className="assessment-modal-body px-4 py-4 sm:px-5">
+                  <p className="text-sm font-semibold text-ink">{previewExercises.length} {previewExercises.length === 1 ? "ejercicio" : "ejercicios"}</p>
+                  {previewExercises.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {previewExercises.map(({ defaults, exercise, slot }) => {
+                        const prescription = getPrescriptionDefaultSummary(defaults);
+                        const roleLabel = planningPrescriptionRoles.find((role) => role.id === slot.role)?.label ?? slot.role;
+                        return (
+                          <article className="rounded-md border border-line bg-panel/35 p-3" key={slot.id}>
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="font-semibold text-ink">{exercise.name}</p>
+                              <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/55">{roleLabel}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-ink/60">{prescription === "Sin definir" ? "Prescripción sin configurar" : prescription}</p>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm text-ink/55">No hay ejercicios configurados para esta sesión. Se creará una sesión vacía que podrás editar después.</p>
+                  )}
+                  {creationTarget.day.notes ? <p className="mt-3 text-sm text-ink/55">Notas: {creationTarget.day.notes}</p> : null}
+                  <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-ink/70" onClick={() => setCreationTarget(null)} type="button">Cancelar</button>
+                    <button className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => { onCreateSession(block, creationTarget); setCreationTarget(null); }} type="button">Crear sesión</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
@@ -14892,6 +15118,9 @@ function SessionHistoryPanel({
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Detalle de sesi{"\u00f3"}n</p>
                           <h4 className="mt-1 text-xl font-semibold text-ink" id={`session-detail-title-${sessionIndex}`}>{displayValue(session.type, "Tipo sin especificar")}</h4>
                           <p className="mt-1 text-sm text-ink/55">{formatDisplayDate(session.date)} {"\u00b7"} {client.name}</p>
+                          {session.planningOrigin ? (
+                            <p className="mt-1 text-xs font-semibold text-steel">Desde planificación · {session.block || "Mesociclo"} · Semana {session.planningOrigin.weekNumber} · {planningWeekdayLabels[session.planningOrigin.templateDayIndex]}</p>
+                          ) : null}
                         </div>
                         <button
                           aria-label="Cerrar detalle"
