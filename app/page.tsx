@@ -12628,6 +12628,8 @@ function CoachTrainingPlanner({
   const [localEditSessionId, setLocalEditSessionId] = useState<string | null>(null);
   const [showCardioAdvancedOptions, setShowCardioAdvancedOptions] = useState(false);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
+  const [expandedStrengthExerciseId, setExpandedStrengthExerciseId] = useState("");
+  const [showAthleteSessionPreview, setShowAthleteSessionPreview] = useState(false);
   const [openSetMethodExerciseId, setOpenSetMethodExerciseId] = useState("");
   const [collapsedStrengthBlocks, setCollapsedStrengthBlocks] = useState<Record<StrengthSessionBlock, boolean>>({
     activation: false,
@@ -12659,20 +12661,6 @@ function CoachTrainingPlanner({
   };
   const visibleSystemTemplates = systemSessionTemplates.filter(filterTemplate);
   const visibleCustomTemplates = sessionTemplates.filter(filterTemplate);
-  const plannedTonnage = strengthExercises.reduce((total, exercise) => {
-    const sets = Number.parseFloat(exercise.sets) || 0;
-    const load = Number.parseFloat(exercise.load) || 0;
-    const [minimumReps, maximumReps = minimumReps] = exercise.reps
-      .split(/[-–]/)
-      .map((value) => Number.parseFloat(value.trim()) || 0);
-    return {
-      maximum: total.maximum + sets * maximumReps * load,
-      minimum: total.minimum + sets * minimumReps * load
-    };
-  }, { maximum: 0, minimum: 0 });
-  const plannedTonnageLabel = plannedTonnage.minimum === plannedTonnage.maximum
-    ? `${plannedTonnage.minimum.toLocaleString("es-ES")} kg`
-    : `${plannedTonnage.minimum.toLocaleString("es-ES")}-${plannedTonnage.maximum.toLocaleString("es-ES")} kg`;
   const plannedSessionsInSelectedWeek =
     activeSessionClient && selectedBlockWeek > 0
       ? (activeSessionClient.sessionRecords ?? []).filter((session) => Number(session.week) === selectedBlockWeek).length
@@ -12884,6 +12872,7 @@ function CoachTrainingPlanner({
   };
   const addStrengthExercise = (sessionBlock: SessionExerciseBlock) => {
     const block: StrengthSessionBlock = sessionBlock === "complementary" ? "auxiliary" : sessionBlock;
+    const exerciseId = `exercise-${Date.now()}-${strengthExercises.length}`;
     setStrengthExercises((current) => [
       ...current,
       {
@@ -12892,7 +12881,7 @@ function CoachTrainingPlanner({
         block,
         exerciseId: "",
         exerciseSearch: "",
-        id: `exercise-${Date.now()}-${current.length}`,
+        id: exerciseId,
         intensityMethod: "rir",
         load: "",
         observation: "",
@@ -12913,6 +12902,7 @@ function CoachTrainingPlanner({
         videoUrl: ""
       }
     ]);
+    setExpandedStrengthExerciseId(exerciseId);
   };
   const updateStrengthExercise = (
     exerciseId: string,
@@ -13296,12 +13286,13 @@ function CoachTrainingPlanner({
           ? `${exercise.sets}×${exercise.reps}`
           : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
     const intensity = getExerciseIntensitySummary(exercise);
-    const rest = exercise.rest ? `${exercise.rest} s entre series` : "";
+    const rest = exercise.rest ? `${exercise.rest} s` : "";
     const intraClusterRest = method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds
       ? `${exercise.clusterConfig.intraClusterRestSeconds} s intra`
       : "";
     const tempo = formatExerciseTempo(exercise.tempo);
-    const prescription = [volume, intensity, intraClusterRest, rest, tempo ? `Tempo ${tempo}` : ""].filter(Boolean).join(" · ");
+    const prescription = [volume, intensity, intraClusterRest, rest].filter(Boolean).join(" · ");
+    const advanced = [method !== "straight" ? getSetMethodLabel(method) : "", tempo ? `Tempo ${tempo}` : ""].filter(Boolean).join(" · ");
     const bandSummary = getBandSummary(exercise);
     const variantLine = [
       exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "",
@@ -13309,9 +13300,18 @@ function CoachTrainingPlanner({
     ].filter(Boolean).join(" · ");
 
     return {
+      advanced,
       main: [name, prescription].filter(Boolean).join(" · "),
+      name,
+      prescription,
       variant: variantLine
     };
+  };
+  const getAthletePreviewRest = (value: string) => {
+    const seconds = Number(value);
+    if (!value) return "";
+    if (Number.isFinite(seconds) && seconds > 0 && seconds % 60 === 0) return `${seconds / 60} min`;
+    return `${value} s`;
   };
   const renderStrengthBlock = (sessionBlock: SessionExerciseBlock | "unclassified", title: string, description?: string) => {
     const blockExercises = strengthExercises.filter((exercise) =>
@@ -13321,6 +13321,9 @@ function CoachTrainingPlanner({
     const isCollapsed = collapsedStrengthBlocks[legacyBlock];
     const blockLabel = title.toUpperCase();
     const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
+    const validSeries = blockExercises.map((exercise) => Number(exercise.sets));
+    const hasReliableSeriesTotal = validSeries.length > 0 && validSeries.every((sets) => Number.isFinite(sets) && sets > 0);
+    const blockSummary = `${exerciseCountLabel}${hasReliableSeriesTotal ? ` · ${validSeries.reduce((total, sets) => total + sets, 0)} series` : ""}`;
 
     return (
       <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -13330,7 +13333,7 @@ function CoachTrainingPlanner({
           type="button"
         >
           <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-          <span>{blockLabel} · {exerciseCountLabel}</span>
+          <span>{blockLabel} · {blockSummary}</span>
         </button>
         {!isCollapsed ? (
         <>
@@ -13360,15 +13363,26 @@ function CoachTrainingPlanner({
             const equipmentOptions = selectedLibraryExercise?.equipment ?? [];
             const selectedVariant =
               selectedLibraryExercise?.variants?.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
+            const isExpanded = expandedStrengthExerciseId === exercise.id;
+            const exerciseSummary = getExerciseSummaryLine(exercise);
+            const roleLabel = planningPrescriptionRoles.find((role) => role.id === exercise.prescriptionRole)?.label ?? "Sin rol";
+            const sourceLabel = exercise.prescriptionSource === "default" ? "Default del mesociclo" : exercise.prescriptionSource === "custom" ? "Personalizado" : "Legacy";
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-ink/65">Ejercicio {blockExercises.findIndex((item) => item.id === exercise.id) + 1}</p>
-                  <p className="mt-1 text-xs font-semibold text-ink/45">{exercise.prescriptionSource === "default" ? "Default del mesociclo" : exercise.prescriptionSource === "custom" ? "Personalizado" : "Personalizado / Legacy"}</p>
-                </div>
+              <div className={`flex items-start gap-3 ${isExpanded ? "mb-3" : ""}`}>
                 <button
+                  aria-expanded={isExpanded}
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setExpandedStrengthExerciseId((current) => current === exercise.id ? "" : exercise.id)}
+                  type="button"
+                >
+                  <span className="block truncate text-sm font-semibold text-ink">{exerciseSummary.name}</span>
+                  <span className="mt-0.5 block text-[11px] font-semibold text-ink/45">{roleLabel} · {sourceLabel}</span>
+                  {exerciseSummary.prescription ? <span className="mt-1 block text-sm font-medium text-ink/65">{exerciseSummary.prescription}</span> : null}
+                  {exerciseSummary.advanced ? <span className="mt-1 block text-xs font-semibold text-steel">{exerciseSummary.advanced}</span> : null}
+                </button>
+                {isExpanded ? <button
                   aria-label="Eliminar ejercicio"
                   className="grid size-9 shrink-0 place-items-center rounded-md border border-line text-ink/45 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
                   onClick={() => removeStrengthExercise(exercise.id)}
@@ -13376,8 +13390,9 @@ function CoachTrainingPlanner({
                   type="button"
                 >
                   <Trash2 size={16} />
-                </button>
+                </button> : <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setExpandedStrengthExerciseId(exercise.id)} type="button">Editar</button>}
               </div>
+              {isExpanded ? <>
               <div className="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-line bg-panel/30 p-2">
                 <label className="min-w-40 flex-1 text-xs font-semibold text-ink/55">
                   Bloque de sesión
@@ -13788,6 +13803,7 @@ function CoachTrainingPlanner({
                   ) : null}
                 </div>
               </details></> : null}
+              </> : null}
             </article>
             );
           })}
@@ -14160,14 +14176,6 @@ function CoachTrainingPlanner({
 
         {sessionType === "Fuerza" ? (
           <>
-            {sessionWizardStep > 0 && sessionWizardStep < 4 ? <div className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="font-semibold text-ink">Bloques de fuerza</h3>
-                <span className="rounded-md bg-white px-3 py-1 text-sm font-medium text-moss">
-                  Tonelaje planificado: {plannedTonnageLabel}
-                </span>
-              </div>
-            </div> : null}
             {sessionWizardStep === 1 ? renderStrengthBlock("activation", "Activación", "Prepara al deportista para la tarea principal.") : null}
             {sessionWizardStep === 1 && strengthExercises.some((exercise) => !exercise.sessionBlock) ? renderStrengthBlock("unclassified", "Sin clasificar", "Ejercicios legacy. Asigna un bloque solo si deseas editar su estructura.") : null}
             {sessionWizardStep === 2 ? renderStrengthBlock("main", "Bloque principal", "Trabajo prioritario de la sesión.") : null}
@@ -14175,7 +14183,10 @@ function CoachTrainingPlanner({
             {sessionWizardStep === 4 ? (
               <section className="mt-5 grid gap-3">
                 <div className="rounded-md border border-line bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Datos básicos</p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Datos básicos</p>
+                    <button className="rounded-md border border-line bg-panel/50 px-3 py-1.5 text-xs font-semibold text-ink/70" onClick={() => setShowAthleteSessionPreview(true)} type="button">Ver como deportista</button>
+                  </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <ClientInfoCard label="Sesión" value={sessionSummary.trim() || "Sin nombre"} />
                     <ClientInfoCard label="Fecha" value={sessionDate ? formatDisplayDate(sessionDate) : "Sin fecha"} />
@@ -14189,11 +14200,14 @@ function CoachTrainingPlanner({
                   if (exercises.length === 0) return null;
                   return (
                     <div className="rounded-md border border-line bg-white p-4" key={blockKey}>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{labels[blockKey]} · {exercises.length} {exercises.length === 1 ? "ejercicio" : "ejercicios"}</p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{labels[blockKey]} · {exercises.length}</p>
+                        {blockKey !== "unclassified" ? <button className="text-xs font-semibold text-moss" onClick={() => setSessionWizardStep(blockKey === "activation" ? 1 : blockKey === "main" ? 2 : 3)} type="button">Editar {labels[blockKey].toLowerCase()}</button> : null}
+                      </div>
                       <div className="mt-3 grid gap-2">
                         {exercises.map((exercise) => {
                           const summary = getExerciseSummaryLine(exercise);
-                          return <div className="rounded-md bg-panel/35 px-3 py-2" key={exercise.id}><p className="text-sm font-semibold text-ink">{summary.main}</p>{exercise.observation ? <p className="mt-1 text-xs text-ink/55">{exercise.observation}</p> : null}</div>;
+                          return <div className="rounded-md bg-panel/35 px-3 py-2" key={exercise.id}><p className="text-sm font-semibold text-ink">{summary.name}</p>{summary.prescription ? <p className="mt-1 text-sm text-ink/65">{summary.prescription}</p> : null}{summary.advanced ? <p className="mt-1 text-xs font-semibold text-steel">{summary.advanced}</p> : null}</div>;
                         })}
                       </div>
                     </div>
@@ -14454,7 +14468,60 @@ function CoachTrainingPlanner({
           </div>
         )}
 
-        <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        {showAthleteSessionPreview ? (
+          <div aria-labelledby="athlete-session-preview-title" aria-modal="true" className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/55 p-2 backdrop-blur-sm sm:items-center sm:p-5" onClick={() => setShowAthleteSessionPreview(false)} role="dialog">
+            <div className="max-h-[calc(100dvh-1rem)] w-full max-w-3xl overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-soft sm:max-h-[90vh] sm:p-6" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3 border-b border-line pb-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">Sesión</p>
+                  <h3 className="mt-1 text-xl font-semibold text-ink" id="athlete-session-preview-title">{sessionSummary.trim() || "Sesión planificada"}</h3>
+                  <p className="mt-1 text-sm text-ink/55">{sessionDate ? formatDisplayDate(sessionDate) : "Fecha por definir"}</p>
+                </div>
+                <button aria-label="Cerrar previsualización" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink" onClick={() => setShowAthleteSessionPreview(false)} type="button"><X size={17} /></button>
+              </div>
+              <div className="mt-5 grid gap-5">
+                {(["activation", "main", "complementary"] as const).map((blockKey) => {
+                  const labels = { activation: "Activación", main: "Bloque principal", complementary: "Bloque complementario" };
+                  const exercises = strengthExercises.filter((exercise) => exercise.sessionBlock === blockKey);
+                  if (exercises.length === 0) return null;
+                  return <section key={blockKey}>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/45">{labels[blockKey]}</h4>
+                    <div className="mt-2 grid gap-2">
+                      {exercises.map((exercise) => {
+                        const summary = getExerciseSummaryLine(exercise);
+                        const method = exercise.setMethod ?? "straight";
+                        const sequence = (exercise.plannedSetReps ?? []).filter(Boolean);
+                        const clusterReps = (exercise.clusterConfig?.repsPerMiniSet ?? []).filter(Boolean);
+                        const tempo = formatExerciseTempo(exercise.tempo);
+                        const standardVolume = exercise.sets && exercise.reps
+                          ? `${exercise.sets} × ${exercise.reps}`
+                          : exercise.sets
+                            ? `${exercise.sets} series`
+                            : exercise.reps ? `${exercise.reps} reps` : "";
+                        return <article className="rounded-md border border-line bg-panel/25 p-3" key={exercise.id}>
+                          <p className="font-semibold text-ink">{summary.name}</p>
+                          {method === "cluster" && clusterReps.length > 0 ? <p className="mt-2 text-lg font-semibold text-ink">{exercise.sets || "—"} × ({clusterReps.join("+")})</p> : (method === "ascending" || method === "descending") && sequence.length > 0 ? <div className="mt-2 grid gap-1 text-sm text-ink/70"><p className="mb-1 text-xs font-semibold uppercase text-ink/45">{getSetMethodLabel(method)}</p>{sequence.map((reps, index) => <p key={`${exercise.id}-preview-set-${index}`}>Serie {index + 1} · {reps} reps</p>)}</div> : standardVolume ? <p className="mt-2 text-lg font-semibold text-ink">{standardVolume}</p> : null}
+                          <div className="mt-2 grid gap-1 text-sm text-ink/65">
+                            {exercise.load ? <p>Carga: {exercise.load} kg</p> : null}
+                            {method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds ? <p>Pausa intra: {exercise.clusterConfig.intraClusterRestSeconds} s</p> : null}
+                            {exercise.rest ? <p>Descanso entre series: {getAthletePreviewRest(exercise.rest)}</p> : null}
+                            {getExerciseIntensitySummary(exercise) ? <p>{getExerciseIntensitySummary(exercise)}</p> : null}
+                            {tempo ? <p>Tempo {tempo}</p> : null}
+                            {exercise.videoNote ? <p className="text-ink/55">Clave técnica: {exercise.videoNote}</p> : null}
+                            {exercise.videoUrl ? <a className="w-fit font-semibold text-moss underline-offset-4 hover:underline" href={exercise.videoUrl} rel="noreferrer" target="_blank">Ver vídeo técnico</a> : null}
+                          </div>
+                        </article>;
+                      })}
+                    </div>
+                  </section>;
+                })}
+              </div>
+              <p className="mt-5 border-t border-line pt-3 text-xs text-ink/45">Previsualización. No guarda ni modifica la sesión.</p>
+            </div>
+          </div>
+        ) : null}
+
+        {sessionWizardStep < 4 ? <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <label className="space-y-2 text-sm font-medium text-ink/75">
             Observaciones finales
             <textarea
@@ -14462,7 +14529,7 @@ function CoachTrainingPlanner({
               placeholder="Notas finales de la sesión"
             />
           </label>
-        </section>
+        </section> : null}
 
 
         <footer className="sticky bottom-0 z-10 mt-5 flex items-center justify-between gap-3 border-t border-line bg-white/95 py-4 backdrop-blur">
