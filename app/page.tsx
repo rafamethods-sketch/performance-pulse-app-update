@@ -40,6 +40,7 @@ import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
+import { ExerciseTempoEditor } from "@/components/shared/exercise-tempo-editor";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
@@ -72,6 +73,7 @@ import {
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
+import { formatExerciseTempo, isCompleteExerciseTempo, normalizeExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
 import {
   getWeeklyCoachReview,
   getWeeklyReviewStyle,
@@ -1307,6 +1309,7 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   plannedSetReps?: Array<number | string> | null;
   setMethod?: SetMethod | null;
   clusterConfig?: ClusterConfig | null;
+  tempo?: ExerciseTempo | null;
   targetVelocity?: string | null;
   targetRir?: number | string | null;
   techniqueReview?: TechniqueReview;
@@ -12028,6 +12031,7 @@ type PlannedStrengthExerciseDraft = {
   plannedSetReps?: string[];
   setMethod?: SetMethod;
   clusterConfig?: ClusterConfig;
+  tempo?: ExerciseTempo;
   sets: string;
   targetRir: string;
   targetRpe: string;
@@ -12762,6 +12766,7 @@ function CoachTrainingPlanner({
         plannedSetReps: exercise.plannedSetReps?.map(String),
         setMethod: exercise.setMethod ?? undefined,
         clusterConfig: exercise.clusterConfig ?? undefined,
+        tempo: exercise.tempo ?? undefined,
         reps: String(exercise.plannedReps ?? ""),
         rest: String(exercise.plannedRest ?? ""),
         selectedEquipment: exercise.selectedEquipment ?? "",
@@ -12887,6 +12892,7 @@ function CoachTrainingPlanner({
         setMethod: "straight",
         plannedSetReps: [],
         clusterConfig: { intraClusterRestSeconds: "", repsPerMiniSet: [] },
+        tempo: undefined,
         sets: "",
         targetRir: "",
         targetRpe: "",
@@ -12943,6 +12949,7 @@ function CoachTrainingPlanner({
       reps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
       rest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
       sets: defaults.sets,
+      tempo: undefined,
       targetRir: defaults.effortScale === "rpe" ? "" : getPrescriptionRange(defaults.rirMin, defaults.rirMax),
       targetRpe: defaults.effortScale === "rpe" ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "") : ""
     });
@@ -13047,6 +13054,7 @@ function CoachTrainingPlanner({
     plannedSetReps: exercise.plannedSetReps,
     setMethod: exercise.setMethod,
     clusterConfig: exercise.clusterConfig,
+    tempo: exercise.tempo,
     reps: exercise.reps,
     rest: exercise.rest,
     selectedEquipment: exercise.selectedEquipment || undefined,
@@ -13062,6 +13070,11 @@ function CoachTrainingPlanner({
   const sendSessionToAthlete = () => {
     if (!sessionDate) {
       setSessionSendMessage("Selecciona una fecha antes de enviar la sesión.");
+      return;
+    }
+
+    if (strengthExercises.some((exercise) => exercise.tempo && !isCompleteExerciseTempo(exercise.tempo))) {
+      setSessionSendMessage("Completa las cuatro fases del tempo o quítalo antes de guardar.");
       return;
     }
 
@@ -13101,6 +13114,7 @@ function CoachTrainingPlanner({
         intraClusterRestSeconds: Number(exercise.clusterConfig.intraClusterRestSeconds) || undefined,
         repsPerMiniSet: (exercise.clusterConfig.repsPerMiniSet ?? []).map(Number).filter((value) => Number.isFinite(value) && value > 0)
       } : undefined,
+      tempo: normalizeExerciseTempo(exercise.tempo),
       plannedLoad: exercise.load,
       plannedReps: exercise.reps,
       plannedRest: exercise.rest,
@@ -13272,7 +13286,8 @@ function CoachTrainingPlanner({
     const intraClusterRest = method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds
       ? `${exercise.clusterConfig.intraClusterRestSeconds} s intra`
       : "";
-    const prescription = [volume, intensity, intraClusterRest, rest].filter(Boolean).join(" · ");
+    const tempo = formatExerciseTempo(exercise.tempo);
+    const prescription = [volume, intensity, intraClusterRest, rest, tempo ? `Tempo ${tempo}` : ""].filter(Boolean).join(" · ");
     const bandSummary = getBandSummary(exercise);
     const variantLine = [
       exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "",
@@ -13673,7 +13688,7 @@ function CoachTrainingPlanner({
                   onClick={() => setOpenSetMethodExerciseId((current) => current === exercise.id ? "" : exercise.id)}
                   type="button"
                 >
-                  Método · {getSetMethodLabel(exercise.setMethod)}
+                  Método · {getSetMethodLabel(exercise.setMethod)}{formatExerciseTempo(exercise.tempo) ? ` · Tempo ${formatExerciseTempo(exercise.tempo)}` : ""}
                 </button>
                 {exercise.reps ? (
                   <details className="group min-w-0 flex-1">
@@ -13716,6 +13731,35 @@ function CoachTrainingPlanner({
                   ) : null}
                 </div>
               ) : null}
+              <details className="mt-3 border-t border-line pt-3">
+                <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">
+                  Más opciones{exercise.tempo ? ` · Tempo ${formatExerciseTempo(exercise.tempo) || "incompleto"}` : ""}
+                </summary>
+                <div className="mt-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-ink">Tempo</p>
+                      <p className="text-[11px] text-ink/45">{exercise.tempo ? formatExerciseTempo(exercise.tempo) || "Configuración incompleta" : "Sin especificar"}</p>
+                    </div>
+                    {!exercise.tempo ? (
+                      <button
+                        className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/60"
+                        onClick={() => updateStrengthPrescription(exercise.id, { tempo: { concentric: "", eccentric: "", postConcentricPause: "", postEccentricPause: "" } })}
+                        type="button"
+                      >
+                        Configurar
+                      </button>
+                    ) : null}
+                  </div>
+                  {exercise.tempo ? (
+                    <ExerciseTempoEditor
+                      onChange={(tempo) => updateStrengthPrescription(exercise.id, { tempo })}
+                      onRemove={() => updateStrengthPrescription(exercise.id, { tempo: undefined })}
+                      tempo={exercise.tempo}
+                    />
+                  ) : null}
+                </div>
+              </details>
             </article>
             );
           })}
