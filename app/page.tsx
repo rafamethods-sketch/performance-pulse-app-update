@@ -39,6 +39,7 @@ import { CoachMessagesView } from "@/components/coach/coach-messages-view";
 import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
+import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
@@ -70,6 +71,7 @@ import {
 } from "@/lib/assessment-catalog";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
+import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
 import {
   getWeeklyCoachReview,
   getWeeklyReviewStyle,
@@ -1302,6 +1304,9 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   selectedVariantId?: string | null;
   selectedVariantName?: string | null;
   setDetails?: Array<{ reps?: number | string | null; setNumber: number }>;
+  plannedSetReps?: Array<number | string> | null;
+  setMethod?: SetMethod | null;
+  clusterConfig?: ClusterConfig | null;
   targetVelocity?: string | null;
   targetRir?: number | string | null;
   techniqueReview?: TechniqueReview;
@@ -7424,6 +7429,7 @@ function PlanningView({
         prescriptionRole: slot.role,
         prescriptionSource: "default",
         sessionBlock: slot.role === "principal" ? "main" : "complementary",
+        setMethod: "straight",
         plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax) || undefined,
         plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds) || undefined,
         plannedRir: (defaults.effortScale ?? "rir") === "rir" ? getPrescriptionRange(defaults.rirMin, defaults.rirMax) || undefined : undefined,
@@ -8496,6 +8502,25 @@ function PlanningGlobalReview({
     const weeklySeries = blockSlots.length > 0 && invalidSeriesSlots.length === 0
       ? Object.values(roleSeries).reduce((total, series) => total + series, 0)
       : null;
+    let plyometricMinimum = 0;
+    let plyometricMaximum = 0;
+    let hasIncompletePlyometricExercise = false;
+    blockSlots.forEach((slot) => {
+      const exerciseId = slot.exerciseByBlock[block.id];
+      const exercise = exerciseId ? getExerciseById(exerciseId) : null;
+      if (exercise?.exerciseType !== "plyometric") return;
+      const defaults = getBlockPrescriptionDefault(block, slot.role);
+      const contacts = getPlannedRepetitionTotal({ plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax), plannedSets: defaults.sets, setMethod: "straight" });
+      if (!contacts.complete || contacts.minimum === null || contacts.maximum === null) {
+        hasIncompletePlyometricExercise = true;
+        return;
+      }
+      plyometricMinimum += contacts.minimum;
+      plyometricMaximum += contacts.maximum;
+    });
+    const plyometricContacts = hasIncompletePlyometricExercise
+      ? null
+      : { complete: true, maximum: plyometricMaximum, minimum: plyometricMinimum };
     const sessionTypes = activeDays.reduce<Map<string, number>>((counts, day) => {
       const label = getPlanningDaySessionTypeLabel(day);
       counts.set(label, (counts.get(label) ?? 0) + 1);
@@ -8528,6 +8553,7 @@ function PlanningGlobalReview({
       changes,
       invalidSeriesSlots,
       maintained,
+      plyometricContacts,
       roleSeries,
       sessionGoals,
       sessionTypes,
@@ -8590,7 +8616,7 @@ function PlanningGlobalReview({
 
             <section className="rounded-md border border-line bg-white p-4">
               <div><h3 className="font-semibold text-ink">Series planificadas / semana</h3><p className="mt-1 text-xs text-ink/50" title="Estimación estructural a partir de los ejercicios configurados y los defaults de prescripción del mesociclo.">Estimación estructural basada en slots configurados y prescripción por rol.</p></div>
-              <div className="mt-4 grid gap-3">{blockReviews.map((review, index) => <div className="grid grid-cols-[36px_1fr_auto] items-center gap-2" key={review.block.id}><span className="text-xs font-semibold text-moss">M{index + 1}</span><div className="h-2 overflow-hidden rounded-full bg-panel"><div className="h-full rounded-full bg-steel" style={{ width: review.weeklySeries === null ? "0%" : `${Math.max(5, (review.weeklySeries / maxWeeklySeries) * 100)}%` }} /></div><span className="min-w-24 text-right text-xs font-semibold text-ink/60">{review.weeklySeries === null ? "Datos insuficientes" : `${review.weeklySeries} series`}</span></div>)}</div>
+              <div className="mt-4 grid gap-3">{blockReviews.map((review, index) => <div className="rounded-md border border-line bg-panel/20 p-2" key={review.block.id}><div className="grid grid-cols-[36px_1fr_auto] items-center gap-2"><span className="text-xs font-semibold text-moss">M{index + 1}</span><div className="h-2 overflow-hidden rounded-full bg-panel"><div className="h-full rounded-full bg-steel" style={{ width: review.weeklySeries === null ? "0%" : `${Math.max(5, (review.weeklySeries / maxWeeklySeries) * 100)}%` }} /></div><span className="min-w-24 text-right text-xs font-semibold text-ink/60">{review.weeklySeries === null ? "Datos insuficientes" : `${review.weeklySeries} series`}</span></div><div className="mt-1 flex items-center justify-between gap-3 pl-9 text-xs"><span className="text-ink/45">Contactos pliométricos</span><span className="font-semibold text-ink/60">{review.plyometricContacts === null ? "Datos insuficientes" : formatRepetitionTotal(review.plyometricContacts, "contactos")}</span></div></div>)}</div>
             </section>
           </div>
 
@@ -8623,6 +8649,7 @@ function PlanningGlobalReview({
               <div><p className="text-xs font-semibold text-ink/45">Objetivo principal</p><p className="mt-1 text-sm font-semibold text-ink">{getBlockPrimaryGoalLabel(selectedBlock)}</p>{getBlockSecondaryGoalLabels(selectedBlock).length > 0 ? <p className="mt-1 text-xs text-ink/55">Secundarios: {getBlockSecondaryGoalLabels(selectedBlock).join(" · ")}</p> : null}</div>
               <div><p className="text-xs font-semibold text-ink/45">Semana tipo</p><p className="mt-1 text-sm font-semibold text-ink">{selectedReview.activeDays.length} {selectedReview.activeDays.length === 1 ? "sesión" : "sesiones"}</p></div>
               <div><p className="text-xs font-semibold text-ink/45">Series planificadas</p><p className="mt-1 text-sm font-semibold text-ink">{selectedReview.weeklySeries === null ? "Datos insuficientes" : `${selectedReview.weeklySeries} por semana`}</p></div>
+              <div><p className="text-xs font-semibold text-ink/45">Contactos pliométricos</p><p className="mt-1 text-sm font-semibold text-ink">{selectedReview.plyometricContacts === null ? "Datos insuficientes" : formatRepetitionTotal(selectedReview.plyometricContacts, "contactos")}</p></div>
               <div><p className="text-xs font-semibold text-ink/45">Cambios de ejercicio</p><p className="mt-1 text-sm font-semibold text-ink">{selectedBlockIndex === 0 ? "Bloque de referencia" : `${selectedReview.changes.length} respecto a M${selectedBlockIndex}`}</p></div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">{planningPrescriptionRoles.map((role) => <div className="rounded-md border border-line bg-white p-3" key={role.id}><p className="text-xs font-semibold text-moss">{role.label}</p><p className="mt-1 text-xs text-ink/60">{getPrescriptionDefaultSummary(getBlockPrescriptionDefault(selectedBlock, role.id))}</p>{selectedReview.weeklySeries !== null ? <p className="mt-1 text-xs font-semibold text-steel">{selectedReview.roleSeries[role.id]} series/semana</p> : null}</div>)}</div>
@@ -11998,6 +12025,9 @@ type PlannedStrengthExerciseDraft = {
   selectedEquipment?: string;
   selectedVariantId?: string;
   selectedVariantName?: string;
+  plannedSetReps?: string[];
+  setMethod?: SetMethod;
+  clusterConfig?: ClusterConfig;
   sets: string;
   targetRir: string;
   targetRpe: string;
@@ -12031,6 +12061,17 @@ type CoachSessionQuantifier = {
   fields: string[];
   primary: string[];
 };
+
+const setMethodOptions: Array<{ description: string; id: SetMethod; label: string; visual: string }> = [
+  { description: "Misma estructura entre series", id: "straight", label: "Lineal", visual: "▆ ▆ ▆ ▆" },
+  { description: "Evolución progresiva", id: "ascending", label: "Ascendente", visual: "▂ ▄ ▆ █" },
+  { description: "Evolución descendente", id: "descending", label: "Descendente", visual: "█ ▆ ▄ ▂" },
+  { description: "Repeticiones agrupadas con pausas breves", id: "cluster", label: "Cluster", visual: "▮▮ · ▮▮ · ▮▮" }
+];
+
+function getSetMethodLabel(method?: SetMethod | null) {
+  return setMethodOptions.find((option) => option.id === (method ?? "straight"))?.label ?? "Lineal";
+}
 
 const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> = {
   Cardio: {
@@ -12582,6 +12623,7 @@ function CoachTrainingPlanner({
   const [localEditSessionId, setLocalEditSessionId] = useState<string | null>(null);
   const [showCardioAdvancedOptions, setShowCardioAdvancedOptions] = useState(false);
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
+  const [openSetMethodExerciseId, setOpenSetMethodExerciseId] = useState("");
   const [collapsedStrengthBlocks, setCollapsedStrengthBlocks] = useState<Record<StrengthSessionBlock, boolean>>({
     activation: false,
     auxiliary: false,
@@ -12717,6 +12759,9 @@ function CoachTrainingPlanner({
         prescriptionBlockId: exercise.prescriptionBlockId ?? undefined,
         prescriptionRole: exercise.prescriptionRole ?? undefined,
         prescriptionSource: exercise.prescriptionSource ?? "legacy",
+        plannedSetReps: exercise.plannedSetReps?.map(String),
+        setMethod: exercise.setMethod ?? undefined,
+        clusterConfig: exercise.clusterConfig ?? undefined,
         reps: String(exercise.plannedReps ?? ""),
         rest: String(exercise.plannedRest ?? ""),
         selectedEquipment: exercise.selectedEquipment ?? "",
@@ -12839,6 +12884,9 @@ function CoachTrainingPlanner({
         reps: "",
         rest: "",
         sessionBlock,
+        setMethod: "straight",
+        plannedSetReps: [],
+        clusterConfig: { intraClusterRestSeconds: "", repsPerMiniSet: [] },
         sets: "",
         targetRir: "",
         targetRpe: "",
@@ -12862,6 +12910,21 @@ function CoachTrainingPlanner({
       ...updates,
       prescriptionSource: exercise.prescriptionSource === "default" ? "custom" : exercise.prescriptionSource ?? "legacy"
     } : exercise));
+  };
+  const changeStrengthSetMethod = (exerciseId: string, setMethod: SetMethod) => {
+    const exercise = strengthExercises.find((candidate) => candidate.id === exerciseId);
+    if (!exercise || (exercise.setMethod ?? "straight") === setMethod) return;
+    updateStrengthPrescription(exerciseId, {
+      clusterConfig: exercise.clusterConfig ?? { intraClusterRestSeconds: "", repsPerMiniSet: [] },
+      plannedSetReps: exercise.plannedSetReps ?? [],
+      setMethod
+    });
+  };
+  const updatePlannedSetSequence = (exerciseId: string, index: number, value: string) => {
+    const exercise = strengthExercises.find((candidate) => candidate.id === exerciseId);
+    const sequence = [...(exercise?.plannedSetReps ?? [])];
+    sequence[index] = value;
+    updateStrengthPrescription(exerciseId, { plannedSetReps: sequence });
   };
   const applyStrengthExerciseRole = (exerciseId: string, role: PlanningPrescriptionRole | "") => {
     updateStrengthExercise(exerciseId, {
@@ -12981,6 +13044,9 @@ function CoachTrainingPlanner({
     prescriptionRole: exercise.prescriptionRole,
     prescriptionSource: exercise.prescriptionSource,
     sessionBlock: exercise.sessionBlock,
+    plannedSetReps: exercise.plannedSetReps,
+    setMethod: exercise.setMethod,
+    clusterConfig: exercise.clusterConfig,
     reps: exercise.reps,
     rest: exercise.rest,
     selectedEquipment: exercise.selectedEquipment || undefined,
@@ -13029,6 +13095,12 @@ function CoachTrainingPlanner({
       prescriptionRole: exercise.prescriptionRole,
       prescriptionSource: exercise.prescriptionSource ?? "legacy",
       sessionBlock: exercise.sessionBlock,
+      plannedSetReps: exercise.plannedSetReps?.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0),
+      setMethod: exercise.setMethod,
+      clusterConfig: exercise.clusterConfig ? {
+        intraClusterRestSeconds: Number(exercise.clusterConfig.intraClusterRestSeconds) || undefined,
+        repsPerMiniSet: (exercise.clusterConfig.repsPerMiniSet ?? []).map(Number).filter((value) => Number.isFinite(value) && value > 0)
+      } : undefined,
       plannedLoad: exercise.load,
       plannedReps: exercise.reps,
       plannedRest: exercise.rest,
@@ -13185,11 +13257,22 @@ function CoachTrainingPlanner({
     [exercise.bandColor, exercise.bandResistance].filter(Boolean).join(" · ");
   const getExerciseSummaryLine = (exercise: PlannedStrengthExerciseDraft) => {
     const name = getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar");
-    const volume = [exercise.sets, exercise.reps].filter(Boolean).length === 2
-      ? `${exercise.sets}x${exercise.reps}`
-      : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
+    const method = exercise.setMethod ?? "straight";
+    const sequence = (exercise.plannedSetReps ?? []).filter((value) => value.trim());
+    const clusterReps = (exercise.clusterConfig?.repsPerMiniSet ?? []).map(String).filter((value) => value.trim());
+    const volume = method === "cluster" && clusterReps.length > 0
+      ? `${exercise.sets || "—"} × (${clusterReps.join("+")})`
+      : (method === "ascending" || method === "descending") && sequence.length > 0
+        ? `${exercise.sets || sequence.length} series · ${sequence.join("→")} reps`
+        : [exercise.sets, exercise.reps].filter(Boolean).length === 2
+          ? `${exercise.sets}×${exercise.reps}`
+          : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
     const intensity = getExerciseIntensitySummary(exercise);
-    const mainLine = [name, volume].filter(Boolean).join(" ");
+    const rest = exercise.rest ? `${exercise.rest} s entre series` : "";
+    const intraClusterRest = method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds
+      ? `${exercise.clusterConfig.intraClusterRestSeconds} s intra`
+      : "";
+    const prescription = [volume, intensity, intraClusterRest, rest].filter(Boolean).join(" · ");
     const bandSummary = getBandSummary(exercise);
     const variantLine = [
       exercise.selectedVariantName ? `Variante: ${exercise.selectedVariantName}` : "",
@@ -13197,7 +13280,7 @@ function CoachTrainingPlanner({
     ].filter(Boolean).join(" · ");
 
     return {
-      main: `${mainLine}${intensity ? ` (${intensity})` : ""}`,
+      main: [name, prescription].filter(Boolean).join(" · "),
       variant: variantLine
     };
   };
@@ -13584,6 +13667,55 @@ function CoachTrainingPlanner({
                   </label>
                 )}
               </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <button
+                  className="rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-semibold text-ink/65"
+                  onClick={() => setOpenSetMethodExerciseId((current) => current === exercise.id ? "" : exercise.id)}
+                  type="button"
+                >
+                  Método · {getSetMethodLabel(exercise.setMethod)}
+                </button>
+                {exercise.reps ? (
+                  <details className="group min-w-0 flex-1">
+                    <summary className="cursor-pointer list-none text-xs font-semibold text-steel">{exercise.reps} reps · Ver perfil</summary>
+                    <div className="mt-2"><RepetitionSpectrum reps={exercise.reps} /></div>
+                  </details>
+                ) : null}
+              </div>
+              {openSetMethodExerciseId === exercise.id ? (
+                <div className="mt-3 rounded-md border border-line bg-panel/25 p-3">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {setMethodOptions.map((option) => (
+                      <button
+                        className={`rounded-md border p-3 text-left transition ${(exercise.setMethod ?? "straight") === option.id ? "border-ink bg-ink text-white" : "border-line bg-white text-ink"}`}
+                        key={option.id}
+                        onClick={() => changeStrengthSetMethod(exercise.id, option.id)}
+                        type="button"
+                      >
+                        <span className="block text-xs font-semibold uppercase">{option.label}</span>
+                        <span className="mt-2 block font-mono text-base tracking-wider">{option.visual}</span>
+                        <span className={`mt-1 block text-xs ${(exercise.setMethod ?? "straight") === option.id ? "text-white/65" : "text-ink/50"}`}>{option.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {(exercise.setMethod === "ascending" || exercise.setMethod === "descending") ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-ink/55">Repeticiones por serie</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {Array.from({ length: Math.max(1, Number.parseInt(exercise.sets, 10) || exercise.plannedSetReps?.length || 4) }, (_, index) => (
+                          <label className="w-20 text-[10px] font-semibold text-ink/45" key={index}>Serie {index + 1}<input className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updatePlannedSetSequence(exercise.id, index, event.target.value)} value={exercise.plannedSetReps?.[index] ?? ""} /></label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {exercise.setMethod === "cluster" ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-semibold text-ink/55">Estructura cluster<input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, repsPerMiniSet: event.target.value.split("+").map((value) => value.trim()).filter(Boolean) } })} placeholder="2+2+2" value={(exercise.clusterConfig?.repsPerMiniSet ?? []).join("+")} /></label>
+                      <label className="text-xs font-semibold text-ink/55">Pausa intra-cluster<input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, intraClusterRestSeconds: event.target.value } })} placeholder="20 s" value={exercise.clusterConfig?.intraClusterRestSeconds ?? ""} /></label>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </article>
             );
           })}
