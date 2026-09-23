@@ -4,6 +4,25 @@ export type PlanningPhaseId = "adaptation" | "accumulation" | "intensification" 
 export type PlanningGoalId = "motor_control_technique" | "structural_balance" | "hypertrophy" | "functional_hypertrophy" | "max_strength" | "eccentric_strength" | "strength_velocity" | "power" | "work_capacity" | "aerobic_base" | "aerobic_capacity" | "aerobic_power_vam" | "threshold" | "anaerobic_capacity" | "anaerobic_power" | "repeated_sprint_ability" | "mobility_rom" | "return_to_activity" | "specific_preparation" | "maintenance" | "other";
 export type PlanningSessionTypeId = "strength" | "endurance" | "power_speed" | "hybrid" | "mobility_recovery" | "technique_motor_control" | "assessment_test" | "other";
 export type PlanningSessionGoalId = PlanningGoalId | "plyometrics" | "sprint_speed" | "agility_change_direction" | "mobility" | "rom" | "recovery" | "regenerative_work" | "motor_control" | "technical_learning" | "stability_control" | "specific_technique" | "strength_assessment" | "jump_power_assessment" | "endurance_assessment" | "functionality_assessment" | "anthropometry_assessment" | "strength_endurance" | "strength_power" | "power_endurance" | "general_preparation";
+export type PlanningEffortScale = "rir" | "rpe";
+export type PlanningPrescriptionRoleId = "principal" | "secondary" | "accessory";
+
+export type PlanningPrescriptionPresetRole = {
+  effortMax?: string;
+  effortMin?: string;
+  effortScale?: PlanningEffortScale;
+  repsMax: string;
+  repsMin: string;
+  restMaxSeconds: string;
+  restMinSeconds: string;
+  seriesReferenceMax: string;
+  seriesReferenceMin: string;
+};
+
+export type PlanningPrescriptionPreset = {
+  label: string;
+  roles: Record<PlanningPrescriptionRoleId, PlanningPrescriptionPresetRole>;
+};
 
 export type PlanningTaxonomyOption<T extends string> = {
   description?: string;
@@ -106,6 +125,107 @@ export function getPlanningSessionType(id?: string) {
 export function getPlanningSessionGoal(typeId?: PlanningSessionTypeId, id?: string) {
   if (!typeId) return undefined;
   return planningSessionGoalsByType[typeId].find((option) => option.id === id || option.label.toLocaleLowerCase("es") === id?.trim().toLocaleLowerCase("es"));
+}
+
+function prescriptionRole(
+  seriesReference: [string, string],
+  reps: [string, string],
+  effort: [PlanningEffortScale | undefined, string?, string?],
+  rest: [string, string]
+): PlanningPrescriptionPresetRole {
+  return {
+    effortScale: effort[0], effortMin: effort[1], effortMax: effort[2],
+    repsMin: reps[0], repsMax: reps[1],
+    restMinSeconds: rest[0], restMaxSeconds: rest[1],
+    seriesReferenceMin: seriesReference[0], seriesReferenceMax: seriesReference[1]
+  };
+}
+
+const prescriptionPresets: Record<string, PlanningPrescriptionPreset> = {
+  "adaptation:*": {
+    label: "Adaptación / Retorno",
+    roles: {
+      principal: prescriptionRole(["2", "3"], ["6", "10"], ["rir", "3", "4"], ["90", "180"]),
+      secondary: prescriptionRole(["2", "3"], ["8", "12"], ["rir", "3", "4"], ["60", "120"]),
+      accessory: prescriptionRole(["2", "3"], ["10", "15"], ["rir", "3", "4"], ["60", "90"])
+    }
+  },
+  "return_to_training:*": {
+    label: "Adaptación / Retorno",
+    roles: {
+      principal: prescriptionRole(["2", "3"], ["6", "10"], ["rir", "3", "4"], ["90", "180"]),
+      secondary: prescriptionRole(["2", "3"], ["8", "12"], ["rir", "3", "4"], ["60", "120"]),
+      accessory: prescriptionRole(["2", "3"], ["10", "15"], ["rir", "3", "4"], ["60", "90"])
+    }
+  },
+  "accumulation:hypertrophy": {
+    label: "Acumulación · Hipertrofia",
+    roles: {
+      principal: prescriptionRole(["3", "5"], ["6", "10"], ["rir", "1", "3"], ["120", "180"]),
+      secondary: prescriptionRole(["3", "4"], ["8", "12"], ["rir", "1", "3"], ["90", "150"]),
+      accessory: prescriptionRole(["2", "4"], ["10", "15"], ["rir", "1", "3"], ["60", "120"])
+    }
+  },
+  "accumulation:functional_hypertrophy": {
+    label: "Acumulación · Hipertrofia funcional",
+    roles: {
+      principal: prescriptionRole(["3", "5"], ["5", "8"], ["rir", "1", "3"], ["120", "180"]),
+      secondary: prescriptionRole(["3", "4"], ["6", "10"], ["rir", "1", "3"], ["90", "150"]),
+      accessory: prescriptionRole(["2", "4"], ["8", "15"], ["rir", "1", "3"], ["60", "120"])
+    }
+  },
+  "intensification:max_strength": {
+    label: "Intensificación · Fuerza máxima",
+    roles: {
+      principal: prescriptionRole(["3", "6"], ["1", "5"], ["rir", "1", "3"], ["180", "300"]),
+      secondary: prescriptionRole(["3", "5"], ["3", "6"], ["rir", "1", "3"], ["120", "240"]),
+      accessory: prescriptionRole(["2", "4"], ["6", "12"], ["rir", "1", "3"], ["60", "120"])
+    }
+  },
+  "intensification:strength_velocity": {
+    label: "Intensificación · Fuerza-velocidad",
+    roles: {
+      principal: prescriptionRole(["3", "5"], ["2", "5"], ["rir", "2", "4"], ["180", "300"]),
+      secondary: prescriptionRole(["3", "4"], ["3", "6"], ["rir", "2", "4"], ["120", "240"]),
+      accessory: prescriptionRole(["2", "3"], ["6", "10"], ["rir", "2", "4"], ["90", "150"])
+    }
+  },
+  "realization:power": {
+    label: "Realización · Potencia",
+    roles: {
+      principal: prescriptionRole(["2", "5"], ["1", "5"], [undefined], ["180", "300"]),
+      secondary: prescriptionRole(["2", "4"], ["2", "6"], [undefined], ["120", "240"]),
+      accessory: prescriptionRole(["2", "3"], ["6", "10"], [undefined], ["90", "150"])
+    }
+  },
+  "*:structural_balance": {
+    label: "Equilibrio estructural",
+    roles: {
+      principal: prescriptionRole(["2", "4"], ["6", "10"], ["rir", "2", "4"], ["90", "180"]),
+      secondary: prescriptionRole(["2", "4"], ["8", "12"], ["rir", "2", "4"], ["60", "120"]),
+      accessory: prescriptionRole(["2", "3"], ["10", "15"], ["rir", "2", "4"], ["60", "90"])
+    }
+  },
+  "*:motor_control_technique": {
+    label: "Control motor",
+    roles: {
+      principal: prescriptionRole(["2", "4"], ["6", "10"], ["rir", "2", "4"], ["90", "180"]),
+      secondary: prescriptionRole(["2", "4"], ["8", "12"], ["rir", "2", "4"], ["60", "120"]),
+      accessory: prescriptionRole(["2", "3"], ["10", "15"], ["rir", "2", "4"], ["60", "90"])
+    }
+  }
+};
+
+export function getPrescriptionPreset(phaseId?: PlanningPhaseId, primaryGoalId?: PlanningGoalId) {
+  if (!phaseId || phaseId === "deload" || !primaryGoalId) return undefined;
+  const strengthStructuredGoals: PlanningGoalId[] = [
+    "motor_control_technique", "structural_balance", "hypertrophy", "functional_hypertrophy",
+    "max_strength", "eccentric_strength", "strength_velocity", "power", "return_to_activity"
+  ];
+  const phaseFallback = strengthStructuredGoals.includes(primaryGoalId) ? prescriptionPresets[`${phaseId}:*`] : undefined;
+  return prescriptionPresets[`${phaseId}:${primaryGoalId}`]
+    ?? phaseFallback
+    ?? prescriptionPresets[`*:${primaryGoalId}`];
 }
 
 export const planningConfig = {

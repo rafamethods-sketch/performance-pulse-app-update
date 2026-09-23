@@ -80,6 +80,7 @@ import {
   getPlanningMethodDescription,
   getPlanningMethodLabel,
   getPlanningPhase,
+  getPrescriptionPreset,
   getPlanningSessionGoal,
   getPlanningSessionType,
   planningConfig,
@@ -88,6 +89,7 @@ import {
   planningSessionGoalsByType,
   planningSessionTypeOptions,
   type PlanningGoalId,
+  type PlanningEffortScale,
   type PlanningMethod,
   type PlanningPhaseId,
   type PlanningSessionGoalId,
@@ -6602,12 +6604,17 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
 type PlanningEventType = "Competicion" | "Test" | "Pico de forma" | "Control / seguimiento" | "Otro" | "Sin evento definido";
 type PlanningPrescriptionRole = "principal" | "secondary" | "accessory";
 type PlanningPrescriptionDefault = {
+  effortScale?: PlanningEffortScale;
   repsMax: string;
   repsMin: string;
+  rpeMax?: string;
+  rpeMin?: string;
   restMaxSeconds: string;
   restMinSeconds: string;
   rirMax: string;
   rirMin: string;
+  seriesReferenceMax?: string;
+  seriesReferenceMin?: string;
   sets: string;
 };
 type PlanningWeeklyTemplateDay = {
@@ -6679,6 +6686,7 @@ const planningPrescriptionRoles: Array<{ id: PlanningPrescriptionRole; label: st
 
 function createEmptyPrescriptionDefault(): PlanningPrescriptionDefault {
   return {
+    effortScale: "rir",
     repsMax: "",
     repsMin: "",
     restMaxSeconds: "",
@@ -6700,9 +6708,37 @@ function getPrescriptionRange(minimum: string, maximum: string) {
 
 function getPrescriptionDefaultSummary(defaults: PlanningPrescriptionDefault) {
   const volume = [defaults.sets, getPrescriptionRange(defaults.repsMin, defaults.repsMax)].filter(Boolean).join("×");
-  const rir = getPrescriptionRange(defaults.rirMin, defaults.rirMax);
+  const effortScale = defaults.effortScale ?? "rir";
+  const effort = effortScale === "rpe"
+    ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "")
+    : getPrescriptionRange(defaults.rirMin, defaults.rirMax);
   const rest = getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds);
-  return [volume, rir ? `RIR ${rir}` : "", rest ? `${rest} s` : ""].filter(Boolean).join(" · ") || "Sin definir";
+  return [volume, effort ? `${effortScale.toUpperCase()} ${effort}` : "", rest ? `${rest} s` : ""].filter(Boolean).join(" · ") || "Sin definir";
+}
+
+function isPrescriptionDefaultEmpty(defaults: PlanningPrescriptionDefault) {
+  return !defaults.sets && !defaults.repsMin && !defaults.repsMax && !defaults.rirMin && !defaults.rirMax
+    && !defaults.rpeMin && !defaults.rpeMax && !defaults.restMinSeconds && !defaults.restMaxSeconds;
+}
+
+function getPrescriptionFromPreset(role: PlanningPrescriptionRole, block: EditablePlanningBlock): PlanningPrescriptionDefault | null {
+  const preset = getPrescriptionPreset(block.phaseId, getBlockPrimaryGoalId(block));
+  if (!preset) return null;
+  const rolePreset = preset.roles[role];
+  return {
+    ...createEmptyPrescriptionDefault(),
+    effortScale: rolePreset.effortScale ?? "rir",
+    repsMin: rolePreset.repsMin,
+    repsMax: rolePreset.repsMax,
+    restMinSeconds: rolePreset.restMinSeconds,
+    restMaxSeconds: rolePreset.restMaxSeconds,
+    rirMin: rolePreset.effortScale === "rir" ? rolePreset.effortMin ?? "" : "",
+    rirMax: rolePreset.effortScale === "rir" ? rolePreset.effortMax ?? "" : "",
+    rpeMin: rolePreset.effortScale === "rpe" ? rolePreset.effortMin ?? "" : "",
+    rpeMax: rolePreset.effortScale === "rpe" ? rolePreset.effortMax ?? "" : "",
+    seriesReferenceMin: rolePreset.seriesReferenceMin,
+    seriesReferenceMax: rolePreset.seriesReferenceMax
+  };
 }
 
 function getBlockPhaseLabel(block: EditablePlanningBlock) {
@@ -6741,13 +6777,13 @@ function getPlanningDaySessionTypeId(day?: PlanningWeeklyTemplateDay) {
 function getPlanningDaySessionTypeLabel(day?: PlanningWeeklyTemplateDay) {
   const typeId = getPlanningDaySessionTypeId(day);
   if (typeId === "other") return day?.sessionTypeOther?.trim() || day?.sessionType || "Otro";
-  return getPlanningSessionType(typeId)?.label ?? day?.sessionType ?? "Sin tipo";
+  return getPlanningSessionType(typeId)?.label || day?.sessionType || "Sin tipo";
 }
 
 function getPlanningDaySessionGoalLabel(day?: PlanningWeeklyTemplateDay) {
   const typeId = getPlanningDaySessionTypeId(day);
   if (day?.sessionGoalId === "other") return day.sessionGoalOther?.trim() || day.sessionGoal || "Otro";
-  return getPlanningSessionGoal(typeId, day?.sessionGoalId ?? day?.sessionGoal)?.label ?? day?.sessionGoal ?? "Sin objetivo";
+  return getPlanningSessionGoal(typeId, day?.sessionGoalId ?? day?.sessionGoal)?.label || day?.sessionGoal || "Sin objetivo";
 }
 
 function createPlanningBlockDraft(index: number): EditablePlanningBlock {
@@ -7216,7 +7252,8 @@ function PlanningView({
           ...exercise,
           plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
           plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
-          plannedRir: getPrescriptionRange(defaults.rirMin, defaults.rirMax),
+          plannedRir: (defaults.effortScale ?? "rir") === "rir" ? getPrescriptionRange(defaults.rirMin, defaults.rirMax) : undefined,
+          plannedRpe: defaults.effortScale === "rpe" ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "") : undefined,
           plannedSets: defaults.sets
         };
       })
@@ -7387,7 +7424,8 @@ function PlanningView({
         prescriptionSource: "default",
         plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax) || undefined,
         plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds) || undefined,
-        plannedRir: getPrescriptionRange(defaults.rirMin, defaults.rirMax) || undefined,
+        plannedRir: (defaults.effortScale ?? "rir") === "rir" ? getPrescriptionRange(defaults.rirMin, defaults.rirMax) || undefined : undefined,
+        plannedRpe: defaults.effortScale === "rpe" ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "") || undefined : undefined,
         plannedSets: defaults.sets || undefined,
         section
       }];
@@ -7945,46 +7983,98 @@ function PlanningSessionTaxonomyFields({
   day?: PlanningWeeklyTemplateDay;
   onUpdate: (updates: Partial<PlanningWeeklyTemplateDay>) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [activeTypeId, setActiveTypeId] = useState<PlanningSessionTypeId | null>(null);
   const typeId = getPlanningDaySessionTypeId(day);
-  const goals = typeId ? planningSessionGoalsByType[typeId] : [];
   const goalId = day?.sessionGoalId ?? getPlanningSessionGoal(typeId, day?.sessionGoal)?.id;
   const hasLegacyType = Boolean(day?.sessionType && !getPlanningSessionType(day.sessionType) && !day.sessionTypeId);
   const hasLegacyGoal = Boolean(day?.sessionGoal && !getPlanningSessionGoal(typeId, day.sessionGoal) && !day.sessionGoalId);
 
+  useEffect(() => {
+    if (!open) return;
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setActiveTypeId(null);
+      }
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [open]);
+
+  const selectGoal = (nextTypeId: PlanningSessionTypeId, nextGoalId: PlanningSessionGoalId) => {
+    const nextType = getPlanningSessionType(nextTypeId);
+    const nextGoal = getPlanningSessionGoal(nextTypeId, nextGoalId);
+    onUpdate({
+      sessionGoal: nextGoalId === "other" ? day?.sessionGoalOther ?? "Otro" : nextGoal?.label ?? "",
+      sessionGoalId: nextGoalId,
+      sessionGoalOther: nextGoalId === "other" ? day?.sessionGoalOther : undefined,
+      sessionType: nextTypeId === "other" ? day?.sessionTypeOther ?? "Otro" : nextType?.label ?? "",
+      sessionTypeId: nextTypeId,
+      sessionTypeOther: nextTypeId === "other" ? day?.sessionTypeOther : undefined
+    });
+    setOpen(false);
+    setActiveTypeId(null);
+  };
+
   return (
-    <>
-      <select aria-label="Tipo de sesión" className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => {
-        if (event.target.value === "__legacy__") return;
-        const nextTypeId = event.target.value as PlanningSessionTypeId;
-        onUpdate({
-          sessionGoal: "",
-          sessionGoalId: undefined,
-          sessionGoalOther: undefined,
-          sessionType: nextTypeId === "other" ? day?.sessionTypeOther ?? "Otro" : getPlanningSessionType(nextTypeId)?.label ?? "",
-          sessionTypeId: nextTypeId || undefined,
-          sessionTypeOther: nextTypeId === "other" ? day?.sessionTypeOther : undefined
-        });
-      }} value={hasLegacyType ? "__legacy__" : typeId ?? ""}>
-        <option value="">Tipo de sesión</option>
-        {hasLegacyType ? <option value="__legacy__">Actual: {day?.sessionType}</option> : null}
-        {planningSessionTypeOptions.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
-      </select>
+    <div className="relative mt-2">
+      <button aria-expanded={open} aria-haspopup="menu" className="w-full rounded-md border border-line bg-panel/30 px-3 py-2 text-left" onClick={() => { setOpen((current) => !current); setActiveTypeId(typeId ?? null); }} type="button">
+        <span className="block text-xs font-semibold text-ink">{hasLegacyGoal ? day?.sessionGoal : getPlanningDaySessionGoalLabel(day)}</span>
+        <span className="mt-0.5 block text-[11px] text-ink/45">{hasLegacyType ? day?.sessionType : getPlanningDaySessionTypeLabel(day)}</span>
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-30 mt-1 grid max-h-72 w-full min-w-64 overflow-hidden rounded-md border border-line bg-white shadow-xl sm:w-[34rem] sm:grid-cols-2" role="menu">
+          <div className={`${activeTypeId ? "hidden sm:block" : "block"} overflow-y-auto border-line p-2 sm:border-r`}>
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink/40">Seleccionar tipo</p>
+            {planningSessionTypeOptions.map((type) => (
+              <button className={`flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm font-semibold ${activeTypeId === type.id ? "bg-mint text-moss" : "text-ink hover:bg-panel"}`} key={type.id} onClick={() => setActiveTypeId(type.id)} onMouseEnter={() => setActiveTypeId(type.id)} role="menuitem" type="button"><span>{type.label}</span><span aria-hidden>›</span></button>
+            ))}
+          </div>
+          <div className={`${activeTypeId ? "block" : "hidden sm:block"} overflow-y-auto p-2`}>
+            {activeTypeId ? (
+              <>
+                <button className="mb-1 w-full rounded px-2 py-2 text-left text-xs font-semibold text-steel sm:hidden" onClick={() => setActiveTypeId(null)} type="button">← Tipos de sesión</button>
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink/40">{getPlanningSessionType(activeTypeId)?.label}</p>
+                {planningSessionGoalsByType[activeTypeId].map((goal) => <button className="w-full rounded px-2 py-2 text-left text-sm text-ink hover:bg-panel focus:bg-panel" key={goal.id} onClick={() => selectGoal(activeTypeId, goal.id)} role="menuitem" type="button">{goal.label}</button>)}
+              </>
+            ) : <p className="p-3 text-sm text-ink/45">Selecciona un tipo para ver sus objetivos.</p>}
+          </div>
+        </div>
+      ) : null}
       {typeId === "other" ? <input aria-label="Otro tipo de sesión" className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" maxLength={80} onChange={(event) => onUpdate({ sessionType: event.target.value, sessionTypeOther: event.target.value })} placeholder="Describe el tipo" value={day?.sessionTypeOther ?? ""} /> : null}
-      <select aria-label="Objetivo de sesión" className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink disabled:opacity-45" disabled={!typeId} onChange={(event) => {
-        if (event.target.value === "__legacy__") return;
-        const nextGoalId = event.target.value as PlanningSessionGoalId;
-        onUpdate({
-          sessionGoal: nextGoalId === "other" ? day?.sessionGoalOther ?? "Otro" : getPlanningSessionGoal(typeId, nextGoalId)?.label ?? "",
-          sessionGoalId: nextGoalId || undefined,
-          sessionGoalOther: nextGoalId === "other" ? day?.sessionGoalOther : undefined
-        });
-      }} value={hasLegacyGoal ? "__legacy__" : goalId ?? ""}>
-        <option value="">{typeId ? "Objetivo de sesión" : "Selecciona primero el tipo"}</option>
-        {hasLegacyGoal ? <option value="__legacy__">Actual: {day?.sessionGoal}</option> : null}
-        {goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.label}</option>)}
-      </select>
       {goalId === "other" ? <input aria-label="Otro objetivo de sesión" className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" maxLength={100} onChange={(event) => onUpdate({ sessionGoal: event.target.value, sessionGoalOther: event.target.value })} placeholder="Describe el objetivo" value={day?.sessionGoalOther ?? ""} /> : null}
-    </>
+    </div>
+  );
+}
+
+function PlanningPrescriptionRow({
+  defaults,
+  label,
+  onUpdate
+}: {
+  defaults: PlanningPrescriptionDefault;
+  label: string;
+  onUpdate: (updates: Partial<PlanningPrescriptionDefault>) => void;
+}) {
+  const effortScale = defaults.effortScale ?? "rir";
+  const effortMin = effortScale === "rpe" ? defaults.rpeMin ?? "" : defaults.rirMin;
+  const effortMax = effortScale === "rpe" ? defaults.rpeMax ?? "" : defaults.rirMax;
+  const reference = getPrescriptionRange(defaults.seriesReferenceMin ?? "", defaults.seriesReferenceMax ?? "");
+  const compactInput = "h-9 min-w-0 rounded border border-line bg-panel/30 px-2 text-center text-sm text-ink";
+  return (
+    <article className="rounded-md border border-line bg-white p-3">
+      <div className="grid gap-3 xl:grid-cols-[110px_minmax(105px,0.75fr)_minmax(145px,1fr)_minmax(190px,1.2fr)_minmax(150px,1fr)] xl:items-end">
+        <p className="text-xs font-semibold uppercase tracking-wide text-moss xl:self-center">{label}</p>
+        <label className="text-xs font-semibold text-ink/55">Series
+          <input className={`${compactInput} mt-1 w-full`} inputMode="numeric" onChange={(event) => onUpdate({ sets: event.target.value })} value={defaults.sets} />
+          {reference ? <span className="mt-1 block text-[10px] font-normal text-ink/40">Rango habitual {reference}</span> : null}
+        </label>
+        <fieldset><legend className="text-xs font-semibold text-ink/55">Reps</legend><div className="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-1"><input aria-label={`${label}: repeticiones mínimas`} className={compactInput} onChange={(event) => onUpdate({ repsMin: event.target.value })} value={defaults.repsMin} /><span className="text-ink/35">–</span><input aria-label={`${label}: repeticiones máximas`} className={compactInput} onChange={(event) => onUpdate({ repsMax: event.target.value })} value={defaults.repsMax} /></div></fieldset>
+        <fieldset><legend className="text-xs font-semibold text-ink/55">Esfuerzo</legend><div className="mt-1 grid grid-cols-[72px_1fr_auto_1fr] items-center gap-1"><select aria-label={`${label}: escala de esfuerzo`} className={`${compactInput} px-1`} onChange={(event) => onUpdate({ effortScale: event.target.value as PlanningEffortScale })} value={effortScale}><option value="rir">RIR</option><option value="rpe">RPE</option></select><input aria-label={`${label}: esfuerzo mínimo`} className={compactInput} onChange={(event) => onUpdate(effortScale === "rpe" ? { rpeMin: event.target.value } : { rirMin: event.target.value })} value={effortMin} /><span className="text-ink/35">–</span><input aria-label={`${label}: esfuerzo máximo`} className={compactInput} onChange={(event) => onUpdate(effortScale === "rpe" ? { rpeMax: event.target.value } : { rirMax: event.target.value })} value={effortMax} /></div></fieldset>
+        <fieldset><legend className="text-xs font-semibold text-ink/55">Descanso</legend><div className="mt-1 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1"><input aria-label={`${label}: descanso mínimo`} className={compactInput} onChange={(event) => onUpdate({ restMinSeconds: event.target.value })} value={defaults.restMinSeconds} /><span className="text-ink/35">–</span><input aria-label={`${label}: descanso máximo`} className={compactInput} onChange={(event) => onUpdate({ restMaxSeconds: event.target.value })} value={defaults.restMaxSeconds} /><span className="text-xs text-ink/45">s</span></div></fieldset>
+      </div>
+    </article>
   );
 }
 
@@ -8070,6 +8160,19 @@ function PlanningWizard({
   const totalWeeks = blocks.reduce((total, block) => total + block.durationWeeks, 0);
   const canContinue = step !== 1 || blocks.length > 0;
 
+  useEffect(() => {
+    if (step !== 3) return;
+    blocks.forEach((block) => {
+      const preset = getPrescriptionPreset(block.phaseId, getBlockPrimaryGoalId(block));
+      if (!preset) return;
+      const rolesAreEmpty = planningPrescriptionRoles.every((role) => isPrescriptionDefaultEmpty(getBlockPrescriptionDefault(block, role.id)));
+      if (!rolesAreEmpty) return;
+      onUpdateBlock(block.id, {
+        prescriptionDefaults: Object.fromEntries(planningPrescriptionRoles.map((role) => [role.id, getPrescriptionFromPreset(role.id, block)])) as Partial<Record<PlanningPrescriptionRole, PlanningPrescriptionDefault>>
+      });
+    });
+  }, [blocks, onUpdateBlock, step]);
+
   return (
     <div className="assessment-modal-overlay" onClick={onClose} role="presentation">
       <section aria-labelledby="planning-wizard-title" aria-modal="true" className="assessment-modal-panel !max-h-[92vh] !w-full !max-w-6xl" onClick={(event) => event.stopPropagation()} role="dialog">
@@ -8143,11 +8246,31 @@ function PlanningWizard({
           ) : null}
 
           {step === 2 ? (
-            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">¿Cómo se organiza una semana tipo?</h3><p className="mt-1 text-sm text-ink/55">Activa solo los días de entrenamiento. Los demás quedan como descanso.</p></div>{blocks.map((block, blockIndex) => <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold text-ink">{block.name}</h4>{blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "week")} type="button">Copiar semana anterior</button> : null}</div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{planningWeekdayLabels.map((day, dayIndex) => { const value = block.weeklyTemplate?.find((item) => item.dayIndex === dayIndex); return <article className="rounded-md border border-line bg-white p-2" key={day}><p className="text-xs font-semibold text-ink/50">{day.slice(0, 3)}</p><input className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { sessionName: event.target.value })} placeholder="Descanso / Sin sesión" value={value?.sessionName ?? ""} /><PlanningSessionTaxonomyFields day={value} onUpdate={(updates) => onUpdateDay(block.id, dayIndex, updates)} /><input className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { notes: event.target.value })} placeholder="Notas opcionales" value={value?.notes ?? ""} /></article>; })}</div></section>)}</div>
+            <div className="grid gap-4">
+              <div><h3 className="text-xl font-semibold text-ink">¿Cómo se organiza una semana tipo?</h3><p className="mt-1 text-sm text-ink/55">Los días vacíos son descanso. La frecuencia es una referencia y no bloquea decisiones.</p></div>
+              {blocks.map((block, blockIndex) => {
+                const configuredCount = (block.weeklyTemplate ?? []).filter((day) => Boolean(day.sessionName.trim() || day.sessionType.trim() || day.sessionGoal?.trim())).length;
+                const exceedsFrequency = configuredCount > weeklyFrequency;
+                return <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div><h4 className="font-semibold text-ink">{block.name}</h4><p className="mt-1 text-xs text-ink/50">Frecuencia prevista: {weeklyFrequency} sesiones/semana</p><p className={`mt-0.5 text-xs font-semibold ${configuredCount === weeklyFrequency ? "text-moss" : exceedsFrequency ? "text-clay" : "text-steel"}`}>Configuradas: {configuredCount} de {weeklyFrequency}</p>{exceedsFrequency ? <p className="mt-1 text-xs text-clay">Has configurado {configuredCount} sesiones, pero la frecuencia prevista es {weeklyFrequency}.</p> : null}</div>
+                    {blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "week")} type="button">Copiar semana anterior</button> : null}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{planningWeekdayLabels.map((day, dayIndex) => {
+                    const value = block.weeklyTemplate?.find((item) => item.dayIndex === dayIndex);
+                    const hasSession = Boolean(value && (value.sessionName.trim() || value.sessionType.trim() || value.sessionGoal?.trim() || value.notes.trim()));
+                    return <article className="rounded-md border border-line bg-white p-3" key={day}>
+                      <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{day}</p>{hasSession ? <button className="text-xs font-semibold text-ink/45 hover:text-clay" onClick={() => onUpdateDay(block.id, dayIndex, { notes: "", sessionGoal: "", sessionGoalId: undefined, sessionGoalOther: undefined, sessionName: "", sessionType: "", sessionTypeId: undefined, sessionTypeOther: undefined })} type="button">Quitar</button> : null}</div>
+                      {hasSession ? <><input aria-label={`${day}: nombre de sesión`} className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-sm font-semibold text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { sessionName: event.target.value })} placeholder="Nombre de sesión" value={value?.sessionName ?? ""} /><PlanningSessionTaxonomyFields day={value} onUpdate={(updates) => onUpdateDay(block.id, dayIndex, updates)} /><input aria-label={`${day}: notas opcionales`} className="mt-2 h-9 w-full rounded border border-line bg-panel/30 px-2 text-xs text-ink" onChange={(event) => onUpdateDay(block.id, dayIndex, { notes: event.target.value })} placeholder="Notas opcionales" value={value?.notes ?? ""} /></> : <div className="mt-3"><p className="text-sm text-ink/45">Descanso / Sin sesión</p><button className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-semibold text-steel" onClick={() => onUpdateDay(block.id, dayIndex, { sessionName: "Nueva sesión" })} type="button">+ Añadir sesión</button></div>}
+                    </article>;
+                  })}</div>
+                </section>;
+              })}
+            </div>
           ) : null}
 
           {step === 3 ? (
-            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Prescripción por defecto</h3><p className="mt-1 text-sm text-ink/55">Una propuesta inicial por rol. Cada ejercicio podrá personalizarse después.</p></div>{blocks.map((block, blockIndex) => <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold text-ink">{block.name}</h4><div className="flex gap-3">{blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "prescription")} type="button">Copiar anterior</button> : null}<button className="text-xs font-semibold text-steel" onClick={() => blocks.forEach((candidate, index) => index > blockIndex && onCopyBlockConfiguration(blockIndex, index, "prescription"))} type="button">Aplicar al resto</button></div></div><div className="mt-3 grid gap-3 lg:grid-cols-3">{planningPrescriptionRoles.map((role) => { const defaults = getBlockPrescriptionDefault(block, role.id); return <article className="rounded-md border border-line bg-white p-3" key={role.id}><p className="text-xs font-semibold uppercase text-moss">{role.label}</p><div className="mt-3 grid grid-cols-2 gap-2"><label className="col-span-2 text-xs font-semibold text-ink/55">Series<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { sets: event.target.value })} value={defaults.sets} /></label><label className="text-xs font-semibold text-ink/55">Reps mín.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { repsMin: event.target.value })} value={defaults.repsMin} /></label><label className="text-xs font-semibold text-ink/55">Reps máx.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { repsMax: event.target.value })} value={defaults.repsMax} /></label><label className="text-xs font-semibold text-ink/55">RIR mín.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { rirMin: event.target.value })} value={defaults.rirMin} /></label><label className="text-xs font-semibold text-ink/55">RIR máx.<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { rirMax: event.target.value })} value={defaults.rirMax} /></label><label className="text-xs font-semibold text-ink/55">Descanso mín. (s)<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { restMinSeconds: event.target.value })} value={defaults.restMinSeconds} /></label><label className="text-xs font-semibold text-ink/55">Descanso máx. (s)<input className="mt-1 h-9 w-full rounded border border-line bg-panel/30 px-2" onChange={(event) => onUpdatePrescription(block.id, role.id, { restMaxSeconds: event.target.value })} value={defaults.restMaxSeconds} /></label></div></article>; })}</div></section>)}</div>
+            <div className="grid gap-4"><div><h3 className="text-xl font-semibold text-ink">Prescripción por defecto</h3><p className="mt-1 text-sm text-ink/55">Una propuesta inicial editable por rol. Cada ejercicio podrá personalizarse después.</p></div>{blocks.map((block, blockIndex) => { const preset = getPrescriptionPreset(block.phaseId, getBlockPrimaryGoalId(block)); return <section className="rounded-md border border-line bg-panel/25 p-3" key={block.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="font-semibold text-ink">{block.name}</h4><p className="mt-1 text-xs font-semibold text-steel">{preset ? `Propuesta inicial basada en fase y objetivo · ${preset.label}` : block.phaseId === "deload" ? "Sin propuesta automática · ajusta respecto al bloque anterior" : "Sin propuesta automática para este objetivo"}</p></div><div className="flex flex-wrap gap-3">{preset ? <button className="text-xs font-semibold text-moss" onClick={() => onUpdateBlock(block.id, { prescriptionDefaults: Object.fromEntries(planningPrescriptionRoles.map((role) => [role.id, getPrescriptionFromPreset(role.id, block)])) as Partial<Record<PlanningPrescriptionRole, PlanningPrescriptionDefault>> })} type="button">Restaurar propuesta</button> : null}{blockIndex > 0 ? <button className="text-xs font-semibold text-moss" onClick={() => onCopyBlockConfiguration(blockIndex - 1, blockIndex, "prescription")} type="button">Copiar anterior</button> : null}<button className="text-xs font-semibold text-steel" onClick={() => blocks.forEach((candidate, index) => index > blockIndex && onCopyBlockConfiguration(blockIndex, index, "prescription"))} type="button">Aplicar al resto</button></div></div><div className="mt-3 grid gap-2">{planningPrescriptionRoles.map((role) => <PlanningPrescriptionRow defaults={getBlockPrescriptionDefault(block, role.id)} key={role.id} label={role.label} onUpdate={(updates) => onUpdatePrescription(block.id, role.id, updates)} />)}</div></section>; })}</div>
           ) : null}
 
           {step === 4 ? (
