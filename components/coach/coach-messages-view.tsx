@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, X } from "lucide-react";
+import { MoreHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type CoachMessagesClient = {
@@ -18,12 +18,19 @@ type CoachMessageThread = {
 };
 
 type CoachThreadMessage = {
+  deletedForEveryoneAt?: string;
+  deletedForEveryoneBy?: "athlete" | "coach";
+  hiddenForSenderAt?: string;
   id: string;
   read?: boolean;
   sender: "athlete" | "coach";
   text: string;
   timestamp: string;
 };
+
+type MessageDeletionAction = "everyone" | "sender";
+
+const DELETE_FOR_EVERYONE_WINDOW_MS = 15 * 60 * 1000;
 
 type CoachQuickMessageTemplate = {
   category: "General" | "Técnica" | "Seguimiento" | "Recuperación" | "Recordatorio";
@@ -92,6 +99,9 @@ export function CoachMessagesView({
   const [visibleMessageCount, setVisibleMessageCount] = useState(8);
   const [showNewNoteModal, setShowNewNoteModal] = useState(false);
   const [newNoteDraft, setNewNoteDraft] = useState("");
+  const [openMessageMenuId, setOpenMessageMenuId] = useState("");
+  const [pendingMessageDeletion, setPendingMessageDeletion] = useState<{ action: MessageDeletionAction; messageId: string } | null>(null);
+  const [messageActionNotice, setMessageActionNotice] = useState("");
   const visibleClientIds = new Set(clients.map((listedClient) => listedClient.id));
 
   useEffect(() => {
@@ -121,6 +131,21 @@ export function CoachMessagesView({
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
+  function canDeleteMessageForEveryone(message: CoachThreadMessage, now = Date.now()) {
+    const sentAt = getMessageTimestampValue(message.timestamp);
+    const age = now - sentAt;
+    return sentAt > 0 && age >= 0 && age <= DELETE_FOR_EVERYONE_WINDOW_MS;
+  }
+
+  function isMessageVisibleToCurrentActor(message: CoachThreadMessage) {
+    return !(message.sender === mode && message.hiddenForSenderAt);
+  }
+
+  function getMessagePreview(message?: CoachThreadMessage) {
+    if (!message) return "Sin mensajes todavía.";
+    return message.deletedForEveryoneAt ? "Mensaje eliminado" : message.text;
+  }
+
   const allThreads: Array<CoachMessageThread & { lastTimestamp: number; status: string; unread: number; lastMessage: string }> = (client ? [client] : mode === "athlete" ? [] : clients).map((listedClient) => {
     const note = listedClient.coachNotes?.trim() || "Sin notas registradas todavía.";
     const storedThread = messageThreads.find((thread) => thread.clientId === listedClient.id);
@@ -133,20 +158,24 @@ export function CoachMessagesView({
         timestamp: listedClient.coachNotes?.trim() ? "Nota inicial" : "Sistema"
       }
     ];
-    const messages = mode === "athlete"
+    const storedMessages = mode === "athlete"
       ? storedThread?.messages ?? []
       : storedThread ? storedThread.messages : fallbackMessages;
-    const lastMessage = messages[messages.length - 1]?.text ?? (storedThread ? "Sin mensajes todavía." : note);
+    const messages = storedMessages.filter(isMessageVisibleToCurrentActor);
+    const lastVisibleMessage = messages[messages.length - 1];
+    const lastMessage = lastVisibleMessage
+      ? getMessagePreview(lastVisibleMessage)
+      : storedThread ? "Sin mensajes todavía." : note;
 
     return {
       clientId: listedClient.id,
       clientName: listedClient.name,
       id: storedThread?.id ?? `thread-${listedClient.id}`,
-      lastTimestamp: getMessageTimestampValue(messages[messages.length - 1]?.timestamp ?? ""),
+      lastTimestamp: getMessageTimestampValue(lastVisibleMessage?.timestamp ?? ""),
       lastMessage,
       messages,
       status: listedClient.status,
-      unread: messages.filter((message) => message.sender === "athlete" && !message.read).length
+      unread: storedMessages.filter((message) => message.sender === "athlete" && !message.read && !message.deletedForEveryoneAt).length
     };
   }).filter((thread) => visibleClientIds.has(thread.clientId));
   const visibleThreads = allThreads
@@ -154,7 +183,7 @@ export function CoachMessagesView({
       if (mode === "athlete") return true;
       const query = messageSearch.trim().toLowerCase();
       if (!query) return true;
-      return [thread.clientName, thread.lastMessage, ...thread.messages.map((message) => message.text)]
+      return [thread.clientName, thread.lastMessage, ...thread.messages.map((message) => getMessagePreview(message))]
         .join(" ")
         .toLowerCase()
         .includes(query);
@@ -172,7 +201,7 @@ export function CoachMessagesView({
     if (!selectedThreadId) setSelectedThreadId(selectedThread.id);
     if (selectedThread.unread === 0) return;
     setMessageThreads((currentThreads) => currentThreads.map((thread) => thread.clientId === selectedThread.clientId
-      ? { ...thread, messages: thread.messages.map((message) => message.sender === "athlete" && !message.read ? { ...message, read: true } : message) }
+      ? { ...thread, messages: thread.messages.map((message) => message.sender === "athlete" && !message.read && !message.deletedForEveryoneAt ? { ...message, read: true } : message) }
       : thread));
   }, [mode, messagesHydrated, selectedThread, selectedThreadId]);
   const visibleMessages = useMemo(() => {
@@ -219,29 +248,52 @@ export function CoachMessagesView({
     setMessageDraft("");
   }
 
-  function deleteMessage(messageId: string) {
-    if (!selectedThread || typeof window === "undefined") return;
-    const shouldDelete = window.confirm("¿Borrar este mensaje? Esta acción no se puede deshacer.");
-    if (!shouldDelete) return;
+  function requestMessageDeletion(message: CoachThreadMessage, action: MessageDeletionAction) {
+    if (message.sender !== mode || message.deletedForEveryoneAt || message.hiddenForSenderAt) return;
+    if (action === "everyone" && !canDeleteMessageForEveryone(message)) {
+      setMessageActionNotice("Ya no está disponible la eliminación para todos.");
+      setOpenMessageMenuId("");
+      return;
+    }
+    setMessageActionNotice("");
+    setOpenMessageMenuId("");
+    setPendingMessageDeletion({ action, messageId: message.id });
+  }
+
+  function confirmMessageDeletion() {
+    if (!selectedThread || !pendingMessageDeletion) return;
+    const storedThread = messageThreads.find((thread) => thread.clientId === selectedThread.clientId);
+    const message = (storedThread?.messages ?? selectedThread.messages).find((item) => item.id === pendingMessageDeletion.messageId);
+    if (!message || message.sender !== mode || message.deletedForEveryoneAt || message.hiddenForSenderAt) {
+      setPendingMessageDeletion(null);
+      return;
+    }
+    if (pendingMessageDeletion.action === "everyone" && !canDeleteMessageForEveryone(message)) {
+      setMessageActionNotice("Ya no está disponible la eliminación para todos.");
+      setPendingMessageDeletion(null);
+      return;
+    }
+
+    const changedAt = new Date().toISOString();
+    const updatedMessages = (storedThread?.messages ?? selectedThread.messages).map((item) => item.id !== message.id
+      ? item
+      : pendingMessageDeletion.action === "everyone"
+        ? { ...item, deletedForEveryoneAt: changedAt, deletedForEveryoneBy: mode }
+        : { ...item, hiddenForSenderAt: changedAt });
 
     setMessageThreads((currentThreads) => {
       const existingThread = currentThreads.find((thread) => thread.clientId === selectedThread.clientId);
-      if (existingThread) {
-        return currentThreads.map((thread) => thread.clientId === selectedThread.clientId
-          ? { ...thread, messages: thread.messages.filter((message) => message.id !== messageId) }
-          : thread);
-      }
-
-      return [
-        {
-          clientId: selectedThread.clientId,
-          clientName: selectedThread.clientName,
-          id: selectedThread.id,
-          messages: selectedThread.messages.filter((message) => message.id !== messageId)
-        },
-        ...currentThreads
-      ];
+      const updatedThread: CoachMessageThread = {
+        clientId: selectedThread.clientId,
+        clientName: selectedThread.clientName,
+        id: existingThread?.id ?? selectedThread.id,
+        messages: updatedMessages
+      };
+      return existingThread
+        ? currentThreads.map((thread) => thread.clientId === selectedThread.clientId ? updatedThread : thread)
+        : [updatedThread, ...currentThreads];
     });
+    setPendingMessageDeletion(null);
   }
 
   function applyQuickMessageTemplate(template: CoachQuickMessageTemplate) {
@@ -357,6 +409,9 @@ export function CoachMessagesView({
             </div>
 
             <div className={`mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:mt-4 ${mode === "coach" ? "space-y-2" : "space-y-3"}`}>
+              {messageActionNotice ? (
+                <p className="rounded-md border border-line bg-panel/50 px-3 py-2 text-xs font-semibold text-ink/60">{messageActionNotice}</p>
+              ) : null}
               {visibleMessages.length === 0 ? (
                 <p className="rounded-md border border-dashed border-line bg-panel/35 p-5 text-sm text-ink/60">
                   {mode === "athlete" ? "Todavía no hay mensajes. Escribe a tu entrenador cuando lo necesites." : "Todavía no hay mensajes."}
@@ -373,38 +428,58 @@ export function CoachMessagesView({
                   </button>
                 </div>
               ) : null}
-              {visibleMessages.map((message) => (
+              {visibleMessages.map((message) => {
+                const isOwnMessage = message.sender === mode;
+                const isTombstone = Boolean(message.deletedForEveryoneAt);
+                const canDeleteForEveryone = isOwnMessage && canDeleteMessageForEveryone(message);
+                return (
                 <div
-                  className={`flex ${message.sender === mode ? "justify-end" : "justify-start"}`}
+                  className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                   key={message.id}
                 >
-                  <div className="group flex max-w-[88%] items-center gap-1.5">
+                  <div className="group relative flex max-w-[88%] items-start gap-1.5">
                     <div
-                      className={`min-w-0 rounded-md border text-sm [overflow-wrap:anywhere] ${mode === "coach" ? "px-3 py-2" : "px-4 py-3"} ${
-                        message.sender === mode
+                      className={`min-w-0 rounded-md border text-sm [overflow-wrap:anywhere] ${isTombstone ? "px-3 py-1.5 italic" : mode === "coach" ? "px-3 py-2" : "px-4 py-3"} ${
+                        isTombstone
+                          ? "border-line bg-panel/35 text-ink/45"
+                          : isOwnMessage
                           ? mode === "athlete"
                             ? "border-moss/30 bg-moss/15 text-ink"
                             : "border-slate-700 bg-slate-900 text-slate-100"
                           : "border-line bg-panel/60 text-ink"
                       }`}
                     >
-                      <p>{message.text}</p>
-                      <p className={`text-xs ${mode === "coach" ? "mt-1" : "mt-2"} ${mode === "coach" && message.sender === "coach" ? "text-slate-300" : "text-ink/60"}`}>
+                      <p>{isTombstone ? "Mensaje eliminado" : message.text}</p>
+                      <p className={`text-xs ${isTombstone ? "mt-0.5" : mode === "coach" ? "mt-1" : "mt-2"} ${mode === "coach" && isOwnMessage && !isTombstone ? "text-slate-300" : "text-ink/60"}`}>
                         {formatMessageTime(message.timestamp)}
                       </p>
                     </div>
-                    <button
-                      aria-label="Borrar mensaje"
-                      className="grid size-8 shrink-0 place-items-center rounded-md border border-coral/20 bg-coral/10 text-clay transition hover:bg-coral/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                      onClick={() => deleteMessage(message.id)}
-                      title="Borrar mensaje"
-                      type="button"
-                    >
-                      <Trash2 aria-hidden="true" size={14} />
-                    </button>
+                    {isOwnMessage && !isTombstone ? (
+                      <div className="relative shrink-0">
+                        <button
+                          aria-expanded={openMessageMenuId === message.id}
+                          aria-label="Opciones del mensaje"
+                          className="grid size-8 place-items-center rounded-md border border-line bg-white text-ink/50 transition hover:bg-panel hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          onClick={() => setOpenMessageMenuId((current) => current === message.id ? "" : message.id)}
+                          title="Opciones del mensaje"
+                          type="button"
+                        >
+                          <MoreHorizontal aria-hidden="true" size={16} />
+                        </button>
+                        {openMessageMenuId === message.id ? (
+                          <div className={`absolute top-9 z-20 min-w-44 rounded-md border border-line bg-white p-1 shadow-soft ${isOwnMessage ? "right-0" : "left-0"}`}>
+                            {canDeleteForEveryone ? (
+                              <button className="block w-full rounded px-3 py-2 text-left text-xs font-semibold text-clay hover:bg-coral/10" onClick={() => requestMessageDeletion(message, "everyone")} type="button">Eliminar para todos</button>
+                            ) : null}
+                            <button className="block w-full rounded px-3 py-2 text-left text-xs font-semibold text-ink/65 hover:bg-panel" onClick={() => requestMessageDeletion(message, "sender")} type="button">Eliminar de mi vista</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {mode === "coach" ? (
@@ -513,6 +588,26 @@ export function CoachMessagesView({
                 type="button"
               >
                 Guardar nota
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {pendingMessageDeletion ? (
+        <div aria-labelledby="message-delete-dialog-title" aria-modal="true" className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" onClick={() => setPendingMessageDeletion(null)} role="dialog">
+          <div className="w-full max-w-md rounded-md border border-line bg-white p-5 shadow-soft" onClick={(event) => event.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-ink" id="message-delete-dialog-title">
+              {pendingMessageDeletion.action === "everyone" ? "Eliminar para todos" : "Eliminar de mi vista"}
+            </h3>
+            <p className="mt-2 text-sm text-ink/60">
+              {pendingMessageDeletion.action === "everyone"
+                ? "Este mensaje dejará de estar disponible para ambos."
+                : "El mensaje seguirá visible para la otra persona."}
+            </p>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/65" onClick={() => setPendingMessageDeletion(null)} type="button">Cancelar</button>
+              <button className="rounded-md border border-coral/30 bg-coral/10 px-4 py-2 text-sm font-semibold text-clay" onClick={confirmMessageDeletion} type="button">
+                {pendingMessageDeletion.action === "everyone" ? "Eliminar para todos" : "Eliminar de mi vista"}
               </button>
             </div>
           </div>
