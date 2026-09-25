@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
@@ -401,7 +401,7 @@ function createAthleteExerciseEntries(session: AthleteSessionRecord | null) {
 
     return {
       ...nextExercise,
-      setDetails: normalizeSetDetails(exercise)
+      setDetails: []
     };
   });
 }
@@ -605,7 +605,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setWellnessConfirmed(Boolean(session?.wellnessConfirmedAt || session?.completed || session?.wellness));
     setShowSessionPreview(false);
     setShowWellnessModal(false);
-    setPerformedExercises(createAthleteExerciseEntries(session));
+    setPerformedExercises(
+      session?.performedExercises?.length
+        ? session.performedExercises
+        : createAthleteExerciseEntries(session)
+    );
     setCollapsedExerciseBlocks({
       activation: false,
       auxiliary: false,
@@ -688,6 +692,27 @@ export function AthleteTodayView<TClient extends AthleteClient>({
         exerciseIndex === index ? { ...exercise, ...updates } : exercise
       )
     );
+  }
+
+  function persistExerciseSetDetails(exerciseIndex: number, setDetails: AthleteSetDetail[]) {
+    if (!client || !session || sessionIndex < 0) return;
+    const nextExercises = performedExercises.map((exercise, index) =>
+      index === exerciseIndex
+        ? { ...exercise, ...getUpdatedExerciseFromSetDetails(exercise, setDetails) }
+        : exercise
+    );
+    const updatedSession: AthleteSessionRecord = {
+      ...session,
+      performedExercises: nextExercises
+    };
+
+    setPerformedExercises(nextExercises);
+    onUpdateClient({
+      ...client,
+      sessionRecords: client.sessionRecords.map((record, index) =>
+        index === sessionIndex ? updatedSession : record
+      )
+    } as TClient);
   }
 
   function startSession() {
@@ -1237,6 +1262,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                   exercise={exercise}
                                   index={index}
                                   key={exercise.id || `${exercise.exerciseName}-${index}`}
+                                  onConfirmSet={persistExerciseSetDetails}
                                   onUpdate={updateExercise}
                                 />
                               ))}
@@ -1895,43 +1921,10 @@ function getUpdatedExerciseFromSetDetails(exercise: AthleteExercise, setDetails:
   return updates;
 }
 
-function handleAthleteSetKeyDown(
-  event: KeyboardEvent<HTMLInputElement>,
-  exerciseKey: string,
-  setIndex: number,
-  field: string,
-  setCount: number
-) {
-  const fieldOrder = ["reps", "load", "intensity"];
-  const currentFieldIndex = fieldOrder.indexOf(field);
-  let nextSetIndex = setIndex;
-  let nextField = field;
-
-  if (event.key === "ArrowRight") {
-    if (currentFieldIndex >= fieldOrder.length - 1) return;
-    nextField = fieldOrder[currentFieldIndex + 1];
-  } else if (event.key === "ArrowLeft") {
-    if (currentFieldIndex <= 0) return;
-    nextField = fieldOrder[currentFieldIndex - 1];
-  } else if (event.key === "ArrowDown") {
-    if (setIndex >= setCount - 1) return;
-    nextSetIndex = setIndex + 1;
-  } else if (event.key === "ArrowUp") {
-    if (setIndex <= 0) return;
-    nextSetIndex = setIndex - 1;
-  } else {
-    return;
-  }
-
-  event.preventDefault();
-  document
-    .querySelector<HTMLElement>(`[data-athlete-set-field="${exerciseKey}-${nextSetIndex}-${nextField}"]`)
-    ?.focus();
-}
-
-function AthleteExerciseCard({ exercise, index, onUpdate }: {
+function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
   exercise: AthleteExercise;
   index: number;
+  onConfirmSet: (index: number, setDetails: AthleteSetDetail[]) => void;
   onUpdate: (index: number, updates: Partial<AthleteExercise>) => void;
 }) {
   const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
@@ -1952,46 +1945,100 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
       : intensityMethod === "percent_1rm" ? "percent1RM"
       : intensityMethod === "velocity" ? "velocity"
       : "";
+  const plannedSequence = (exercise.plannedSetReps ?? []).filter(hasAthleteDisplayValue);
+  const plannedSetCount = Math.max(
+    plannedSequence.length,
+    Math.max(0, Math.trunc(parsePositiveNumber(exercise.plannedSets ?? exercise.sets)))
+  );
+  const totalSetCount = Math.max(plannedSetCount, setDetails.length, 1);
+  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
+  const [setDraft, setSetDraft] = useState<AthleteSetDetail>({ setNumber: setDetails.length + 1 });
+  const [setValidation, setSetValidation] = useState("");
 
-  function addSetDetail() {
-    const nextSetDetails = [
-      ...setDetails,
-      {
-        load: exercise.plannedLoad ?? "",
-        reps: exercise.plannedReps ?? "",
-        setNumber: setDetails.length + 1
-      }
-    ];
-    onUpdate(index, getUpdatedExerciseFromSetDetails(exercise, nextSetDetails));
+  useEffect(() => {
+    if (editingSetIndex !== null) return;
+    setSetDraft({ setNumber: setDetails.length + 1 });
+    setSetValidation("");
+  }, [editingSetIndex, setDetails.length]);
+
+  function getPlannedReps(setIndex: number) {
+    if (exercise.setMethod === "cluster" && exercise.clusterConfig?.repsPerMiniSet?.length) {
+      return exercise.clusterConfig.repsPerMiniSet.join(" + ");
+    }
+    return plannedSequence[setIndex] ?? exercise.plannedReps ?? "";
   }
 
-  function removeSetDetail(setIndex: number) {
-    const nextSetDetails = setDetails
-      .filter((_, detailIndex) => detailIndex !== setIndex)
-      .map((detail, detailIndex) => ({ ...detail, setNumber: detailIndex + 1 }));
-    onUpdate(index, getUpdatedExerciseFromSetDetails(exercise, nextSetDetails));
+  function getPlannedReference(setIndex: number) {
+    const reference = [
+      hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad} kg` : "",
+      hasAthleteDisplayValue(getPlannedReps(setIndex)) ? `${getPlannedReps(setIndex)} reps` : "",
+      intensityLabel && hasAthleteDisplayValue(
+        intensityMethod === "rir" ? exercise.plannedRir ?? exercise.targetRir
+          : intensityMethod === "rpe" ? exercise.plannedRpe ?? exercise.targetRpe
+          : intensityMethod === "percent_1rm" ? exercise.percent1RM
+          : exercise.targetVelocity
+      ) ? getAthleteExercisePrescription(exercise).find((item) => item.startsWith(intensityLabel) || item.includes("m/s")) ?? "" : ""
+    ].filter(Boolean);
+    return reference.join(" · ");
   }
 
-  function updateSetDetail(setIndex: number, field: keyof AthleteSetDetail, value: string) {
-    const nextSetDetails = setDetails.map((detail, detailIndex) =>
-      detailIndex === setIndex ? { ...detail, [field]: value } : detail
-    );
-    onUpdate(index, getUpdatedExerciseFromSetDetails(exercise, nextSetDetails));
+  function beginEdit(setIndex: number) {
+    setEditingSetIndex(setIndex);
+    setSetDraft({ ...setDetails[setIndex], setNumber: setIndex + 1 });
+    setSetValidation("");
+  }
+
+  function updateDraft(field: keyof AthleteSetDetail, value: string) {
+    setSetDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function confirmSet(setIndex: number) {
+    const reps = `${setDraft.reps ?? ""}`.trim();
+    const load = `${setDraft.load ?? ""}`.trim();
+    const intensity = intensityField ? `${setDraft[intensityField as keyof AthleteSetDetail] ?? ""}`.trim() : "";
+    const repsNumber = Number(reps.replace(",", "."));
+    const loadNumber = load ? Number(load.replace(",", ".")) : null;
+    const intensityNumber = intensity ? Number(intensity.replace(",", ".")) : null;
+
+    if (!reps || !Number.isInteger(repsNumber) || repsNumber < 0) {
+      setSetValidation("Introduce repeticiones reales con un número entero igual o mayor que 0.");
+      return;
+    }
+    if (loadNumber !== null && (!Number.isFinite(loadNumber) || loadNumber < 0)) {
+      setSetValidation("La carga debe ser un número igual o mayor que 0, o quedar vacía.");
+      return;
+    }
+    if (intensityNumber !== null && (!Number.isFinite(intensityNumber) || intensityNumber < 0 || ((intensityMethod === "rir" || intensityMethod === "rpe") && intensityNumber > 10))) {
+      setSetValidation(`${intensityLabel} debe estar entre 0 y 10, o quedar vacío.`);
+      return;
+    }
+
+    const confirmedDetail: AthleteSetDetail = {
+      setNumber: setIndex + 1,
+      reps
+    };
+    if (load) confirmedDetail.load = load;
+    if (intensityField && intensity) confirmedDetail[intensityField as keyof AthleteSetDetail] = intensity as never;
+    const nextSetDetails = editingSetIndex === setIndex
+      ? setDetails.map((detail, detailIndex) => detailIndex === setIndex ? confirmedDetail : detail)
+      : [...setDetails, confirmedDetail];
+    onConfirmSet(index, nextSetDetails);
+    setEditingSetIndex(null);
+    setSetDraft({ setNumber: nextSetDetails.length + 1 });
+    setSetValidation("");
   }
 
   return (
     <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4">
-      <p className="font-semibold text-ink">{exerciseName}</p>
-      <p className="mt-1 text-xs text-ink/55">Bloque: {exercise.block || exercise.section || "Principal"}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-semibold text-ink">{exerciseName}</p>
+        <span className="shrink-0 text-xs font-semibold text-ink/50">{setDetails.length}/{totalSetCount} series realizadas</span>
+      </div>
       {materialVariant ? (
         <p className="mt-2 text-sm font-medium text-ink/65">{materialVariant}</p>
       ) : null}
       {prescription.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/65">
-          {prescription.map((item) => (
-            <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-ink/75" key={item}>{item}</span>
-          ))}
-        </div>
+        <p className="mt-2 text-sm font-medium text-ink/65">Plan · {prescription.join(" · ")}</p>
       ) : null}
       {(exercise.videoUrl || exercise.videoNote) ? (
         <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
@@ -2015,69 +2062,51 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
           </div>
         </div>
       ) : null}
-      <div className="mt-4 rounded-md border border-line bg-white p-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-ink">Series registradas</p>
-          <button
-            className="min-h-11 w-full rounded-md border border-line bg-panel/60 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel sm:w-fit"
-            onClick={addSetDetail}
-            type="button"
-          >
-            Añadir serie
-          </button>
-        </div>
-        {setDetails.length > 0 ? (
-          <div className="mt-3 grid gap-2">
-            {setDetails.map((detail, setIndex) => (
-              <div className="min-w-0 rounded-md border border-line bg-panel/35 p-3" key={detail.setNumber}>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-ink/65">Serie {detail.setNumber}</p>
-                  <button
-                    aria-label={`Eliminar serie ${detail.setNumber}`}
-                    className="rounded-md px-2 py-1 text-xs font-semibold text-ink/45 transition hover:bg-white hover:text-red-700"
-                    onClick={() => removeSetDetail(setIndex)}
-                    type="button"
-                  >
-                    Eliminar
-                  </button>
+      <div className="mt-4 grid gap-2">
+        {Array.from({ length: totalSetCount }, (_, setIndex) => {
+          const completed = setDetails[setIndex];
+          const isEditing = editingSetIndex === setIndex;
+          const isNextPending = !completed && setIndex === setDetails.length;
+          const plannedReference = getPlannedReference(setIndex);
+          if (completed && !isEditing) {
+            const completedIntensity = intensityField ? completed[intensityField as keyof AthleteSetDetail] : null;
+            return (
+              <div className="rounded-md border border-[rgb(var(--color-success))]/30 bg-[rgb(var(--color-success))]/10 p-3" key={`${exerciseKey}-${setIndex}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink">Serie {setIndex + 1} ✓</p>
+                  <button className="text-xs font-semibold text-ink/55 underline-offset-4 hover:underline" onClick={() => beginEdit(setIndex)} type="button">Editar</button>
                 </div>
-                <div className={`grid min-w-0 grid-cols-2 gap-2 ${intensityField ? "sm:grid-cols-3" : ""}`}>
-                  <AthleteExerciseInput
-                    dataField={`${exerciseKey}-${setIndex}-reps`}
-                    inputMode="numeric"
-                    label="Reps"
-                    onChange={(value) => updateSetDetail(setIndex, "reps", value)}
-                    onKeyDown={(event) => handleAthleteSetKeyDown(event, exerciseKey, setIndex, "reps", setDetails.length)}
-                    value={detail.reps}
-                  />
-                  <AthleteExerciseInput
-                    dataField={`${exerciseKey}-${setIndex}-load`}
-                    inputMode="decimal"
-                    label="Kg"
-                    onChange={(value) => updateSetDetail(setIndex, "load", value)}
-                    onKeyDown={(event) => handleAthleteSetKeyDown(event, exerciseKey, setIndex, "load", setDetails.length)}
-                    value={detail.load}
-                  />
-                  {intensityField ? (
-                    <AthleteExerciseInput
-                      className="col-span-2 sm:col-span-1"
-                      dataField={`${exerciseKey}-${setIndex}-intensity`}
-                      inputMode="decimal"
-                      label={intensityMethod === "velocity" ? "Velocidad m/s" : intensityLabel}
-                      onChange={(value) => updateSetDetail(setIndex, intensityField as keyof AthleteSetDetail, value)}
-                      onKeyDown={(event) => handleAthleteSetKeyDown(event, exerciseKey, setIndex, "intensity", setDetails.length)}
-                      value={detail[intensityField as keyof AthleteSetDetail] as number | string | null}
-                    />
-                  ) : null}
-                </div>
+                <p className="mt-2 text-sm font-semibold text-ink">{hasAthleteDisplayValue(completed.load) ? `${completed.load} kg · ` : ""}{completed.reps} reps{hasAthleteDisplayValue(completedIntensity as number | string | null) ? ` · ${intensityLabel} ${completedIntensity}` : ""}</p>
+                {plannedReference ? <p className="mt-1 text-xs text-ink/50">Objetivo · {plannedReference}</p> : null}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-3 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm text-ink/55">
-            Sin series registradas todavía.
-          </div>
-        )}
+            );
+          }
+          if (!isEditing && !isNextPending) {
+            return (
+              <div className="rounded-md border border-dashed border-line bg-panel/25 p-3" key={`${exerciseKey}-${setIndex}`}>
+                <p className="text-sm font-semibold text-ink/55">Serie {setIndex + 1} · Pendiente</p>
+                {plannedReference ? <p className="mt-1 text-xs text-ink/45">Objetivo · {plannedReference}</p> : null}
+              </div>
+            );
+          }
+          return (
+            <div className="rounded-md border border-line bg-white p-3" key={`${exerciseKey}-${setIndex}`}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-ink">Serie {setIndex + 1}</p>
+                {isEditing ? <button className="text-xs font-semibold text-ink/50" onClick={() => { setEditingSetIndex(null); setSetValidation(""); }} type="button">Cancelar</button> : null}
+              </div>
+              {plannedReference ? <p className="mt-1 text-xs text-ink/50">Objetivo · {plannedReference}</p> : null}
+              <div className={`mt-3 grid min-w-0 grid-cols-2 gap-2 ${intensityField ? "sm:grid-cols-3" : ""}`}>
+                <AthleteExerciseInput dataField={`${exerciseKey}-${setIndex}-load`} inputMode="decimal" label="Carga (kg)" onChange={(value) => updateDraft("load", value)} placeholder={hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad}` : ""} value={setDraft.load} />
+                <AthleteExerciseInput dataField={`${exerciseKey}-${setIndex}-reps`} inputMode="numeric" label="Reps" onChange={(value) => updateDraft("reps", value)} placeholder={hasAthleteDisplayValue(getPlannedReps(setIndex)) && exercise.setMethod !== "cluster" ? `${getPlannedReps(setIndex)}` : ""} value={setDraft.reps} />
+                {intensityField ? <AthleteExerciseInput className="col-span-2 sm:col-span-1" dataField={`${exerciseKey}-${setIndex}-intensity`} inputMode="decimal" label={intensityMethod === "velocity" ? "Velocidad m/s" : intensityLabel} onChange={(value) => updateDraft(intensityField as keyof AthleteSetDetail, value)} value={setDraft[intensityField as keyof AthleteSetDetail] as number | string | null} /> : null}
+              </div>
+              {exercise.setMethod === "cluster" ? <p className="mt-2 text-xs text-ink/50">Registra el total real de repeticiones de la serie externa. Los mini-bloques no se registran por separado.</p> : null}
+              {setValidation ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
+              <button className="mt-3 min-h-11 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => confirmSet(setIndex)} type="button">{isEditing ? "Confirmar cambios" : "Completar serie"}</button>
+            </div>
+          );
+        })}
       </div>
       <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65">
         Notas del deportista
@@ -2131,13 +2160,13 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
   );
 }
 
-function AthleteExerciseInput({ className = "", dataField, inputMode = "decimal", label, onChange, onKeyDown, value }: {
+function AthleteExerciseInput({ className = "", dataField, inputMode = "decimal", label, onChange, placeholder, value }: {
   className?: string;
   dataField?: string;
   inputMode?: "decimal" | "numeric";
   label: string;
   onChange: (value: string) => void;
-  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  placeholder?: string;
   value?: number | string | null;
 }) {
   return (
@@ -2148,7 +2177,7 @@ function AthleteExerciseInput({ className = "", dataField, inputMode = "decimal"
         data-athlete-set-field={dataField}
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
+        placeholder={placeholder}
         type="text"
         value={value ?? ""}
       />
