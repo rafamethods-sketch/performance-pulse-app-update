@@ -40,6 +40,7 @@ import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
 import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
+import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
 import { ExerciseTempoEditor } from "@/components/shared/exercise-tempo-editor";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
@@ -13307,12 +13308,6 @@ function CoachTrainingPlanner({
       variant: variantLine
     };
   };
-  const getAthletePreviewRest = (value: string) => {
-    const seconds = Number(value);
-    if (!value) return "";
-    if (Number.isFinite(seconds) && seconds > 0 && seconds % 60 === 0) return `${seconds / 60} min`;
-    return `${value} s`;
-  };
   const renderStrengthBlock = (sessionBlock: SessionExerciseBlock | "unclassified", title: string, description?: string) => {
     const blockExercises = strengthExercises.filter((exercise) =>
       sessionBlock === "unclassified" ? !exercise.sessionBlock : exercise.sessionBlock === sessionBlock
@@ -14479,42 +14474,8 @@ function CoachTrainingPlanner({
                 </div>
                 <button aria-label="Cerrar previsualización" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink" onClick={() => setShowAthleteSessionPreview(false)} type="button"><X size={17} /></button>
               </div>
-              <div className="mt-5 grid gap-5">
-                {(["activation", "main", "complementary"] as const).map((blockKey) => {
-                  const labels = { activation: "Activación", main: "Bloque principal", complementary: "Bloque complementario" };
-                  const exercises = strengthExercises.filter((exercise) => exercise.sessionBlock === blockKey);
-                  if (exercises.length === 0) return null;
-                  return <section key={blockKey}>
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/45">{labels[blockKey]}</h4>
-                    <div className="mt-2 grid gap-2">
-                      {exercises.map((exercise) => {
-                        const summary = getExerciseSummaryLine(exercise);
-                        const method = exercise.setMethod ?? "straight";
-                        const sequence = (exercise.plannedSetReps ?? []).filter(Boolean);
-                        const clusterReps = (exercise.clusterConfig?.repsPerMiniSet ?? []).filter(Boolean);
-                        const tempo = formatExerciseTempo(exercise.tempo);
-                        const standardVolume = exercise.sets && exercise.reps
-                          ? `${exercise.sets} × ${exercise.reps}`
-                          : exercise.sets
-                            ? `${exercise.sets} series`
-                            : exercise.reps ? `${exercise.reps} reps` : "";
-                        return <article className="rounded-md border border-line bg-panel/25 p-3" key={exercise.id}>
-                          <p className="font-semibold text-ink">{summary.name}</p>
-                          {method === "cluster" && clusterReps.length > 0 ? <p className="mt-2 text-lg font-semibold text-ink">{exercise.sets || "—"} × ({clusterReps.join("+")})</p> : (method === "ascending" || method === "descending") && sequence.length > 0 ? <div className="mt-2 grid gap-1 text-sm text-ink/70"><p className="mb-1 text-xs font-semibold uppercase text-ink/45">{getSetMethodLabel(method)}</p>{sequence.map((reps, index) => <p key={`${exercise.id}-preview-set-${index}`}>Serie {index + 1} · {reps} reps</p>)}</div> : standardVolume ? <p className="mt-2 text-lg font-semibold text-ink">{standardVolume}</p> : null}
-                          <div className="mt-2 grid gap-1 text-sm text-ink/65">
-                            {exercise.load ? <p>Carga: {exercise.load} kg</p> : null}
-                            {method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds ? <p>Pausa intra: {exercise.clusterConfig.intraClusterRestSeconds} s</p> : null}
-                            {exercise.rest ? <p>Descanso entre series: {getAthletePreviewRest(exercise.rest)}</p> : null}
-                            {getExerciseIntensitySummary(exercise) ? <p>{getExerciseIntensitySummary(exercise)}</p> : null}
-                            {tempo ? <p>Tempo {tempo}</p> : null}
-                            {exercise.videoNote ? <p className="text-ink/55">Clave técnica: {exercise.videoNote}</p> : null}
-                            {exercise.videoUrl ? <a className="w-fit font-semibold text-moss underline-offset-4 hover:underline" href={exercise.videoUrl} rel="noreferrer" target="_blank">Ver vídeo técnico</a> : null}
-                          </div>
-                        </article>;
-                      })}
-                    </div>
-                  </section>;
-                })}
+              <div className="mt-5">
+                <AthleteSessionPlan exercises={strengthExercises} />
               </div>
               <p className="mt-5 border-t border-line pt-3 text-xs text-ink/45">Previsualización. No guarda ni modifica la sesión.</p>
             </div>

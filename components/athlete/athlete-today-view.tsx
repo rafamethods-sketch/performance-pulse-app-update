@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { Dispatch, KeyboardEvent, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
+import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
+import type { ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
@@ -70,11 +72,16 @@ type AthleteExercise = {
   plannedRest?: number | string | null;
   plannedRir?: number | string | null;
   plannedRpe?: number | string | null;
+  plannedSetReps?: Array<number | string> | null;
   plannedSets?: number | string | null;
   reps?: number | string | null;
   rest?: number | string | null;
   rir?: number | string | null;
   section?: string | null;
+  sessionBlock?: "activation" | "main" | "complementary" | null;
+  setMethod?: "straight" | "ascending" | "descending" | "cluster" | null;
+  clusterConfig?: { intraClusterRestSeconds?: number | string | null; repsPerMiniSet?: Array<number | string> | null } | null;
+  tempo?: ExerciseTempo | null;
   selectedEquipment?: string | null;
   selectedVariantId?: string | null;
   selectedVariantName?: string | null;
@@ -479,6 +486,9 @@ function getAthleteExerciseMaterialVariant(exercise: AthleteExercise) {
 }
 
 function getAthleteExerciseBlockKey(exercise: AthleteExercise): AthleteExerciseBlockKey {
+  if (exercise.sessionBlock === "activation") return "activation";
+  if (exercise.sessionBlock === "complementary") return "auxiliary";
+  if (exercise.sessionBlock === "main") return "main";
   const block = `${exercise.block ?? exercise.section ?? ""}`.toLowerCase();
   if (block === "activation") return "activation";
   if (block === "auxiliary" || block === "accessory") return "auxiliary";
@@ -1068,11 +1078,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       : "Pendiente";
   const targetDuration = session.cardioPlan?.targetDurationMinutes;
   const todayFocus = session.summary?.trim();
-  const sessionMetadata = [
-    session.block,
-    session.weekLabel || session.week ? `${session.weekLabel || session.week}` : "",
-    session.sessionNumber ? `Sesión ${session.sessionNumber}` : ""
-  ].filter(Boolean).join(" · ");
+  const plannedExerciseCount = session.plannedExercises?.length ?? 0;
 
   return (
     <div className="mt-4 w-full min-w-0 space-y-4 sm:mt-5 sm:space-y-5">
@@ -1118,7 +1124,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
             ) : null}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
               <Dumbbell aria-hidden="true" size={15} />
-              {sessionMetadata || "Entrenamiento de hoy"}
+              {plannedExerciseCount > 0 ? `${plannedExerciseCount} ${plannedExerciseCount === 1 ? "ejercicio" : "ejercicios"}` : "Entrenamiento de hoy"}
             </span>
           </div>
         </div>
@@ -1615,9 +1621,9 @@ function AthleteSessionPreviewModal({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase text-ink/45">Visualizar sesión</p>
-            <h3 className="mt-1 text-xl font-semibold text-ink">{session.type}</h3>
-            <p className="mt-1 text-sm text-ink/60">{session.summary}</p>
+            <p className="text-xs font-semibold uppercase text-ink/45">Tu sesión</p>
+            <h3 className="mt-1 text-xl font-semibold text-ink">{session.summary || "Sesión planificada"}</h3>
+            <p className="mt-1 text-sm text-ink/60">{formatAthleteTodayDate(session.date)} · {session.type}</p>
           </div>
           <button
             aria-label="Cerrar resumen"
@@ -1629,12 +1635,6 @@ function AthleteSessionPreviewModal({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
-          <ClientInfoCard label="Bloque / mesociclo" value={`${session.block || "Sin asignar"}`} />
-          <ClientInfoCard label="Semana y sesión" value={`${session.weekLabel || session.week || "Sin asignar"}${session.sessionNumber ? ` · Sesión ${session.sessionNumber}` : ""}`} />
-          <ClientInfoCard label="RPE objetivo" value={session.targetRpe ? `${session.targetRpe}/10` : "Sin especificar"} />
-          <ClientInfoCard label="Duración estimada" value="Sin especificar" />
-        </div>
         {resistanceMethod ? (
           <div className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
             <p className="font-semibold text-ink">Método: {getAthleteResistanceMethodLabel(resistanceMethod)}</p>
@@ -1667,51 +1667,8 @@ function AthleteSessionPreviewModal({
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-4">
-          {athleteExerciseBlocks.map((block) => {
-            const blockExercises = (session.plannedExercises ?? []).filter((exercise) => getAthleteExerciseBlockKey(exercise) === block.key);
-            if (blockExercises.length === 0) return null;
-
-            return (
-              <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
-                <h4 className="text-sm font-semibold uppercase tracking-wide text-ink">{block.label}</h4>
-                <div className="mt-3 grid gap-2">
-                  {blockExercises.map((exercise, index) => {
-                    const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
-                    const materialVariant = getAthleteExerciseMaterialVariant(exercise);
-                    const prescription = getAthleteExercisePrescription(exercise);
-                    return (
-                      <article className="rounded-md border border-line bg-white p-3" key={exercise.id || `${exerciseName}-${index}`}>
-                        <p className="text-sm font-semibold text-ink">{exerciseName}</p>
-                        {materialVariant ? <p className="mt-1 text-xs font-medium text-ink/55">{materialVariant}</p> : null}
-                        {prescription.length > 0 ? (
-                          <p className="mt-2 text-sm font-medium text-ink/65">{prescription.join(" · ")}</p>
-                        ) : null}
-                        {exercise.observation ? <p className="mt-2 text-xs text-ink/50">{exercise.observation}</p> : null}
-                        {(exercise.videoUrl || exercise.videoNote) ? (
-                          <div className="mt-3 rounded-md border border-line bg-panel/35 p-3 text-xs text-ink/60">
-                            {exercise.videoNote ? (
-                              <p><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p>
-                            ) : null}
-                            {exercise.videoUrl ? (
-                              <a
-                                className="mt-2 inline-flex min-h-9 items-center rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink"
-                                href={exercise.videoUrl}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                Ver vídeo técnico
-                              </a>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
+        <div className="mt-5">
+          <AthleteSessionPlan exercises={session.plannedExercises ?? []} />
         </div>
       </section>
     </div>
@@ -2036,7 +1993,6 @@ function AthleteExerciseCard({ exercise, index, onUpdate }: {
           ))}
         </div>
       ) : null}
-      {exercise.observation ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{exercise.observation}</p> : null}
       {(exercise.videoUrl || exercise.videoNote) ? (
         <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
