@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
+import { SessionPlanVsActual } from "@/components/shared/session-plan-vs-actual";
 import type { ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
@@ -1234,6 +1235,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           {wellnessConfirmed ? (
             <>
               {shouldShowStrengthRegister ? (
+                <>
                 <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                   <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
                   <div className="mt-4 space-y-4">
@@ -1273,6 +1275,26 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     })}
                   </div>
                 </section>
+                {performedExercises.some((exercise) => (exercise.setDetails ?? []).some((detail) => [detail.load, detail.reps, detail.rir, detail.rpe, detail.percent1RM, detail.velocity].some(hasAthleteDisplayValue))) ? (
+                  <details className="group rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
+                    <summary className="cursor-pointer list-none text-sm font-bold text-ink marker:hidden">
+                      <span className="flex items-center justify-between gap-3">
+                        Revisar planificado vs realizado
+                        <span className="text-lg text-ink/35 transition group-open:rotate-180">⌄</span>
+                      </span>
+                    </summary>
+                    <div className="mt-4">
+                      <SessionPlanVsActual
+                        date={session.date}
+                        performedExercises={performedExercises}
+                        plannedExercises={session.plannedExercises ?? []}
+                        summary={session.summary}
+                        type={session.type}
+                      />
+                    </div>
+                  </details>
+                ) : null}
+                </>
               ) : null}
 
               {isResistanceSession ? (
