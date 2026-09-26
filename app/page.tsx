@@ -42,6 +42,7 @@ import { ResistanceMethodsView } from "@/components/coach/resistance-methods-vie
 import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
 import { ExerciseTempoEditor } from "@/components/shared/exercise-tempo-editor";
+import { getSessionPlanVsActualProgress, SessionPlanVsActual } from "@/components/shared/session-plan-vs-actual";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
@@ -15313,6 +15314,11 @@ function SessionHistoryPanel({
             const compatibilityStyle = compatibility ? getSessionCompatibilityStyle(compatibility.level) : null;
             const reviewStatus = getSessionReviewStatus(session);
             const { plannedExercises, performedExercises } = getReviewExercises(session);
+            const setProgress = getSessionPlanVsActualProgress({ plannedExercises, performedExercises });
+            const hasSetExecution = setProgress.completedSets > 0;
+            const missingSetCount = setProgress.plannedSets > 0 && hasSetExecution
+              ? Math.max(0, setProgress.plannedSets - setProgress.completedSets)
+              : 0;
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
             const srpe = getSessionSrpe(session);
             const notes = session.finalNotes ?? session.notes;
@@ -15393,6 +15399,11 @@ function SessionHistoryPanel({
             const compactResistanceDistance = parseResistanceNumber(session.cardioResult?.distanceMeters) > 0
               ? formatResistanceDistance(session.cardioResult?.distanceMeters)
               : "";
+            const reviewItems = [
+              missingSetCount > 0 ? `${missingSetCount} ${missingSetCount === 1 ? "serie sin registrar" : "series sin registrar"}` : "",
+              session.discomfort?.hasDiscomfort ? "Molestia registrada" : "",
+              hasDisplayValue(notes) ? "Comentario del deportista" : ""
+            ].filter(Boolean).slice(0, 3);
 
             return (
               <article className="min-w-0 rounded-md border border-line bg-white px-3 py-2.5 sm:px-4" key={sessionKey}>
@@ -15485,7 +15496,7 @@ function SessionHistoryPanel({
                           <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Detalle de sesi{"\u00f3"}n</p>
                           <h4 className="mt-1 text-xl font-semibold text-ink" id={`session-detail-title-${sessionIndex}`}>{displayValue(session.type, "Tipo sin especificar")}</h4>
                           <p className="mt-1 text-sm text-ink/55">{formatDisplayDate(session.date)} {"\u00b7"} {client.name}</p>
-                          {session.planningOrigin ? (
+                          {status !== "Completada" && session.planningOrigin ? (
                             <p className="mt-1 text-xs font-semibold text-steel">Desde planificación · {session.block || "Mesociclo"} · Semana {session.planningOrigin.weekNumber} · {planningWeekdayLabels[session.planningOrigin.templateDayIndex]}</p>
                           ) : null}
                         </div>
@@ -15512,7 +15523,107 @@ function SessionHistoryPanel({
                           </button>
                         </div>
                       </div>
-                      <section className="mb-4 rounded-md border border-line bg-panel/25 p-4">
+                      {status === "Completada" ? (
+                        <div className="mb-4 grid gap-4">
+                          <section className="rounded-xl border border-line bg-panel/25 p-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(status)}`}>{status}</span>
+                              {reviewStatus === "reviewed" ? (
+                                <span className="rounded-md border border-line bg-mint px-2 py-1 text-xs font-semibold text-moss">
+                                  Revisada{session.reviewedAt ? ` · ${formatDisplayDate(session.reviewedAt)}` : ""}
+                                </span>
+                              ) : (
+                                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/60">Pendiente de revisión</span>
+                              )}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              <ClientInfoCard
+                                label="Series realizadas"
+                                value={setProgress.plannedSets > 0 && hasSetExecution ? `${setProgress.completedSets}/${setProgress.plannedSets}` : "Sin registro por series"}
+                              />
+                              <ClientInfoCard
+                                label="Esfuerzo global"
+                                value={hasDisplayValue(session.finalRpe ?? session.rpe) ? `${session.finalRpe ?? session.rpe}/10` : "Sin registrar"}
+                              />
+                              <ClientInfoCard
+                                label="Duración"
+                                value={hasDisplayValue(session.actualDurationMinutes ?? session.duration) ? `${session.actualDurationMinutes ?? session.duration} min` : "Sin registrar"}
+                              />
+                              <ClientInfoCard label="Carga interna" value={srpe !== null ? `${srpe} UA` : "Sin registrar"} />
+                            </div>
+                          </section>
+
+                          {reviewItems.length > 0 ? (
+                            <section className="rounded-xl border border-line bg-white p-4">
+                              <h5 className="text-sm font-semibold text-ink">Qué revisar</h5>
+                              <ul className="mt-2 grid gap-1.5 text-sm text-ink/65">
+                                {reviewItems.map((item) => <li className="flex gap-2" key={item}><span aria-hidden="true">·</span><span>{item}</span></li>)}
+                              </ul>
+                            </section>
+                          ) : (
+                            <p className="text-sm font-medium text-ink/50">Sin incidencias registradas.</p>
+                          )}
+
+                          {hasDisplayValue(notes) ? (
+                            <section className="rounded-xl border border-line bg-panel/25 p-4">
+                              <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
+                              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{notes}</p>
+                            </section>
+                          ) : null}
+
+                          {session.discomfort?.hasDiscomfort ? (
+                            <section className="rounded-xl border border-line bg-white p-4">
+                              <h5 className="text-sm font-semibold text-ink">Molestia</h5>
+                              <p className="mt-2 text-sm font-semibold text-ink/70">
+                                {session.discomfort.bodyArea || "Zona sin especificar"}{hasDisplayValue(session.discomfort.intensity) ? ` · ${session.discomfort.intensity}/10` : ""}
+                              </p>
+                              {(session.discomfort.phase || session.discomfort.exerciseName || session.discomfort.notes) ? (
+                                <details className="mt-2 text-sm text-ink/60">
+                                  <summary className="cursor-pointer font-semibold text-ink/65">Ver detalle</summary>
+                                  <div className="mt-2 grid gap-1">
+                                    {session.discomfort.phase ? <p>Momento: {session.discomfort.phase}</p> : null}
+                                    {session.discomfort.exerciseName ? <p>Ejercicio: {session.discomfort.exerciseName}</p> : null}
+                                    {session.discomfort.notes ? <p>{session.discomfort.notes}</p> : null}
+                                  </div>
+                                </details>
+                              ) : null}
+                            </section>
+                          ) : null}
+
+                          <details className="rounded-xl border border-line bg-panel/25 p-4">
+                            <summary className="cursor-pointer list-none">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <h5 className="font-semibold text-ink">Plan vs Real</h5>
+                                  <p className="mt-1 text-sm text-ink/55">
+                                    {setProgress.plannedSets > 0 && hasSetExecution
+                                      ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
+                                      : "Sin ejecución serie a serie registrada"}
+                                  </p>
+                                </div>
+                                <span className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65">Ver detalle</span>
+                              </div>
+                            </summary>
+                            <div className="mt-4 border-t border-line pt-4">
+                              {hasSetExecution ? (
+                                <SessionPlanVsActual
+                                  date={formatDisplayDate(session.date)}
+                                  performedExercises={performedExercises}
+                                  plannedExercises={plannedExercises}
+                                  showHeader={false}
+                                  summary={getSessionHistoryTitle(session)}
+                                  type={displayValue(session.type, "Sesión")}
+                                />
+                              ) : (
+                                <p className="text-sm font-medium text-ink/55">Sin ejecución serie a serie registrada.</p>
+                              )}
+                            </div>
+                          </details>
+                        </div>
+                      ) : null}
+
+                      {status !== "Completada" ? <section className="mb-4 rounded-md border border-line bg-panel/25 p-4">
                         {impact && impactStyle ? (
                           <div className="mb-4">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${impactStyle.badgeClassName}`}>
@@ -15594,8 +15705,8 @@ function SessionHistoryPanel({
                             ) : null}
                           </div>
                         </div>
-                      </section>
-                  {showStrengthReview ? (
+                      </section> : null}
+                  {status !== "Completada" && showStrengthReview ? (
                   <div className="rounded-md border border-line bg-panel/25 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -15670,8 +15781,8 @@ function SessionHistoryPanel({
                   ) : null}
 
                     {hasResistanceData ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <h5 className="font-semibold text-ink">Realizado resistencia</h5>
+                      <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <summary className="cursor-pointer font-semibold text-ink">Información técnica de resistencia</summary>
                         {resistanceInfoItems.length > 0 ? (
                           <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {resistanceInfoItems.map(([label, value]) => (
@@ -15684,14 +15795,14 @@ function SessionHistoryPanel({
                             {session.cardioResult.notes}
                           </p>
                         ) : null}
-                      </section>
+                      </details>
                     ) : null}
 
                     {cardioDeviation ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                      <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <summary className="cursor-pointer font-semibold text-ink">Detalle técnico de cardio</summary>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h5 className="font-semibold text-ink">Cardio Deviation</h5>
                             <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
                           </div>
                           <span className="w-fit rounded-md border border-line bg-white px-3 py-1 text-xs font-semibold text-ink/65">
@@ -15717,10 +15828,10 @@ function SessionHistoryPanel({
                             </div>
                           </div>
                         ) : null}
-                      </section>
+                      </details>
                     ) : null}
 
-                    {session.discomfort?.hasDiscomfort ? (
+                    {status !== "Completada" && session.discomfort?.hasDiscomfort ? (
                       <div className="mt-4 rounded-md border border-line border-l-4 border-l-clay bg-white p-3 text-sm text-ink/70">
                         <p className="font-semibold text-ink">Molestia reportada</p>
                         <p className="mt-1">
@@ -15743,10 +15854,10 @@ function SessionHistoryPanel({
                     ) : null}
 
                     {techniqueVideoRows.length > 0 ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                      <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+                        <summary className="cursor-pointer font-semibold text-ink">Vídeos y revisión técnica</summary>
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h5 className="font-semibold text-ink">Vídeos de técnica enviados</h5>
                             <p className="mt-1 text-sm text-ink/55">
                               Revisión manual del entrenador. La app no detecta compensaciones automáticamente.
                             </p>
@@ -15972,7 +16083,7 @@ function SessionHistoryPanel({
                             );
                           })}
                         </div>
-                      </section>
+                      </details>
                     ) : null}
 
                     {canReviewSession ? (
@@ -15992,7 +16103,7 @@ function SessionHistoryPanel({
                             )}
                           </div>
                           <button
-                            className="w-fit rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white"
+                            className={`w-fit rounded-md px-3 py-2 text-sm font-semibold ${reviewStatus === "reviewed" ? "border border-line bg-panel text-ink/65" : "bg-ink text-white"}`}
                             onClick={() => openFeedbackModal(sessionIndex, sessionKey, session, suggestedReviewNotes)}
                             type="button"
                           >

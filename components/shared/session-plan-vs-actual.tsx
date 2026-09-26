@@ -40,6 +40,23 @@ export type SessionComparisonExercise = {
   tempo?: ExerciseTempo | null;
 };
 
+export function getSessionPlanVsActualProgress({
+  performedExercises,
+  plannedExercises
+}: {
+  performedExercises: SessionComparisonExercise[];
+  plannedExercises: SessionComparisonExercise[];
+}) {
+  const rows = Array.from({ length: Math.max(plannedExercises.length, performedExercises.length) }, (_, index) => ({
+    performed: performedExercises[index],
+    planned: plannedExercises[index]
+  }));
+  const completedSets = rows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
+  const plannedSets = rows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+
+  return { completedSets, plannedSets, rows };
+}
+
 type BlockKey = "activation" | "main" | "complementary";
 
 const comparisonBlocks: Array<{ key: BlockKey; label: string }> = [
@@ -139,20 +156,17 @@ export function SessionPlanVsActual({
   performedExercises,
   plannedExercises,
   summary,
-  type
+  type,
+  showHeader = true
 }: {
   date: string;
   performedExercises: SessionComparisonExercise[];
   plannedExercises: SessionComparisonExercise[];
   summary: string;
   type: string;
+  showHeader?: boolean;
 }) {
-  const rows = Array.from({ length: Math.max(plannedExercises.length, performedExercises.length) }, (_, index) => ({
-    performed: performedExercises[index],
-    planned: plannedExercises[index]
-  }));
-  const completedSets = rows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
-  const plannedSets = rows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+  const { completedSets, plannedSets, rows } = getSessionPlanVsActualProgress({ performedExercises, plannedExercises });
 
   if (completedSets === 0) {
     return <p className="rounded-xl border border-line bg-panel/35 p-4 text-sm text-ink/60">Sin ejecución registrada.</p>;
@@ -160,16 +174,16 @@ export function SessionPlanVsActual({
 
   return (
     <section className="rounded-xl border border-line bg-white p-4 shadow-soft sm:p-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      {showHeader ? <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Planificado vs realizado</p>
           <h3 className="mt-1 text-lg font-bold text-ink">{summary}</h3>
           <p className="mt-1 text-sm text-ink/55">{date} · {type}</p>
         </div>
         {plannedSets > 0 ? <span className="w-fit rounded-full border border-line bg-panel/45 px-3 py-1 text-xs font-semibold text-ink/65">{completedSets}/{plannedSets} series realizadas</span> : null}
-      </div>
+      </div> : null}
 
-      <div className="mt-5 grid gap-4">
+      <div className={`${showHeader ? "mt-5" : ""} grid gap-4`}>
         {comparisonBlocks.map((block) => {
           const blockRows = rows.filter((row) => getExerciseBlock(row.planned ?? row.performed) === block.key);
           if (blockRows.length === 0) return null;
