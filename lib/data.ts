@@ -106,7 +106,7 @@ export const coachClients = [
     readiness: 94,
     activeBlocks: ["Desarrollo fuerza maxima", "Potencia baja fatiga"],
     recentSessions: ["Sentadilla 4x5 RPE 7", "Zona 2 35 min", "Peso muerto rumano 3x8"],
-    metrics: ["sRPE 1840 UA", "Hooper 7/20", "ACWR 1.12", "Strain moderado"],
+    metrics: ["Carga interna 1840 UA", "Hooper 7/20", "ACWR 1.12", "Strain moderado"],
     chronicLoad: 1640,
     dailyLoads: [360, 0, 510, 290, 0, 460, 220],
     hooper: { sleep: 1, fatigue: 2, stress: 1, soreness: 2, mood: 1 },
@@ -149,7 +149,7 @@ export const coachClients = [
     readiness: 82,
     activeBlocks: ["Umbral / potencia aerobica", "Puesta a punto 10K"],
     recentSessions: ["6x3 min Z4", "Rodaje Z2 50 min", "Fuerza general 45 min"],
-    metrics: ["sRPE 2320 UA", "Hooper 10/20", "ACWR 1.41", "Monotonia 1.8"],
+    metrics: ["Carga interna 2320 UA", "Hooper 10/20", "ACWR 1.41", "Monotonia 1.8"],
     chronicLoad: 1645,
     dailyLoads: [0, 620, 360, 610, 250, 480, 0],
     hooper: { sleep: 2, fatigue: 3, stress: 2, soreness: 2, mood: 1 },
@@ -192,7 +192,7 @@ export const coachClients = [
     readiness: 76,
     activeBlocks: ["Desarrollo general", "Adherencia y tecnica"],
     recentSessions: ["Sentadilla silla 3x10", "Caminata 30 min", "Movilidad cadera"],
-    metrics: ["sRPE 980 UA", "Hooper 6/20", "ACWR 0.86", "Series duras 8"],
+    metrics: ["Carga interna 980 UA", "Hooper 6/20", "ACWR 0.86", "Series duras 8"],
     chronicLoad: 1140,
     dailyLoads: [180, 0, 260, 0, 320, 0, 220],
     hooper: { sleep: 1, fatigue: 1, stress: 2, soreness: 1, mood: 1 },
@@ -219,7 +219,7 @@ export const coachClients = [
 
 export const decisionMetrics = [
   {
-    name: "sRPE semanal",
+    name: "Carga interna semanal",
     formula: "sumatorio semanal de duracion de sesion x RPE",
     description: "Carga interna semanal expresada en unidades arbitrarias.",
     source: "Foster et al."
@@ -255,7 +255,7 @@ export const ewmaMethod = {
 
 export const trafficLightRules = [
   {
-    metric: "sRPE semanal",
+    metric: "Carga interna semanal",
     green: "Dentro del plan o cambio moderado frente a la media individual",
     amber: "Cambio claro que requiere revisar objetivo, fatiga y disponibilidad",
     red: "Pico o caida brusca de carga semanal sin justificacion planificada"
@@ -283,7 +283,7 @@ export const trafficLightRules = [
 export const literatureNotes = [
   "Los umbrales absolutos funcionan como ayuda visual, no como diagnostico.",
   "ACWR con EWMA responde mejor a cambios recientes que la media movil simple, pero sigue requiriendo contexto.",
-  "Strain y sRPE semanal son mas utiles cuando se comparan contra el historial individual del deportista."
+  "Strain y carga interna semanal son mas utiles cuando se comparan contra el historial individual del deportista."
 ];
 
 export const goalInterpretations = {
@@ -887,7 +887,7 @@ export const decisionDashboard = {
   recommendationTone: "Amarillo",
   metrics: [
     {
-      label: "sRPE semanal",
+      label: "Carga interna semanal",
       value: "2480 UA",
       status: "Amarillo",
       interpretation: "+18% frente a la media individual"

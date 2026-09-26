@@ -534,10 +534,10 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
 
   if (latestRpe !== null && latestRpe >= 8) {
     alerts.push("Última sesión con RPE alto. Revisar recuperación.");
-    addWatchSignal("RPE final alto", `Último registro: RPE ${latestRpe}`, "training", "warning");
+    addWatchSignal("Esfuerzo global alto", `Último registro: ${latestRpe}/10`, "training", "warning");
   }
   if (loadData.weeklyLoad >= 2200) {
-    alerts.push("sRPE semanal alto. Revisar distribución de carga.");
+    alerts.push("Carga interna semanal alta. Revisar distribución de carga.");
     addWatchSignal("Carga semanal elevada", formatDashboardNumber(loadData.weeklyLoad, " UA"), "planning", "warning");
   }
   if (weeklyChangePct !== null && weeklyChangePct >= 35) {
@@ -1366,7 +1366,7 @@ function WeeklyLoadDecisionBlock({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold text-ink">Carga semanal</h3>
-          <p className="mt-1 text-sm text-ink/55">Tendencia de sRPE semanal y comparación con la semana anterior.</p>
+          <p className="mt-1 text-sm text-ink/55">Tendencia de carga interna semanal y comparación con la semana anterior.</p>
         </div>
         <span className="w-fit rounded-md bg-panel px-3 py-1 text-sm font-semibold text-ink/70">
           {dashboardData.sessionsWithSrpe.length > 0 ? formatDashboardNumber(loadData.weeklyLoad, " UA") : "Sin datos"}
@@ -1397,7 +1397,7 @@ function WeeklyLoadDecisionBlock({
               value={dashboardData.weeklyChangePct !== null ? `${dashboardData.weeklyChangePct > 0 ? "+" : ""}${dashboardData.weeklyChangePct}%` : "Sin referencia"}
             />
             <ClientInfoCard label="Media 4 semanas" value={formatDashboardNumber(dashboardData.weeklyAverage4, " UA")} />
-            <ClientInfoCard label="Sesiones con sRPE" value={`${dashboardData.sessionsWithSrpe.length}`} />
+            <ClientInfoCard label="Sesiones con carga interna" value={`${dashboardData.sessionsWithSrpe.length}`} />
             <ClientInfoCard label="ACWR" value={`${loadData.acwr.toFixed(2)} · ${loadData.acwrStatus === "Riesgo" ? "A revisar" : loadData.acwrStatus}`} />
             <ClientInfoCard label="Monotony" value={loadData.monotony > 0 ? `${loadData.monotony.toFixed(2)} · ${loadData.monotonyStatus}` : "Sin datos"} />
             <ClientInfoCard label="Strain" value={loadData.strain > 0 ? `${formatDashboardNumber(loadData.strain)} · ${loadData.strainStatus}` : "Sin datos"} />
@@ -1438,7 +1438,7 @@ function DailyLoadReadinessBlock({ dashboardData }: { dashboardData: ReturnType<
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-ink/55">
-            <span className="rounded-md border border-line bg-panel px-2 py-1 text-steel">Azul: sRPE</span>
+            <span className="rounded-md border border-line bg-panel px-2 py-1 text-steel">Azul: carga interna</span>
             <span className="rounded-md border border-line bg-panel px-2 py-1 text-violet-600 dark:text-violet-300">Violeta: readiness / 5</span>
             <span className="rounded-md border border-line bg-panel px-2 py-1">Arcilla: molestia registrada</span>
           </div>
@@ -1576,7 +1576,7 @@ function LoadDistributionDecisionBlock({ dashboardData }: { dashboardData: Retur
   return (
     <section className="coach-surface rounded-md p-4">
       <h3 className="font-semibold text-ink">Distribución de carga</h3>
-      <p className="mt-1 text-sm text-ink/55">Reparto de sesiones y sRPE de los últimos 7 días por tipo de trabajo.</p>
+      <p className="mt-1 text-sm text-ink/55">Reparto de sesiones y carga interna de los últimos 7 días por tipo de trabajo.</p>
       {distribution.length > 0 ? (
         <div className="mt-4 grid gap-3">
           {distribution.map((entry) => (

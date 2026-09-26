@@ -731,7 +731,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                       </div>
                     ) : null}
                     <div className="grid grid-cols-2 gap-2">
-                      <ClientInfoCard label="sRPE" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
+                      <ClientInfoCard label="Carga interna" value={srpe !== null ? `${srpe} UA` : "Pendiente"} />
                       {hasDisplayValue(distance) ? <ClientInfoCard label="Distancia" value={formatResistanceDistance(distance)} /> : null}
                     </div>
                     <p className="text-sm text-ink/60">Tipo registrado: {displayValue(session.type, "Sesión")}</p>
@@ -788,7 +788,7 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           <p>Duración realizada: <span className="font-semibold text-ink">{hasDisplayValue(resistanceDuration) ? `${resistanceDuration} min` : "Sin registrar"}</span></p>
                           <p>Distancia: <span className="font-semibold text-ink">{formatResistanceDistance(session.cardioResult?.distanceMeters)}</span></p>
-                          <p>RPE final: <span className="font-semibold text-ink">{hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"}</span></p>
+                          <p>Esfuerzo global: <span className="font-semibold text-ink">{hasDisplayValue(session.finalRpe) ? `${session.finalRpe}/10` : "Sin registrar"}</span></p>
                           <p>Deporte: <span className="font-semibold text-ink">{resistanceZoneGuide.zone ? resistanceZoneGuide.profile.name : "Sin especificar"}</span></p>
                           <p>Zona objetivo: <span className="font-semibold text-ink">{resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? "Sin especificar"}</span></p>
                           {session.cardioResult?.intervalsCompleted ? (

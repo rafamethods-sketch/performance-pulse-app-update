@@ -10,6 +10,7 @@ import type { ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
 import type { CardioPlan, CardioResult, CardioZone } from "@/lib/cardio-deviation";
 import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
+import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
 import {
@@ -514,6 +515,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [wellnessConfirmed, setWellnessConfirmed] = useState(false);
   const [showSessionPreview, setShowSessionPreview] = useState(false);
   const [showWellnessModal, setShowWellnessModal] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
   const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
@@ -522,8 +524,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     main: false
   });
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
-  const [athleteQuickFeedback, setAthleteQuickFeedback] = useState<"up" | "down" | null>(null);
-  const [athleteQuickFeedbackNote, setAthleteQuickFeedbackNote] = useState("");
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
   const [discomfortAnswer, setDiscomfortAnswer] = useState<"" | "no" | "yes">("");
@@ -571,9 +571,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [menstrualMessage, setMenstrualMessage] = useState("");
   const [showMenstrualDetails, setShowMenstrualDetails] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
-  const calculatedSrpe = actualDurationMinutes > 0 && finalRpe > 0
-    ? actualDurationMinutes * finalRpe
-    : null;
   const wellnessComplete = athleteWellnessFields.every((field) => {
     const value = getPositiveWellnessValue(wellness, field.key);
     return value >= 1 && value <= 5;
@@ -606,6 +603,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setWellnessConfirmed(Boolean(session?.wellnessConfirmedAt || session?.completed || session?.wellness));
     setShowSessionPreview(false);
     setShowWellnessModal(false);
+    setShowFinalizeModal(false);
     setPerformedExercises(
       session?.performedExercises?.length
         ? session.performedExercises
@@ -617,8 +615,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       main: false
     });
     setActualDurationMinutes(0);
-    setAthleteQuickFeedback(null);
-    setAthleteQuickFeedbackNote("");
     setFinalRpe(0);
     setAthleteSessionNotes("");
     setDiscomfortAnswer("");
@@ -667,7 +663,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   }, [client?.menstrualTracking, session, todayKey]);
 
   useEffect(() => {
-    if (!showSessionPreview && !showWellnessModal) return;
+    if (!showSessionPreview && !showWellnessModal && !showFinalizeModal) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -676,6 +672,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       if (event.key === "Escape") {
         setShowSessionPreview(false);
         setShowWellnessModal(false);
+        setShowFinalizeModal(false);
       }
     };
 
@@ -685,7 +682,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [showSessionPreview, showWellnessModal]);
+  }, [showFinalizeModal, showSessionPreview, showWellnessModal]);
 
   function updateExercise(index: number, updates: Partial<AthleteExercise>) {
     setPerformedExercises((current) =>
@@ -744,7 +741,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   function submitSession() {
     if (!client || !session || sessionIndex < 0) return;
     if (!finalRpeValid) {
-      setValidationMessage("Introduce el RPE final de la sesión para poder enviarla.");
+      setValidationMessage("Introduce el esfuerzo global de la sesión para poder enviarla.");
       return;
     }
     if (!durationValid) {
@@ -781,8 +778,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     const updatedSession: AthleteSessionRecord = {
       ...session,
       actualDurationMinutes,
-      athleteQuickFeedback,
-      athleteQuickFeedbackNote: athleteQuickFeedbackNote.trim() || undefined,
       cardioResult: isResistanceSession
         ? buildCardioResultFromDraft({
             ...cardioResultDraft,
@@ -796,7 +791,8 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       finalRpe,
       performedExercises,
       reviewStatus: "pending",
-      sRPE: actualDurationMinutes * finalRpe,
+      // Legacy field: stores internal load (session RPE × duration), not the 1–10 session RPE.
+      sRPE: calculateSessionLoad(finalRpe, actualDurationMinutes),
       status: "Completada",
       wellness: buildStoredAthleteWellness(wellness),
       wellnessConfirmedAt: session.wellnessConfirmedAt ?? new Date().toISOString()
@@ -809,6 +805,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       )
     } as TClient);
     setValidationMessage("");
+    setShowFinalizeModal(false);
   }
 
   function saveMenstrualTracking() {
@@ -1178,10 +1175,24 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       {menstrualTrackingBlock}
 
       {sessionAlreadySent ? (
-        <section className="rounded-md border border-line bg-panel p-5 text-center shadow-soft">
-          <h3 className="font-semibold text-[rgb(var(--color-success))]">Sesión enviada al entrenador.</h3>
-          <p className="mt-2 text-sm text-ink/70">sRPE: {session.sRPE ? `${session.sRPE} UA` : "Pendiente"}</p>
-        </section>
+        <div className="grid gap-4">
+          <section className="rounded-md border border-line bg-panel p-5 shadow-soft">
+            <h3 className="font-semibold text-[rgb(var(--color-success))]">Sesión finalizada</h3>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink/70">
+              <span>Esfuerzo global: {session.finalRpe ? `${session.finalRpe}/10` : "Sin registrar"}</span>
+              <span>Duración: {session.actualDurationMinutes ? `${session.actualDurationMinutes} min` : "Sin registrar"}</span>
+              <span>Carga interna: {session.sRPE ? `${session.sRPE} UA` : "Pendiente"}</span>
+            </div>
+            {session.finalNotes ? <p className="mt-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink/65">{session.finalNotes}</p> : null}
+          </section>
+          <SessionPlanVsActual
+            date={session.date}
+            performedExercises={session.performedExercises ?? []}
+            plannedExercises={session.plannedExercises ?? []}
+            summary={session.summary}
+            type={session.type}
+          />
+        </div>
       ) : (
         <>
           <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
@@ -1358,14 +1369,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     <p className="mt-3 rounded-md border border-line bg-panel/35 px-3 py-2 text-sm text-ink/65">{session.cardioPlan.notes}</p>
                   ) : null}
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <AthleteNumberField
-                      label="Duración real en minutos"
-                      onChange={(value) => {
-                        setActualDurationMinutes(value);
-                        setCardioResultDraft((current) => ({ ...current, durationMinutes: value ? `${value}` : "" }));
-                      }}
-                      value={actualDurationMinutes}
-                    />
                     <label className="space-y-2 text-sm font-medium text-ink/75">
                       Distancia real opcional
                       <input
@@ -1407,15 +1410,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                         value={cardioResultDraft.recoveryCompleted}
                       />
                     </label>
-                    <AthleteNumberField
-                      label="RPE final de sesión"
-                      max={10}
-                      onChange={(value) => {
-                        setFinalRpe(value);
-                        setCardioResultDraft((current) => ({ ...current, perceivedRpe: value ? `${value}` : "" }));
-                      }}
-                      value={finalRpe}
-                    />
                     <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
                       Observaciones sobre método
                       <textarea
@@ -1426,11 +1420,6 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                       />
                     </label>
                   </div>
-                  {!finalRpeValid ? (
-                    <p className="mt-3 text-sm font-medium text-clay">
-                      Introduce el RPE final de la sesión para poder enviarla.
-                    </p>
-                  ) : null}
                 <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
                     <p className="text-sm font-semibold text-ink">Tiempo en zonas</p>
                     <p className="mt-1 text-xs text-ink/50">Introduce minutos por zona solo si los tienes. Se guardan internamente en segundos.</p>
@@ -1461,163 +1450,15 @@ export function AthleteTodayView<TClient extends AthleteClient>({
               ) : null}
 
               <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-ink">Registro final de sesión</h3>
-                    <p className="mt-1 text-sm text-ink/60">Completa los datos reales al terminar.</p>
+                    <h3 className="text-lg font-semibold text-ink">Cuando termines</h3>
+                    <p className="mt-1 text-sm text-ink/60">Cierra la sesión con esfuerzo global, molestias, comentario y duración.</p>
                   </div>
-                  <span className="w-fit rounded-md bg-panel/60 px-3 py-1 text-sm font-semibold text-ink">
-                    sRPE: {calculatedSrpe ? `${calculatedSrpe} UA` : "Pendiente"}
-                  </span>
+                  <button className="h-11 w-full rounded-md bg-ink px-5 text-sm font-semibold text-white sm:w-auto" onClick={() => setShowFinalizeModal(true)} type="button">
+                    Finalizar sesión
+                  </button>
                 </div>
-                {!isResistanceSession ? (
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <AthleteNumberField label="Duración real en minutos" onChange={setActualDurationMinutes} value={actualDurationMinutes} />
-                    <AthleteNumberField label="RPE final de sesión" max={10} onChange={setFinalRpe} value={finalRpe} />
-                  </div>
-                ) : null}
-                {!isResistanceSession && !finalRpeValid ? (
-                  <p className="mt-3 text-sm font-medium text-clay">
-                    Introduce el RPE final de la sesión para poder enviarla.
-                  </p>
-                ) : null}
-                <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-                  <p className="text-sm font-semibold text-ink">¿Has tenido alguna molestia durante la sesión?</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {([
-                      ["no", "No"],
-                      ["yes", "Sí"]
-                    ] as const).map(([value, label]) => (
-                      <button
-                        aria-pressed={discomfortAnswer === value}
-                        className={`rounded-md border px-4 py-2 text-sm font-semibold ${discomfortAnswer === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`}
-                        key={value}
-                        onClick={() => {
-                          setDiscomfortAnswer(value);
-                          setValidationMessage("");
-                        }}
-                        type="button"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {!discomfortAnswer ? (
-                    <p className="mt-2 text-sm font-medium text-clay">Responde esta pregunta para poder enviar la sesión.</p>
-                  ) : null}
-
-                  {discomfortAnswer === "yes" ? (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <label className="space-y-2 text-sm font-medium text-ink/75">
-                        Zona corporal
-                        <input
-                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, bodyArea: event.target.value }))}
-                          placeholder="Ej: rodilla derecha, lumbar, hombro"
-                          value={discomfortDraft.bodyArea}
-                        />
-                      </label>
-                      <label className="space-y-2 text-sm font-medium text-ink/75">
-                        Ejercicio relacionado
-                        <select
-                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, exerciseKey: event.target.value }))}
-                          value={discomfortDraft.exerciseKey}
-                        >
-                          <option value="">Sin asociar</option>
-                          {performedExercises.map((exercise, index) => (
-                            <option key={`${exercise.id || exercise.exerciseName}-${index}`} value={`${index}`}>
-                              {exercise.exerciseName || exercise.name || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar"}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="space-y-2 text-sm font-medium text-ink/75">
-                        Fase del ejercicio
-                        <select
-                          className="h-11 w-full rounded-md border border-line bg-white px-3 text-ink outline-none focus:border-moss"
-                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, phase: event.target.value }))}
-                          value={discomfortDraft.phase}
-                        >
-                          <option value="">Selecciona una fase</option>
-                          {discomfortPhases.map((phase) => (
-                            <option key={phase} value={phase}>{phase}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <AthleteNumberField
-                        label="Intensidad 1-10"
-                        max={10}
-                        min={1}
-                        onChange={(value) => setDiscomfortDraft((current) => ({ ...current, intensity: value }))}
-                        value={discomfortDraft.intensity}
-                      />
-                      <label className="space-y-2 text-sm font-medium text-ink/75 sm:col-span-2">
-                        Descripción breve
-                        <textarea
-                          className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
-                          onChange={(event) => setDiscomfortDraft((current) => ({ ...current, notes: event.target.value }))}
-                          placeholder="Opcional: cuándo apareció, sensación, si cambió al ajustar..."
-                          value={discomfortDraft.notes}
-                        />
-                      </label>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="mt-4 rounded-md border border-line bg-panel/35 p-4">
-                  <p className="text-sm font-semibold text-ink">¿Cómo te ha sentado la sesión?</p>
-                  <p className="mt-1 text-xs text-ink/50">
-                    Opcional. Esto ayuda a tu entrenador a ajustar la planificación.
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {([
-                      ["up", "👍 Bien"],
-                      ["down", "👎 Mal"]
-                    ] as const).map(([value, label]) => (
-                      <button
-                        aria-pressed={athleteQuickFeedback === value}
-                        className={`rounded-md border px-4 py-2 text-sm font-semibold ${
-                          athleteQuickFeedback === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"
-                        }`}
-                        onClick={() => setAthleteQuickFeedback((current) => current === value ? null : value)}
-                        type="button"
-                        key={value}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
-                    Comentario breve
-                    <textarea
-                      className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
-                      onChange={(event) => setAthleteQuickFeedbackNote(event.target.value)}
-                      placeholder="Opcional: qué fue bien o qué no sentó tan bien."
-                      value={athleteQuickFeedbackNote}
-                    />
-                  </label>
-                  <p className="mt-2 text-xs text-ink/45">
-                    Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
-                  </p>
-                </div>
-                <label className="mt-4 block space-y-2 text-sm font-medium text-ink/75">
-                  Notas generales
-                  <textarea
-                    className="min-h-20 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-ink outline-none focus:border-moss"
-                    onChange={(event) => setAthleteSessionNotes(event.target.value)}
-                    placeholder="Sensaciones, molestias o cambios realizados"
-                    value={athleteSessionNotes}
-                  />
-                </label>
-                <button
-                  className="mt-4 h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={!canSubmitSession}
-                  onClick={submitSession}
-                  type="button"
-                >
-                  Enviar sesión al entrenador
-                </button>
-                {validationMessage ? <p className="mt-3 text-sm font-medium text-coral">{validationMessage}</p> : null}
               </section>
             </>
           ) : (
@@ -1643,6 +1484,137 @@ export function AthleteTodayView<TClient extends AthleteClient>({
           wellnessComplete={wellnessComplete}
         />
       ) : null}
+      {showFinalizeModal ? (
+        <AthleteFinalizeSessionModal
+          actualDurationMinutes={actualDurationMinutes}
+          canSubmit={canSubmitSession}
+          discomfortAnswer={discomfortAnswer}
+          discomfortDraft={discomfortDraft}
+          finalRpe={finalRpe}
+          notes={athleteSessionNotes}
+          onClose={() => setShowFinalizeModal(false)}
+          onDiscomfortAnswerChange={(value) => {
+            setDiscomfortAnswer(value);
+            setValidationMessage("");
+          }}
+          onDiscomfortDraftChange={setDiscomfortDraft}
+          onDurationChange={setActualDurationMinutes}
+          onFinalRpeChange={setFinalRpe}
+          onNotesChange={setAthleteSessionNotes}
+          onSubmit={submitSession}
+          performedExercises={performedExercises}
+          plannedExercises={session.plannedExercises ?? []}
+          validationMessage={validationMessage}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function getFinalizePlannedSetCount(exercise: AthleteExercise) {
+  const sequenceCount = (exercise.plannedSetReps ?? []).filter(hasAthleteDisplayValue).length;
+  const parsedSets = Number(`${exercise.plannedSets ?? exercise.sets ?? ""}`.replace(",", "."));
+  return Math.max(sequenceCount, Number.isFinite(parsedSets) && parsedSets > 0 ? Math.trunc(parsedSets) : 0);
+}
+
+function getFinalizeRecordedSetCount(exercise: AthleteExercise) {
+  return (exercise.setDetails ?? []).filter((detail) =>
+    [detail.load, detail.reps, detail.rir, detail.rpe, detail.percent1RM, detail.velocity].some(hasAthleteDisplayValue)
+  ).length;
+}
+
+function AthleteFinalizeSessionModal({
+  actualDurationMinutes,
+  canSubmit,
+  discomfortAnswer,
+  discomfortDraft,
+  finalRpe,
+  notes,
+  onClose,
+  onDiscomfortAnswerChange,
+  onDiscomfortDraftChange,
+  onDurationChange,
+  onFinalRpeChange,
+  onNotesChange,
+  onSubmit,
+  performedExercises,
+  plannedExercises,
+  validationMessage
+}: {
+  actualDurationMinutes: number;
+  canSubmit: boolean;
+  discomfortAnswer: "" | "no" | "yes";
+  discomfortDraft: { bodyArea: string; exerciseKey: string; intensity: number; notes: string; phase: string };
+  finalRpe: number;
+  notes: string;
+  onClose: () => void;
+  onDiscomfortAnswerChange: (value: "no" | "yes") => void;
+  onDiscomfortDraftChange: Dispatch<SetStateAction<{ bodyArea: string; exerciseKey: string; intensity: number; notes: string; phase: string }>>;
+  onDurationChange: (value: number) => void;
+  onFinalRpeChange: (value: number) => void;
+  onNotesChange: (value: string) => void;
+  onSubmit: () => void;
+  performedExercises: AthleteExercise[];
+  plannedExercises: AthleteExercise[];
+  validationMessage: string;
+}) {
+  const plannedSetTotal = plannedExercises.reduce((total, exercise) => total + getFinalizePlannedSetCount(exercise), 0);
+  const recordedSetTotal = performedExercises.reduce((total, exercise) => total + getFinalizeRecordedSetCount(exercise), 0);
+  const pendingSetTotal = Math.max(0, plannedSetTotal - recordedSetTotal);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose} role="presentation">
+      <section aria-label="Finalizar sesión" aria-modal="true" className="max-h-[94dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-xl border border-line bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:max-h-[88vh] sm:rounded-xl sm:p-5" onClick={(event) => event.stopPropagation()} role="dialog">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-bold text-ink">Finalizar sesión</h3>
+            <p className="mt-1 text-sm text-ink/55">Completa estos cuatro datos antes de cerrar.</p>
+          </div>
+          <button aria-label="Cerrar finalización" className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-line bg-panel/45 font-semibold text-ink/60" onClick={onClose} type="button">X</button>
+        </div>
+
+        {pendingSetTotal > 0 ? <p className="mt-4 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/65">Quedan {pendingSetTotal} {pendingSetTotal === 1 ? "serie" : "series"} sin registrar. Puedes volver a la sesión o finalizar igualmente.</p> : null}
+
+        <div className="mt-4 grid gap-4">
+          <fieldset>
+            <legend className="text-sm font-semibold text-ink">Esfuerzo global</legend>
+            <p className="mt-1 text-xs text-ink/50">¿Qué esfuerzo tuvo la sesión en conjunto?</p>
+            <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-10">
+              {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
+                <button aria-pressed={finalRpe === value} className={`h-10 rounded-md border text-sm font-bold ${finalRpe === value ? "border-ink bg-ink text-white" : "border-line bg-panel/35 text-ink/70"}`} key={value} onClick={() => onFinalRpeChange(value)} type="button">{value}</button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="rounded-md border border-line bg-panel/25 p-3">
+            <legend className="px-1 text-sm font-semibold text-ink">¿Alguna molestia?</legend>
+            <div className="mt-1 flex gap-2">
+              {([['no', 'No'], ['yes', 'Sí']] as const).map(([value, label]) => (
+                <button aria-pressed={discomfortAnswer === value} className={`h-10 min-w-20 rounded-md border px-4 text-sm font-semibold ${discomfortAnswer === value ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/70"}`} key={value} onClick={() => onDiscomfortAnswerChange(value)} type="button">{label}</button>
+              ))}
+            </div>
+            {discomfortAnswer === "yes" ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-semibold text-ink/60">Zona corporal<input className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onDiscomfortDraftChange((current) => ({ ...current, bodyArea: event.target.value }))} placeholder="Ej: rodilla derecha" value={discomfortDraft.bodyArea} /></label>
+                <label className="space-y-1 text-xs font-semibold text-ink/60">Intensidad 1-10<input className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink" inputMode="numeric" max={10} min={1} onChange={(event) => onDiscomfortDraftChange((current) => ({ ...current, intensity: Number(event.target.value) || 0 }))} type="number" value={discomfortDraft.intensity || ""} /></label>
+                <label className="space-y-1 text-xs font-semibold text-ink/60">Fase<select className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onDiscomfortDraftChange((current) => ({ ...current, phase: event.target.value }))} value={discomfortDraft.phase}><option value="">Selecciona</option>{discomfortPhases.map((phase) => <option key={phase} value={phase}>{phase}</option>)}</select></label>
+                <label className="space-y-1 text-xs font-semibold text-ink/60">Ejercicio<select className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink" onChange={(event) => onDiscomfortDraftChange((current) => ({ ...current, exerciseKey: event.target.value }))} value={discomfortDraft.exerciseKey}><option value="">Sin asociar</option>{performedExercises.map((exercise, index) => <option key={`${exercise.id || exercise.exerciseName}-${index}`} value={`${index}`}>{exercise.exerciseName || exercise.name || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio"}</option>)}</select></label>
+                <label className="space-y-1 text-xs font-semibold text-ink/60 sm:col-span-2">Descripción · opcional<textarea className="min-h-16 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink" onChange={(event) => onDiscomfortDraftChange((current) => ({ ...current, notes: event.target.value }))} value={discomfortDraft.notes} /></label>
+              </div>
+            ) : null}
+          </fieldset>
+
+          <label className="space-y-1 text-sm font-semibold text-ink">Comentario <span className="font-normal text-ink/45">· opcional</span><textarea className="min-h-16 w-full rounded-md border border-line bg-panel/25 px-3 py-2 text-sm font-normal text-ink" onChange={(event) => onNotesChange(event.target.value)} placeholder="Algo que deba saber tu entrenador…" value={notes} /></label>
+
+          <label className="space-y-1 text-sm font-semibold text-ink">Duración<div className="flex items-center gap-2"><input className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/25 px-3 font-normal text-ink" inputMode="numeric" min={1} onChange={(event) => onDurationChange(Number(event.target.value) || 0)} placeholder="Minutos" type="number" value={actualDurationMinutes || ""} /><span className="text-sm text-ink/55">min</span></div></label>
+        </div>
+
+        {validationMessage ? <p className="mt-3 text-sm font-medium text-coral">{validationMessage}</p> : null}
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button className="h-11 rounded-md border border-line bg-white px-4 text-sm font-semibold text-ink" onClick={onClose} type="button">Volver a la sesión</button>
+          <button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!canSubmit} onClick={onSubmit} type="button">Finalizar sesión</button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1864,25 +1836,6 @@ function ClientInfoCard({ className = "", label, value }: { className?: string; 
       <p className="text-xs font-semibold uppercase text-ink/45">{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
-  );
-}
-
-function AthleteNumberField({ label, max, min = 0, onChange, value }: { label: string; max?: number; min?: number; onChange: (value: number) => void; value: number }) {
-  return (
-    <label className="space-y-2 text-sm font-medium text-ink/75">
-      {label}
-      <input
-        className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
-        inputMode="decimal"
-        onChange={(event) => {
-          const parsed = Number(event.target.value.replace(",", "."));
-          onChange(Number.isFinite(parsed) ? parsed : 0);
-        }}
-        placeholder={max ? `${min}-${max}` : undefined}
-        type="text"
-        value={value || ""}
-      />
-    </label>
   );
 }
 

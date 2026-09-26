@@ -118,10 +118,10 @@ export function getSessionImpact(session: SessionImpactInput): SessionImpact {
     }
 
     if (storedSrpe === null) reasons.push("Carga estimada con duración y RPE");
-    if (load >= impactThresholds.highSrpe) reasons.push("sRPE alto");
-    else if (load >= impactThresholds.moderateSrpe) reasons.push("sRPE moderado");
-    if (highRpe) reasons.push("RPE final alto");
-    else if (finalRpe !== null && finalRpe >= impactThresholds.moderateRpe) reasons.push("RPE final moderado");
+    if (load >= impactThresholds.highSrpe) reasons.push("Carga interna alta");
+    else if (load >= impactThresholds.moderateSrpe) reasons.push("Carga interna moderada");
+    if (highRpe) reasons.push("Esfuerzo global alto");
+    else if (finalRpe !== null && finalRpe >= impactThresholds.moderateRpe) reasons.push("Esfuerzo global moderado");
     if (longDuration) reasons.push("Duración elevada");
   }
 

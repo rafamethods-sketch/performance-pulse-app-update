@@ -273,7 +273,7 @@ export const planningConfig = {
     },
     {
       label: "Mixtas",
-      metrics: ["sRPE", "Tiempo de trabajo", "Rounds", "Numero de esfuerzos", "Sprints", "Aceleraciones", "Desaceleraciones", "Saltos", "Carga semanal", "Hooper"]
+      metrics: ["Carga interna", "Tiempo de trabajo", "Rounds", "Numero de esfuerzos", "Sprints", "Aceleraciones", "Desaceleraciones", "Saltos", "Carga semanal", "Hooper"]
     }
   ],
   primaryObjectiveExamples: [

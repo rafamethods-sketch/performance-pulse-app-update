@@ -287,10 +287,10 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
       clientAlerts.push({ client, label: "Sesión pendiente de revisar", tone: "revisar" });
     }
     if (latestSession && Number(getSessionRpe(latestSession)) >= 8) {
-      clientAlerts.push({ client, label: "RPE final alto", tone: "vigilar" });
+      clientAlerts.push({ client, label: "Esfuerzo global alto", tone: "vigilar" });
     }
     if (latestSession && Number(getSessionSrpe(latestSession)) >= 450) {
-      clientAlerts.push({ client, label: "sRPE alto en la última sesión", tone: "carga" });
+      clientAlerts.push({ client, label: "Carga interna alta en la última sesión", tone: "carga" });
     }
     if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) {
       clientAlerts.push({ client, label: "Revisar molestias / limitaciones", tone: "salud" });
@@ -397,7 +397,7 @@ export function CoachTodayView({ clients, onOpenTrainingSession }: CoachTodayVie
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <ClientInfoCard label="RPE" value={hasDisplayValue(rpe) ? `${rpe}/10` : "Pendiente"} />
                     <ClientInfoCard label="Duración" value={hasDisplayValue(duration) ? `${duration} min` : "Pendiente"} />
-                    <ClientInfoCard label="sRPE" value={hasDisplayValue(srpe) ? `${srpe} UA` : "Pendiente"} />
+                    <ClientInfoCard label="Carga interna" value={hasDisplayValue(srpe) ? `${srpe} UA` : "Pendiente"} />
                   </div>
                   <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/60">
                     {notes || "Sin notas registradas"}

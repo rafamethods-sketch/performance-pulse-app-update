@@ -2584,7 +2584,7 @@ function buildDemoClient(): CoachClient {
     lastActivity: "Core y accesorios - esta semana",
     level: "Intermedio",
     loadMetric: "ACWR demo 1.08 - monotonia demo 1.3",
-    metrics: ["sRPE demo 2180 UA", "Hooper demo 12/25", "Fatiga muscular visible"],
+    metrics: ["Carga interna demo 2180 UA", "Hooper demo 12/25", "Fatiga muscular visible"],
     modality: "Fuerza + resistencia",
     name: "Cliente Demo",
     nextEvent: `Control demo - ${getRelativeDateKey(14)}`,
@@ -2593,7 +2593,7 @@ function buildDemoClient(): CoachClient {
         {
           durationWeeks: 4,
           id: "demo-planning-block-1",
-          mainMetrics: ["sRPE", "RPE final", "series efectivas"],
+          mainMetrics: ["Carga interna", "Esfuerzo global", "series efectivas"],
           name: "Demo acumulacion",
           notes: "Bloque ficticio para probar planificacion visual.",
           primaryObjective: "Construir tolerancia a fuerza y cardio",
@@ -6405,7 +6405,7 @@ function ClientWellnessView({
 
 function DecisionDashboardView() {
   const primaryMetrics = decisionDashboard.metrics.filter((metric) =>
-    ["sRPE semanal", "Hooper", "ACWR EWMA", "Mapa de fatiga"].includes(metric.label)
+    ["Carga interna semanal", "Hooper", "ACWR EWMA", "Mapa de fatiga"].includes(metric.label)
   );
 
   return (
@@ -6492,7 +6492,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
 
       {client && loadData ? (
         <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <MetricPill label="sRPE semanal" status={loadData.acwrStatus} value={`${loadData.weeklyLoad.toFixed(0)} UA`} />
+          <MetricPill label="Carga interna semanal" status={loadData.acwrStatus} value={`${loadData.weeklyLoad.toFixed(0)} UA`} />
           <MetricPill label="Monotonia" status={loadData.monotonyStatus} value={loadData.monotony.toFixed(2)} />
           <MetricPill label="Strain" status={loadData.strainStatus} value={loadData.strain.toFixed(0)} />
           <MetricPill label="ACWR" status={loadData.acwrStatus} value={loadData.acwr.toFixed(2)} />
@@ -12081,7 +12081,7 @@ function getSetMethodLabel(method?: SetMethod | null) {
 
 const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> = {
   Cardio: {
-    primary: ["sRPE", "iTRIMP", "tiempo en zona", "distancia", "ritmo/potencia"],
+    primary: ["Carga interna", "iTRIMP", "tiempo en zona", "distancia", "ritmo/potencia"],
     fields: [
       "Duración planificada",
       "RPE esperado",
@@ -12109,7 +12109,7 @@ const coachSessionQuantifiers: Record<CoachSessionType, CoachSessionQuantifier> 
     ]
   },
   Mixta: {
-    primary: ["sRPE", "volumen-carga", "tiempo de trabajo", "rounds/esfuerzos", "carga semanal"],
+    primary: ["Carga interna", "volumen-carga", "tiempo de trabajo", "rounds/esfuerzos", "carga semanal"],
     fields: [
       "Bloque de fuerza",
       "Bloque metabólico",
@@ -12683,7 +12683,7 @@ function CoachTrainingPlanner({
   const planningLoadData = activeSessionClient ? getClientLoadData(activeSessionClient) : null;
   const planningActionAlerts = [
     ...(planningLoadData && planningLoadData.weeklyLoad >= 2200
-      ? [{ label: "sRPE semanal", tone: "high", value: `${Math.round(planningLoadData.weeklyLoad).toLocaleString("es-ES")} UA` }]
+      ? [{ label: "Carga interna semanal", tone: "high", value: `${Math.round(planningLoadData.weeklyLoad).toLocaleString("es-ES")} UA` }]
       : []),
     ...(planningLoadData && planningLoadData.acwrStatus !== "Controlado"
       ? [{ label: "ACWR", tone: planningLoadData.acwrStatus === "Alto" ? "high" : "moderate", value: planningLoadData.acwr.toFixed(2) }]
@@ -15355,7 +15355,7 @@ function SessionHistoryPanel({
             const resistanceInfoItems = [
               hasDisplayValue(resistanceDuration) ? ["Duración real", `${resistanceDuration} min`] : null,
               parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? ["Distancia real", formatResistanceDistance(session.cardioResult?.distanceMeters)] : null,
-              hasDisplayValue(session.finalRpe) ? ["RPE final", `${session.finalRpe}/10`] : null,
+              hasDisplayValue(session.finalRpe) ? ["Esfuerzo global (sRPE)", `${session.finalRpe}/10`] : null,
               resistanceZoneGuide.zone || hasDisplayValue(session.resistanceSport) ? ["Deporte", resistanceZoneGuide.profile.name] : null,
               resistanceZoneGuide.zone || session.cardioPlan?.targetZone ? ["Zona objetivo", resistanceZoneGuide.zone?.label ?? session.cardioPlan?.targetZone?.toUpperCase() ?? ""] : null,
               resistanceMethod ? ["Método", getResistanceMethodLabel(resistanceMethod)] : null,
@@ -15383,8 +15383,8 @@ function SessionHistoryPanel({
             ].filter((item): item is [string, string] => Boolean(item && hasDisplayValue(item[1]))) : [];
             const performedSummaryItems = [
               hasDisplayValue(session.actualDurationMinutes ?? session.duration) ? ["Duración real", `${session.actualDurationMinutes ?? session.duration} min`] : null,
-              hasDisplayValue(session.finalRpe ?? session.rpe) ? ["RPE final", `${session.finalRpe ?? session.rpe}/10`] : null,
-              srpe !== null ? ["sRPE", `${srpe} UA`] : null,
+              hasDisplayValue(session.finalRpe ?? session.rpe) ? ["Esfuerzo global (sRPE)", `${session.finalRpe ?? session.rpe}/10`] : null,
+              srpe !== null ? ["Carga interna", `${srpe} UA`] : null,
               complianceLabel ? ["Cumplimiento", complianceLabel] : null,
               parseResistanceNumber(session.cardioResult?.distanceMeters) > 0 ? ["Distancia", formatResistanceDistance(session.cardioResult?.distanceMeters)] : null,
               athleteQuickFeedbackLabel ? ["Feedback rápido", athleteQuickFeedbackLabel] : null
@@ -15435,7 +15435,7 @@ function SessionHistoryPanel({
                   <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
                     {srpe !== null ? (
                       <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">
-                        sRPE {srpe} UA
+                        Carga interna {srpe} UA
                       </span>
                     ) : null}
                     {hasDisplayValue(session.finalRpe ?? session.rpe) ? (
@@ -15579,7 +15579,7 @@ function SessionHistoryPanel({
                             {performedSummaryItems.length > 0 ? (
                               <div className="mt-3 flex flex-wrap gap-2">
                                 {performedSummaryItems.map(([label, value]) => (
-                                  <span className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${label === "RPE final" ? getRpeToneClass(value) : "border-line bg-panel/60 text-ink/65"}`} key={label}>
+                                  <span className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${label === "Esfuerzo global (sRPE)" ? getRpeToneClass(value) : "border-line bg-panel/60 text-ink/65"}`} key={label}>
                                     {label}: {value}
                                   </span>
                                 ))}
