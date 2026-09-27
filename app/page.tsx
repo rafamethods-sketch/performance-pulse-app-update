@@ -32,6 +32,7 @@ import { AthleteWeeklyLoadView } from "@/components/athlete/athlete-weekly-load-
 import { CalendarView } from "@/components/coach/coach-calendar-view";
 import { CoachAttentionCenter } from "@/components/coach/coach-attention-center";
 import { CoachAnkleAssessment } from "@/components/coach/coach-ankle-assessment";
+import { CoachHipAssessment } from "@/components/coach/coach-hip-assessment";
 import { CoachKneeAssessment } from "@/components/coach/coach-knee-assessment";
 import { CoachAnalyticsView } from "@/components/coach/coach-analytics-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
@@ -46,6 +47,7 @@ import { getSessionPlanVsActualProgress, SessionPlanVsActual } from "@/component
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
+import { getHipDomainStatuses, hipStatusLabels, type HipAssessment, type HipDomainStatus, type HipSharedPerformance } from "@/lib/hip-assessment";
 import {
   acwrRanges,
   calculateACWR,
@@ -1419,6 +1421,7 @@ type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
     protocolId?: string;
   }>;
   ankleAssessments?: AnkleAssessment[];
+  hipAssessments?: HipAssessment[];
   kneeAssessments?: KneeAssessment[];
   availableEquipment?: string;
   business?: ClientBusinessData;
@@ -10678,6 +10681,8 @@ function AssessmentsView({
   const [selectedAnkleAssessment, setSelectedAnkleAssessment] = useState<AnkleAssessment | null>(null);
   const [showKneeAssessment, setShowKneeAssessment] = useState(false);
   const [selectedKneeAssessment, setSelectedKneeAssessment] = useState<KneeAssessment | null>(null);
+  const [showHipAssessment, setShowHipAssessment] = useState(false);
+  const [selectedHipAssessment, setSelectedHipAssessment] = useState<HipAssessment | null>(null);
   const [assessmentDraft, setAssessmentDraft] = useState(emptyAssessmentDraft);
   const [assessmentFlowCategory, setAssessmentFlowCategory] = useState<AssessmentCatalogCategoryId | null>(null);
   const [assessmentFlowStep, setAssessmentFlowStep] = useState<"category" | "tests" | "manual" | "structured" | "loadVelocity">("category");
@@ -10708,6 +10713,8 @@ function AssessmentsView({
     setShowAnkleAssessment(false);
     setSelectedKneeAssessment(null);
     setShowKneeAssessment(false);
+    setSelectedHipAssessment(null);
+    setShowHipAssessment(false);
   }, [client?.id]);
 
   useEffect(() => {
@@ -10786,6 +10793,12 @@ function AssessmentsView({
       resetAssessmentForm();
       setSelectedKneeAssessment(null);
       setShowKneeAssessment(true);
+      return;
+    }
+    if (test.mode === "hip") {
+      resetAssessmentForm();
+      setSelectedHipAssessment(null);
+      setShowHipAssessment(true);
       return;
     }
 
@@ -11094,6 +11107,18 @@ function AssessmentsView({
     }
   }
 
+  function deleteHipAssessment(assessmentId: string) {
+    if (!client || !onUpdateClient || !window.confirm("¿Borrar esta valoración? Esta acción no se puede deshacer.")) return;
+    onUpdateClient({
+      ...client,
+      hipAssessments: (client.hipAssessments ?? []).filter((assessment) => assessment.id !== assessmentId)
+    });
+    if (selectedHipAssessment?.id === assessmentId) {
+      setSelectedHipAssessment(null);
+      setShowHipAssessment(false);
+    }
+  }
+
   function renderAssessmentGroupCard(group: AssessmentGroup) {
     const latestEntry = group.entries[group.entries.length - 1];
     const previousEntry = group.entries[group.entries.length - 2] ?? null;
@@ -11174,6 +11199,18 @@ function AssessmentsView({
     );
   }
 
+  const sharedHipPerformance: HipSharedPerformance | null = (() => {
+    const kneeAssessment = client?.kneeAssessments?.find((assessment) => (
+      assessment.performance.right !== null && assessment.performance.left !== null
+    ));
+    return kneeAssessment ? {
+      assessmentId: kneeAssessment.id,
+      date: kneeAssessment.date,
+      right: kneeAssessment.performance.right as number,
+      left: kneeAssessment.performance.left as number
+    } : null;
+  })();
+
   return (
     <div className="mt-6 grid gap-6">
       <section className="coach-surface rounded-md p-4">
@@ -11194,6 +11231,25 @@ function AssessmentsView({
             + Añadir valoración
           </button>
         </div>
+      </section>
+
+      <section className="coach-surface rounded-md p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
+            <h3 className="mt-1 font-semibold text-ink">Cadera v1</h3>
+            <p className="mt-1 text-sm text-ink/55">Localización, tolerancia, movilidad, fuerza y control funcional sin enfoque diagnóstico.</p>
+            <p className="mt-2 text-xs font-semibold text-ink/50">{client?.hipAssessments?.length ?? 0} valoraciones{client?.hipAssessments?.length ? ` · última ${formatDisplayDate(client.hipAssessments[0].date)}` : " · sin registros todavía"}</p>
+          </div>
+          <button className="w-fit rounded-md border border-line bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45" disabled={!client} onClick={() => { setSelectedHipAssessment(null); setShowHipAssessment(true); }} type="button">{client?.hipAssessments?.length ? "Reevaluar" : "Iniciar valoración"}</button>
+        </div>
+        {client?.hipAssessments?.length ? <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{client.hipAssessments.map((assessment) => {
+          const statuses = getHipDomainStatuses(assessment, sharedHipPerformance);
+          const tones: Record<HipDomainStatus, string> = { incomplete: "bg-panel text-ink/45", adequate: "bg-mint text-moss", finding: "bg-amber-50 text-amber-800", priority: "bg-orange-50 text-orange-800" };
+          const dots: Record<HipDomainStatus, string> = { incomplete: "bg-ink/25", adequate: "bg-moss", finding: "bg-amber-500", priority: "bg-orange-500" };
+          const mainStatus = (assessment.safetyFlag ? "priority" : Object.values(statuses).find((status) => status === "priority") ?? Object.values(statuses).find((status) => status === "finding") ?? Object.values(statuses).find((status) => status === "incomplete") ?? "adequate") as HipDomainStatus;
+          return <article className="flex items-center justify-between gap-3 rounded-md border border-line bg-white p-3" key={assessment.id}><div className="min-w-0"><p className="text-xs font-semibold uppercase text-moss">Cadera</p><p className="mt-1 text-sm font-semibold text-ink">{formatDisplayDate(assessment.date)}</p><span className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold ${tones[mainStatus]}`}><span className={`size-1.5 rounded-full ${dots[mainStatus]}`} />{hipStatusLabels[mainStatus]}</span></div><div className="flex shrink-0 gap-1.5"><button aria-label={`Ver valoración de cadera del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-line bg-panel text-ink/65 transition hover:text-ink" onClick={() => { setSelectedHipAssessment(assessment); setShowHipAssessment(true); }} title="Ver valoración" type="button"><Search size={15} /></button><button aria-label={`Borrar valoración de cadera del ${formatDisplayDate(assessment.date)}`} className="grid size-8 place-items-center rounded-md border border-coral/35 bg-coral/10 text-coral transition hover:bg-coral/15" onClick={() => deleteHipAssessment(assessment.id)} title="Borrar" type="button"><Trash2 size={15} /></button></div></article>;
+        })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Sin valoración. Inicia un primer registro para facilitar futuros retests.</p>}
       </section>
 
       <section className="coach-surface rounded-md p-4">
@@ -11629,6 +11685,18 @@ function AssessmentsView({
           onClose={() => { setShowKneeAssessment(false); setSelectedKneeAssessment(null); }}
           onSave={(assessment) => onUpdateClient({ ...client, kneeAssessments: [assessment, ...(client.kneeAssessments ?? [])] })}
           readOnly={Boolean(selectedKneeAssessment)}
+        />
+      ) : null}
+
+      {showHipAssessment && client && onUpdateClient ? (
+        <CoachHipAssessment
+          assessment={selectedHipAssessment ?? undefined}
+          clientName={client.name}
+          history={client.hipAssessments ?? []}
+          onClose={() => { setShowHipAssessment(false); setSelectedHipAssessment(null); }}
+          onSave={(assessment) => onUpdateClient({ ...client, hipAssessments: [assessment, ...(client.hipAssessments ?? [])] })}
+          readOnly={Boolean(selectedHipAssessment)}
+          sharedPerformance={sharedHipPerformance}
         />
       ) : null}
 

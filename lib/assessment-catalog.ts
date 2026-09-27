@@ -10,7 +10,7 @@ export type AssessmentCatalogTest = {
   id: string;
   label: string;
   metrics?: AssessmentMetricDefinition[];
-  mode: "manual" | "structured" | "load_velocity" | "ankle" | "knee";
+  mode: "manual" | "structured" | "load_velocity" | "ankle" | "knee" | "hip";
   summary?: {
     metricIds: string[];
     mode: "bilateral";
@@ -238,7 +238,8 @@ export const assessmentCatalog: AssessmentCatalogCategory[] = [
         label: "Valoraciones regionales",
         tests: [
           { id: "ankle", label: "Tobillo", mode: "ankle" },
-          { id: "knee", label: "Rodilla", mode: "knee" }
+          { id: "knee", label: "Rodilla", mode: "knee" },
+          { id: "hip", label: "Cadera", mode: "hip" }
         ]
       },
       { id: "general-functional-capacity", label: "Capacidad funcional general", tests: [] }
