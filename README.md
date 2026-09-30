@@ -22,7 +22,7 @@ La app arranca en `http://localhost:3000`.
 
 1. Crea un proyecto en Supabase.
 2. Copia `.env.example` a `.env.local`.
-3. Rellena `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. Rellena `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 4. Abre el SQL editor de Supabase.
 5. Ejecuta `supabase/migrations/001_initial_schema.sql`.
 
