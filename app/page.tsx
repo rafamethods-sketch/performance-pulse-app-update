@@ -1089,7 +1089,7 @@ function LoginCover({
 
   async function handleGoogleLogin() {
     if (!supabase) {
-      setAuthMessage("Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local.");
+      setAuthMessage("Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local.");
       return;
     }
 
