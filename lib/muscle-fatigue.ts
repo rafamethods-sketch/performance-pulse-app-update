@@ -1,4 +1,5 @@
 import { getExerciseById, type FatigueMapKey } from "@/lib/exercises";
+import { getSessionExerciseExecutionMode, type SessionExerciseExecutionMode } from "@/lib/session-execution";
 
 export type MuscleFatigueLevel = "none" | "low" | "moderate" | "high" | "very_high";
 
@@ -14,6 +15,7 @@ export type MuscleFatigueExercise = {
   actualRpe?: number | string | null;
   exerciseId?: string | null;
   exerciseRpe?: number | string | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   perceivedExertion?: number | string | null;
   plannedReps?: number | string | null;
   plannedSets?: number | string | null;
@@ -109,6 +111,7 @@ export function calculateWeeklyMuscleFatigue(sessions: MuscleFatigueSession[]): 
 
   sessions.forEach((session) => {
     getSessionExercises(session).forEach((exercise) => {
+      if (getSessionExerciseExecutionMode(exercise) === "completion_only") return;
       if (!exercise.exerciseId) return;
 
       const libraryExercise = getExerciseById(exercise.exerciseId);

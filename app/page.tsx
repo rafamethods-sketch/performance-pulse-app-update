@@ -136,6 +136,11 @@ import {
   type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
+import {
+  getDefaultSessionExerciseExecutionMode,
+  getSessionExerciseExecutionMode,
+  type SessionExerciseExecutionMode
+} from "@/lib/session-execution";
 import type { CardioActivitySummary, CardioConnectionStatus } from "@/lib/cardio-activities";
 import {
   analyzeCardioDeviation,
@@ -457,7 +462,10 @@ export default function ClientsPage() {
       ...exercise,
       actualRest: undefined,
       athleteNotes: undefined,
+      completion: undefined,
+      exerciseEffort: undefined,
       exerciseRpe: undefined,
+      omittedSetNumbers: undefined,
       performedRpe: undefined,
       planningSlotId: undefined,
       setDetails: undefined,
@@ -7430,6 +7438,7 @@ function PlanningView({
         block: section,
         exerciseId,
         exerciseName: exercise.name,
+        executionMode: getDefaultSessionExerciseExecutionMode(exerciseId),
         id: `planned-exercise-${Date.now()}-${slot.id}`,
         intensityMethod: "rir",
         planningSlotId: slot.id,
@@ -12084,6 +12093,7 @@ type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
   exerciseId: string;
   exerciseSearch: string;
+  executionMode?: SessionExerciseExecutionMode;
   id: string;
   intensityMethod?: "" | StrengthIntensityMethod;
   load: string;
@@ -12466,6 +12476,7 @@ function createSystemTemplateExercise(
     block,
     exerciseId,
     exerciseSearch: exercise?.name ?? "",
+    executionMode: getDefaultSessionExerciseExecutionMode(exerciseId),
     id: `system-template-exercise-${exerciseId}-${block}`,
     intensityMethod: prescription.intensityMethod ?? "rir",
     load: prescription.load ?? "",
@@ -12815,6 +12826,7 @@ function CoachTrainingPlanner({
         block: (exercise.block === "activation" || exercise.block === "main" || exercise.block === "auxiliary") ? exercise.block : "main",
         exerciseId: exercise.exerciseId ?? "",
         exerciseSearch: exercise.exerciseName ?? "",
+        executionMode: exercise.executionMode ?? undefined,
         id: exercise.id ?? `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
         load: String(exercise.plannedLoad ?? ""),
@@ -12951,6 +12963,7 @@ function CoachTrainingPlanner({
         block,
         exerciseId: "",
         exerciseSearch: "",
+        executionMode: "set_tracking",
         id: exerciseId,
         intensityMethod: "rir",
         load: "",
@@ -13049,6 +13062,7 @@ function CoachTrainingPlanner({
     updateStrengthExercise(draftExerciseId, {
       exerciseId: libraryExercise.id,
       exerciseSearch: libraryExercise.name,
+      executionMode: getDefaultSessionExerciseExecutionMode(libraryExercise.id),
       selectedEquipment: libraryExercise.equipment.length === 1 ? libraryExercise.equipment[0] : "",
       selectedVariantId: "",
       selectedVariantName: ""
@@ -13116,6 +13130,7 @@ function CoachTrainingPlanner({
     block: exercise.block,
     exerciseId: exercise.exerciseId,
     exerciseSearch: exercise.exerciseSearch,
+    executionMode: exercise.executionMode,
     id: exercise.id,
     intensityMethod: exercise.intensityMethod,
     load: exercise.load,
@@ -13174,6 +13189,7 @@ function CoachTrainingPlanner({
       bandResistance: exercise.bandResistance || undefined,
       exerciseId: exercise.exerciseId || null,
       exerciseName: getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar"),
+      executionMode: exercise.executionMode,
       id: exercise.id,
       intensityMethod: exercise.intensityMethod || undefined,
       observation: exercise.observation,
@@ -13305,6 +13321,7 @@ function CoachTrainingPlanner({
     setStrengthExercises(
       template.strengthExercises.map((exercise, index) => ({
         ...exercise,
+        executionMode: exercise.executionMode ?? getDefaultSessionExerciseExecutionMode(exercise.exerciseId),
         id: `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
         bandColor: exercise.bandColor ?? "",
@@ -15025,7 +15042,13 @@ function getCompactSetLabel(entry?: ReviewSessionExercise, source: "planned" | "
 }
 
 function getReviewExerciseRpe(entry?: ReviewSessionExercise) {
+  if (entry?.exerciseEffort?.type === "rpe") return entry.exerciseEffort.value;
   return entry?.exerciseRpe ?? entry?.rpe ?? entry?.actualRpe ?? entry?.perceivedExertion;
+}
+
+function getReviewExerciseRir(entry?: ReviewSessionExercise) {
+  if (entry?.exerciseEffort?.type === "rir") return entry.exerciseEffort.value;
+  return getPerformedValue(entry, "rir");
 }
 
 function getReviewIntensityMethod(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise): StrengthIntensityMethod | null {
@@ -15055,12 +15078,12 @@ function getReviewIntensityLabel(planned?: ReviewSessionExercise, performed?: Re
   if (method === "rpe") {
     const value = source === "planned"
       ? planned?.plannedRpe ?? planned?.targetRpe
-      : getReviewExerciseRpe(performed) ?? planned?.plannedRpe ?? planned?.targetRpe;
+      : getReviewExerciseRpe(performed);
     return hasDisplayValue(value) ? `RPE: ${value}` : "";
   }
 
   if (method === "rir") {
-    const value = source === "planned" ? getPlannedValue(planned, "rir") : getPerformedValue(performed, "rir");
+    const value = source === "planned" ? getPlannedValue(planned, "rir") : getReviewExerciseRir(performed);
     return hasDisplayValue(value) ? `RIR: ${value}` : "";
   }
 
@@ -15389,6 +15412,7 @@ function SessionHistoryPanel({
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const setProgress = getSessionPlanVsActualProgress({ plannedExercises, performedExercises });
             const hasSetExecution = setProgress.completedSets > 0;
+            const hasOmittedSets = performedExercises.some((exercise) => Boolean(exercise.omittedSetNumbers?.length));
             const executionBlockOptions = setProgress.blocks;
             const isExecutionDetailOpen = executionDetail?.sessionKey === sessionKey;
             const activeExecutionBlock = executionBlockOptions.some((block) => block.key === executionDetail?.block)
@@ -15424,14 +15448,14 @@ function SessionHistoryPanel({
             const detailRows = Array.from({ length: exerciseCount }, (_, index) => ({
               performed: performedExercises[index],
               planned: plannedExercises[index]
-            }));
+            })).filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "set_tracking");
             const groupedRows = getGroupedReviewRows(detailRows);
             const techniqueVideoRows = performedExercises
               .map((exercise, index) => ({ exercise, index }))
               .filter(({ exercise }) => hasDisplayValue(exercise.techniqueVideoUrl));
             const hasRealRegister = performedExercises.length > 0 || status === "Completada";
             const canReviewSession = reviewStatus === "reviewed" || reviewStatus === "pending";
-            const showStrengthReview = exerciseCount > 0;
+            const showStrengthReview = groupedRows.length > 0;
             const cardioZoneDistribution = formatCardioZones(session.cardioResult?.timeInZones);
             const resistanceInfoItems = [
               hasDisplayValue(resistanceDuration) ? ["Duración real", `${resistanceDuration} min`] : null,
@@ -15612,7 +15636,10 @@ function SessionHistoryPanel({
                           <div className="rounded-xl border border-line bg-panel/25 p-4">
                             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Ejecución de la sesión</p>
                             <p className="mt-1 text-sm text-ink/60">
-                              {setProgress.completedSets}/{setProgress.plannedSets} series registradas
+                              {[
+                                setProgress.plannedCompletionExercises > 0 ? `${setProgress.completedExercises}/${setProgress.plannedCompletionExercises} ejercicios completados` : "",
+                                setProgress.plannedSets > 0 ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas` : ""
+                              ].filter(Boolean).join(" · ") || "Sin ejecución registrada"}
                             </p>
                             {executionBlockOptions.length > 1 ? (
                               <div aria-label="Bloques de la sesión" className="mt-4 flex flex-wrap gap-2" role="tablist">
@@ -15627,7 +15654,10 @@ function SessionHistoryPanel({
                                       role="tab"
                                       type="button"
                                     >
-                                      {block.label} · {block.completedSets}/{block.plannedSets}
+                                      {block.label} · {[
+                                        block.plannedExercises > 0 ? `${block.completedExercises}/${block.plannedExercises} ejercicios` : "",
+                                        block.plannedSets > 0 ? `${block.completedSets}/${block.plannedSets} series` : ""
+                                      ].filter(Boolean).join(" · ")}
                                     </button>
                                   );
                                 })}
@@ -15635,7 +15665,7 @@ function SessionHistoryPanel({
                             ) : null}
                           </div>
 
-                          {hasSetExecution && activeExecutionBlock ? (
+                          {(hasSetExecution || hasOmittedSets || setProgress.plannedCompletionExercises > 0) && activeExecutionBlock ? (
                             <SessionPlanVsActual
                               date={formatDisplayDate(session.date)}
                               performedExercises={performedExercises}
@@ -15670,6 +15700,7 @@ function SessionHistoryPanel({
                                 label="Series realizadas"
                                 value={setProgress.plannedSets > 0 && hasSetExecution ? `${setProgress.completedSets}/${setProgress.plannedSets}` : "Sin registro por series"}
                               />
+                              {setProgress.plannedCompletionExercises > 0 ? <ClientInfoCard label="Ejercicios simples" value={`${setProgress.completedExercises}/${setProgress.plannedCompletionExercises}`} /> : null}
                               <ClientInfoCard
                                 label="Esfuerzo global"
                                 value={hasDisplayValue(session.finalRpe ?? session.rpe) ? `${session.finalRpe ?? session.rpe}/10` : "Sin registrar"}
@@ -15724,12 +15755,13 @@ function SessionHistoryPanel({
                               <div>
                                 <h5 className="text-sm font-semibold text-ink">Ejecución de la sesión</h5>
                                 <p className="mt-1 text-sm text-ink/55">
-                                  {setProgress.plannedSets > 0 && hasSetExecution
-                                    ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
-                                    : "Sin ejecución serie a serie registrada"}
+                                  {[
+                                    setProgress.plannedCompletionExercises > 0 ? `${setProgress.completedExercises}/${setProgress.plannedCompletionExercises} ejercicios completados` : "",
+                                    setProgress.plannedSets > 0 ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas` : ""
+                                  ].filter(Boolean).join(" · ") || "Sin ejecución registrada"}
                                 </p>
                               </div>
-                              {hasSetExecution && executionBlockOptions[0] ? (
+                              {(hasSetExecution || hasOmittedSets || setProgress.plannedCompletionExercises > 0) && executionBlockOptions[0] ? (
                                 <button
                                   className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-ink"
                                   onClick={() => setExecutionDetail({ block: executionBlockOptions[0].key, sessionKey })}

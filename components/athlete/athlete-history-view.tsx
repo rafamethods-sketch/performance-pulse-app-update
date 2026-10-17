@@ -9,6 +9,7 @@ import { getExerciseById } from "@/lib/exercises";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
+import { getSessionExerciseExecutionMode, type SessionExerciseCompletion, type SessionExerciseEffort, type SessionExerciseExecutionMode } from "@/lib/session-execution";
 
 type ResistanceCardioResult = CardioResult & {
   intensityCompleted?: string;
@@ -34,12 +35,16 @@ type ReviewSessionExercise = {
   bandColor?: string | null;
   bandResistance?: string | null;
   block?: string | null;
+  completion?: SessionExerciseCompletion | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
   exerciseRpe?: number | string | null;
+  exerciseEffort?: SessionExerciseEffort | null;
   id?: string | null;
   load?: number | string | null;
   name?: string | null;
+  omittedSetNumbers?: number[] | null;
   notes?: string | null;
   observation?: string | null;
   plannedLoad?: number | string | null;
@@ -301,8 +306,10 @@ function getExerciseSummary(entry: ReviewSessionExercise | undefined, mode: "pla
   const load = mode === "planned" ? getPlannedValue(entry, "load") : getPerformedValue(entry, "load");
   const rest = mode === "planned" ? getPlannedValue(entry, "rest") : getPerformedValue(entry, "rest");
   const rir = mode === "planned" ? getPlannedValue(entry, "rir") : getPerformedValue(entry, "rir");
-  const intensity = hasDisplayValue(entry.exerciseRpe)
-    ? `RPE ${entry.exerciseRpe}`
+  const intensity = entry.exerciseEffort
+    ? `${entry.exerciseEffort.type.toUpperCase()} ${entry.exerciseEffort.value}`
+    : hasDisplayValue(entry.exerciseRpe)
+      ? `RPE ${entry.exerciseRpe}`
     : hasDisplayValue(rir) ? `RIR ${rir}` : "";
   const volume = hasDisplayValue(sets) && hasDisplayValue(reps) ? `${sets}x${reps}` : "";
 
@@ -824,10 +831,15 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                             <div className="mt-2 grid gap-2">
                             {group.rows.map(({ planned, performed }, exerciseIndex) => {
                               const plannedSummary = getExerciseSummary(planned, "planned");
-                              const performedSummary = getExerciseSummary(performed, "performed");
+                              const completionOnly = getSessionExerciseExecutionMode(planned ?? performed) === "completion_only";
+                              const performedSummary = completionOnly
+                                ? (performed?.completion?.completed ? "✓ Completado" : "No completado")
+                                : getExerciseSummary(performed, "performed");
                               const hasExtraDetail = Boolean(
                                 hasDisplayValue(performed?.athleteNotes) ||
-                                getSetDetailsReps(performed).length > 0 ||
+                                (!completionOnly && getSetDetailsReps(performed).length > 0) ||
+                                (!completionOnly && Boolean(performed?.omittedSetNumbers?.length)) ||
+                                (!completionOnly && Boolean(performed?.exerciseEffort)) ||
                                 performed?.techniqueVideoUrl
                               );
                               return (
@@ -842,11 +854,13 @@ export function AthleteHistoryView({ client }: { client: AthleteHistoryClient | 
                             </div>
                             {hasExtraDetail ? (
                               <details className="mt-2 border-t border-line pt-2 text-sm text-ink/65">
-                                <summary className="cursor-pointer text-xs font-semibold text-ink/60">Detalle por serie</summary>
+                                <summary className="cursor-pointer text-xs font-semibold text-ink/60">{completionOnly ? "Detalles de ejecución" : "Detalle por serie"}</summary>
                                 {hasDisplayValue(performed?.athleteNotes) ? <p className="mt-2">{performed?.athleteNotes}</p> : null}
                                 {getSetDetailsReps(performed).length > 0 ? (
                                   <p className="mt-2"><span className="font-semibold text-ink">Detalle por serie: </span>{getSetDetailsReps(performed).join(" / ")} reps</p>
                                 ) : null}
+                                {performed?.omittedSetNumbers?.length ? <p className="mt-2"><span className="font-semibold text-ink">Series no realizadas: </span>{performed.omittedSetNumbers.join(", ")}</p> : null}
+                                {performed?.exerciseEffort ? <p className="mt-2"><span className="font-semibold text-ink">{performed.exerciseEffort.type.toUpperCase()} del ejercicio: </span>{performed.exerciseEffort.value}</p> : null}
                             {performed?.techniqueVideoUrl ? (
                               <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
                                 <p className="font-semibold text-ink">Vídeo de técnica enviado</p>
