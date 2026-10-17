@@ -541,11 +541,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
-  const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
-    activation: false,
-    auxiliary: false,
-    main: false
-  });
+  const [openExerciseBlock, setOpenExerciseBlock] = useState<AthleteExerciseBlockKey | null>(null);
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
@@ -627,16 +623,13 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setShowSessionPreview(false);
     setShowWellnessModal(false);
     setShowFinalizeModal(false);
-    setPerformedExercises(
-      session?.performedExercises?.length
-        ? session.performedExercises
-        : createAthleteExerciseEntries(session)
+    const nextExercises = session?.performedExercises?.length
+      ? session.performedExercises
+      : createAthleteExerciseEntries(session);
+    setPerformedExercises(nextExercises);
+    setOpenExerciseBlock(
+      athleteExerciseBlocks.find((block) => nextExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === block.key))?.key ?? null
     );
-    setCollapsedExerciseBlocks({
-      activation: false,
-      auxiliary: false,
-      main: false
-    });
     setActualDurationMinutes(0);
     setFinalRpe(0);
     setAthleteSessionNotes("");
@@ -1294,28 +1287,41 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                 <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                   <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
                   <div className="mt-4 space-y-4">
-                    {athleteExerciseBlocks.map((block) => {
+                    {athleteExerciseBlocks.filter((candidate) => performedExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === candidate.key)).map((block, blockIndex, existingBlocks) => {
                       const blockExercises = performedExercises
                         .map((exercise, index) => ({ exercise, index }))
                         .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
-                      const isCollapsed = collapsedExerciseBlocks[block.key];
+                      const isOpen = openExerciseBlock === block.key;
                       const exerciseGroups = block.key === "activation"
                         ? getAthleteActivationGroups(blockExercises)
                         : [{ key: block.key, label: "", exercises: blockExercises }];
-                      const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
+                      const completionExercises = blockExercises.filter(({ exercise }) => getSessionExerciseExecutionMode(exercise) === "completion_only");
+                      const trackedExercises = blockExercises.filter(({ exercise }) => getSessionExerciseExecutionMode(exercise) === "set_tracking");
+                      const completedExercises = completionExercises.filter(({ exercise }) => exercise.completion?.completed).length;
+                      const plannedSets = trackedExercises.reduce((total, { exercise }) => total + getFinalizePlannedSetCount(exercise), 0);
+                      const completedSets = trackedExercises.reduce((total, { exercise }) => total + getFinalizeRecordedSetCount(exercise), 0);
+                      const progressLabel = [
+                        completionExercises.length ? `${completedExercises}/${completionExercises.length} ejercicios` : "",
+                        plannedSets ? `${completedSets}/${plannedSets} series` : ""
+                      ].filter(Boolean).join(" · ") || "Pendiente";
+                      const nextBlock = existingBlocks[blockIndex + 1];
                       if (blockExercises.length === 0) return null;
 
                       return (
-                        <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
+                        <section className="rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={block.key}>
                           <button
-                            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
-                            onClick={() => setCollapsedExerciseBlocks((current) => ({ ...current, [block.key]: !current[block.key] }))}
+                            aria-expanded={isOpen}
+                            className="flex min-h-11 w-full items-center gap-3 rounded-md px-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+                            onClick={() => setOpenExerciseBlock((current) => current === block.key ? null : block.key)}
                             type="button"
                           >
-                            <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-                            <span>{block.label} · {exerciseCountLabel}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block">{block.label}</span>
+                              <span className="mt-0.5 block text-[11px] font-semibold normal-case tracking-normal text-ink/50">{progressLabel}</span>
+                            </span>
+                            <span className={`text-lg leading-none transition ${isOpen ? "rotate-180" : ""}`}>⌄</span>
                           </button>
-                          {!isCollapsed ? (
+                          {isOpen ? (
                             <div className="mt-3 grid gap-4">
                               {exerciseGroups.map((group) => (
                                 <div className="grid gap-3" key={group.key}>
@@ -1332,6 +1338,15 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                   ))}
                                 </div>
                               ))}
+                              {nextBlock ? (
+                                <button
+                                  className="min-h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 sm:ml-auto sm:w-auto"
+                                  onClick={() => setOpenExerciseBlock(nextBlock.key)}
+                                  type="button"
+                                >
+                                  Continuar a {nextBlock.label.toLowerCase()}
+                                </button>
+                              ) : null}
                             </div>
                           ) : null}
                         </section>
@@ -1983,7 +1998,9 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
   const [setDraft, setSetDraft] = useState<AthleteSetDetail>({ setNumber: totalSetCount + 1 });
   const [setValidation, setSetValidation] = useState("");
   const [effortDraft, setEffortDraft] = useState(exercise.exerciseEffort ? `${exercise.exerciseEffort.value}` : "");
-  const [showNotes, setShowNotes] = useState(Boolean(exercise.athleteNotes?.trim()));
+  const [showEffort, setShowEffort] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   useEffect(() => {
     if (editingSetNumber !== null) return;
@@ -2087,6 +2104,7 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
     const value = Number(effortDraft.replace(",", "."));
     if (!Number.isFinite(value) || value < 0 || value > 10) return;
     onUpdateExecution(index, { exerciseEffort: { type: intensityMethod, value } });
+    setShowEffort(false);
   }
 
   function isSetEqualToPlan(detail: AthleteSetDetail, setNumber: number) {
@@ -2103,14 +2121,20 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
     return equalValue(detail.reps, planned.reps) && equalValue(detail.load, planned.load);
   }
 
+  const plannedEffort = intensityMethod === "rpe"
+    ? exercise.plannedRpe ?? exercise.targetRpe
+    : intensityMethod === "rir"
+      ? exercise.plannedRir ?? exercise.targetRir
+      : null;
+
   return (
-    <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4">
+    <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3">
       <div className="flex items-start justify-between gap-3">
         <p className="font-semibold text-ink">{exerciseName}</p>
         {completionOnly ? (
           <span className="shrink-0 text-xs font-semibold text-ink/50">{exerciseCompleted ? "Completado" : "Pendiente"}</span>
         ) : (
-          <span className="shrink-0 text-xs font-semibold text-ink/50">{setDetails.length}/{totalSetCount} series realizadas</span>
+          <span className="shrink-0 text-xs font-semibold text-ink/50">{getFinalizeRecordedSetCount(exercise)}/{plannedSetCount} series</span>
         )}
       </div>
       {materialVariant ? (
@@ -2137,7 +2161,7 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
         >
           {exerciseCompleted ? "✓ Hecho" : "Marcar como hecho"}
         </button>
-      ) : <div className="mt-4 grid gap-2">
+      ) : <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: totalSetCount }, (_, indexOffset) => indexOffset + 1).map((setNumber) => {
           const actual = getSessionSetByNumber(setDetails, setNumber);
           const omitted = setNumber <= plannedSetCount && omittedSetNumbers.includes(setNumber);
@@ -2147,15 +2171,22 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
           const canConfirmPlan = hasAthleteDisplayValue(getPlannedSetValues(setNumber).reps);
           const display = omitted ? "No realizada" : actual ? `${hasAthleteDisplayValue(actual.load) ? `${actual.load} kg · ` : ""}${actual.reps ?? "—"} reps` : extra ? "Serie adicional" : getPlannedReference(setNumber) || "Sin detalle";
           return (
-            <div className={`rounded-md border p-2.5 ${omitted ? "border-clay/30 bg-clay/5" : actual ? "border-line bg-white" : "border-dashed border-line bg-panel/20"}`} key={`${exerciseKey}-${setNumber}`}>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="w-8 shrink-0 text-xs font-bold text-ink/50">{extra ? `E${setNumber - plannedSetCount}` : `S${setNumber}`}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{display}</span>
-                {!extra ? <button aria-label="Realizada según el plan" className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border text-base font-bold disabled:cursor-not-allowed disabled:opacity-40 ${equalToPlan ? "border-[rgb(var(--color-success))]/40 bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "border-line bg-white text-ink/55"}`} disabled={!canConfirmPlan} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
-                <button aria-label="Modificar serie" className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border text-sm ${actual && !equalToPlan ? "border-amber-400/50 bg-amber-50 text-amber-800" : "border-line bg-white text-ink/55"}`} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
-                <button aria-label={extra ? "Eliminar serie adicional" : "Serie no realizada"} className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border text-base ${omitted ? "border-clay/40 bg-clay/10 text-clay" : "border-line bg-white text-ink/55"}`} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "Serie no realizada"} type="button">×</button>
+            <div className={`rounded-md border p-3 ${isEditing ? "sm:col-span-2 xl:col-span-3" : ""} ${omitted ? "border-clay/30 bg-clay/5" : actual ? "border-line bg-white" : "border-dashed border-line bg-panel/20"}`} key={`${exerciseKey}-${setNumber}`}>
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-ink/50">{extra ? `Adicional ${setNumber - plannedSetCount}` : `S${setNumber}`}</span>
+                  <span className="mt-1 block break-words text-sm font-semibold text-ink">{display}</span>
+                </div>
+                {actual && !omitted ? <span className="text-sm font-bold text-[rgb(var(--color-success))]">{equalToPlan ? "✓" : "✎"}</span> : omitted ? <span className="text-sm font-bold text-clay">×</span> : null}
               </div>
-              {actual && !extra && !equalToPlan ? <p className="mt-1 pl-10 text-xs text-ink/45">Plan · {getPlannedReference(setNumber)}</p> : null}
+              {actual && !extra && !equalToPlan ? <p className="mt-1 text-xs text-ink/45">Plan · {getPlannedReference(setNumber)}</p> : null}
+              {!isEditing ? (
+                <div className="mt-3 flex items-center gap-2">
+                  {!extra ? <button aria-label="Realizada según el plan" className={`grid h-11 min-w-11 flex-1 place-items-center rounded-md border text-base font-bold disabled:cursor-not-allowed disabled:opacity-40 ${equalToPlan ? "border-[rgb(var(--color-success))]/40 bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "border-line bg-white text-ink/55"}`} disabled={!canConfirmPlan} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
+                  <button aria-label="Modificar serie" className={`grid h-11 min-w-11 flex-1 place-items-center rounded-md border text-sm ${actual && !equalToPlan ? "border-amber-400/50 bg-amber-50 text-amber-800" : "border-line bg-white text-ink/55"}`} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
+                  <button aria-label={extra ? "Eliminar serie adicional" : "Serie no realizada"} className={`grid h-11 min-w-11 flex-1 place-items-center rounded-md border text-base ${omitted ? "border-clay/40 bg-clay/10 text-clay" : "border-line bg-white text-ink/55"}`} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "Serie no realizada"} type="button">×</button>
+                </div>
+              ) : null}
               {isEditing ? (
                 <div className="mt-3 border-t border-line pt-3">
                   <p className="text-xs text-ink/50">{extra ? "Serie adicional" : `Plan · ${getPlannedReference(setNumber)}`}</p>
@@ -2170,37 +2201,34 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
             </div>
           );
         })}
-        <button className="min-h-11 rounded-md border border-dashed border-line bg-white px-3 text-sm font-semibold text-moss" onClick={() => beginEdit(Math.max(plannedSetCount, highestActualSetNumber) + 1)} type="button">+ Añadir serie</button>
-        {(intensityMethod === "rpe" || intensityMethod === "rir") ? (
-          <div className="mt-2 rounded-md border border-line bg-white p-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-ink/45">Esfuerzo del ejercicio</p>
-            <div className="mt-2 flex items-end gap-2"><AthleteExerciseInput className="flex-1" inputMode="decimal" label={intensityMethod.toUpperCase()} onChange={setEffortDraft} placeholder={`${intensityMethod === "rpe" ? exercise.plannedRpe ?? exercise.targetRpe ?? "" : exercise.plannedRir ?? exercise.targetRir ?? ""}`} value={effortDraft} /><button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={saveExerciseEffort} type="button">Guardar</button></div>
-            {exercise.exerciseEffort ? <p className="mt-2 text-xs font-semibold text-ink/55">Real · {exercise.exerciseEffort.type.toUpperCase()} {exercise.exerciseEffort.value}</p> : null}
-          </div>
-        ) : null}
       </div>}
-      <div className="mt-3">
-        {!showNotes ? (
-          <div>
-            {exercise.athleteNotes?.trim() ? <p className="mb-1 line-clamp-2 text-sm text-ink/60">{exercise.athleteNotes}</p> : null}
-            <button className="text-sm font-semibold text-moss" onClick={() => setShowNotes(true)} type="button">{exercise.athleteNotes?.trim() ? "Editar nota" : "+ Añadir nota"}</button>
-          </div>
-        ) : (
-          <div className="block space-y-1 text-xs font-medium text-ink/65">
-            <span className="flex items-center justify-between gap-2">
-              <label htmlFor={`${exerciseKey}-athlete-notes`}>Notas del deportista</label>
-              <button className="text-xs font-semibold text-ink/45" onClick={() => setShowNotes(false)} type="button">Cerrar</button>
-            </span>
-            <textarea className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss" id={`${exerciseKey}-athlete-notes`} onChange={(event) => onUpdate(index, { athleteNotes: event.target.value })} value={exercise.athleteNotes ?? ""} />
-          </div>
-        )}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3">
+        {!completionOnly ? <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => beginEdit(Math.max(plannedSetCount, highestActualSetNumber) + 1)} type="button">+ Añadir serie</button> : null}
+        <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowNotes((current) => !current)} type="button">{exercise.athleteNotes?.trim() ? "Nota · Editar" : "+ Nota"}</button>
+        <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowVideo((current) => !current)} type="button">{exercise.techniqueVideoUrl?.trim() ? `Vídeo añadido · ${athleteTechniqueVideoViewLabels[exercise.techniqueVideoView ?? "side"]}` : "+ Vídeo"}</button>
+        {(intensityMethod === "rpe" || intensityMethod === "rir") ? <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowEffort((current) => !current)} type="button">{exercise.exerciseEffort ? `${exercise.exerciseEffort.type.toUpperCase()} real · ${exercise.exerciseEffort.value} · Editar` : "+ Esfuerzo"}</button> : null}
       </div>
-      <div className="mt-3 rounded-md border border-line bg-white p-3">
-        <p className="text-sm font-semibold text-ink">Vídeo de técnica</p>
-        <p className="mt-1 text-xs text-ink/50">
-          Comparte solo vídeos que quieras que revise tu entrenador. Usa enlaces privados o no listados si contienen información personal.
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {!showNotes && exercise.athleteNotes?.trim() ? <p className="mt-1 line-clamp-2 text-sm text-ink/55">{exercise.athleteNotes}</p> : null}
+      {showNotes ? (
+        <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65" htmlFor={`${exerciseKey}-athlete-notes`}>
+          Nota del deportista
+          <textarea className="min-h-11 w-full resize-y rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-moss" id={`${exerciseKey}-athlete-notes`} onChange={(event) => onUpdate(index, { athleteNotes: event.target.value })} rows={1} value={exercise.athleteNotes ?? ""} />
+        </label>
+      ) : null}
+      {showEffort && (intensityMethod === "rpe" || intensityMethod === "rir") ? (
+        <div className="mt-3 rounded-md border border-line bg-white p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <AthleteExerciseInput className="flex-1" inputMode="decimal" label={`${intensityMethod.toUpperCase()} real`} onChange={setEffortDraft} value={effortDraft} />
+            <button className="h-11 rounded-md bg-ink px-4 text-sm font-semibold text-white" onClick={saveExerciseEffort} type="button">Guardar</button>
+          </div>
+          {hasAthleteDisplayValue(plannedEffort as number | string | null) ? <p className="mt-2 text-xs text-ink/50">Plan: {plannedEffort}</p> : null}
+        </div>
+      ) : null}
+      {showVideo ? (
+        <div className="mt-3 rounded-md border border-line bg-white p-3">
+          <p className="text-sm font-semibold text-ink">Vídeo para revisión del entrenador</p>
+          <p className="mt-1 text-xs text-ink/50">Comparte solo vídeos que quieras que revise tu entrenador. Usa enlaces privados o no listados si contienen información personal.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-xs font-medium text-ink/65 sm:col-span-2">
             Enlace al vídeo
             <input
@@ -2233,8 +2261,9 @@ function AthleteExerciseCard({ exercise, index, onToggleCompletion, onUpdate, on
               value={exercise.techniqueVideoNote ?? ""}
             />
           </label>
+          </div>
         </div>
-      </div>
+      ) : null}
     </article>
   );
 }
