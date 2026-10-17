@@ -15384,9 +15384,6 @@ function SessionHistoryPanel({
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const setProgress = getSessionPlanVsActualProgress({ plannedExercises, performedExercises });
             const hasSetExecution = setProgress.completedSets > 0;
-            const missingSetCount = setProgress.plannedSets > 0 && hasSetExecution
-              ? Math.max(0, setProgress.plannedSets - setProgress.completedSets)
-              : 0;
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
             const srpe = getSessionSrpe(session);
             const notes = session.finalNotes ?? session.notes;
@@ -15467,12 +15464,6 @@ function SessionHistoryPanel({
             const compactResistanceDistance = parseResistanceNumber(session.cardioResult?.distanceMeters) > 0
               ? formatResistanceDistance(session.cardioResult?.distanceMeters)
               : "";
-            const reviewItems = [
-              missingSetCount > 0 ? `${missingSetCount} ${missingSetCount === 1 ? "serie sin registrar" : "series sin registrar"}` : "",
-              session.discomfort?.hasDiscomfort ? "Molestia registrada" : "",
-              hasDisplayValue(notes) ? "Comentario del deportista" : ""
-            ].filter(Boolean).slice(0, 3);
-
             return (
               <article className="min-w-0 rounded-md border border-line bg-white px-3 py-2.5 sm:px-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -15622,17 +15613,6 @@ function SessionHistoryPanel({
                             </div>
                           </section>
 
-                          {reviewItems.length > 0 ? (
-                            <section className="rounded-xl border border-line bg-white p-4">
-                              <h5 className="text-sm font-semibold text-ink">Qué revisar</h5>
-                              <ul className="mt-2 grid gap-1.5 text-sm text-ink/65">
-                                {reviewItems.map((item) => <li className="flex gap-2" key={item}><span aria-hidden="true">·</span><span>{item}</span></li>)}
-                              </ul>
-                            </section>
-                          ) : (
-                            <p className="text-sm font-medium text-ink/50">Sin incidencias registradas.</p>
-                          )}
-
                           {hasDisplayValue(notes) ? (
                             <section className="rounded-xl border border-line bg-panel/25 p-4">
                               <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
@@ -15663,7 +15643,7 @@ function SessionHistoryPanel({
                             <summary className="cursor-pointer list-none">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                  <h5 className="font-semibold text-ink">Plan vs Real</h5>
+                                  <h5 className="text-sm font-semibold text-ink">Ejecución de la sesión</h5>
                                   <p className="mt-1 text-sm text-ink/55">
                                     {setProgress.plannedSets > 0 && hasSetExecution
                                       ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
@@ -15850,7 +15830,7 @@ function SessionHistoryPanel({
 
                     {hasResistanceData ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Información técnica de resistencia</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Información técnica de resistencia</summary>
                         {resistanceInfoItems.length > 0 ? (
                           <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {resistanceInfoItems.map(([label, value]) => (
@@ -15868,7 +15848,7 @@ function SessionHistoryPanel({
 
                     {cardioDeviation ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Detalle técnico de cardio</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Detalle técnico de cardio</summary>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
@@ -15910,20 +15890,9 @@ function SessionHistoryPanel({
                       </div>
                     ) : null}
 
-                    {athleteQuickFeedbackLabel ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <h5 className="font-semibold text-ink">Feedback rápido del deportista</h5>
-                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
-                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
-                        <p className="mt-2 text-xs text-ink/45">
-                          Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
-                        </p>
-                      </section>
-                    ) : null}
-
                     {techniqueVideoRows.length > 0 ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Vídeos y revisión técnica</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Vídeos y revisión técnica</summary>
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="mt-1 text-sm text-ink/55">
@@ -16154,11 +16123,19 @@ function SessionHistoryPanel({
                       </details>
                     ) : null}
 
+                    {athleteQuickFeedbackLabel ? (
+                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
+                        <h5 className="text-sm font-semibold text-ink">Feedback rápido del deportista</h5>
+                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
+                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                      </section>
+                    ) : null}
+
                     {canReviewSession ? (
                       <section className="mt-4 rounded-md border border-line bg-white p-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h5 className="font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
+                            <h5 className="text-sm font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
                             {session.reviewedAt ? (
                               <p className="mt-1 text-xs font-medium text-ink/50">
                                 Revisada: {formatDisplayDateTime(session.reviewedAt)}
