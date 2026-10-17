@@ -43,7 +43,7 @@ import { ResistanceMethodsView } from "@/components/coach/resistance-methods-vie
 import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
 import { ExerciseTempoEditor } from "@/components/shared/exercise-tempo-editor";
-import { getSessionPlanVsActualProgress, SessionPlanVsActual } from "@/components/shared/session-plan-vs-actual";
+import { getSessionPlanVsActualProgress, SessionPlanVsActual, type SessionComparisonBlock } from "@/components/shared/session-plan-vs-actual";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
@@ -15158,6 +15158,7 @@ function SessionHistoryPanel({
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
+  const [executionDetail, setExecutionDetail] = useState<{ block: SessionComparisonBlock; sessionKey: string } | null>(null);
   const [openSessionBlockStates, setOpenSessionBlockStates] = useState<Record<string, boolean>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [selectedExerciseDetail, setSelectedExerciseDetail] = useState<ReviewExerciseDetail | null>(null);
@@ -15280,6 +15281,10 @@ function SessionHistoryPanel({
         setReviewFeedbackModal(null);
         return;
       }
+      if (executionDetail) {
+        setExecutionDetail(null);
+        return;
+      }
       setOpenSessionKey("");
     };
 
@@ -15289,7 +15294,7 @@ function SessionHistoryPanel({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [openSessionKey, reviewFeedbackModal, selectedExerciseDetail]);
+  }, [executionDetail, openSessionKey, reviewFeedbackModal, selectedExerciseDetail]);
 
   return (
     <div>
@@ -15384,6 +15389,11 @@ function SessionHistoryPanel({
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const setProgress = getSessionPlanVsActualProgress({ plannedExercises, performedExercises });
             const hasSetExecution = setProgress.completedSets > 0;
+            const executionBlockOptions = setProgress.blocks;
+            const isExecutionDetailOpen = executionDetail?.sessionKey === sessionKey;
+            const activeExecutionBlock = executionBlockOptions.some((block) => block.key === executionDetail?.block)
+              ? executionDetail?.block
+              : executionBlockOptions[0]?.key;
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
             const srpe = getSessionSrpe(session);
             const notes = session.finalNotes ?? session.notes;
@@ -15543,7 +15553,10 @@ function SessionHistoryPanel({
                     aria-labelledby={`session-detail-title-${sessionIndex}`}
                     aria-modal="true"
                     className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-3 backdrop-blur-sm sm:p-5"
-                    onClick={() => setOpenSessionKey("")}
+                    onClick={() => {
+                      setExecutionDetail(null);
+                      setOpenSessionKey("");
+                    }}
                     role="dialog"
                   >
                     <div
@@ -15564,6 +15577,7 @@ function SessionHistoryPanel({
                             <button
                               className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint hover:text-ink"
                               onClick={() => {
+                                setExecutionDetail(null);
                                 setOpenSessionKey("");
                                 onEditSession(session.id as string);
                               }}
@@ -15575,13 +15589,68 @@ function SessionHistoryPanel({
                           <button
                             aria-label="Cerrar detalle"
                             className="grid size-9 place-items-center rounded-md border border-line bg-panel text-lg font-semibold text-ink transition hover:bg-mint"
-                            onClick={() => setOpenSessionKey("")}
+                            onClick={() => {
+                              setExecutionDetail(null);
+                              setOpenSessionKey("");
+                            }}
                             type="button"
                           >
                             ×
                           </button>
                         </div>
                       </div>
+                      {isExecutionDetailOpen ? (
+                        <div className="grid gap-4">
+                          <button
+                            className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-mint hover:text-ink"
+                            onClick={() => setExecutionDetail(null)}
+                            type="button"
+                          >
+                            ← Volver al resumen
+                          </button>
+
+                          <div className="rounded-xl border border-line bg-panel/25 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Ejecución de la sesión</p>
+                            <p className="mt-1 text-sm text-ink/60">
+                              {setProgress.completedSets}/{setProgress.plannedSets} series registradas
+                            </p>
+                            {executionBlockOptions.length > 1 ? (
+                              <div aria-label="Bloques de la sesión" className="mt-4 flex flex-wrap gap-2" role="tablist">
+                                {executionBlockOptions.map((block) => {
+                                  const selected = activeExecutionBlock === block.key;
+                                  return (
+                                    <button
+                                      aria-selected={selected}
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selected ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/65 hover:bg-mint"}`}
+                                      key={block.key}
+                                      onClick={() => setExecutionDetail({ block: block.key, sessionKey })}
+                                      role="tab"
+                                      type="button"
+                                    >
+                                      {block.label} · {block.completedSets}/{block.plannedSets}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {hasSetExecution && activeExecutionBlock ? (
+                            <SessionPlanVsActual
+                              date={formatDisplayDate(session.date)}
+                              performedExercises={performedExercises}
+                              plannedExercises={plannedExercises}
+                              showHeader={false}
+                              summary={getSessionHistoryTitle(session)}
+                              type={displayValue(session.type, "Sesión")}
+                              visibleBlock={activeExecutionBlock}
+                            />
+                          ) : (
+                            <p className="rounded-xl border border-line bg-panel/35 p-4 text-sm font-medium text-ink/55">Sin ejecución serie a serie registrada.</p>
+                          )}
+                        </div>
+                      ) : (
+                        <>
                       {status === "Completada" ? (
                         <div className="mb-4 grid gap-4">
                           <section className="rounded-xl border border-line bg-panel/25 p-4">
@@ -15613,11 +15682,22 @@ function SessionHistoryPanel({
                             </div>
                           </section>
 
-                          {hasDisplayValue(notes) ? (
-                            <section className="rounded-xl border border-line bg-panel/25 p-4">
-                              <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
-                              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{notes}</p>
-                            </section>
+                          {(hasDisplayValue(notes) || athleteQuickFeedbackLabel) ? (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {hasDisplayValue(notes) ? (
+                                <section className={`rounded-xl border border-line bg-panel/25 p-4 ${athleteQuickFeedbackLabel ? "" : "md:col-span-2"}`}>
+                                  <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{notes}</p>
+                                </section>
+                              ) : null}
+                              {athleteQuickFeedbackLabel ? (
+                                <section className={`rounded-xl border border-line bg-panel/25 p-4 text-sm text-ink/65 ${hasDisplayValue(notes) ? "" : "md:col-span-2"}`}>
+                                  <h5 className="text-sm font-semibold text-ink">Feedback rápido del deportista</h5>
+                                  <p className="mt-2">{athleteQuickFeedbackLabel}</p>
+                                  {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                                </section>
+                              ) : null}
+                            </div>
                           ) : null}
 
                           {session.discomfort?.hasDiscomfort ? (
@@ -15639,35 +15719,27 @@ function SessionHistoryPanel({
                             </section>
                           ) : null}
 
-                          <details className="rounded-xl border border-line bg-panel/25 p-4">
-                            <summary className="cursor-pointer list-none">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                  <h5 className="text-sm font-semibold text-ink">Ejecución de la sesión</h5>
-                                  <p className="mt-1 text-sm text-ink/55">
-                                    {setProgress.plannedSets > 0 && hasSetExecution
-                                      ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
-                                      : "Sin ejecución serie a serie registrada"}
-                                  </p>
-                                </div>
-                                <span className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65">Ver detalle</span>
+                          <section className="rounded-xl border border-line bg-panel/25 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h5 className="text-sm font-semibold text-ink">Ejecución de la sesión</h5>
+                                <p className="mt-1 text-sm text-ink/55">
+                                  {setProgress.plannedSets > 0 && hasSetExecution
+                                    ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
+                                    : "Sin ejecución serie a serie registrada"}
+                                </p>
                               </div>
-                            </summary>
-                            <div className="mt-4 border-t border-line pt-4">
-                              {hasSetExecution ? (
-                                <SessionPlanVsActual
-                                  date={formatDisplayDate(session.date)}
-                                  performedExercises={performedExercises}
-                                  plannedExercises={plannedExercises}
-                                  showHeader={false}
-                                  summary={getSessionHistoryTitle(session)}
-                                  type={displayValue(session.type, "Sesión")}
-                                />
-                              ) : (
-                                <p className="text-sm font-medium text-ink/55">Sin ejecución serie a serie registrada.</p>
-                              )}
+                              {hasSetExecution && executionBlockOptions[0] ? (
+                                <button
+                                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-ink"
+                                  onClick={() => setExecutionDetail({ block: executionBlockOptions[0].key, sessionKey })}
+                                  type="button"
+                                >
+                                  Ver detalle
+                                </button>
+                              ) : null}
                             </div>
-                          </details>
+                          </section>
                         </div>
                       ) : null}
 
@@ -16123,14 +16195,6 @@ function SessionHistoryPanel({
                       </details>
                     ) : null}
 
-                    {athleteQuickFeedbackLabel ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <h5 className="text-sm font-semibold text-ink">Feedback rápido del deportista</h5>
-                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
-                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
-                      </section>
-                    ) : null}
-
                     {canReviewSession ? (
                       <section className="mt-4 rounded-md border border-line bg-white p-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -16157,6 +16221,8 @@ function SessionHistoryPanel({
                         </div>
                       </section>
                     ) : null}
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : null}

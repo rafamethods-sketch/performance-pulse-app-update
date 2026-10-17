@@ -40,6 +40,8 @@ export type SessionComparisonExercise = {
   tempo?: ExerciseTempo | null;
 };
 
+export type SessionComparisonBlock = "activation" | "main" | "complementary";
+
 export function getSessionPlanVsActualProgress({
   performedExercises,
   plannedExercises
@@ -53,13 +55,20 @@ export function getSessionPlanVsActualProgress({
   }));
   const completedSets = rows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
   const plannedSets = rows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+  const blocks = comparisonBlocks.map((block) => {
+    const blockRows = rows.filter((row) => getExerciseBlock(row.planned ?? row.performed) === block.key);
+    return {
+      ...block,
+      completedSets: blockRows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0),
+      exerciseCount: blockRows.length,
+      plannedSets: blockRows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0)
+    };
+  }).filter((block) => block.exerciseCount > 0);
 
-  return { completedSets, plannedSets, rows };
+  return { blocks, completedSets, plannedSets, rows };
 }
 
-type BlockKey = "activation" | "main" | "complementary";
-
-const comparisonBlocks: Array<{ key: BlockKey; label: string }> = [
+const comparisonBlocks: Array<{ key: SessionComparisonBlock; label: string }> = [
   { key: "activation", label: "Activación" },
   { key: "main", label: "Bloque principal" },
   { key: "complementary", label: "Bloque complementario" }
@@ -81,7 +90,7 @@ function formatValue(value: unknown) {
   return `${value}`.trim();
 }
 
-function getExerciseBlock(exercise?: SessionComparisonExercise): BlockKey {
+function getExerciseBlock(exercise?: SessionComparisonExercise): SessionComparisonBlock {
   if (exercise?.sessionBlock) return exercise.sessionBlock;
   const legacy = `${exercise?.block ?? exercise?.section ?? ""}`.toLowerCase();
   if (legacy === "activation") return "activation";
@@ -157,7 +166,8 @@ export function SessionPlanVsActual({
   plannedExercises,
   summary,
   type,
-  showHeader = true
+  showHeader = true,
+  visibleBlock
 }: {
   date: string;
   performedExercises: SessionComparisonExercise[];
@@ -165,6 +175,7 @@ export function SessionPlanVsActual({
   summary: string;
   type: string;
   showHeader?: boolean;
+  visibleBlock?: SessionComparisonBlock;
 }) {
   const { completedSets, plannedSets, rows } = getSessionPlanVsActualProgress({ performedExercises, plannedExercises });
 
@@ -184,7 +195,7 @@ export function SessionPlanVsActual({
       </div> : null}
 
       <div className={`${showHeader ? "mt-5" : ""} grid gap-4`}>
-        {comparisonBlocks.map((block) => {
+        {comparisonBlocks.filter((block) => !visibleBlock || block.key === visibleBlock).map((block) => {
           const blockRows = rows.filter((row) => getExerciseBlock(row.planned ?? row.performed) === block.key);
           if (blockRows.length === 0) return null;
           const blockCompleted = blockRows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
