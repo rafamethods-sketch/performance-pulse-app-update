@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
@@ -548,6 +548,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [openExerciseBlock, setOpenExerciseBlock] = useState<AthleteExerciseBlockKey | null>(null);
   const [openExerciseKey, setOpenExerciseKey] = useState<string | null>(null);
   const [finishedExerciseKeys, setFinishedExerciseKeys] = useState<Set<string>>(() => new Set());
+  const activeSessionNavigationKeyRef = useRef<string | null>(null);
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
@@ -633,11 +634,15 @@ export function AthleteTodayView<TClient extends AthleteClient>({
       ? session.performedExercises
       : createAthleteExerciseEntries(session);
     setPerformedExercises(nextExercises);
-    setOpenExerciseBlock(
-      athleteExerciseBlocks.find((block) => nextExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === block.key))?.key ?? null
-    );
-    setOpenExerciseKey(nextExercises.length ? getAthleteExerciseUiKey(nextExercises[0], 0) : null);
-    setFinishedExerciseKeys(new Set());
+    const sessionNavigationKey = session ? `${client?.id ?? "athlete"}-${sessionIndex}-${session.date}` : null;
+    if (activeSessionNavigationKeyRef.current !== sessionNavigationKey) {
+      setOpenExerciseBlock(
+        athleteExerciseBlocks.find((block) => nextExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === block.key))?.key ?? null
+      );
+      setOpenExerciseKey(nextExercises.length ? getAthleteExerciseUiKey(nextExercises[0], 0) : null);
+      setFinishedExerciseKeys(new Set());
+      activeSessionNavigationKeyRef.current = sessionNavigationKey;
+    }
     setActualDurationMinutes(0);
     setFinalRpe(0);
     setAthleteSessionNotes("");
@@ -684,7 +689,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setMenstrualMessage("");
     setShowMenstrualDetails(false);
     setValidationMessage("");
-  }, [client?.menstrualTracking, session, todayKey]);
+  }, [client?.id, client?.menstrualTracking, session, sessionIndex, todayKey]);
 
   useEffect(() => {
     if (!showSessionPreview && !showWellnessModal && !showFinalizeModal) return;
@@ -782,12 +787,11 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     const exercise = performedExercises[exerciseIndex];
     if (!exercise) return;
     const exerciseKey = getAthleteExerciseUiKey(exercise, exerciseIndex);
-    const blockKey = getAthleteExerciseBlockKey(exercise);
-    const nextExerciseIndex = performedExercises.findIndex((candidate, candidateIndex) =>
-      candidateIndex > exerciseIndex && getAthleteExerciseBlockKey(candidate) === blockKey
-    );
+    const nextExerciseIndex = performedExercises.findIndex((_, candidateIndex) => candidateIndex > exerciseIndex);
+    const nextExercise = nextExerciseIndex >= 0 ? performedExercises[nextExerciseIndex] : null;
     setFinishedExerciseKeys((current) => new Set(current).add(exerciseKey));
-    setOpenExerciseKey(nextExerciseIndex >= 0 ? getAthleteExerciseUiKey(performedExercises[nextExerciseIndex], nextExerciseIndex) : null);
+    setOpenExerciseBlock(nextExercise ? getAthleteExerciseBlockKey(nextExercise) : getAthleteExerciseBlockKey(exercise));
+    setOpenExerciseKey(nextExercise ? getAthleteExerciseUiKey(nextExercise, nextExerciseIndex) : null);
   }
 
   function startSession() {
@@ -2342,19 +2346,24 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
         </div>
       ) : null}
       {!completionOnly && seriesResolved ? (
-        <div className="mt-4 rounded-md border border-moss/30 bg-mint/35 p-3">
-          <p className="text-sm font-semibold text-ink">Series registradas {resolvedPlannedSets}/{plannedSetCount}</p>
-          {requiresEffort ? (
-            <div className="mt-3">
-              <p className="text-sm font-semibold text-ink">¿Cómo ha sido el esfuerzo?</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
-                <AthleteExerciseInput className="flex-1" inputMode="decimal" label={`${intensityMethod.toUpperCase()} real`} onChange={(value) => { setEffortDraft(value); setEffortValidation(""); }} value={effortDraft} />
-                <span className="pb-3 text-xs text-ink/50">Plan: {plannedEffort}</span>
-              </div>
-              {effortValidation ? <p className="mt-2 text-xs font-medium text-clay">{effortValidation}</p> : null}
-            </div>
-          ) : null}
-          <button className="mt-3 min-h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white sm:w-auto" onClick={finishCurrentExercise} type="button">Finalizar ejercicio</button>
+        <div className="mt-3 rounded-md border border-moss/30 bg-mint/35 p-2.5">
+          <div className="flex flex-wrap items-end gap-2">
+            {requiresEffort ? (
+              <label className="min-w-0 flex-1 text-xs font-semibold text-ink/65 sm:max-w-44">
+                Esfuerzo real · {intensityMethod.toUpperCase()}
+                <input
+                  aria-label={`Esfuerzo real ${intensityMethod.toUpperCase()}`}
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-base text-ink outline-none focus:border-moss"
+                  inputMode="decimal"
+                  onChange={(event) => { setEffortDraft(event.target.value); setEffortValidation(""); }}
+                  type="text"
+                  value={effortDraft}
+                />
+              </label>
+            ) : null}
+            <button className="min-h-11 flex-1 rounded-md bg-ink px-4 text-sm font-semibold text-white sm:flex-none" onClick={finishCurrentExercise} type="button">Finalizar ejercicio</button>
+          </div>
+          {effortValidation ? <p className="mt-2 text-xs font-medium text-clay">{effortValidation}</p> : null}
         </div>
       ) : null}
       </div> : null}
