@@ -1726,6 +1726,8 @@ function AthleteFinalizeSessionModal({
             </div>
           </fieldset>
 
+          <label className="space-y-1 text-sm font-semibold text-ink">Duración total de la sesión<div className="flex items-center gap-2"><input className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/25 px-3 font-normal text-ink" inputMode="numeric" min={1} onChange={(event) => onDurationChange(Number(event.target.value) || 0)} placeholder="Minutos" type="number" value={actualDurationMinutes || ""} /><span className="text-sm text-ink/55">min</span></div></label>
+
           <fieldset className="rounded-md border border-line bg-panel/25 p-3">
             <legend className="px-1 text-sm font-semibold text-ink">¿Alguna molestia?</legend>
             <div className="mt-1 flex gap-2">
@@ -1746,7 +1748,6 @@ function AthleteFinalizeSessionModal({
 
           <label className="space-y-1 text-sm font-semibold text-ink">Comentario <span className="font-normal text-ink/45">· opcional</span><textarea className="min-h-16 w-full rounded-md border border-line bg-panel/25 px-3 py-2 text-sm font-normal text-ink" onChange={(event) => onNotesChange(event.target.value)} placeholder="Algo que deba saber tu entrenador…" value={notes} /></label>
 
-          <label className="space-y-1 text-sm font-semibold text-ink">Duración<div className="flex items-center gap-2"><input className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/25 px-3 font-normal text-ink" inputMode="numeric" min={1} onChange={(event) => onDurationChange(Number(event.target.value) || 0)} placeholder="Minutos" type="number" value={actualDurationMinutes || ""} /><span className="text-sm text-ink/55">min</span></div></label>
         </div>
 
         {validationMessage ? <p className="mt-3 text-sm font-medium text-coral">{validationMessage}</p> : null}
@@ -2066,7 +2067,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
   const [editingSetNumber, setEditingSetNumber] = useState<number | null>(null);
   const [setDraft, setSetDraft] = useState<AthleteSetDetail>({ setNumber: totalSetCount + 1 });
   const [setValidation, setSetValidation] = useState("");
-  const [effortDraft, setEffortDraft] = useState(exercise.exerciseEffort ? `${exercise.exerciseEffort.value}` : "");
+  const [effortDraft, setEffortDraft] = useState(exercise.exerciseEffort?.type === "rpe" ? `${exercise.exerciseEffort.value}` : "");
   const [effortValidation, setEffortValidation] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
@@ -2106,13 +2107,15 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
     const result: AthleteSetDetail = { setNumber };
     if (Number.isInteger(Number(`${reps}`.trim())) && Number(reps) >= 0) result.reps = reps;
     if (hasAthleteDisplayValue(exercise.plannedLoad)) result.load = exercise.plannedLoad;
+    if (intensityMethod === "rir" && hasAthleteDisplayValue(exercise.plannedRir ?? exercise.targetRir)) result.rir = exercise.plannedRir ?? exercise.targetRir;
+    if (intensityMethod === "velocity" && hasAthleteDisplayValue(exercise.targetVelocity)) result.velocity = exercise.targetVelocity;
     return result;
   }
 
   function upsertSet(detail: AthleteSetDetail) {
     const withoutSet = resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber !== detail.setNumber).map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
     const nextSetDetails = [...withoutSet, detail].sort((a, b) => a.setNumber - b.setNumber);
-    onUpdateExecution(index, { omittedSetNumbers: omittedSetNumbers.filter((value) => value !== detail.setNumber), setDetails: nextSetDetails });
+    onUpdateExecution(index, { omittedSetNumbers: omittedSetNumbers.filter((value) => value < detail.setNumber), setDetails: nextSetDetails });
   }
 
   function beginEdit(setNumber: number) {
@@ -2128,8 +2131,13 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
   }
 
   function omitSet(setNumber: number) {
-    const nextSetDetails = resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber !== setNumber).map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
-    onUpdateExecution(index, { omittedSetNumbers: [...new Set([...omittedSetNumbers, setNumber])].sort((a, b) => a - b), setDetails: nextSetDetails });
+    const laterRecordedSet = resolveSessionSetNumbers(setDetails).some((entry) => entry.setNumber >= setNumber && entry.setNumber <= plannedSetCount);
+    if (laterRecordedSet) {
+      setSetValidation("No se pueden omitir estas series porque ya contienen registros reales.");
+      return;
+    }
+    const omittedFromHere = Array.from({ length: plannedSetCount - setNumber + 1 }, (_, offset) => setNumber + offset);
+    onUpdateExecution(index, { omittedSetNumbers: [...new Set([...omittedSetNumbers.filter((value) => value < setNumber), ...omittedFromHere])].sort((a, b) => a - b) });
     setEditingSetNumber(null);
   }
 
@@ -2148,6 +2156,10 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
     const load = `${setDraft.load ?? ""}`.trim();
     const repsNumber = Number(reps.replace(",", "."));
     const loadNumber = load ? Number(load.replace(",", ".")) : null;
+    const rir = `${setDraft.rir ?? ""}`.trim();
+    const velocity = `${setDraft.velocity ?? ""}`.trim();
+    const rirNumber = rir ? Number(rir.replace(",", ".")) : null;
+    const velocityNumber = velocity ? Number(velocity.replace(",", ".")) : null;
 
     if (!reps || !Number.isInteger(repsNumber) || repsNumber < 0) {
       setSetValidation("Introduce repeticiones reales con un número entero igual o mayor que 0.");
@@ -2157,11 +2169,21 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
       setSetValidation("La carga debe ser un número igual o mayor que 0, o quedar vacía.");
       return;
     }
+    if (intensityMethod === "rir" && (rirNumber === null || !Number.isFinite(rirNumber) || rirNumber < 0 || rirNumber > 10)) {
+      setSetValidation("Introduce un RIR real entre 0 y 10.");
+      return;
+    }
+    if (intensityMethod === "velocity" && (velocityNumber === null || !Number.isFinite(velocityNumber) || velocityNumber < 0)) {
+      setSetValidation("Introduce una velocidad real igual o mayor que 0.");
+      return;
+    }
     const confirmedDetail: AthleteSetDetail = {
       setNumber,
       reps
     };
     if (load) confirmedDetail.load = load;
+    if (intensityMethod === "rir") confirmedDetail.rir = rir;
+    if (intensityMethod === "velocity") confirmedDetail.velocity = velocity;
     upsertSet(confirmedDetail);
     setEditingSetNumber(null);
     setSetDraft({ setNumber: Math.max(totalSetCount, setNumber) + 1 });
@@ -2179,15 +2201,19 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
         ? actualNumber === targetNumber
         : actualText === targetText;
     };
-    return equalValue(detail.reps, planned.reps) && equalValue(detail.load, planned.load);
+    return equalValue(detail.reps, planned.reps)
+      && equalValue(detail.load, planned.load)
+      && (intensityMethod !== "rir" || equalValue(detail.rir, planned.rir))
+      && (intensityMethod !== "velocity" || equalValue(detail.velocity, planned.velocity));
   }
 
-  const plannedEffort = intensityMethod === "rpe"
-    ? exercise.plannedRpe ?? exercise.targetRpe
-    : intensityMethod === "rir"
-      ? exercise.plannedRir ?? exercise.targetRir
-      : null;
-  const requiresEffort = (intensityMethod === "rpe" || intensityMethod === "rir") && hasAthleteDisplayValue(plannedEffort as number | string | null);
+  const isMobility = getExerciseById(exercise.exerciseId || "")?.exerciseType === "mobility";
+  const requiresEffort = !completionOnly && !isMobility;
+  const recordedPlannedSetNumbers = new Set(resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber <= plannedSetCount).map((entry) => entry.setNumber));
+  const firstOmittedSetNumber = omittedSetNumbers.length > 0 ? Math.min(...omittedSetNumbers) : null;
+  const nextPendingSetNumber = Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).find((setNumber) => !recordedPlannedSetNumbers.has(setNumber) && !omittedSetNumbers.includes(setNumber)) ?? null;
+  const nextActionableSetNumber = firstOmittedSetNumber ?? nextPendingSetNumber;
+  const allPlannedSetsRecorded = plannedSetCount > 0 && Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).every((setNumber) => recordedPlannedSetNumbers.has(setNumber));
   const resolvedPlannedSets = Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).filter((setNumber) =>
     Boolean(getSessionSetByNumber(setDetails, setNumber)) || omittedSetNumbers.includes(setNumber)
   ).length;
@@ -2201,11 +2227,11 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
     if (!seriesResolved) return;
     if (requiresEffort) {
       const value = Number(effortDraft.replace(",", "."));
-      if (!Number.isFinite(value) || value < 0 || value > 10) {
-        setEffortValidation(`Introduce un ${intensityMethod.toUpperCase()} real entre 0 y 10.`);
+      if (!Number.isFinite(value) || value < 1 || value > 10) {
+        setEffortValidation("Introduce un RPE real entre 1 y 10.");
         return;
       }
-      onUpdateExecution(index, { exerciseEffort: { type: intensityMethod as "rpe" | "rir", value } });
+      onUpdateExecution(index, { exerciseEffort: { type: "rpe", value } });
     }
     setEffortValidation("");
     onFinish();
@@ -2225,7 +2251,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-ink">{exerciseName}</span>
           <span className="mt-0.5 block text-xs text-ink/50">
-            {completionOnly ? exerciseStatus : `${resolvedPlannedSets}/${plannedSetCount} series${exercise.exerciseEffort ? ` · ${exercise.exerciseEffort.type.toUpperCase()} ${exercise.exerciseEffort.value}` : ` · ${exerciseStatus}`}`}
+            {completionOnly ? exerciseStatus : `${resolvedPlannedSets}/${plannedSetCount} series · ${exercise.exerciseEffort ? `${exercise.exerciseEffort.type.toUpperCase()} ${exercise.exerciseEffort.value}` : "RPE —"}`}
           </span>
         </span>
         <span className={`text-lg text-ink/35 transition ${isOpen ? "rotate-180" : ""}`}>⌄</span>
@@ -2264,17 +2290,18 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
           const extra = setNumber > plannedSetCount;
           const isEditing = editingSetNumber === setNumber;
           const equalToPlan = Boolean(actual && !extra && isSetEqualToPlan(actual, setNumber));
+          const canActOnPlannedSet = Boolean(actual) || setNumber === nextActionableSetNumber;
           const canConfirmPlan = hasAthleteDisplayValue(getPlannedSetValues(setNumber).reps);
-          const display = omitted ? "No realizada" : actual ? `${hasAthleteDisplayValue(actual.load) ? `${actual.load} kg · ` : ""}${actual.reps ?? "—"} reps` : extra ? "Serie adicional" : getPlannedReference(setNumber) || "Sin detalle";
+          const display = omitted ? "No realizada" : actual ? [hasAthleteDisplayValue(actual.load) ? `${actual.load} kg` : "", `${actual.reps ?? "—"} reps`, hasAthleteDisplayValue(actual.rir) ? `RIR ${actual.rir}` : "", hasAthleteDisplayValue(actual.velocity) ? `${actual.velocity} m/s` : ""].filter(Boolean).join(" · ") : extra ? "Serie adicional" : getPlannedReference(setNumber) || "Sin detalle";
           return (
             <div className={`${setNumber > 1 ? "border-t border-line" : ""} ${omitted ? "bg-clay/5" : ""}`} key={`${exerciseKey}-${setNumber}`}>
               <div className="flex min-h-14 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5 sm:flex-nowrap">
                 <span className="w-10 shrink-0 text-xs font-bold text-ink/50">S{setNumber}</span>
                 <span className="min-w-[9rem] flex-1 break-words text-sm font-semibold text-ink">{display}</span>
                 {!isEditing ? <div className="ml-auto flex shrink-0 items-center gap-1">
-                  {!extra ? <button aria-label="Realizada según el plan" className={`grid h-11 w-11 place-items-center rounded-md text-base font-bold disabled:cursor-not-allowed disabled:opacity-35 ${equalToPlan ? "bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "text-ink/50 hover:bg-panel"}`} disabled={!canConfirmPlan} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
-                  <button aria-label="Modificar serie" className={`grid h-11 w-11 place-items-center rounded-md text-sm ${actual && !equalToPlan ? "bg-amber-50 text-amber-800" : "text-ink/50 hover:bg-panel"}`} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
-                  <button aria-label={extra ? "Eliminar serie adicional" : "Serie no realizada"} className={`grid h-11 w-11 place-items-center rounded-md text-base ${omitted ? "bg-clay/10 text-clay" : "text-ink/50 hover:bg-panel"}`} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "Serie no realizada"} type="button">×</button>
+                  {!extra ? <button aria-label="Realizada según el plan" className={`grid h-11 w-11 place-items-center rounded-md text-base font-bold disabled:cursor-not-allowed disabled:opacity-35 ${equalToPlan ? "bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "text-ink/50 hover:bg-panel"}`} disabled={!canConfirmPlan || !canActOnPlannedSet} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
+                  <button aria-label="Modificar serie" className={`grid h-11 w-11 place-items-center rounded-md text-sm disabled:cursor-not-allowed disabled:opacity-35 ${actual && !equalToPlan ? "bg-amber-50 text-amber-800" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && !canActOnPlannedSet} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
+                  <button aria-label={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} className={`grid h-11 w-11 place-items-center rounded-md text-base disabled:cursor-not-allowed disabled:opacity-35 ${omitted ? "bg-clay/10 text-clay" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && (Boolean(actual) || setNumber !== nextPendingSetNumber)} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} type="button">×</button>
                 </div> : null}
               </div>
               {actual && !extra && !equalToPlan ? <p className="-mt-1 px-2.5 pb-2 pl-[3.125rem] text-xs text-ink/45">Plan · {getPlannedReference(setNumber)}</p> : null}
@@ -2284,6 +2311,8 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-load`} inputMode="decimal" label="Carga (kg)" onChange={(value) => updateDraft("load", value)} value={setDraft.load} />
                     <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-reps`} inputMode="numeric" label="Reps" onChange={(value) => updateDraft("reps", value)} value={setDraft.reps} />
+                    {intensityMethod === "rir" ? <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-rir`} inputMode="decimal" label="RIR real" onChange={(value) => updateDraft("rir", value)} value={setDraft.rir} /> : null}
+                    {intensityMethod === "velocity" ? <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-velocity`} inputMode="decimal" label="Velocidad real (m/s)" onChange={(value) => updateDraft("velocity", value)} value={setDraft.velocity} /> : null}
                   </div>
                   {setValidation ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
                   <div className="mt-3 flex gap-2"><button className="min-h-11 flex-1 rounded-md bg-ink px-3 text-sm font-semibold text-white" onClick={() => confirmSet(setNumber)} type="button">Guardar</button><button className="min-h-11 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/60" onClick={() => setEditingSetNumber(null)} type="button">Cancelar</button></div>
@@ -2293,8 +2322,9 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
           );
         })}
       </div>}
+      {setValidation && editingSetNumber === null ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3">
-        {!completionOnly ? <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => beginEdit(Math.max(plannedSetCount, highestActualSetNumber) + 1)} type="button">+ Añadir serie</button> : null}
+        {!completionOnly && allPlannedSetsRecorded && omittedSetNumbers.length === 0 ? <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => beginEdit(Math.max(plannedSetCount, highestActualSetNumber) + 1)} type="button">+ Añadir serie</button> : null}
         <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowNotes((current) => !current)} type="button">{exercise.athleteNotes?.trim() ? "Nota · Editar" : "+ Nota"}</button>
         <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowVideo((current) => !current)} type="button">{exercise.techniqueVideoUrl?.trim() ? `Vídeo añadido · ${athleteTechniqueVideoViewLabels[exercise.techniqueVideoView ?? "side"]}` : "+ Vídeo"}</button>
       </div>
@@ -2350,9 +2380,9 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
           <div className="flex flex-wrap items-end gap-2">
             {requiresEffort ? (
               <label className="min-w-0 flex-1 text-xs font-semibold text-ink/65 sm:max-w-44">
-                Esfuerzo real · {intensityMethod.toUpperCase()}
+                Esfuerzo real · RPE
                 <input
-                  aria-label={`Esfuerzo real ${intensityMethod.toUpperCase()}`}
+                  aria-label="Esfuerzo real RPE"
                   className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-base text-ink outline-none focus:border-moss"
                   inputMode="decimal"
                   onChange={(event) => { setEffortDraft(event.target.value); setEffortValidation(""); }}

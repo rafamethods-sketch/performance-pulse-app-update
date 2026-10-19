@@ -50,6 +50,7 @@ export type SessionComparisonExercise = {
   sets?: number | string | null;
   targetRir?: number | string | null;
   targetRpe?: number | string | null;
+  targetVelocity?: number | string | null;
   tempo?: ExerciseTempo | null;
 };
 
@@ -150,19 +151,27 @@ function getPlannedReps(exercise: SessionComparisonExercise | undefined, setInde
   return formatValue(exercise?.plannedReps ?? exercise?.reps);
 }
 
-function getEffortLabel(exercise: SessionComparisonExercise | undefined, detail?: SessionSetDetail) {
-  const usesRpe = exercise?.intensityMethod === "rpe" || (!hasValue(exercise?.plannedRir ?? exercise?.targetRir) && hasValue(exercise?.plannedRpe ?? exercise?.targetRpe));
-  const value = usesRpe
-    ? detail ? detail.rpe : exercise?.plannedRpe ?? exercise?.targetRpe
-    : detail ? detail.rir : exercise?.plannedRir ?? exercise?.targetRir;
-  return hasValue(value) ? `${usesRpe ? "RPE" : "RIR"} ${formatValue(value)}` : "";
+function getSetIntensityLabel(exercise: SessionComparisonExercise | undefined, detail?: SessionSetDetail) {
+  if (exercise?.intensityMethod === "velocity" || hasValue(exercise?.targetVelocity)) {
+    const value = detail ? detail.velocity : exercise?.targetVelocity;
+    return hasValue(value) ? `${formatValue(value)} m/s` : "";
+  }
+  if (exercise?.intensityMethod === "rir" || hasValue(exercise?.plannedRir ?? exercise?.targetRir)) {
+    const value = detail ? detail.rir : exercise?.plannedRir ?? exercise?.targetRir;
+    return hasValue(value) ? `RIR ${formatValue(value)}` : "";
+  }
+  if (!detail && (exercise?.intensityMethod === "rpe" || hasValue(exercise?.plannedRpe ?? exercise?.targetRpe))) {
+    const value = exercise?.plannedRpe ?? exercise?.targetRpe;
+    return hasValue(value) ? `RPE ${formatValue(value)}` : "";
+  }
+  return "";
 }
 
 function formatPlannedSet(exercise: SessionComparisonExercise | undefined, setIndex: number) {
   if (!exercise) return "—";
   const load = exercise.plannedLoad ?? exercise.load;
   const reps = getPlannedReps(exercise, setIndex);
-  const effort = getEffortLabel(exercise);
+  const effort = getSetIntensityLabel(exercise);
   return [hasPositiveLoad(load) ? `${formatValue(load)} kg` : "", reps ? `${reps} reps` : "", effort].filter(Boolean).join(" × ").replace(" × R", " · R") || "—";
 }
 
@@ -170,7 +179,7 @@ function formatActualSet(exercise: SessionComparisonExercise | undefined, detail
   if (!isRecordedSet(detail)) return "—";
   const load = detail?.load;
   const reps = formatValue(detail?.reps);
-  const effort = getEffortLabel(exercise, detail);
+  const effort = getSetIntensityLabel(exercise, detail);
   return [hasPositiveLoad(load) ? `${formatValue(load)} kg` : "", reps ? `${reps} reps` : "", effort].filter(Boolean).join(" × ").replace(" × R", " · R") || "—";
 }
 
@@ -180,7 +189,7 @@ function formatCompletionPlan(exercise?: SessionComparisonExercise) {
     ? `${formatValue(exercise.plannedSets)} × ${formatValue(exercise.plannedReps)}`
     : [hasValue(exercise.plannedSets) ? `${formatValue(exercise.plannedSets)} series` : "", hasValue(exercise.plannedReps) ? `${formatValue(exercise.plannedReps)} reps` : ""].filter(Boolean).join(" · ");
   const rest = hasValue(exercise.plannedRest) ? `${formatValue(exercise.plannedRest)} descanso` : "";
-  return [volume, rest, getEffortLabel(exercise)].filter(Boolean).join(" · ") || "Sin prescripción detallada";
+  return [volume, rest, getSetIntensityLabel(exercise)].filter(Boolean).join(" · ") || "Sin prescripción detallada";
 }
 
 function getMethodLabel(method?: SetMethod | null) {
@@ -253,33 +262,37 @@ export function SessionPlanVsActual({
                   const plannedSetCount = getPlannedSetCount(reference);
                   const highestActualSetNumber = actualSets.reduce((highest, entry) => Math.max(highest, entry.setNumber), 0);
                   const totalSets = Math.max(plannedSetCount, highestActualSetNumber);
-                  const exerciseCompleted = actualSets.filter((entry) => isRecordedSet(entry.detail)).length;
+                  const plannedCompletedCount = actualSets.filter((entry) => entry.setNumber <= plannedSetCount && isRecordedSet(entry.detail)).length;
+                  const omittedCount = (row.performed?.omittedSetNumbers ?? []).filter((setNumber) => setNumber <= plannedSetCount).length;
+                  const additionalCount = actualSets.filter((entry) => entry.setNumber > plannedSetCount && isRecordedSet(entry.detail)).length;
                   const method = getMethodLabel(reference?.setMethod);
                   const tempo = formatExerciseTempo(reference?.tempo);
                   if (completionOnly) {
                     const completed = row.performed?.completion?.completed === true;
                     return (
-                      <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:p-4" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`}>
-                        <h5 className="break-words text-sm font-bold text-ink sm:text-base">{getExerciseName(reference)}</h5>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <details className="group min-w-0 rounded-xl border border-line bg-white" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`} name={`session-comparison-${block.key}`}>
+                        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
+                          <span className="min-w-0"><span className="block break-words text-sm font-bold text-ink sm:text-base">{getExerciseName(reference)}</span><span className="mt-0.5 block text-xs font-semibold text-ink/50">{completed ? "✓ Completado" : "No completado"}</span></span>
+                          <span className="shrink-0 text-lg text-ink/35 transition group-open:rotate-90">›</span>
+                        </summary>
+                      <div className="grid gap-2 border-t border-line p-3 sm:grid-cols-2 sm:p-4">
                           <div className="rounded-lg border border-line bg-panel/20 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Plan</p><p className="mt-1 text-sm text-ink/65">{formatCompletionPlan(row.planned ?? reference)}</p></div>
                           <div className="rounded-lg border border-line bg-panel/20 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Real</p><p className="mt-1 text-sm font-semibold text-ink">{completed ? "✓ Completado" : "No completado"}</p></div>
                         </div>
-                      </article>
+                      </details>
                     );
                   }
                   return (
-                    <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:p-4" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-2">
+                    <details className="group min-w-0 rounded-xl border border-line bg-white" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`} name={`session-comparison-${block.key}`}>
+                      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
                         <div className="min-w-0">
                           <h5 className="break-words text-sm font-bold text-ink sm:text-base">{getExerciseName(reference)}</h5>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/50">
-                            {method ? <span>{method}</span> : null}
-                            {tempo ? <span>Tempo {tempo}</span> : null}
-                          </div>
+                          <p className="mt-0.5 text-xs font-semibold text-ink/50">{plannedCompletedCount}/{plannedSetCount} planificadas{omittedCount > 0 ? ` · ${omittedCount} ${omittedCount === 1 ? "omitida" : "omitidas"}` : ""}{additionalCount > 0 ? ` · +${additionalCount} ${additionalCount === 1 ? "adicional" : "adicionales"}` : ""} · {row.performed?.exerciseEffort ? `${row.performed.exerciseEffort.type.toUpperCase()} ${row.performed.exerciseEffort.value}` : "RPE —"}</p>
                         </div>
-                        <span className="shrink-0 text-xs font-semibold text-ink/50">{exerciseCompleted}/{totalSets} series realizadas</span>
-                      </div>
+                        <span className="shrink-0 text-lg text-ink/35 transition group-open:rotate-90">›</span>
+                      </summary>
+                      <div className="border-t border-line p-3 sm:p-4">
+                      {(method || tempo) ? <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/50">{method ? <span>{method}</span> : null}{tempo ? <span>Tempo {tempo}</span> : null}</div> : null}
                       <div className="mt-3 hidden grid-cols-[4rem_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-b border-line px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink/40 sm:grid">
                         <span>Serie</span><span>Plan</span><span>Real</span>
                       </div>
@@ -300,7 +313,8 @@ export function SessionPlanVsActual({
                       </div>
                       {row.performed?.exerciseEffort ? <p className="mt-3 text-sm font-semibold text-ink">{row.performed.exerciseEffort.type.toUpperCase()} del ejercicio: {row.performed.exerciseEffort.value}</p> : null}
                       {reference?.setMethod === "cluster" ? <p className="mt-3 text-xs text-ink/45">La ejecución corresponde a la serie externa; los mini-bloques no se registran por separado.</p> : null}
-                    </article>
+                      </div>
+                    </details>
                   );
                 })}
               </div>
