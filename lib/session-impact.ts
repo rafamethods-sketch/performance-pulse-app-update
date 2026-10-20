@@ -1,3 +1,5 @@
+import { getSessionExerciseExecutionMode, type SessionExerciseExecutionMode } from "./session-execution";
+
 export type SessionImpactLevel = "low" | "moderate" | "high" | "unknown";
 
 export type SessionImpact = {
@@ -29,6 +31,7 @@ type SessionImpactInput = {
 };
 
 type PlannedExerciseInput = {
+  executionMode?: SessionExerciseExecutionMode | null;
   plannedSets?: NumericInput;
   setDetails?: readonly unknown[] | null;
   sets?: NumericInput;
@@ -132,6 +135,7 @@ export function getSessionImpact(session: SessionImpactInput): SessionImpact {
 }
 
 function getPlannedExerciseSets(exercise: PlannedExerciseInput) {
+  if (getSessionExerciseExecutionMode(exercise) === "completion_only") return 0;
   const explicitSets = readNumber(exercise.plannedSets) ?? readNumber(exercise.sets);
   if (explicitSets !== null) return explicitSets;
   return exercise.setDetails?.length ?? 0;

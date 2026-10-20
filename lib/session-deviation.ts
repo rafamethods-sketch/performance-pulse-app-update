@@ -1,3 +1,5 @@
+import { getSessionExerciseExecutionMode, type SessionExerciseCompletion, type SessionExerciseExecutionMode } from "./session-execution";
+
 export type SessionDiscomfort = {
   bodyArea?: string;
   exerciseId?: string;
@@ -9,6 +11,8 @@ export type SessionDiscomfort = {
 };
 
 type SessionDeviationExercise = {
+  completion?: SessionExerciseCompletion | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
   name?: string | null;
@@ -201,6 +205,21 @@ function getEffortDeviation(planned?: SessionDeviationExercise, performed?: Sess
 }
 
 function buildExerciseSummary(planned?: SessionDeviationExercise, performed?: SessionDeviationExercise): ExerciseDeviationSummary {
+  if (getSessionExerciseExecutionMode(planned ?? performed) === "completion_only") {
+    return {
+      completionPct: null,
+      completionStatus: "unknown",
+      completionLabel: "No aplica a registro simple",
+      dropLabel: "No aplica a registro simple.",
+      dropPct: null,
+      dropStatus: "insufficient",
+      effortLabel: "No aplica a registro simple.",
+      effortStatus: "unknown",
+      exerciseName: getExerciseName(performed ?? planned),
+      performedRepsTotal: null,
+      plannedRepsTotal: null
+    };
+  }
   const plannedRepsTotal = getPlannedRepsTotal(planned);
   const performedRepsTotal = getPerformedRepsTotal(performed);
   const completionPct =
@@ -228,7 +247,9 @@ function buildSuggestedReviewNotes(summary: Omit<SessionDeviationSummary, "sugge
   const highDrops = summary.exerciseSummaries.filter((exercise) => exercise.dropStatus === "high");
   const harderExercises = summary.exerciseSummaries.filter((exercise) => exercise.effortStatus === "harder");
 
-  if (summary.globalCompletionPct !== null && summary.globalCompletionPct >= 95 && summary.globalCompletionPct <= 105 && !highDrops.length && !harderExercises.length) {
+  if (summary.globalCompletionPct === null && !summary.hasRelevantDeviation) {
+    notes.push("Sin ejecución por series suficiente para comparar.");
+  } else if (summary.globalCompletionPct !== null && summary.globalCompletionPct >= 95 && summary.globalCompletionPct <= 105 && !highDrops.length && !harderExercises.length) {
     notes.push("La sesión se completó dentro de lo previsto.");
   } else {
     notes.push("La sesión muestra alguna desviación respecto a lo planificado. Conviene revisar la respuesta del ejercicio y ajustar la siguiente sesión si se repite.");

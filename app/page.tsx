@@ -43,7 +43,7 @@ import { ResistanceMethodsView } from "@/components/coach/resistance-methods-vie
 import { RepetitionSpectrum } from "@/components/shared/repetition-spectrum";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
 import { ExerciseTempoEditor } from "@/components/shared/exercise-tempo-editor";
-import { getSessionPlanVsActualProgress, SessionPlanVsActual } from "@/components/shared/session-plan-vs-actual";
+import { getSessionPlanVsActualProgress, SessionPlanVsActual, type SessionComparisonBlock } from "@/components/shared/session-plan-vs-actual";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { ankleStatusLabels, getAnkleDomainStatuses, type AnkleAssessment, type AnkleDomainStatus } from "@/lib/ankle-assessment";
 import { getKneeDomainStatuses, kneeStatusLabels, type KneeAssessment, type KneeDomainStatus } from "@/lib/knee-assessment";
@@ -136,6 +136,11 @@ import {
   type SessionExerciseInput,
   type TrainingSessionInput
 } from "@/lib/session-load";
+import {
+  getDefaultSessionExerciseExecutionMode,
+  getSessionExerciseExecutionMode,
+  type SessionExerciseExecutionMode
+} from "@/lib/session-execution";
 import type { CardioActivitySummary, CardioConnectionStatus } from "@/lib/cardio-activities";
 import {
   analyzeCardioDeviation,
@@ -457,7 +462,10 @@ export default function ClientsPage() {
       ...exercise,
       actualRest: undefined,
       athleteNotes: undefined,
+      completion: undefined,
+      exerciseEffort: undefined,
       exerciseRpe: undefined,
+      omittedSetNumbers: undefined,
       performedRpe: undefined,
       planningSlotId: undefined,
       setDetails: undefined,
@@ -7430,6 +7438,7 @@ function PlanningView({
         block: section,
         exerciseId,
         exerciseName: exercise.name,
+        executionMode: getDefaultSessionExerciseExecutionMode(exerciseId),
         id: `planned-exercise-${Date.now()}-${slot.id}`,
         intensityMethod: "rir",
         planningSlotId: slot.id,
@@ -12084,6 +12093,7 @@ type PlannedStrengthExerciseDraft = {
   block: StrengthSessionBlock;
   exerciseId: string;
   exerciseSearch: string;
+  executionMode?: SessionExerciseExecutionMode;
   id: string;
   intensityMethod?: "" | StrengthIntensityMethod;
   load: string;
@@ -12466,6 +12476,7 @@ function createSystemTemplateExercise(
     block,
     exerciseId,
     exerciseSearch: exercise?.name ?? "",
+    executionMode: getDefaultSessionExerciseExecutionMode(exerciseId),
     id: `system-template-exercise-${exerciseId}-${block}`,
     intensityMethod: prescription.intensityMethod ?? "rir",
     load: prescription.load ?? "",
@@ -12815,6 +12826,7 @@ function CoachTrainingPlanner({
         block: (exercise.block === "activation" || exercise.block === "main" || exercise.block === "auxiliary") ? exercise.block : "main",
         exerciseId: exercise.exerciseId ?? "",
         exerciseSearch: exercise.exerciseName ?? "",
+        executionMode: exercise.executionMode ?? undefined,
         id: exercise.id ?? `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
         load: String(exercise.plannedLoad ?? ""),
@@ -12951,6 +12963,7 @@ function CoachTrainingPlanner({
         block,
         exerciseId: "",
         exerciseSearch: "",
+        executionMode: "set_tracking",
         id: exerciseId,
         intensityMethod: "rir",
         load: "",
@@ -13049,6 +13062,7 @@ function CoachTrainingPlanner({
     updateStrengthExercise(draftExerciseId, {
       exerciseId: libraryExercise.id,
       exerciseSearch: libraryExercise.name,
+      executionMode: getDefaultSessionExerciseExecutionMode(libraryExercise.id),
       selectedEquipment: libraryExercise.equipment.length === 1 ? libraryExercise.equipment[0] : "",
       selectedVariantId: "",
       selectedVariantName: ""
@@ -13116,6 +13130,7 @@ function CoachTrainingPlanner({
     block: exercise.block,
     exerciseId: exercise.exerciseId,
     exerciseSearch: exercise.exerciseSearch,
+    executionMode: exercise.executionMode,
     id: exercise.id,
     intensityMethod: exercise.intensityMethod,
     load: exercise.load,
@@ -13174,6 +13189,7 @@ function CoachTrainingPlanner({
       bandResistance: exercise.bandResistance || undefined,
       exerciseId: exercise.exerciseId || null,
       exerciseName: getExerciseById(exercise.exerciseId)?.name ?? (exercise.exerciseSearch.trim() || "Ejercicio sin especificar"),
+      executionMode: exercise.executionMode,
       id: exercise.id,
       intensityMethod: exercise.intensityMethod || undefined,
       observation: exercise.observation,
@@ -13305,6 +13321,7 @@ function CoachTrainingPlanner({
     setStrengthExercises(
       template.strengthExercises.map((exercise, index) => ({
         ...exercise,
+        executionMode: exercise.executionMode ?? getDefaultSessionExerciseExecutionMode(exercise.exerciseId),
         id: `exercise-${Date.now()}-${index}`,
         intensityMethod: exercise.intensityMethod ?? "",
         bandColor: exercise.bandColor ?? "",
@@ -15025,7 +15042,13 @@ function getCompactSetLabel(entry?: ReviewSessionExercise, source: "planned" | "
 }
 
 function getReviewExerciseRpe(entry?: ReviewSessionExercise) {
+  if (entry?.exerciseEffort?.type === "rpe") return entry.exerciseEffort.value;
   return entry?.exerciseRpe ?? entry?.rpe ?? entry?.actualRpe ?? entry?.perceivedExertion;
+}
+
+function getReviewExerciseRir(entry?: ReviewSessionExercise) {
+  if (entry?.exerciseEffort?.type === "rir") return entry.exerciseEffort.value;
+  return getPerformedValue(entry, "rir");
 }
 
 function getReviewIntensityMethod(planned?: ReviewSessionExercise, performed?: ReviewSessionExercise): StrengthIntensityMethod | null {
@@ -15055,12 +15078,12 @@ function getReviewIntensityLabel(planned?: ReviewSessionExercise, performed?: Re
   if (method === "rpe") {
     const value = source === "planned"
       ? planned?.plannedRpe ?? planned?.targetRpe
-      : getReviewExerciseRpe(performed) ?? planned?.plannedRpe ?? planned?.targetRpe;
+      : getReviewExerciseRpe(performed);
     return hasDisplayValue(value) ? `RPE: ${value}` : "";
   }
 
   if (method === "rir") {
-    const value = source === "planned" ? getPlannedValue(planned, "rir") : getPerformedValue(performed, "rir");
+    const value = source === "planned" ? getPlannedValue(planned, "rir") : getReviewExerciseRir(performed);
     return hasDisplayValue(value) ? `RIR: ${value}` : "";
   }
 
@@ -15158,6 +15181,7 @@ function SessionHistoryPanel({
   targetTrainingSession: TargetTrainingSession | null;
 }) {
   const [openSessionKey, setOpenSessionKey] = useState("");
+  const [executionDetail, setExecutionDetail] = useState<{ block: SessionComparisonBlock; sessionKey: string } | null>(null);
   const [openSessionBlockStates, setOpenSessionBlockStates] = useState<Record<string, boolean>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [selectedExerciseDetail, setSelectedExerciseDetail] = useState<ReviewExerciseDetail | null>(null);
@@ -15280,6 +15304,10 @@ function SessionHistoryPanel({
         setReviewFeedbackModal(null);
         return;
       }
+      if (executionDetail) {
+        setExecutionDetail(null);
+        return;
+      }
       setOpenSessionKey("");
     };
 
@@ -15289,7 +15317,7 @@ function SessionHistoryPanel({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [openSessionKey, reviewFeedbackModal, selectedExerciseDetail]);
+  }, [executionDetail, openSessionKey, reviewFeedbackModal, selectedExerciseDetail]);
 
   return (
     <div>
@@ -15384,9 +15412,12 @@ function SessionHistoryPanel({
             const { plannedExercises, performedExercises } = getReviewExercises(session);
             const setProgress = getSessionPlanVsActualProgress({ plannedExercises, performedExercises });
             const hasSetExecution = setProgress.completedSets > 0;
-            const missingSetCount = setProgress.plannedSets > 0 && hasSetExecution
-              ? Math.max(0, setProgress.plannedSets - setProgress.completedSets)
-              : 0;
+            const hasOmittedSets = performedExercises.some((exercise) => Boolean(exercise.omittedSetNumbers?.length));
+            const executionBlockOptions = setProgress.blocks;
+            const isExecutionDetailOpen = executionDetail?.sessionKey === sessionKey;
+            const activeExecutionBlock = executionBlockOptions.some((block) => block.key === executionDetail?.block)
+              ? executionDetail?.block
+              : executionBlockOptions[0]?.key;
             const exerciseCount = Math.max(plannedExercises.length, performedExercises.length);
             const srpe = getSessionSrpe(session);
             const notes = session.finalNotes ?? session.notes;
@@ -15417,14 +15448,14 @@ function SessionHistoryPanel({
             const detailRows = Array.from({ length: exerciseCount }, (_, index) => ({
               performed: performedExercises[index],
               planned: plannedExercises[index]
-            }));
+            })).filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "set_tracking");
             const groupedRows = getGroupedReviewRows(detailRows);
             const techniqueVideoRows = performedExercises
               .map((exercise, index) => ({ exercise, index }))
               .filter(({ exercise }) => hasDisplayValue(exercise.techniqueVideoUrl));
             const hasRealRegister = performedExercises.length > 0 || status === "Completada";
             const canReviewSession = reviewStatus === "reviewed" || reviewStatus === "pending";
-            const showStrengthReview = exerciseCount > 0;
+            const showStrengthReview = groupedRows.length > 0;
             const cardioZoneDistribution = formatCardioZones(session.cardioResult?.timeInZones);
             const resistanceInfoItems = [
               hasDisplayValue(resistanceDuration) ? ["Duración real", `${resistanceDuration} min`] : null,
@@ -15467,12 +15498,6 @@ function SessionHistoryPanel({
             const compactResistanceDistance = parseResistanceNumber(session.cardioResult?.distanceMeters) > 0
               ? formatResistanceDistance(session.cardioResult?.distanceMeters)
               : "";
-            const reviewItems = [
-              missingSetCount > 0 ? `${missingSetCount} ${missingSetCount === 1 ? "serie sin registrar" : "series sin registrar"}` : "",
-              session.discomfort?.hasDiscomfort ? "Molestia registrada" : "",
-              hasDisplayValue(notes) ? "Comentario del deportista" : ""
-            ].filter(Boolean).slice(0, 3);
-
             return (
               <article className="min-w-0 rounded-md border border-line bg-white px-3 py-2.5 sm:px-4" key={sessionKey}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -15552,7 +15577,10 @@ function SessionHistoryPanel({
                     aria-labelledby={`session-detail-title-${sessionIndex}`}
                     aria-modal="true"
                     className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-3 backdrop-blur-sm sm:p-5"
-                    onClick={() => setOpenSessionKey("")}
+                    onClick={() => {
+                      setExecutionDetail(null);
+                      setOpenSessionKey("");
+                    }}
                     role="dialog"
                   >
                     <div
@@ -15569,10 +15597,11 @@ function SessionHistoryPanel({
                           ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          {session.id ? (
+                          {session.id && status !== "Completada" ? (
                             <button
                               className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint hover:text-ink"
                               onClick={() => {
+                                setExecutionDetail(null);
                                 setOpenSessionKey("");
                                 onEditSession(session.id as string);
                               }}
@@ -15584,13 +15613,74 @@ function SessionHistoryPanel({
                           <button
                             aria-label="Cerrar detalle"
                             className="grid size-9 place-items-center rounded-md border border-line bg-panel text-lg font-semibold text-ink transition hover:bg-mint"
-                            onClick={() => setOpenSessionKey("")}
+                            onClick={() => {
+                              setExecutionDetail(null);
+                              setOpenSessionKey("");
+                            }}
                             type="button"
                           >
                             ×
                           </button>
                         </div>
                       </div>
+                      {isExecutionDetailOpen ? (
+                        <div className="grid gap-4">
+                          <button
+                            className="w-fit rounded-md border border-line bg-panel px-3 py-2 text-sm font-semibold text-ink/70 transition hover:bg-mint hover:text-ink"
+                            onClick={() => setExecutionDetail(null)}
+                            type="button"
+                          >
+                            ← Volver al resumen
+                          </button>
+
+                          <div className="rounded-xl border border-line bg-panel/25 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/45">Ejecución de la sesión</p>
+                            <p className="mt-1 text-sm text-ink/60">
+                              {[
+                                setProgress.plannedCompletionExercises > 0 ? `${setProgress.completedExercises}/${setProgress.plannedCompletionExercises} ejercicios completados` : "",
+                                setProgress.plannedSets > 0 ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas` : ""
+                              ].filter(Boolean).join(" · ") || "Sin ejecución registrada"}
+                            </p>
+                            {executionBlockOptions.length > 1 ? (
+                              <div aria-label="Bloques de la sesión" className="mt-4 flex flex-wrap gap-2" role="tablist">
+                                {executionBlockOptions.map((block) => {
+                                  const selected = activeExecutionBlock === block.key;
+                                  return (
+                                    <button
+                                      aria-selected={selected}
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selected ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/65 hover:bg-mint"}`}
+                                      key={block.key}
+                                      onClick={() => setExecutionDetail({ block: block.key, sessionKey })}
+                                      role="tab"
+                                      type="button"
+                                    >
+                                      {block.label} · {[
+                                        block.plannedExercises > 0 ? `${block.completedExercises}/${block.plannedExercises} ejercicios` : "",
+                                        block.plannedSets > 0 ? `${block.completedSets}/${block.plannedSets} series` : ""
+                                      ].filter(Boolean).join(" · ")}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {(hasSetExecution || hasOmittedSets || setProgress.plannedCompletionExercises > 0) && activeExecutionBlock ? (
+                            <SessionPlanVsActual
+                              date={formatDisplayDate(session.date)}
+                              performedExercises={performedExercises}
+                              plannedExercises={plannedExercises}
+                              showHeader={false}
+                              summary={getSessionHistoryTitle(session)}
+                              type={displayValue(session.type, "Sesión")}
+                              visibleBlock={activeExecutionBlock}
+                            />
+                          ) : (
+                            <p className="rounded-xl border border-line bg-panel/35 p-4 text-sm font-medium text-ink/55">Sin ejecución serie a serie registrada.</p>
+                          )}
+                        </div>
+                      ) : (
+                        <>
                       {status === "Completada" ? (
                         <div className="mb-4 grid gap-4">
                           <section className="rounded-xl border border-line bg-panel/25 p-4">
@@ -15610,6 +15700,7 @@ function SessionHistoryPanel({
                                 label="Series realizadas"
                                 value={setProgress.plannedSets > 0 && hasSetExecution ? `${setProgress.completedSets}/${setProgress.plannedSets}` : "Sin registro por series"}
                               />
+                              {setProgress.plannedCompletionExercises > 0 ? <ClientInfoCard label="Ejercicios simples" value={`${setProgress.completedExercises}/${setProgress.plannedCompletionExercises}`} /> : null}
                               <ClientInfoCard
                                 label="Esfuerzo global"
                                 value={hasDisplayValue(session.finalRpe ?? session.rpe) ? `${session.finalRpe ?? session.rpe}/10` : "Sin registrar"}
@@ -15622,33 +15713,33 @@ function SessionHistoryPanel({
                             </div>
                           </section>
 
-                          {reviewItems.length > 0 ? (
-                            <section className="rounded-xl border border-line bg-white p-4">
-                              <h5 className="text-sm font-semibold text-ink">Qué revisar</h5>
-                              <ul className="mt-2 grid gap-1.5 text-sm text-ink/65">
-                                {reviewItems.map((item) => <li className="flex gap-2" key={item}><span aria-hidden="true">·</span><span>{item}</span></li>)}
-                              </ul>
-                            </section>
-                          ) : (
-                            <p className="text-sm font-medium text-ink/50">Sin incidencias registradas.</p>
-                          )}
-
-                          {hasDisplayValue(notes) ? (
-                            <section className="rounded-xl border border-line bg-panel/25 p-4">
-                              <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
-                              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{notes}</p>
-                            </section>
+                          {(hasDisplayValue(notes) || athleteQuickFeedbackLabel) ? (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {hasDisplayValue(notes) ? (
+                                <section className={`rounded-xl border border-line bg-panel/25 p-4 ${athleteQuickFeedbackLabel ? "" : "md:col-span-2"}`}>
+                                  <h5 className="text-sm font-semibold text-ink">Comentario del deportista</h5>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/70">{notes}</p>
+                                </section>
+                              ) : null}
+                              {athleteQuickFeedbackLabel ? (
+                                <section className={`rounded-xl border border-line bg-panel/25 p-4 text-sm text-ink/65 ${hasDisplayValue(notes) ? "" : "md:col-span-2"}`}>
+                                  <h5 className="text-sm font-semibold text-ink">Feedback rápido del deportista</h5>
+                                  <p className="mt-2">{athleteQuickFeedbackLabel}</p>
+                                  {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
+                                </section>
+                              ) : null}
+                            </div>
                           ) : null}
 
                           {session.discomfort?.hasDiscomfort ? (
-                            <section className="rounded-xl border border-line bg-white p-4">
-                              <h5 className="text-sm font-semibold text-ink">Molestia</h5>
-                              <p className="mt-2 text-sm font-semibold text-ink/70">
+                            <section className="rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-400/35 dark:bg-amber-950/25">
+                              <h5 className="text-sm font-semibold text-amber-950 dark:text-amber-100">Molestia registrada</h5>
+                              <p className="mt-2 text-sm font-semibold text-amber-950/80 dark:text-amber-100/80">
                                 {session.discomfort.bodyArea || "Zona sin especificar"}{hasDisplayValue(session.discomfort.intensity) ? ` · ${session.discomfort.intensity}/10` : ""}
                               </p>
                               {(session.discomfort.phase || session.discomfort.exerciseName || session.discomfort.notes) ? (
-                                <details className="mt-2 text-sm text-ink/60">
-                                  <summary className="cursor-pointer font-semibold text-ink/65">Ver detalle</summary>
+                                <details className="mt-2 text-sm text-amber-950/70 dark:text-amber-100/70">
+                                  <summary className="cursor-pointer font-semibold text-amber-950/80 dark:text-amber-100/80">Ver detalle</summary>
                                   <div className="mt-2 grid gap-1">
                                     {session.discomfort.phase ? <p>Momento: {session.discomfort.phase}</p> : null}
                                     {session.discomfort.exerciseName ? <p>Ejercicio: {session.discomfort.exerciseName}</p> : null}
@@ -15659,35 +15750,28 @@ function SessionHistoryPanel({
                             </section>
                           ) : null}
 
-                          <details className="rounded-xl border border-line bg-panel/25 p-4">
-                            <summary className="cursor-pointer list-none">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                  <h5 className="font-semibold text-ink">Plan vs Real</h5>
-                                  <p className="mt-1 text-sm text-ink/55">
-                                    {setProgress.plannedSets > 0 && hasSetExecution
-                                      ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas`
-                                      : "Sin ejecución serie a serie registrada"}
-                                  </p>
-                                </div>
-                                <span className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65">Ver detalle</span>
+                          <section className="rounded-xl border border-line bg-panel/25 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h5 className="text-sm font-semibold text-ink">Ejecución de la sesión</h5>
+                                <p className="mt-1 text-sm text-ink/55">
+                                  {[
+                                    setProgress.plannedCompletionExercises > 0 ? `${setProgress.completedExercises}/${setProgress.plannedCompletionExercises} ejercicios completados` : "",
+                                    setProgress.plannedSets > 0 ? `${setProgress.completedSets}/${setProgress.plannedSets} series registradas` : ""
+                                  ].filter(Boolean).join(" · ") || "Sin ejecución registrada"}
+                                </p>
                               </div>
-                            </summary>
-                            <div className="mt-4 border-t border-line pt-4">
-                              {hasSetExecution ? (
-                                <SessionPlanVsActual
-                                  date={formatDisplayDate(session.date)}
-                                  performedExercises={performedExercises}
-                                  plannedExercises={plannedExercises}
-                                  showHeader={false}
-                                  summary={getSessionHistoryTitle(session)}
-                                  type={displayValue(session.type, "Sesión")}
-                                />
-                              ) : (
-                                <p className="text-sm font-medium text-ink/55">Sin ejecución serie a serie registrada.</p>
-                              )}
+                              {(hasSetExecution || hasOmittedSets || setProgress.plannedCompletionExercises > 0) && executionBlockOptions[0] ? (
+                                <button
+                                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink/65 transition hover:bg-mint hover:text-ink"
+                                  onClick={() => setExecutionDetail({ block: executionBlockOptions[0].key, sessionKey })}
+                                  type="button"
+                                >
+                                  Ver detalle
+                                </button>
+                              ) : null}
                             </div>
-                          </details>
+                          </section>
                         </div>
                       ) : null}
 
@@ -15850,7 +15934,7 @@ function SessionHistoryPanel({
 
                     {hasResistanceData ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Información técnica de resistencia</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Información técnica de resistencia</summary>
                         {resistanceInfoItems.length > 0 ? (
                           <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {resistanceInfoItems.map(([label, value]) => (
@@ -15868,7 +15952,7 @@ function SessionHistoryPanel({
 
                     {cardioDeviation ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Detalle técnico de cardio</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Detalle técnico de cardio</summary>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="mt-1 text-sm text-ink/55">Lectura orientativa del cardio planificado frente al registrado.</p>
@@ -15910,20 +15994,9 @@ function SessionHistoryPanel({
                       </div>
                     ) : null}
 
-                    {athleteQuickFeedbackLabel ? (
-                      <section className="mt-4 rounded-md border border-line bg-panel/35 p-3 text-sm text-ink/65">
-                        <h5 className="font-semibold text-ink">Feedback rápido del deportista</h5>
-                        <p className="mt-1">{athleteQuickFeedbackLabel}</p>
-                        {session.athleteQuickFeedbackNote ? <p className="mt-1">{session.athleteQuickFeedbackNote}</p> : null}
-                        <p className="mt-2 text-xs text-ink/45">
-                          Este feedback es subjetivo y no sustituye al registro de RPE, molestias o bienestar.
-                        </p>
-                      </section>
-                    ) : null}
-
                     {techniqueVideoRows.length > 0 ? (
                       <details className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                        <summary className="cursor-pointer font-semibold text-ink">Vídeos y revisión técnica</summary>
+                        <summary className="cursor-pointer text-sm font-semibold text-ink">Vídeos y revisión técnica</summary>
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="mt-1 text-sm text-ink/55">
@@ -16158,7 +16231,7 @@ function SessionHistoryPanel({
                       <section className="mt-4 rounded-md border border-line bg-white p-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h5 className="font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
+                            <h5 className="text-sm font-semibold text-ink">{"Revisi\u00f3n del entrenador"}</h5>
                             {session.reviewedAt ? (
                               <p className="mt-1 text-xs font-medium text-ink/50">
                                 Revisada: {formatDisplayDateTime(session.reviewedAt)}
@@ -16167,7 +16240,7 @@ function SessionHistoryPanel({
                             {reviewStatus === "reviewed" ? (
                               <p className="mt-2 text-sm text-ink/65">{session.reviewNotes || "Sesi\u00f3n revisada sin comentario."}</p>
                             ) : (
-                              <p className="mt-2 text-sm text-ink/55">Pendiente de feedback para el deportista.</p>
+                              <p className="mt-2 text-sm text-ink/55">Pendiente de revisión interna.</p>
                             )}
                           </div>
                           <button
@@ -16175,11 +16248,13 @@ function SessionHistoryPanel({
                             onClick={() => openFeedbackModal(sessionIndex, sessionKey, session, suggestedReviewNotes)}
                             type="button"
                           >
-                            {reviewStatus === "reviewed" ? "Editar feedback" : "Marcar como revisada"}
+                            {reviewStatus === "reviewed" ? "Editar revisión" : "Marcar como revisada"}
                           </button>
                         </div>
                       </section>
                     ) : null}
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : null}
@@ -16247,8 +16322,8 @@ function SessionHistoryPanel({
       {reviewFeedbackModal && feedbackSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
           <div className="w-full max-w-lg rounded-md border border-line bg-white p-5 shadow-soft">
-            <h3 className="text-xl font-semibold text-ink">Enviar feedback al deportista</h3>
-            <p className="mt-2 text-sm text-ink/55">{"El comentario se guardar\u00e1 en la sesi\u00f3n revisada."}</p>
+            <h3 className="text-xl font-semibold text-ink">Revisión interna de la sesión</h3>
+            <p className="mt-2 text-sm text-ink/55">{"La nota se guardar\u00e1 en la sesi\u00f3n y no se enviar\u00e1 al deportista."}</p>
             <textarea
               className="mt-4 min-h-32 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-sm text-ink outline-none focus:border-moss"
               onChange={(event) => updateReviewDraft(reviewFeedbackModal.sessionKey, event.target.value)}

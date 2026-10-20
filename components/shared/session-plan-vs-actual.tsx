@@ -3,6 +3,14 @@
 import { formatExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
 import type { ClusterConfig, SetMethod } from "@/lib/training-prescription";
+import {
+  getSessionSetByNumber,
+  getSessionExerciseExecutionMode,
+  resolveSessionSetNumbers,
+  type SessionExerciseCompletion,
+  type SessionExerciseEffort,
+  type SessionExerciseExecutionMode
+} from "@/lib/session-execution";
 
 type SessionSetDetail = {
   load?: number | string | null;
@@ -17,14 +25,19 @@ type SessionSetDetail = {
 export type SessionComparisonExercise = {
   block?: string | null;
   clusterConfig?: ClusterConfig | null;
+  completion?: SessionExerciseCompletion | null;
+  exerciseEffort?: SessionExerciseEffort | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
   id?: string | null;
   intensityMethod?: string | null;
   load?: number | string | null;
   name?: string | null;
+  omittedSetNumbers?: number[] | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
+  plannedRest?: number | string | null;
   plannedRir?: number | string | null;
   plannedRpe?: number | string | null;
   plannedSetReps?: Array<number | string> | null;
@@ -37,8 +50,11 @@ export type SessionComparisonExercise = {
   sets?: number | string | null;
   targetRir?: number | string | null;
   targetRpe?: number | string | null;
+  targetVelocity?: number | string | null;
   tempo?: ExerciseTempo | null;
 };
+
+export type SessionComparisonBlock = "activation" | "main" | "complementary";
 
 export function getSessionPlanVsActualProgress({
   performedExercises,
@@ -51,15 +67,30 @@ export function getSessionPlanVsActualProgress({
     performed: performedExercises[index],
     planned: plannedExercises[index]
   }));
-  const completedSets = rows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
-  const plannedSets = rows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+  const setTrackingRows = rows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "set_tracking");
+  const completionOnlyRows = rows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "completion_only");
+  const completedSets = setTrackingRows.reduce((total, row) => total + resolveSessionSetNumbers(row.performed?.setDetails).filter((entry) => isRecordedSet(entry.detail)).length, 0);
+  const plannedSets = setTrackingRows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+  const completedExercises = completionOnlyRows.filter((row) => row.performed?.completion?.completed === true).length;
+  const plannedCompletionExercises = completionOnlyRows.length;
+  const blocks = comparisonBlocks.map((block) => {
+    const blockRows = rows.filter((row) => getExerciseBlock(row.planned ?? row.performed) === block.key);
+    const blockSetRows = blockRows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "set_tracking");
+    const blockCompletionRows = blockRows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "completion_only");
+    return {
+      ...block,
+      completedExercises: blockCompletionRows.filter((row) => row.performed?.completion?.completed === true).length,
+      completedSets: blockSetRows.reduce((total, row) => total + resolveSessionSetNumbers(row.performed?.setDetails).filter((entry) => isRecordedSet(entry.detail)).length, 0),
+      exerciseCount: blockRows.length,
+      plannedExercises: blockCompletionRows.length,
+      plannedSets: blockSetRows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0)
+    };
+  }).filter((block) => block.exerciseCount > 0);
 
-  return { completedSets, plannedSets, rows };
+  return { blocks, completedExercises, completedSets, plannedCompletionExercises, plannedSets, rows };
 }
 
-type BlockKey = "activation" | "main" | "complementary";
-
-const comparisonBlocks: Array<{ key: BlockKey; label: string }> = [
+const comparisonBlocks: Array<{ key: SessionComparisonBlock; label: string }> = [
   { key: "activation", label: "Activación" },
   { key: "main", label: "Bloque principal" },
   { key: "complementary", label: "Bloque complementario" }
@@ -81,7 +112,7 @@ function formatValue(value: unknown) {
   return `${value}`.trim();
 }
 
-function getExerciseBlock(exercise?: SessionComparisonExercise): BlockKey {
+function getExerciseBlock(exercise?: SessionComparisonExercise): SessionComparisonBlock {
   if (exercise?.sessionBlock) return exercise.sessionBlock;
   const legacy = `${exercise?.block ?? exercise?.section ?? ""}`.toLowerCase();
   if (legacy === "activation") return "activation";
@@ -120,19 +151,27 @@ function getPlannedReps(exercise: SessionComparisonExercise | undefined, setInde
   return formatValue(exercise?.plannedReps ?? exercise?.reps);
 }
 
-function getEffortLabel(exercise: SessionComparisonExercise | undefined, detail?: SessionSetDetail) {
-  const usesRpe = exercise?.intensityMethod === "rpe" || (!hasValue(exercise?.plannedRir ?? exercise?.targetRir) && hasValue(exercise?.plannedRpe ?? exercise?.targetRpe));
-  const value = usesRpe
-    ? detail ? detail.rpe : exercise?.plannedRpe ?? exercise?.targetRpe
-    : detail ? detail.rir : exercise?.plannedRir ?? exercise?.targetRir;
-  return hasValue(value) ? `${usesRpe ? "RPE" : "RIR"} ${formatValue(value)}` : "";
+function getSetIntensityLabel(exercise: SessionComparisonExercise | undefined, detail?: SessionSetDetail) {
+  if (exercise?.intensityMethod === "velocity" || hasValue(exercise?.targetVelocity)) {
+    const value = detail ? detail.velocity : exercise?.targetVelocity;
+    return hasValue(value) ? `${formatValue(value)} m/s` : "";
+  }
+  if (exercise?.intensityMethod === "rir" || hasValue(exercise?.plannedRir ?? exercise?.targetRir)) {
+    const value = detail ? detail.rir : exercise?.plannedRir ?? exercise?.targetRir;
+    return hasValue(value) ? `RIR ${formatValue(value)}` : "";
+  }
+  if (!detail && (exercise?.intensityMethod === "rpe" || hasValue(exercise?.plannedRpe ?? exercise?.targetRpe))) {
+    const value = exercise?.plannedRpe ?? exercise?.targetRpe;
+    return hasValue(value) ? `RPE ${formatValue(value)}` : "";
+  }
+  return "";
 }
 
 function formatPlannedSet(exercise: SessionComparisonExercise | undefined, setIndex: number) {
   if (!exercise) return "—";
   const load = exercise.plannedLoad ?? exercise.load;
   const reps = getPlannedReps(exercise, setIndex);
-  const effort = getEffortLabel(exercise);
+  const effort = getSetIntensityLabel(exercise);
   return [hasPositiveLoad(load) ? `${formatValue(load)} kg` : "", reps ? `${reps} reps` : "", effort].filter(Boolean).join(" × ").replace(" × R", " · R") || "—";
 }
 
@@ -140,8 +179,17 @@ function formatActualSet(exercise: SessionComparisonExercise | undefined, detail
   if (!isRecordedSet(detail)) return "—";
   const load = detail?.load;
   const reps = formatValue(detail?.reps);
-  const effort = getEffortLabel(exercise, detail);
+  const effort = getSetIntensityLabel(exercise, detail);
   return [hasPositiveLoad(load) ? `${formatValue(load)} kg` : "", reps ? `${reps} reps` : "", effort].filter(Boolean).join(" × ").replace(" × R", " · R") || "—";
+}
+
+function formatCompletionPlan(exercise?: SessionComparisonExercise) {
+  if (!exercise) return "Sin prescripción detallada";
+  const volume = hasValue(exercise.plannedSets) && hasValue(exercise.plannedReps)
+    ? `${formatValue(exercise.plannedSets)} × ${formatValue(exercise.plannedReps)}`
+    : [hasValue(exercise.plannedSets) ? `${formatValue(exercise.plannedSets)} series` : "", hasValue(exercise.plannedReps) ? `${formatValue(exercise.plannedReps)} reps` : ""].filter(Boolean).join(" · ");
+  const rest = hasValue(exercise.plannedRest) ? `${formatValue(exercise.plannedRest)} descanso` : "";
+  return [volume, rest, getSetIntensityLabel(exercise)].filter(Boolean).join(" · ") || "Sin prescripción detallada";
 }
 
 function getMethodLabel(method?: SetMethod | null) {
@@ -157,7 +205,8 @@ export function SessionPlanVsActual({
   plannedExercises,
   summary,
   type,
-  showHeader = true
+  showHeader = true,
+  visibleBlock
 }: {
   date: string;
   performedExercises: SessionComparisonExercise[];
@@ -165,10 +214,11 @@ export function SessionPlanVsActual({
   summary: string;
   type: string;
   showHeader?: boolean;
+  visibleBlock?: SessionComparisonBlock;
 }) {
-  const { completedSets, plannedSets, rows } = getSessionPlanVsActualProgress({ performedExercises, plannedExercises });
+  const { completedExercises, completedSets, plannedCompletionExercises, plannedSets, rows } = getSessionPlanVsActualProgress({ performedExercises, plannedExercises });
 
-  if (completedSets === 0) {
+  if (rows.length === 0) {
     return <p className="rounded-xl border border-line bg-panel/35 p-4 text-sm text-ink/60">Sin ejecución registrada.</p>;
   }
 
@@ -180,58 +230,91 @@ export function SessionPlanVsActual({
           <h3 className="mt-1 text-lg font-bold text-ink">{summary}</h3>
           <p className="mt-1 text-sm text-ink/55">{date} · {type}</p>
         </div>
-        {plannedSets > 0 ? <span className="w-fit rounded-full border border-line bg-panel/45 px-3 py-1 text-xs font-semibold text-ink/65">{completedSets}/{plannedSets} series realizadas</span> : null}
+        <div className="flex flex-wrap gap-2">
+          {plannedCompletionExercises > 0 ? <span className="w-fit rounded-full border border-line bg-panel/45 px-3 py-1 text-xs font-semibold text-ink/65">{completedExercises}/{plannedCompletionExercises} ejercicios completados</span> : null}
+          {plannedSets > 0 ? <span className="w-fit rounded-full border border-line bg-panel/45 px-3 py-1 text-xs font-semibold text-ink/65">{completedSets}/{plannedSets} series realizadas</span> : null}
+        </div>
       </div> : null}
 
       <div className={`${showHeader ? "mt-5" : ""} grid gap-4`}>
-        {comparisonBlocks.map((block) => {
+        {comparisonBlocks.filter((block) => !visibleBlock || block.key === visibleBlock).map((block) => {
           const blockRows = rows.filter((row) => getExerciseBlock(row.planned ?? row.performed) === block.key);
           if (blockRows.length === 0) return null;
-          const blockCompleted = blockRows.reduce((total, row) => total + (row.performed?.setDetails ?? []).filter(isRecordedSet).length, 0);
-          const blockPlanned = blockRows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+          const blockSetRows = blockRows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "set_tracking");
+          const blockCompletionRows = blockRows.filter((row) => getSessionExerciseExecutionMode(row.planned ?? row.performed) === "completion_only");
+          const blockCompleted = blockSetRows.reduce((total, row) => total + resolveSessionSetNumbers(row.performed?.setDetails).filter((entry) => isRecordedSet(entry.detail)).length, 0);
+          const blockPlanned = blockSetRows.reduce((total, row) => total + getPlannedSetCount(row.planned ?? row.performed), 0);
+          const blockCompletedExercises = blockCompletionRows.filter((row) => row.performed?.completion?.completed === true).length;
           return (
             <section className="rounded-xl border border-line bg-panel/25 p-3 sm:p-4" key={block.key}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-ink/55">{block.label}</h4>
-                {blockPlanned > 0 ? <span className="text-xs font-semibold text-ink/50">{blockCompleted}/{blockPlanned} series realizadas</span> : null}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-ink/50">
+                  {blockCompletionRows.length > 0 ? <span>{blockCompletedExercises}/{blockCompletionRows.length} ejercicios completados</span> : null}
+                  {blockPlanned > 0 ? <span>{blockCompleted}/{blockPlanned} series realizadas</span> : null}
+                </div>
               </div>
               <div className="mt-3 grid gap-3">
                 {blockRows.map((row, exerciseIndex) => {
                   const reference = row.planned ?? row.performed;
-                  const actualSets = row.performed?.setDetails ?? [];
-                  const totalSets = Math.max(getPlannedSetCount(reference), actualSets.length);
-                  const exerciseCompleted = actualSets.filter(isRecordedSet).length;
+                  const completionOnly = getSessionExerciseExecutionMode(reference) === "completion_only";
+                  const actualSets = resolveSessionSetNumbers(row.performed?.setDetails);
+                  const plannedSetCount = getPlannedSetCount(reference);
+                  const highestActualSetNumber = actualSets.reduce((highest, entry) => Math.max(highest, entry.setNumber), 0);
+                  const totalSets = Math.max(plannedSetCount, highestActualSetNumber);
+                  const plannedCompletedCount = actualSets.filter((entry) => entry.setNumber <= plannedSetCount && isRecordedSet(entry.detail)).length;
+                  const omittedCount = (row.performed?.omittedSetNumbers ?? []).filter((setNumber) => setNumber <= plannedSetCount).length;
+                  const additionalCount = actualSets.filter((entry) => entry.setNumber > plannedSetCount && isRecordedSet(entry.detail)).length;
                   const method = getMethodLabel(reference?.setMethod);
                   const tempo = formatExerciseTempo(reference?.tempo);
+                  if (completionOnly) {
+                    const completed = row.performed?.completion?.completed === true;
+                    return (
+                      <details className="group min-w-0 rounded-xl border border-line bg-white" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`} name={`session-comparison-${block.key}`}>
+                        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
+                          <span className="min-w-0"><span className="block break-words text-sm font-bold text-ink sm:text-base">{getExerciseName(reference)}</span><span className="mt-0.5 block text-xs font-semibold text-ink/50">{completed ? "✓ Completado" : "No completado"}</span></span>
+                          <span className="shrink-0 text-lg text-ink/35 transition group-open:rotate-90">›</span>
+                        </summary>
+                      <div className="grid gap-2 border-t border-line p-3 sm:grid-cols-2 sm:p-4">
+                          <div className="rounded-lg border border-line bg-panel/20 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Plan</p><p className="mt-1 text-sm text-ink/65">{formatCompletionPlan(row.planned ?? reference)}</p></div>
+                          <div className="rounded-lg border border-line bg-panel/20 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Real</p><p className="mt-1 text-sm font-semibold text-ink">{completed ? "✓ Completado" : "No completado"}</p></div>
+                        </div>
+                      </details>
+                    );
+                  }
                   return (
-                    <article className="min-w-0 rounded-xl border border-line bg-white p-3 sm:p-4" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-2">
+                    <details className="group min-w-0 rounded-xl border border-line bg-white" key={reference?.id || `${getExerciseName(reference)}-${exerciseIndex}`} name={`session-comparison-${block.key}`}>
+                      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
                         <div className="min-w-0">
                           <h5 className="break-words text-sm font-bold text-ink sm:text-base">{getExerciseName(reference)}</h5>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/50">
-                            {method ? <span>{method}</span> : null}
-                            {tempo ? <span>Tempo {tempo}</span> : null}
-                          </div>
+                          <p className="mt-0.5 text-xs font-semibold text-ink/50">{plannedCompletedCount}/{plannedSetCount} planificadas{omittedCount > 0 ? ` · ${omittedCount} ${omittedCount === 1 ? "omitida" : "omitidas"}` : ""}{additionalCount > 0 ? ` · +${additionalCount} ${additionalCount === 1 ? "adicional" : "adicionales"}` : ""} · {row.performed?.exerciseEffort ? `${row.performed.exerciseEffort.type.toUpperCase()} ${row.performed.exerciseEffort.value}` : "RPE —"}</p>
                         </div>
-                        <span className="shrink-0 text-xs font-semibold text-ink/50">{exerciseCompleted}/{totalSets} series realizadas</span>
-                      </div>
+                        <span className="shrink-0 text-lg text-ink/35 transition group-open:rotate-90">›</span>
+                      </summary>
+                      <div className="border-t border-line p-3 sm:p-4">
+                      {(method || tempo) ? <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/50">{method ? <span>{method}</span> : null}{tempo ? <span>Tempo {tempo}</span> : null}</div> : null}
                       <div className="mt-3 hidden grid-cols-[4rem_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-b border-line px-2 pb-2 text-[10px] font-bold uppercase tracking-wide text-ink/40 sm:grid">
                         <span>Serie</span><span>Plan</span><span>Real</span>
                       </div>
                       <div className="mt-2 grid gap-2">
                         {Array.from({ length: totalSets }, (_, setIndex) => {
-                          const detail = actualSets[setIndex];
+                          const setNumber = setIndex + 1;
+                          const detail = getSessionSetByNumber(row.performed?.setDetails, setNumber);
+                          const extra = setNumber > plannedSetCount;
+                          const omitted = !extra && (row.performed?.omittedSetNumbers ?? []).includes(setNumber);
                           return (
                             <div className="rounded-lg border border-line bg-panel/20 p-3 sm:grid sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:px-2 sm:py-2" key={setIndex}>
-                              <p className="text-xs font-bold text-ink/55">Serie {setIndex + 1}</p>
-                              <p className="mt-2 break-words text-sm text-ink/65 sm:mt-0"><span className="font-semibold text-ink sm:hidden">Plan · </span>{formatPlannedSet(reference, setIndex)}</p>
-                              <p className="mt-1 break-words text-sm font-semibold text-ink sm:mt-0"><span className="text-ink sm:hidden">Real · </span>{formatActualSet(reference, detail)}</p>
+                              <p className="text-xs font-bold text-ink/55">{extra ? `Adicional ${setNumber - plannedSetCount}` : `Serie ${setNumber}`}</p>
+                              <p className="mt-2 break-words text-sm text-ink/65 sm:mt-0"><span className="font-semibold text-ink sm:hidden">Plan · </span>{extra ? "—" : formatPlannedSet(reference, setIndex)}</p>
+                              <p className="mt-1 break-words text-sm font-semibold text-ink sm:mt-0"><span className="text-ink sm:hidden">Real · </span>{omitted ? "No realizada" : formatActualSet(reference, detail)}</p>
                             </div>
                           );
                         })}
                       </div>
+                      {row.performed?.exerciseEffort ? <p className="mt-3 text-sm font-semibold text-ink">{row.performed.exerciseEffort.type.toUpperCase()} del ejercicio: {row.performed.exerciseEffort.value}</p> : null}
                       {reference?.setMethod === "cluster" ? <p className="mt-3 text-xs text-ink/45">La ejecución corresponde a la serie externa; los mini-bloques no se registran por separado.</p> : null}
-                    </article>
+                      </div>
+                    </details>
                   );
                 })}
               </div>
