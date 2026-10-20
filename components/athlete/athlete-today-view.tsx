@@ -2131,14 +2131,23 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
   }
 
   function omitSet(setNumber: number) {
-    const laterRecordedSet = resolveSessionSetNumbers(setDetails).some((entry) => entry.setNumber >= setNumber && entry.setNumber <= plannedSetCount);
-    if (laterRecordedSet) {
-      setSetValidation("No se pueden omitir estas series porque ya contienen registros reales.");
-      return;
+    const hasLaterRecordedSet = resolveSessionSetNumbers(setDetails).some((entry) => entry.setNumber > setNumber);
+    if (hasLaterRecordedSet && typeof window !== "undefined") {
+      const shouldOmit = window.confirm("Esta serie y las siguientes se marcarán como no realizadas. Se eliminarán los registros posteriores de este ejercicio.");
+      if (!shouldOmit) return;
     }
     const omittedFromHere = Array.from({ length: plannedSetCount - setNumber + 1 }, (_, offset) => setNumber + offset);
-    onUpdateExecution(index, { omittedSetNumbers: [...new Set([...omittedSetNumbers.filter((value) => value < setNumber), ...omittedFromHere])].sort((a, b) => a - b) });
+    const nextSetDetails = resolveSessionSetNumbers(setDetails)
+      .filter((entry) => entry.setNumber < setNumber)
+      .map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
+    const hasRemainingRecordedSet = nextSetDetails.some((detail) => Number(detail.setNumber) <= plannedSetCount);
+    onUpdateExecution(index, {
+      exerciseEffort: hasRemainingRecordedSet ? exercise.exerciseEffort : undefined,
+      omittedSetNumbers: [...new Set([...omittedSetNumbers.filter((value) => value < setNumber), ...omittedFromHere])].sort((a, b) => a - b),
+      setDetails: nextSetDetails
+    });
     setEditingSetNumber(null);
+    setSetValidation("");
   }
 
   function deleteExtraSet(setNumber: number) {
@@ -2208,8 +2217,8 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
   }
 
   const isMobility = getExerciseById(exercise.exerciseId || "")?.exerciseType === "mobility";
-  const requiresEffort = !completionOnly && !isMobility;
   const recordedPlannedSetNumbers = new Set(resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber <= plannedSetCount).map((entry) => entry.setNumber));
+  const requiresEffort = !completionOnly && !isMobility && recordedPlannedSetNumbers.size > 0;
   const firstOmittedSetNumber = omittedSetNumbers.length > 0 ? Math.min(...omittedSetNumbers) : null;
   const nextPendingSetNumber = Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).find((setNumber) => !recordedPlannedSetNumbers.has(setNumber) && !omittedSetNumbers.includes(setNumber)) ?? null;
   const nextActionableSetNumber = firstOmittedSetNumber ?? nextPendingSetNumber;
@@ -2301,7 +2310,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
                 {!isEditing ? <div className="ml-auto flex shrink-0 items-center gap-1">
                   {!extra ? <button aria-label="Realizada según el plan" className={`grid h-11 w-11 place-items-center rounded-md text-base font-bold disabled:cursor-not-allowed disabled:opacity-35 ${equalToPlan ? "bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "text-ink/50 hover:bg-panel"}`} disabled={!canConfirmPlan || !canActOnPlannedSet} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
                   <button aria-label="Modificar serie" className={`grid h-11 w-11 place-items-center rounded-md text-sm disabled:cursor-not-allowed disabled:opacity-35 ${actual && !equalToPlan ? "bg-amber-50 text-amber-800" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && !canActOnPlannedSet} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
-                  <button aria-label={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} className={`grid h-11 w-11 place-items-center rounded-md text-base disabled:cursor-not-allowed disabled:opacity-35 ${omitted ? "bg-clay/10 text-clay" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && (Boolean(actual) || setNumber !== nextPendingSetNumber)} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} type="button">×</button>
+                  <button aria-label={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} className={`grid h-11 w-11 place-items-center rounded-md text-base disabled:cursor-not-allowed disabled:opacity-35 ${omitted ? "bg-clay/10 text-clay" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && !actual && setNumber !== nextPendingSetNumber} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} type="button">×</button>
                 </div> : null}
               </div>
               {actual && !extra && !equalToPlan ? <p className="-mt-1 px-2.5 pb-2 pl-[3.125rem] text-xs text-ink/45">Plan · {getPlannedReference(setNumber)}</p> : null}

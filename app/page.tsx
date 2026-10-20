@@ -15597,7 +15597,7 @@ function SessionHistoryPanel({
                           ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          {session.id ? (
+                          {session.id && status !== "Completada" ? (
                             <button
                               className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink/70 transition hover:bg-mint hover:text-ink"
                               onClick={() => {
@@ -15732,14 +15732,14 @@ function SessionHistoryPanel({
                           ) : null}
 
                           {session.discomfort?.hasDiscomfort ? (
-                            <section className="rounded-xl border border-line bg-white p-4">
-                              <h5 className="text-sm font-semibold text-ink">Molestia</h5>
-                              <p className="mt-2 text-sm font-semibold text-ink/70">
+                            <section className="rounded-xl border border-amber-300/70 bg-amber-50/80 p-4 dark:border-amber-400/35 dark:bg-amber-950/25">
+                              <h5 className="text-sm font-semibold text-amber-950 dark:text-amber-100">Molestia registrada</h5>
+                              <p className="mt-2 text-sm font-semibold text-amber-950/80 dark:text-amber-100/80">
                                 {session.discomfort.bodyArea || "Zona sin especificar"}{hasDisplayValue(session.discomfort.intensity) ? ` · ${session.discomfort.intensity}/10` : ""}
                               </p>
                               {(session.discomfort.phase || session.discomfort.exerciseName || session.discomfort.notes) ? (
-                                <details className="mt-2 text-sm text-ink/60">
-                                  <summary className="cursor-pointer font-semibold text-ink/65">Ver detalle</summary>
+                                <details className="mt-2 text-sm text-amber-950/70 dark:text-amber-100/70">
+                                  <summary className="cursor-pointer font-semibold text-amber-950/80 dark:text-amber-100/80">Ver detalle</summary>
                                   <div className="mt-2 grid gap-1">
                                     {session.discomfort.phase ? <p>Momento: {session.discomfort.phase}</p> : null}
                                     {session.discomfort.exerciseName ? <p>Ejercicio: {session.discomfort.exerciseName}</p> : null}
@@ -16240,7 +16240,7 @@ function SessionHistoryPanel({
                             {reviewStatus === "reviewed" ? (
                               <p className="mt-2 text-sm text-ink/65">{session.reviewNotes || "Sesi\u00f3n revisada sin comentario."}</p>
                             ) : (
-                              <p className="mt-2 text-sm text-ink/55">Pendiente de feedback para el deportista.</p>
+                              <p className="mt-2 text-sm text-ink/55">Pendiente de revisión interna.</p>
                             )}
                           </div>
                           <button
@@ -16248,7 +16248,7 @@ function SessionHistoryPanel({
                             onClick={() => openFeedbackModal(sessionIndex, sessionKey, session, suggestedReviewNotes)}
                             type="button"
                           >
-                            {reviewStatus === "reviewed" ? "Editar feedback" : "Marcar como revisada"}
+                            {reviewStatus === "reviewed" ? "Editar revisión" : "Marcar como revisada"}
                           </button>
                         </div>
                       </section>
@@ -16322,8 +16322,8 @@ function SessionHistoryPanel({
       {reviewFeedbackModal && feedbackSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
           <div className="w-full max-w-lg rounded-md border border-line bg-white p-5 shadow-soft">
-            <h3 className="text-xl font-semibold text-ink">Enviar feedback al deportista</h3>
-            <p className="mt-2 text-sm text-ink/55">{"El comentario se guardar\u00e1 en la sesi\u00f3n revisada."}</p>
+            <h3 className="text-xl font-semibold text-ink">Revisión interna de la sesión</h3>
+            <p className="mt-2 text-sm text-ink/55">{"La nota se guardar\u00e1 en la sesi\u00f3n y no se enviar\u00e1 al deportista."}</p>
             <textarea
               className="mt-4 min-h-32 w-full rounded-md border border-line bg-panel/35 px-3 py-3 text-sm text-ink outline-none focus:border-moss"
               onChange={(event) => updateReviewDraft(reviewFeedbackModal.sessionKey, event.target.value)}
