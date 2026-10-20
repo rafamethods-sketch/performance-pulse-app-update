@@ -1420,6 +1420,8 @@ type CoachCalendarEvent = {
 type CoachClient = Omit<BaseCoachClient, "assessments" | "sessionRecords"> & {
   accessEndDate?: string;
   accessStartDate?: string;
+  /** Optional pointer to public.profiles.id. Backend authorization must still be enforced by coach_athletes and RLS. */
+  athleteProfileId?: string;
   assessmentPreferences?: AssessmentPreferences;
   assessments: Array<BaseCoachClient["assessments"][number] & {
     id?: string;
