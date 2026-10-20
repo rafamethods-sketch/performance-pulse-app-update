@@ -1,9 +1,19 @@
 import type { ExerciseDefinition } from "./exercises";
+import {
+  getSessionExerciseExecutionMode,
+  type SessionExerciseCompletion,
+  type SessionExerciseEffort,
+  type SessionExerciseExecutionMode
+} from "./session-execution";
 
 export type SessionExerciseInput = {
+  completion?: SessionExerciseCompletion | null;
+  exerciseEffort?: SessionExerciseEffort | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   exerciseId?: string | null;
   exerciseName?: string | null;
   load?: number | string | null;
+  omittedSetNumbers?: number[] | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
   plannedSets?: number | string | null;
@@ -65,6 +75,7 @@ function isMainLoadExercise(
   entry: SessionExerciseInput,
   exerciseLibrary: ExerciseLibraryInput
 ) {
+  if (getSessionExerciseExecutionMode(entry) === "completion_only") return false;
   const exercise = getExerciseDefinition(entry, exerciseLibrary);
   return !exercise || exercise.exerciseType !== "mobility";
 }
@@ -100,6 +111,7 @@ export function calculateExternalLoadByPattern(
   exerciseLibrary: ExerciseLibraryInput
 ) {
   return getSessionExercises(session).reduce<Record<string, number>>((acc, entry) => {
+    if (getSessionExerciseExecutionMode(entry) === "completion_only") return acc;
     const exercise = getExerciseDefinition(entry, exerciseLibrary);
     if (!exercise || exercise.exerciseType === "mobility") return acc;
 
@@ -138,6 +150,7 @@ export function calculateSessionMuscleSets(
   exerciseLibrary: ExerciseLibraryInput
 ) {
   return getSessionExercises(session).reduce<Record<string, number>>((acc, entry) => {
+    if (getSessionExerciseExecutionMode(entry) === "completion_only") return acc;
     const exercise = getExerciseDefinition(entry, exerciseLibrary);
     if (!exercise || exercise.exerciseType === "mobility") return acc;
 

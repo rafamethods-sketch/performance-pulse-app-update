@@ -12,11 +12,13 @@ import {
   type ResistanceZoneIntensityBucket
 } from "@/lib/resistance-zone-distribution";
 import type { ResistanceSport, ResistanceZoneId } from "@/lib/resistance-zones";
+import { getSessionExerciseExecutionMode, type SessionExerciseExecutionMode } from "@/lib/session-execution";
 
 type AthleteWeeklyExercise = MuscleFatigueExercise & {
   actualRpe?: number | string | null;
   exerciseName?: string | null;
   exerciseRpe?: number | string | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   load?: number | string | null;
   perceivedExertion?: number | string | null;
   plannedLoad?: number | string | null;
@@ -149,6 +151,7 @@ function getExerciseSets(exercise: AthleteWeeklyExercise) {
 }
 
 function getExerciseSeriesCount(exercise: AthleteWeeklyExercise) {
+  if (getSessionExerciseExecutionMode(exercise) === "completion_only") return 0;
   const setDetailsCount = exercise.setDetails?.length ?? 0;
   if (setDetailsCount > 0) return setDetailsCount;
   return getExerciseSets(exercise);
@@ -171,6 +174,7 @@ function getSetDetailsRepSum(exercise: AthleteWeeklyExercise) {
 function calculateWeeklyTonnage(sessions: AthleteWeeklySession[]) {
   return sessions.reduce((sessionTotal, session) => (
     sessionTotal + getSessionExercises(session).reduce((exerciseTotal, exercise) => {
+      if (getSessionExerciseExecutionMode(exercise) === "completion_only") return exerciseTotal;
       const load = getExerciseLoad(exercise);
       if (load <= 0) return exerciseTotal;
       const setDetailsRepSum = getSetDetailsRepSum(exercise);

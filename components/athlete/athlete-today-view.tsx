@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
@@ -13,6 +13,14 @@ import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
 import { calculateSessionLoad } from "@/lib/client-metrics";
 import { getResistanceMethodById, type ResistanceMethod } from "@/lib/resistance-methods";
 import { getSportZoneProfile, type ResistanceSport, type ResistanceZone } from "@/lib/resistance-zones";
+import {
+  getSessionSetByNumber,
+  getSessionExerciseExecutionMode,
+  resolveSessionSetNumbers,
+  type SessionExerciseCompletion,
+  type SessionExerciseEffort,
+  type SessionExerciseExecutionMode
+} from "@/lib/session-execution";
 import {
   estimateMenstrualPhase,
   getMenstrualSymptomSummary,
@@ -63,11 +71,13 @@ type AthleteExercise = {
   exerciseId?: string | null;
   exerciseName?: string | null;
   exerciseRpe?: number | string | null;
+  exerciseEffort?: SessionExerciseEffort | null;
   id?: string | null;
   intensityMethod?: string | null;
   load?: number | string | null;
   name?: string | null;
   observation?: string | null;
+  omittedSetNumbers?: number[] | null;
   percent1RM?: number | string | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
@@ -83,6 +93,8 @@ type AthleteExercise = {
   sessionBlock?: "activation" | "main" | "complementary" | null;
   setMethod?: "straight" | "ascending" | "descending" | "cluster" | null;
   clusterConfig?: { intraClusterRestSeconds?: number | string | null; repsPerMiniSet?: Array<number | string> | null } | null;
+  completion?: SessionExerciseCompletion | null;
+  executionMode?: SessionExerciseExecutionMode | null;
   tempo?: ExerciseTempo | null;
   selectedEquipment?: string | null;
   selectedVariantId?: string | null;
@@ -337,13 +349,13 @@ function getSetDetailsRepSum(setDetails?: AthleteSetDetail[]) {
 }
 
 function normalizeSetDetails(exercise: AthleteExercise) {
-  return (exercise.setDetails ?? []).map((detail, index) => ({
+  return resolveSessionSetNumbers(exercise.setDetails).map(({ detail, setNumber }) => ({
     load: detail.load ?? "",
     percent1RM: detail.percent1RM ?? "",
     reps: detail.reps ?? "",
     rpe: detail.rpe ?? "",
     rir: detail.rir ?? "",
-    setNumber: index + 1,
+    setNumber,
     velocity: detail.velocity ?? ""
   }));
 }
@@ -497,6 +509,21 @@ function getAthleteExerciseBlockKey(exercise: AthleteExercise): AthleteExerciseB
   return "main";
 }
 
+function getAthleteExerciseUiKey(exercise: AthleteExercise, index: number) {
+  return `${exercise.id || exercise.exerciseId || exercise.exerciseName || "exercise"}-${index}`;
+}
+
+function getAthleteActivationGroups(exercises: Array<{ exercise: AthleteExercise; index: number }>) {
+  const groups = [
+    { key: "mobility", label: "MOVILIDAD / PREPARACIÓN", matches: (exercise: AthleteExercise) => getExerciseById(exercise.exerciseId || "")?.exerciseType === "mobility" },
+    { key: "plyometric", label: "PLIOMETRÍA", matches: (exercise: AthleteExercise) => getExerciseById(exercise.exerciseId || "")?.exerciseType === "plyometric" },
+    { key: "other", label: "OTROS EJERCICIOS", matches: (exercise: AthleteExercise) => !["mobility", "plyometric"].includes(getExerciseById(exercise.exerciseId || "")?.exerciseType ?? "") }
+  ];
+  return groups
+    .map((group) => ({ ...group, exercises: exercises.filter(({ exercise }) => group.matches(exercise)) }))
+    .filter((group) => group.exercises.length > 0);
+}
+
 export function AthleteTodayView<TClient extends AthleteClient>({
   client,
   onShowCalendar,
@@ -518,11 +545,10 @@ export function AthleteTodayView<TClient extends AthleteClient>({
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showIntakeEditor, setShowIntakeEditor] = useState(false);
   const [performedExercises, setPerformedExercises] = useState<AthleteExercise[]>([]);
-  const [collapsedExerciseBlocks, setCollapsedExerciseBlocks] = useState<Record<AthleteExerciseBlockKey, boolean>>({
-    activation: false,
-    auxiliary: false,
-    main: false
-  });
+  const [openExerciseBlock, setOpenExerciseBlock] = useState<AthleteExerciseBlockKey | null>(null);
+  const [openExerciseKey, setOpenExerciseKey] = useState<string | null>(null);
+  const [finishedExerciseKeys, setFinishedExerciseKeys] = useState<Set<string>>(() => new Set());
+  const activeSessionNavigationKeyRef = useRef<string | null>(null);
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0);
   const [finalRpe, setFinalRpe] = useState(0);
   const [athleteSessionNotes, setAthleteSessionNotes] = useState("");
@@ -604,16 +630,19 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setShowSessionPreview(false);
     setShowWellnessModal(false);
     setShowFinalizeModal(false);
-    setPerformedExercises(
-      session?.performedExercises?.length
-        ? session.performedExercises
-        : createAthleteExerciseEntries(session)
-    );
-    setCollapsedExerciseBlocks({
-      activation: false,
-      auxiliary: false,
-      main: false
-    });
+    const nextExercises = session?.performedExercises?.length
+      ? session.performedExercises
+      : createAthleteExerciseEntries(session);
+    setPerformedExercises(nextExercises);
+    const sessionNavigationKey = session ? `${client?.id ?? "athlete"}-${sessionIndex}-${session.date}` : null;
+    if (activeSessionNavigationKeyRef.current !== sessionNavigationKey) {
+      setOpenExerciseBlock(
+        athleteExerciseBlocks.find((block) => nextExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === block.key))?.key ?? null
+      );
+      setOpenExerciseKey(nextExercises.length ? getAthleteExerciseUiKey(nextExercises[0], 0) : null);
+      setFinishedExerciseKeys(new Set());
+      activeSessionNavigationKeyRef.current = sessionNavigationKey;
+    }
     setActualDurationMinutes(0);
     setFinalRpe(0);
     setAthleteSessionNotes("");
@@ -660,7 +689,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     setMenstrualMessage("");
     setShowMenstrualDetails(false);
     setValidationMessage("");
-  }, [client?.menstrualTracking, session, todayKey]);
+  }, [client?.id, client?.menstrualTracking, session, sessionIndex, todayKey]);
 
   useEffect(() => {
     if (!showSessionPreview && !showWellnessModal && !showFinalizeModal) return;
@@ -692,13 +721,16 @@ export function AthleteTodayView<TClient extends AthleteClient>({
     );
   }
 
-  function persistExerciseSetDetails(exerciseIndex: number, setDetails: AthleteSetDetail[]) {
+  function persistExerciseExecution(exerciseIndex: number, updates: Partial<AthleteExercise>) {
     if (!client || !session || sessionIndex < 0) return;
-    const nextExercises = performedExercises.map((exercise, index) =>
-      index === exerciseIndex
-        ? { ...exercise, ...getUpdatedExerciseFromSetDetails(exercise, setDetails) }
-        : exercise
-    );
+    invalidateFinishedExercise(exerciseIndex);
+    const nextExercises = performedExercises.map((exercise, index) => {
+      if (index !== exerciseIndex) return exercise;
+      const updatedExercise = { ...exercise, ...updates };
+      return updates.setDetails
+        ? { ...updatedExercise, ...getUpdatedExerciseFromSetDetails(updatedExercise, updates.setDetails) }
+        : updatedExercise;
+    });
     const updatedSession: AthleteSessionRecord = {
       ...session,
       performedExercises: nextExercises
@@ -711,6 +743,55 @@ export function AthleteTodayView<TClient extends AthleteClient>({
         index === sessionIndex ? updatedSession : record
       )
     } as TClient);
+  }
+
+  function persistExerciseCompletion(exerciseIndex: number, completed: boolean) {
+    if (!client || !session || sessionIndex < 0) return;
+    invalidateFinishedExercise(exerciseIndex);
+    const nextExercises = performedExercises.map((exercise, index) =>
+      index === exerciseIndex
+        ? {
+            ...exercise,
+            completion: completed ? { completed: true, completedAt: new Date().toISOString() } : { completed: false }
+          }
+        : exercise
+    );
+    const updatedSession: AthleteSessionRecord = { ...session, performedExercises: nextExercises };
+
+    setPerformedExercises(nextExercises);
+    onUpdateClient({
+      ...client,
+      sessionRecords: client.sessionRecords.map((record, index) => index === sessionIndex ? updatedSession : record)
+    } as TClient);
+  }
+
+  function invalidateFinishedExercise(exerciseIndex: number) {
+    const exercise = performedExercises[exerciseIndex];
+    if (!exercise) return;
+    const exerciseKey = getAthleteExerciseUiKey(exercise, exerciseIndex);
+    setFinishedExerciseKeys((current) => {
+      if (!current.has(exerciseKey)) return current;
+      const next = new Set(current);
+      next.delete(exerciseKey);
+      return next;
+    });
+  }
+
+  function openExerciseBlockWithFirstExercise(blockKey: AthleteExerciseBlockKey) {
+    const firstExerciseIndex = performedExercises.findIndex((exercise) => getAthleteExerciseBlockKey(exercise) === blockKey);
+    setOpenExerciseBlock(blockKey);
+    setOpenExerciseKey(firstExerciseIndex >= 0 ? getAthleteExerciseUiKey(performedExercises[firstExerciseIndex], firstExerciseIndex) : null);
+  }
+
+  function finishExercise(exerciseIndex: number) {
+    const exercise = performedExercises[exerciseIndex];
+    if (!exercise) return;
+    const exerciseKey = getAthleteExerciseUiKey(exercise, exerciseIndex);
+    const nextExerciseIndex = performedExercises.findIndex((_, candidateIndex) => candidateIndex > exerciseIndex);
+    const nextExercise = nextExerciseIndex >= 0 ? performedExercises[nextExerciseIndex] : null;
+    setFinishedExerciseKeys((current) => new Set(current).add(exerciseKey));
+    setOpenExerciseBlock(nextExercise ? getAthleteExerciseBlockKey(nextExercise) : getAthleteExerciseBlockKey(exercise));
+    setOpenExerciseKey(nextExercise ? getAthleteExerciseUiKey(nextExercise, nextExerciseIndex) : null);
   }
 
   function startSession() {
@@ -1250,35 +1331,87 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                 <section className="rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                   <h3 className="text-lg font-semibold text-ink">Ejercicios planificados</h3>
                   <div className="mt-4 space-y-4">
-                    {athleteExerciseBlocks.map((block) => {
+                    {athleteExerciseBlocks.filter((candidate) => performedExercises.some((exercise) => getAthleteExerciseBlockKey(exercise) === candidate.key)).map((block, blockIndex, existingBlocks) => {
                       const blockExercises = performedExercises
                         .map((exercise, index) => ({ exercise, index }))
                         .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
-                      const isCollapsed = collapsedExerciseBlocks[block.key];
-                      const exerciseCountLabel = `${blockExercises.length} ${blockExercises.length === 1 ? "ejercicio" : "ejercicios"}`;
+                      const isOpen = openExerciseBlock === block.key;
+                      const exerciseGroups = block.key === "activation"
+                        ? getAthleteActivationGroups(blockExercises)
+                        : [{ key: block.key, label: "", exercises: blockExercises }];
+                      const completionExercises = blockExercises.filter(({ exercise }) => getSessionExerciseExecutionMode(exercise) === "completion_only");
+                      const trackedExercises = blockExercises.filter(({ exercise }) => getSessionExerciseExecutionMode(exercise) === "set_tracking");
+                      const completedExercises = completionExercises.filter(({ exercise }) => exercise.completion?.completed).length;
+                      const plannedSets = trackedExercises.reduce((total, { exercise }) => total + getFinalizePlannedSetCount(exercise), 0);
+                      const completedSets = trackedExercises.reduce((total, { exercise }) =>
+                        total + getFinalizeRecordedSetCount(exercise) + (exercise.omittedSetNumbers ?? []).filter((setNumber) => setNumber <= getFinalizePlannedSetCount(exercise)).length, 0
+                      );
+                      const blockFinished = blockExercises.every(({ exercise, index }) =>
+                        getSessionExerciseExecutionMode(exercise) === "completion_only"
+                          ? exercise.completion?.completed === true
+                          : finishedExerciseKeys.has(getAthleteExerciseUiKey(exercise, index))
+                      );
+                      const progressLabel = [
+                        completionExercises.length ? `${completedExercises}/${completionExercises.length} ejercicios` : "",
+                        plannedSets ? `${completedSets}/${plannedSets} series` : ""
+                      ].filter(Boolean).join(" · ") || "Pendiente";
+                      const nextBlock = existingBlocks[blockIndex + 1];
                       if (blockExercises.length === 0) return null;
 
                       return (
-                        <section className="rounded-md border border-line bg-panel/35 p-3" key={block.key}>
+                        <section className="rounded-md border border-line bg-panel/35 p-3 sm:p-4" key={block.key}>
                           <button
-                            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
-                            onClick={() => setCollapsedExerciseBlocks((current) => ({ ...current, [block.key]: !current[block.key] }))}
+                            aria-expanded={isOpen}
+                            className="flex min-h-11 w-full items-center gap-3 rounded-md px-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+                            onClick={() => {
+                              if (isOpen) {
+                                setOpenExerciseBlock(null);
+                                setOpenExerciseKey(null);
+                                return;
+                              }
+                              openExerciseBlockWithFirstExercise(block.key);
+                            }}
                             type="button"
                           >
-                            <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-                            <span>{block.label} · {exerciseCountLabel}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block">{block.label}</span>
+                              <span className="mt-0.5 block text-[11px] font-semibold normal-case tracking-normal text-ink/50">{progressLabel}</span>
+                            </span>
+                            <span className={`text-lg leading-none transition ${isOpen ? "rotate-180" : ""}`}>⌄</span>
                           </button>
-                          {!isCollapsed ? (
-                            <div className="mt-3 grid gap-3">
-                              {blockExercises.map(({ exercise, index }) => (
-                                <AthleteExerciseCard
-                                  exercise={exercise}
-                                  index={index}
-                                  key={exercise.id || `${exercise.exerciseName}-${index}`}
-                                  onConfirmSet={persistExerciseSetDetails}
-                                  onUpdate={updateExercise}
-                                />
+                          {isOpen ? (
+                            <div className="mt-3 grid gap-4">
+                              {exerciseGroups.map((group) => (
+                                <div className="grid gap-3" key={group.key}>
+                                  {group.label ? <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-ink/45">{group.label}</h4> : null}
+                                  {group.exercises.map(({ exercise, index }) => {
+                                    const exerciseKey = getAthleteExerciseUiKey(exercise, index);
+                                    return (
+                                    <AthleteExerciseCard
+                                      exercise={exercise}
+                                      index={index}
+                                      isFinished={finishedExerciseKeys.has(exerciseKey)}
+                                      isOpen={openExerciseKey === exerciseKey}
+                                      key={exerciseKey}
+                                      onFinish={() => finishExercise(index)}
+                                      onOpen={() => setOpenExerciseKey((current) => current === exerciseKey ? null : exerciseKey)}
+                                      onUpdateExecution={persistExerciseExecution}
+                                      onToggleCompletion={persistExerciseCompletion}
+                                      onUpdate={updateExercise}
+                                    />
+                                    );
+                                  })}
+                                </div>
                               ))}
+                              {nextBlock && blockFinished ? (
+                                <button
+                                  className="min-h-11 w-full rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 sm:ml-auto sm:w-auto"
+                                  onClick={() => openExerciseBlockWithFirstExercise(nextBlock.key)}
+                                  type="button"
+                                >
+                                  Continuar a {nextBlock.label.toLowerCase()}
+                                </button>
+                              ) : null}
                             </div>
                           ) : null}
                         </section>
@@ -1286,7 +1419,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                     })}
                   </div>
                 </section>
-                {performedExercises.some((exercise) => (exercise.setDetails ?? []).some((detail) => [detail.load, detail.reps, detail.rir, detail.rpe, detail.percent1RM, detail.velocity].some(hasAthleteDisplayValue))) ? (
+                {performedExercises.some((exercise) => exercise.completion?.completed || exercise.exerciseEffort || exercise.omittedSetNumbers?.length || (exercise.setDetails ?? []).some((detail) => [detail.load, detail.reps, detail.rir, detail.rpe, detail.percent1RM, detail.velocity].some(hasAthleteDisplayValue))) ? (
                   <details className="group rounded-md border border-line bg-white p-4 shadow-soft sm:p-5">
                     <summary className="cursor-pointer list-none text-sm font-bold text-ink marker:hidden">
                       <span className="flex items-center justify-between gap-3">
@@ -1512,12 +1645,14 @@ export function AthleteTodayView<TClient extends AthleteClient>({
 }
 
 function getFinalizePlannedSetCount(exercise: AthleteExercise) {
+  if (getSessionExerciseExecutionMode(exercise) === "completion_only") return 0;
   const sequenceCount = (exercise.plannedSetReps ?? []).filter(hasAthleteDisplayValue).length;
   const parsedSets = Number(`${exercise.plannedSets ?? exercise.sets ?? ""}`.replace(",", "."));
   return Math.max(sequenceCount, Number.isFinite(parsedSets) && parsedSets > 0 ? Math.trunc(parsedSets) : 0);
 }
 
 function getFinalizeRecordedSetCount(exercise: AthleteExercise) {
+  if (getSessionExerciseExecutionMode(exercise) === "completion_only") return 0;
   return (exercise.setDetails ?? []).filter((detail) =>
     [detail.load, detail.reps, detail.rir, detail.rpe, detail.percent1RM, detail.velocity].some(hasAthleteDisplayValue)
   ).length;
@@ -1560,7 +1695,11 @@ function AthleteFinalizeSessionModal({
 }) {
   const plannedSetTotal = plannedExercises.reduce((total, exercise) => total + getFinalizePlannedSetCount(exercise), 0);
   const recordedSetTotal = performedExercises.reduce((total, exercise) => total + getFinalizeRecordedSetCount(exercise), 0);
-  const pendingSetTotal = Math.max(0, plannedSetTotal - recordedSetTotal);
+  const omittedSetTotal = performedExercises.reduce((total, exercise) => total + (exercise.omittedSetNumbers ?? []).filter((setNumber) => setNumber <= getFinalizePlannedSetCount(exercise)).length, 0);
+  const pendingSetTotal = Math.max(0, plannedSetTotal - recordedSetTotal - omittedSetTotal);
+  const completionOnlyExercises = plannedExercises.filter((exercise) => getSessionExerciseExecutionMode(exercise) === "completion_only");
+  const completedExerciseTotal = performedExercises.filter((exercise) => getSessionExerciseExecutionMode(exercise) === "completion_only" && exercise.completion?.completed).length;
+  const pendingExerciseTotal = Math.max(0, completionOnlyExercises.length - completedExerciseTotal);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose} role="presentation">
@@ -1574,6 +1713,7 @@ function AthleteFinalizeSessionModal({
         </div>
 
         {pendingSetTotal > 0 ? <p className="mt-4 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/65">Quedan {pendingSetTotal} {pendingSetTotal === 1 ? "serie" : "series"} sin registrar. Puedes volver a la sesión o finalizar igualmente.</p> : null}
+        {pendingExerciseTotal > 0 ? <p className="mt-2 rounded-md border border-line bg-panel/45 px-3 py-2 text-sm text-ink/65">Quedan {pendingExerciseTotal} {pendingExerciseTotal === 1 ? "ejercicio simple" : "ejercicios simples"} sin completar. Puedes volver a la sesión o finalizar igualmente.</p> : null}
 
         <div className="mt-4 grid gap-4">
           <fieldset>
@@ -1585,6 +1725,8 @@ function AthleteFinalizeSessionModal({
               ))}
             </div>
           </fieldset>
+
+          <label className="space-y-1 text-sm font-semibold text-ink">Duración total de la sesión<div className="flex items-center gap-2"><input className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/25 px-3 font-normal text-ink" inputMode="numeric" min={1} onChange={(event) => onDurationChange(Number(event.target.value) || 0)} placeholder="Minutos" type="number" value={actualDurationMinutes || ""} /><span className="text-sm text-ink/55">min</span></div></label>
 
           <fieldset className="rounded-md border border-line bg-panel/25 p-3">
             <legend className="px-1 text-sm font-semibold text-ink">¿Alguna molestia?</legend>
@@ -1606,7 +1748,6 @@ function AthleteFinalizeSessionModal({
 
           <label className="space-y-1 text-sm font-semibold text-ink">Comentario <span className="font-normal text-ink/45">· opcional</span><textarea className="min-h-16 w-full rounded-md border border-line bg-panel/25 px-3 py-2 text-sm font-normal text-ink" onChange={(event) => onNotesChange(event.target.value)} placeholder="Algo que deba saber tu entrenador…" value={notes} /></label>
 
-          <label className="space-y-1 text-sm font-semibold text-ink">Duración<div className="flex items-center gap-2"><input className="h-11 min-w-0 flex-1 rounded-md border border-line bg-panel/25 px-3 font-normal text-ink" inputMode="numeric" min={1} onChange={(event) => onDurationChange(Number(event.target.value) || 0)} placeholder="Minutos" type="number" value={actualDurationMinutes || ""} /><span className="text-sm text-ink/55">min</span></div></label>
         </div>
 
         {validationMessage ? <p className="mt-3 text-sm font-medium text-coral">{validationMessage}</p> : null}
@@ -1856,7 +1997,7 @@ function getLastSetValue(setDetails: AthleteSetDetail[], field: keyof AthleteSet
 function getCleanSetDetails(setDetails: AthleteSetDetail[], method: string) {
   return setDetails.map((detail, index) => {
     const nextDetail: AthleteSetDetail = {
-      setNumber: index + 1
+      setNumber: Number.isInteger(detail.setNumber) && detail.setNumber > 0 ? detail.setNumber : index + 1
     };
 
     if (hasAthleteDisplayValue(detail.reps)) nextDetail.reps = detail.reps;
@@ -1896,11 +2037,16 @@ function getUpdatedExerciseFromSetDetails(exercise: AthleteExercise, setDetails:
   return updates;
 }
 
-function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
+function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
   exercise: AthleteExercise;
   index: number;
-  onConfirmSet: (index: number, setDetails: AthleteSetDetail[]) => void;
+  isFinished: boolean;
+  isOpen: boolean;
+  onFinish: () => void;
+  onOpen: () => void;
+  onToggleCompletion: (index: number, completed: boolean) => void;
   onUpdate: (index: number, updates: Partial<AthleteExercise>) => void;
+  onUpdateExecution: (index: number, updates: Partial<AthleteExercise>) => void;
 }) {
   const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
   const setDetails = normalizeSetDetails(exercise);
@@ -1908,33 +2054,29 @@ function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
   const prescription = getAthleteExercisePrescription(exercise);
   const intensityMethod = getAthleteExerciseIntensityMethod(exercise);
   const exerciseKey = `${exercise.id || exercise.exerciseId || exerciseName}-${index}`;
-  const intensityLabel =
-    intensityMethod === "rir" ? "RIR"
-      : intensityMethod === "rpe" ? "RPE"
-      : intensityMethod === "percent_1rm" ? "%1RM"
-      : intensityMethod === "velocity" ? "Velocidad"
-      : "";
-  const intensityField =
-    intensityMethod === "rir" ? "rir"
-      : intensityMethod === "rpe" ? "rpe"
-      : intensityMethod === "percent_1rm" ? "percent1RM"
-      : intensityMethod === "velocity" ? "velocity"
-      : "";
   const plannedSequence = (exercise.plannedSetReps ?? []).filter(hasAthleteDisplayValue);
   const plannedSetCount = Math.max(
     plannedSequence.length,
     Math.max(0, Math.trunc(parsePositiveNumber(exercise.plannedSets ?? exercise.sets)))
   );
-  const totalSetCount = Math.max(plannedSetCount, setDetails.length, 1);
-  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
-  const [setDraft, setSetDraft] = useState<AthleteSetDetail>({ setNumber: setDetails.length + 1 });
+  const highestActualSetNumber = resolveSessionSetNumbers(setDetails).reduce((highest, entry) => Math.max(highest, entry.setNumber), 0);
+  const totalSetCount = Math.max(plannedSetCount, highestActualSetNumber, 1);
+  const completionOnly = getSessionExerciseExecutionMode(exercise) === "completion_only";
+  const exerciseCompleted = exercise.completion?.completed === true;
+  const omittedSetNumbers = (exercise.omittedSetNumbers ?? []).filter((value) => Number.isInteger(value) && value > 0 && value <= plannedSetCount);
+  const [editingSetNumber, setEditingSetNumber] = useState<number | null>(null);
+  const [setDraft, setSetDraft] = useState<AthleteSetDetail>({ setNumber: totalSetCount + 1 });
   const [setValidation, setSetValidation] = useState("");
+  const [effortDraft, setEffortDraft] = useState(exercise.exerciseEffort?.type === "rpe" ? `${exercise.exerciseEffort.value}` : "");
+  const [effortValidation, setEffortValidation] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   useEffect(() => {
-    if (editingSetIndex !== null) return;
-    setSetDraft({ setNumber: setDetails.length + 1 });
+    if (editingSetNumber !== null) return;
+    setSetDraft({ setNumber: totalSetCount + 1 });
     setSetValidation("");
-  }, [editingSetIndex, setDetails.length]);
+  }, [editingSetNumber, totalSetCount]);
 
   function getPlannedReps(setIndex: number) {
     if (exercise.setMethod === "cluster" && exercise.clusterConfig?.repsPerMiniSet?.length) {
@@ -1943,37 +2085,90 @@ function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
     return plannedSequence[setIndex] ?? exercise.plannedReps ?? "";
   }
 
-  function getPlannedReference(setIndex: number) {
+  function getPlannedReference(setNumber: number) {
+    const setIndex = setNumber - 1;
     const reference = [
       hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad} kg` : "",
       hasAthleteDisplayValue(getPlannedReps(setIndex)) ? `${getPlannedReps(setIndex)} reps` : "",
-      intensityLabel && hasAthleteDisplayValue(
+      hasAthleteDisplayValue(
         intensityMethod === "rir" ? exercise.plannedRir ?? exercise.targetRir
           : intensityMethod === "rpe" ? exercise.plannedRpe ?? exercise.targetRpe
           : intensityMethod === "percent_1rm" ? exercise.percent1RM
           : exercise.targetVelocity
-      ) ? getAthleteExercisePrescription(exercise).find((item) => item.startsWith(intensityLabel) || item.includes("m/s")) ?? "" : ""
+      ) ? getAthleteExercisePrescription(exercise).find((item) => item.startsWith("RIR") || item.startsWith("RPE") || item.includes("% 1RM") || item.includes("m/s")) ?? "" : ""
     ].filter(Boolean);
     return reference.join(" · ");
   }
 
-  function beginEdit(setIndex: number) {
-    setEditingSetIndex(setIndex);
-    setSetDraft({ ...setDetails[setIndex], setNumber: setIndex + 1 });
+  function getPlannedSetValues(setNumber: number): AthleteSetDetail {
+    const reps = exercise.setMethod === "cluster" && exercise.clusterConfig?.repsPerMiniSet?.length
+      ? exercise.clusterConfig.repsPerMiniSet.reduce<number>((total, value) => total + parsePositiveNumber(value), 0)
+      : getPlannedReps(setNumber - 1);
+    const result: AthleteSetDetail = { setNumber };
+    if (Number.isInteger(Number(`${reps}`.trim())) && Number(reps) >= 0) result.reps = reps;
+    if (hasAthleteDisplayValue(exercise.plannedLoad)) result.load = exercise.plannedLoad;
+    if (intensityMethod === "rir" && hasAthleteDisplayValue(exercise.plannedRir ?? exercise.targetRir)) result.rir = exercise.plannedRir ?? exercise.targetRir;
+    if (intensityMethod === "velocity" && hasAthleteDisplayValue(exercise.targetVelocity)) result.velocity = exercise.targetVelocity;
+    return result;
+  }
+
+  function upsertSet(detail: AthleteSetDetail) {
+    const withoutSet = resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber !== detail.setNumber).map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
+    const nextSetDetails = [...withoutSet, detail].sort((a, b) => a.setNumber - b.setNumber);
+    onUpdateExecution(index, { omittedSetNumbers: omittedSetNumbers.filter((value) => value < detail.setNumber), setDetails: nextSetDetails });
+  }
+
+  function beginEdit(setNumber: number) {
+    const actual = getSessionSetByNumber(setDetails, setNumber);
+    setEditingSetNumber(setNumber);
+    setSetDraft(actual ? { ...actual, setNumber } : setNumber > plannedSetCount ? { setNumber } : getPlannedSetValues(setNumber));
     setSetValidation("");
+  }
+
+  function confirmAccordingToPlan(setNumber: number) {
+    upsertSet(getPlannedSetValues(setNumber));
+    setEditingSetNumber(null);
+  }
+
+  function omitSet(setNumber: number) {
+    const hasLaterRecordedSet = resolveSessionSetNumbers(setDetails).some((entry) => entry.setNumber > setNumber);
+    if (hasLaterRecordedSet && typeof window !== "undefined") {
+      const shouldOmit = window.confirm("Esta serie y las siguientes se marcarán como no realizadas. Se eliminarán los registros posteriores de este ejercicio.");
+      if (!shouldOmit) return;
+    }
+    const omittedFromHere = Array.from({ length: plannedSetCount - setNumber + 1 }, (_, offset) => setNumber + offset);
+    const nextSetDetails = resolveSessionSetNumbers(setDetails)
+      .filter((entry) => entry.setNumber < setNumber)
+      .map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
+    const hasRemainingRecordedSet = nextSetDetails.some((detail) => Number(detail.setNumber) <= plannedSetCount);
+    onUpdateExecution(index, {
+      exerciseEffort: hasRemainingRecordedSet ? exercise.exerciseEffort : undefined,
+      omittedSetNumbers: [...new Set([...omittedSetNumbers.filter((value) => value < setNumber), ...omittedFromHere])].sort((a, b) => a - b),
+      setDetails: nextSetDetails
+    });
+    setEditingSetNumber(null);
+    setSetValidation("");
+  }
+
+  function deleteExtraSet(setNumber: number) {
+    const nextSetDetails = resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber !== setNumber).map((entry) => ({ ...entry.detail, setNumber: entry.setNumber }));
+    onUpdateExecution(index, { setDetails: nextSetDetails });
+    setEditingSetNumber(null);
   }
 
   function updateDraft(field: keyof AthleteSetDetail, value: string) {
     setSetDraft((current) => ({ ...current, [field]: value }));
   }
 
-  function confirmSet(setIndex: number) {
+  function confirmSet(setNumber: number) {
     const reps = `${setDraft.reps ?? ""}`.trim();
     const load = `${setDraft.load ?? ""}`.trim();
-    const intensity = intensityField ? `${setDraft[intensityField as keyof AthleteSetDetail] ?? ""}`.trim() : "";
     const repsNumber = Number(reps.replace(",", "."));
     const loadNumber = load ? Number(load.replace(",", ".")) : null;
-    const intensityNumber = intensity ? Number(intensity.replace(",", ".")) : null;
+    const rir = `${setDraft.rir ?? ""}`.trim();
+    const velocity = `${setDraft.velocity ?? ""}`.trim();
+    const rirNumber = rir ? Number(rir.replace(",", ".")) : null;
+    const velocityNumber = velocity ? Number(velocity.replace(",", ".")) : null;
 
     if (!reps || !Number.isInteger(repsNumber) || repsNumber < 0) {
       setSetValidation("Introduce repeticiones reales con un número entero igual o mayor que 0.");
@@ -1983,120 +2178,177 @@ function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
       setSetValidation("La carga debe ser un número igual o mayor que 0, o quedar vacía.");
       return;
     }
-    if (intensityNumber !== null && (!Number.isFinite(intensityNumber) || intensityNumber < 0 || ((intensityMethod === "rir" || intensityMethod === "rpe") && intensityNumber > 10))) {
-      setSetValidation(`${intensityLabel} debe estar entre 0 y 10, o quedar vacío.`);
+    if (intensityMethod === "rir" && (rirNumber === null || !Number.isFinite(rirNumber) || rirNumber < 0 || rirNumber > 10)) {
+      setSetValidation("Introduce un RIR real entre 0 y 10.");
       return;
     }
-
+    if (intensityMethod === "velocity" && (velocityNumber === null || !Number.isFinite(velocityNumber) || velocityNumber < 0)) {
+      setSetValidation("Introduce una velocidad real igual o mayor que 0.");
+      return;
+    }
     const confirmedDetail: AthleteSetDetail = {
-      setNumber: setIndex + 1,
+      setNumber,
       reps
     };
     if (load) confirmedDetail.load = load;
-    if (intensityField && intensity) confirmedDetail[intensityField as keyof AthleteSetDetail] = intensity as never;
-    const nextSetDetails = editingSetIndex === setIndex
-      ? setDetails.map((detail, detailIndex) => detailIndex === setIndex ? confirmedDetail : detail)
-      : [...setDetails, confirmedDetail];
-    onConfirmSet(index, nextSetDetails);
-    setEditingSetIndex(null);
-    setSetDraft({ setNumber: nextSetDetails.length + 1 });
+    if (intensityMethod === "rir") confirmedDetail.rir = rir;
+    if (intensityMethod === "velocity") confirmedDetail.velocity = velocity;
+    upsertSet(confirmedDetail);
+    setEditingSetNumber(null);
+    setSetDraft({ setNumber: Math.max(totalSetCount, setNumber) + 1 });
     setSetValidation("");
   }
 
+  function isSetEqualToPlan(detail: AthleteSetDetail, setNumber: number) {
+    const planned = getPlannedSetValues(setNumber);
+    const equalValue = (actual: number | string | null | undefined, target: number | string | null | undefined) => {
+      const actualText = `${actual ?? ""}`.trim().replace(",", ".");
+      const targetText = `${target ?? ""}`.trim().replace(",", ".");
+      const actualNumber = Number(actualText);
+      const targetNumber = Number(targetText);
+      return actualText && targetText && Number.isFinite(actualNumber) && Number.isFinite(targetNumber)
+        ? actualNumber === targetNumber
+        : actualText === targetText;
+    };
+    return equalValue(detail.reps, planned.reps)
+      && equalValue(detail.load, planned.load)
+      && (intensityMethod !== "rir" || equalValue(detail.rir, planned.rir))
+      && (intensityMethod !== "velocity" || equalValue(detail.velocity, planned.velocity));
+  }
+
+  const isMobility = getExerciseById(exercise.exerciseId || "")?.exerciseType === "mobility";
+  const recordedPlannedSetNumbers = new Set(resolveSessionSetNumbers(setDetails).filter((entry) => entry.setNumber <= plannedSetCount).map((entry) => entry.setNumber));
+  const requiresEffort = !completionOnly && !isMobility && recordedPlannedSetNumbers.size > 0;
+  const firstOmittedSetNumber = omittedSetNumbers.length > 0 ? Math.min(...omittedSetNumbers) : null;
+  const nextPendingSetNumber = Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).find((setNumber) => !recordedPlannedSetNumbers.has(setNumber) && !omittedSetNumbers.includes(setNumber)) ?? null;
+  const nextActionableSetNumber = firstOmittedSetNumber ?? nextPendingSetNumber;
+  const allPlannedSetsRecorded = plannedSetCount > 0 && Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).every((setNumber) => recordedPlannedSetNumbers.has(setNumber));
+  const resolvedPlannedSets = Array.from({ length: plannedSetCount }, (_, offset) => offset + 1).filter((setNumber) =>
+    Boolean(getSessionSetByNumber(setDetails, setNumber)) || omittedSetNumbers.includes(setNumber)
+  ).length;
+  const seriesResolved = !completionOnly && plannedSetCount > 0 && resolvedPlannedSets === plannedSetCount;
+  const exerciseStatus = completionOnly
+    ? exerciseCompleted ? "Completado" : "Pendiente"
+    : isFinished ? "Completado" : resolvedPlannedSets > 0 ? "En curso" : "Pendiente";
+  const displaySetCount = Math.max(totalSetCount, editingSetNumber ?? 0);
+
+  function finishCurrentExercise() {
+    if (!seriesResolved) return;
+    if (requiresEffort) {
+      const value = Number(effortDraft.replace(",", "."));
+      if (!Number.isFinite(value) || value < 1 || value > 10) {
+        setEffortValidation("Introduce un RPE real entre 1 y 10.");
+        return;
+      }
+      onUpdateExecution(index, { exerciseEffort: { type: "rpe", value } });
+    }
+    setEffortValidation("");
+    onFinish();
+  }
+
   return (
-    <article className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-semibold text-ink">{exerciseName}</p>
-        <span className="shrink-0 text-xs font-semibold text-ink/50">{setDetails.length}/{totalSetCount} series realizadas</span>
-      </div>
-      {materialVariant ? (
-        <p className="mt-2 text-sm font-medium text-ink/65">{materialVariant}</p>
-      ) : null}
-      {prescription.length > 0 ? (
-        <p className="mt-2 text-sm font-medium text-ink/65">Plan · {prescription.join(" · ")}</p>
-      ) : null}
-      {(exercise.videoUrl || exercise.videoNote) ? (
-        <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm text-ink/65">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="font-semibold text-ink">Vídeo técnico</p>
-              {exercise.videoNote ? (
-                <p className="mt-1"><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p>
-              ) : null}
+    <article className={`min-w-0 rounded-md border ${isOpen ? "border-moss/35 bg-white" : "border-line bg-panel/25"}`}>
+      <button
+        aria-expanded={isOpen}
+        className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left"
+        onClick={onOpen}
+        type="button"
+      >
+        <span className={`text-sm font-bold ${isFinished || exerciseCompleted ? "text-[rgb(var(--color-success))]" : "text-ink/35"}`}>
+          {isFinished || exerciseCompleted ? "✓" : "•"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ink">{exerciseName}</span>
+          <span className="mt-0.5 block text-xs text-ink/50">
+            {completionOnly ? exerciseStatus : `${resolvedPlannedSets}/${plannedSetCount} series · ${exercise.exerciseEffort ? `${exercise.exerciseEffort.type.toUpperCase()} ${exercise.exerciseEffort.value}` : "RPE —"}`}
+          </span>
+        </span>
+        <span className={`text-lg text-ink/35 transition ${isOpen ? "rotate-180" : ""}`}>⌄</span>
+      </button>
+
+      {isOpen ? <div className="border-t border-line px-3 pb-3 pt-3">
+        {materialVariant ? <p className="text-sm font-medium text-ink/65">{materialVariant}</p> : null}
+        {prescription.length > 0 ? <p className="mt-1 text-sm font-medium text-ink/65">Plan · {prescription.join(" · ")}</p> : null}
+        {(exercise.videoUrl || exercise.videoNote) ? (
+          <details className="mt-3 rounded-md border border-line bg-panel/25 p-3 text-sm text-ink/65">
+            <summary className="cursor-pointer font-semibold text-ink">▶ Ver técnica</summary>
+            <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3 sm:flex-row sm:items-start sm:justify-between">
+              {exercise.videoNote ? <p><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p> : null}
+              {exercise.videoUrl ? <a className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink" href={exercise.videoUrl} rel="noreferrer" target="_blank">Abrir vídeo técnico</a> : null}
             </div>
-            {exercise.videoUrl ? (
-              <a
-                className="inline-flex min-h-10 items-center justify-center rounded-md border border-line bg-panel/60 px-3 py-2 text-sm font-semibold text-ink transition hover:bg-panel"
-                href={exercise.videoUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Ver vídeo técnico
-              </a>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      <div className="mt-4 grid gap-2">
-        {Array.from({ length: totalSetCount }, (_, setIndex) => {
-          const completed = setDetails[setIndex];
-          const isEditing = editingSetIndex === setIndex;
-          const isNextPending = !completed && setIndex === setDetails.length;
-          const plannedReference = getPlannedReference(setIndex);
-          if (completed && !isEditing) {
-            const completedIntensity = intensityField ? completed[intensityField as keyof AthleteSetDetail] : null;
-            return (
-              <div className="rounded-md border border-[rgb(var(--color-success))]/30 bg-[rgb(var(--color-success))]/10 p-3" key={`${exerciseKey}-${setIndex}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-ink">Serie {setIndex + 1} ✓</p>
-                  <button className="text-xs font-semibold text-ink/55 underline-offset-4 hover:underline" onClick={() => beginEdit(setIndex)} type="button">Editar</button>
-                </div>
-                <p className="mt-2 text-sm font-semibold text-ink">{hasAthleteDisplayValue(completed.load) ? `${completed.load} kg · ` : ""}{completed.reps} reps{hasAthleteDisplayValue(completedIntensity as number | string | null) ? ` · ${intensityLabel} ${completedIntensity}` : ""}</p>
-                {plannedReference ? <p className="mt-1 text-xs text-ink/50">Objetivo · {plannedReference}</p> : null}
-              </div>
-            );
-          }
-          if (!isEditing && !isNextPending) {
-            return (
-              <div className="rounded-md border border-dashed border-line bg-panel/25 p-3" key={`${exerciseKey}-${setIndex}`}>
-                <p className="text-sm font-semibold text-ink/55">Serie {setIndex + 1} · Pendiente</p>
-                {plannedReference ? <p className="mt-1 text-xs text-ink/45">Objetivo · {plannedReference}</p> : null}
-              </div>
-            );
-          }
+          </details>
+        ) : null}
+
+        {completionOnly ? (
+          <button
+            aria-pressed={exerciseCompleted}
+            className={`mt-4 min-h-12 w-full rounded-md border px-4 py-2 text-sm font-semibold transition ${exerciseCompleted ? "border-[rgb(var(--color-success))]/40 bg-[rgb(var(--color-success))]/10 text-ink" : "border-line bg-white text-ink hover:bg-mint"}`}
+            onClick={() => {
+              const nextCompleted = !exerciseCompleted;
+              onToggleCompletion(index, nextCompleted);
+              if (nextCompleted) onFinish();
+            }}
+            type="button"
+          >
+            {exerciseCompleted ? "✓ Hecho" : "Marcar como hecho"}
+          </button>
+        ) : <div className="mt-3 overflow-hidden rounded-md border border-line bg-white">
+        {Array.from({ length: displaySetCount }, (_, indexOffset) => indexOffset + 1).map((setNumber) => {
+          const actual = getSessionSetByNumber(setDetails, setNumber);
+          const omitted = setNumber <= plannedSetCount && omittedSetNumbers.includes(setNumber);
+          const extra = setNumber > plannedSetCount;
+          const isEditing = editingSetNumber === setNumber;
+          const equalToPlan = Boolean(actual && !extra && isSetEqualToPlan(actual, setNumber));
+          const canActOnPlannedSet = Boolean(actual) || setNumber === nextActionableSetNumber;
+          const canConfirmPlan = hasAthleteDisplayValue(getPlannedSetValues(setNumber).reps);
+          const display = omitted ? "No realizada" : actual ? [hasAthleteDisplayValue(actual.load) ? `${actual.load} kg` : "", `${actual.reps ?? "—"} reps`, hasAthleteDisplayValue(actual.rir) ? `RIR ${actual.rir}` : "", hasAthleteDisplayValue(actual.velocity) ? `${actual.velocity} m/s` : ""].filter(Boolean).join(" · ") : extra ? "Serie adicional" : getPlannedReference(setNumber) || "Sin detalle";
           return (
-            <div className="rounded-md border border-line bg-white p-3" key={`${exerciseKey}-${setIndex}`}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-ink">Serie {setIndex + 1}</p>
-                {isEditing ? <button className="text-xs font-semibold text-ink/50" onClick={() => { setEditingSetIndex(null); setSetValidation(""); }} type="button">Cancelar</button> : null}
+            <div className={`${setNumber > 1 ? "border-t border-line" : ""} ${omitted ? "bg-clay/5" : ""}`} key={`${exerciseKey}-${setNumber}`}>
+              <div className="flex min-h-14 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5 sm:flex-nowrap">
+                <span className="w-10 shrink-0 text-xs font-bold text-ink/50">S{setNumber}</span>
+                <span className="min-w-[9rem] flex-1 break-words text-sm font-semibold text-ink">{display}</span>
+                {!isEditing ? <div className="ml-auto flex shrink-0 items-center gap-1">
+                  {!extra ? <button aria-label="Realizada según el plan" className={`grid h-11 w-11 place-items-center rounded-md text-base font-bold disabled:cursor-not-allowed disabled:opacity-35 ${equalToPlan ? "bg-[rgb(var(--color-success))]/10 text-[rgb(var(--color-success))]" : "text-ink/50 hover:bg-panel"}`} disabled={!canConfirmPlan || !canActOnPlannedSet} onClick={() => confirmAccordingToPlan(setNumber)} title={canConfirmPlan ? "Realizada según el plan" : "Modifica la serie para registrar un rango planificado"} type="button">✓</button> : null}
+                  <button aria-label="Modificar serie" className={`grid h-11 w-11 place-items-center rounded-md text-sm disabled:cursor-not-allowed disabled:opacity-35 ${actual && !equalToPlan ? "bg-amber-50 text-amber-800" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && !canActOnPlannedSet} onClick={() => beginEdit(setNumber)} title="Modificar serie" type="button">✎</button>
+                  <button aria-label={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} className={`grid h-11 w-11 place-items-center rounded-md text-base disabled:cursor-not-allowed disabled:opacity-35 ${omitted ? "bg-clay/10 text-clay" : "text-ink/50 hover:bg-panel"}`} disabled={!extra && !actual && setNumber !== nextPendingSetNumber} onClick={() => extra ? deleteExtraSet(setNumber) : omitSet(setNumber)} title={extra ? "Eliminar serie adicional" : "No realizar esta serie ni las siguientes"} type="button">×</button>
+                </div> : null}
               </div>
-              {plannedReference ? <p className="mt-1 text-xs text-ink/50">Objetivo · {plannedReference}</p> : null}
-              <div className={`mt-3 grid min-w-0 grid-cols-2 gap-2 ${intensityField ? "sm:grid-cols-3" : ""}`}>
-                <AthleteExerciseInput dataField={`${exerciseKey}-${setIndex}-load`} inputMode="decimal" label="Carga (kg)" onChange={(value) => updateDraft("load", value)} placeholder={hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad}` : ""} value={setDraft.load} />
-                <AthleteExerciseInput dataField={`${exerciseKey}-${setIndex}-reps`} inputMode="numeric" label="Reps" onChange={(value) => updateDraft("reps", value)} placeholder={hasAthleteDisplayValue(getPlannedReps(setIndex)) && exercise.setMethod !== "cluster" ? `${getPlannedReps(setIndex)}` : ""} value={setDraft.reps} />
-                {intensityField ? <AthleteExerciseInput className="col-span-2 sm:col-span-1" dataField={`${exerciseKey}-${setIndex}-intensity`} inputMode="decimal" label={intensityMethod === "velocity" ? "Velocidad m/s" : intensityLabel} onChange={(value) => updateDraft(intensityField as keyof AthleteSetDetail, value)} value={setDraft[intensityField as keyof AthleteSetDetail] as number | string | null} /> : null}
-              </div>
-              {exercise.setMethod === "cluster" ? <p className="mt-2 text-xs text-ink/50">Registra el total real de repeticiones de la serie externa. Los mini-bloques no se registran por separado.</p> : null}
-              {setValidation ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
-              <button className="mt-3 min-h-11 w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white" onClick={() => confirmSet(setIndex)} type="button">{isEditing ? "Confirmar cambios" : "Completar serie"}</button>
+              {actual && !extra && !equalToPlan ? <p className="-mt-1 px-2.5 pb-2 pl-[3.125rem] text-xs text-ink/45">Plan · {getPlannedReference(setNumber)}</p> : null}
+              {isEditing ? (
+                <div className="border-t border-line bg-panel/20 px-3 py-3">
+                  <p className="text-xs text-ink/50">{extra ? "Serie adicional" : `Plan · ${getPlannedReference(setNumber)}`}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-load`} inputMode="decimal" label="Carga (kg)" onChange={(value) => updateDraft("load", value)} value={setDraft.load} />
+                    <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-reps`} inputMode="numeric" label="Reps" onChange={(value) => updateDraft("reps", value)} value={setDraft.reps} />
+                    {intensityMethod === "rir" ? <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-rir`} inputMode="decimal" label="RIR real" onChange={(value) => updateDraft("rir", value)} value={setDraft.rir} /> : null}
+                    {intensityMethod === "velocity" ? <AthleteExerciseInput dataField={`${exerciseKey}-${setNumber}-velocity`} inputMode="decimal" label="Velocidad real (m/s)" onChange={(value) => updateDraft("velocity", value)} value={setDraft.velocity} /> : null}
+                  </div>
+                  {setValidation ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
+                  <div className="mt-3 flex gap-2"><button className="min-h-11 flex-1 rounded-md bg-ink px-3 text-sm font-semibold text-white" onClick={() => confirmSet(setNumber)} type="button">Guardar</button><button className="min-h-11 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/60" onClick={() => setEditingSetNumber(null)} type="button">Cancelar</button></div>
+                </div>
+              ) : null}
             </div>
           );
         })}
+      </div>}
+      {setValidation && editingSetNumber === null ? <p className="mt-2 text-xs font-medium text-clay">{setValidation}</p> : null}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3">
+        {!completionOnly && allPlannedSetsRecorded && omittedSetNumbers.length === 0 ? <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => beginEdit(Math.max(plannedSetCount, highestActualSetNumber) + 1)} type="button">+ Añadir serie</button> : null}
+        <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowNotes((current) => !current)} type="button">{exercise.athleteNotes?.trim() ? "Nota · Editar" : "+ Nota"}</button>
+        <button className="min-h-10 text-sm font-semibold text-moss" onClick={() => setShowVideo((current) => !current)} type="button">{exercise.techniqueVideoUrl?.trim() ? `Vídeo añadido · ${athleteTechniqueVideoViewLabels[exercise.techniqueVideoView ?? "side"]}` : "+ Vídeo"}</button>
       </div>
-      <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65">
-        Notas del deportista
-        <textarea
-          className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-moss"
-          onChange={(event) => onUpdate(index, { athleteNotes: event.target.value })}
-          value={exercise.athleteNotes ?? ""}
-        />
-      </label>
-      <div className="mt-3 rounded-md border border-line bg-white p-3">
-        <p className="text-sm font-semibold text-ink">Vídeo de técnica</p>
-        <p className="mt-1 text-xs text-ink/50">
-          Comparte solo vídeos que quieras que revise tu entrenador. Usa enlaces privados o no listados si contienen información personal.
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      {!showNotes && exercise.athleteNotes?.trim() ? <p className="mt-1 line-clamp-2 text-sm text-ink/55">{exercise.athleteNotes}</p> : null}
+      {showNotes ? (
+        <label className="mt-3 block space-y-1 text-xs font-medium text-ink/65" htmlFor={`${exerciseKey}-athlete-notes`}>
+          Nota del deportista
+          <textarea className="min-h-11 w-full resize-y rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-moss" id={`${exerciseKey}-athlete-notes`} onChange={(event) => onUpdate(index, { athleteNotes: event.target.value })} rows={1} value={exercise.athleteNotes ?? ""} />
+        </label>
+      ) : null}
+      {showVideo ? (
+        <div className="mt-3 rounded-md border border-line bg-white p-3">
+          <p className="text-sm font-semibold text-ink">Vídeo para revisión del entrenador</p>
+          <p className="mt-1 text-xs text-ink/50">Comparte solo vídeos que quieras que revise tu entrenador. Usa enlaces privados o no listados si contienen información personal.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-xs font-medium text-ink/65 sm:col-span-2">
             Enlace al vídeo
             <input
@@ -2129,8 +2381,31 @@ function AthleteExerciseCard({ exercise, index, onConfirmSet, onUpdate }: {
               value={exercise.techniqueVideoNote ?? ""}
             />
           </label>
+          </div>
         </div>
-      </div>
+      ) : null}
+      {!completionOnly && seriesResolved ? (
+        <div className="mt-3 rounded-md border border-moss/30 bg-mint/35 p-2.5">
+          <div className="flex flex-wrap items-end gap-2">
+            {requiresEffort ? (
+              <label className="min-w-0 flex-1 text-xs font-semibold text-ink/65 sm:max-w-44">
+                Esfuerzo real · RPE
+                <input
+                  aria-label="Esfuerzo real RPE"
+                  className="mt-1 h-11 w-full rounded-md border border-line bg-white px-3 text-base text-ink outline-none focus:border-moss"
+                  inputMode="decimal"
+                  onChange={(event) => { setEffortDraft(event.target.value); setEffortValidation(""); }}
+                  type="text"
+                  value={effortDraft}
+                />
+              </label>
+            ) : null}
+            <button className="min-h-11 flex-1 rounded-md bg-ink px-4 text-sm font-semibold text-white sm:flex-none" onClick={finishCurrentExercise} type="button">Finalizar ejercicio</button>
+          </div>
+          {effortValidation ? <p className="mt-2 text-xs font-medium text-clay">{effortValidation}</p> : null}
+        </div>
+      ) : null}
+      </div> : null}
     </article>
   );
 }
