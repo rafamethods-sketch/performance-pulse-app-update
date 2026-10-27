@@ -10,3 +10,5 @@
 - Version 1 stores no raw provider payload, GPS track, per-second heart-rate samples, FIT file, or provider token.
 
 The trusted flow is `provider → normalization → ingestion service → injected repository → external_activities`. The repository has an explicit source-controlled column allowlist and cannot write manual enrichment or session links. `createSupabaseAdminClient()` constructs the elevated client only when invoked on the server and fails closed if its server-only configuration is absent or invalid. The admin client bypasses RLS, so it never proves caller identity or ownership: the authenticated Route Handler planned for E2 must validate the athlete and derive `profiles.id` before invoking trusted persistence.
+
+Device ingestion follows `Bearer JWT → auth.getUser(jwt) → profiles.role = athlete → user.id → admin ingestion`. Ownership fields are forbidden in the request body; E2 accepts only the mock provider, 1–50 items, and at most 256 KiB. Durable rate limiting remains required before enabling real providers.
