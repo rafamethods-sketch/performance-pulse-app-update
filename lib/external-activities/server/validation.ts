@@ -19,6 +19,7 @@ const supportedProviders = new Set<ExternalActivityProvider>([
   "health_connect",
   "garmin",
   "intervals",
+  "strava",
 ]);
 
 const supportedActivityTypes = new Set<ExternalActivityType>([

@@ -8,7 +8,10 @@
 - Manual `session_rpe`, notes, and activity type overrides remain separate from source-controlled data so later imports cannot overwrite them.
 - Session linking remains pending until RAC sessions have stable backend UUIDs.
 - Version 1 stores no raw provider payload, GPS track, per-second heart-rate samples, FIT file, or provider token.
+- Supported providers are `mock`, `apple_health`, `health_connect`, `garmin`, `intervals`, and `strava`.
 
 The trusted flow is `provider → normalization → ingestion service → injected repository → external_activities`. The repository has an explicit source-controlled column allowlist and cannot write manual enrichment or session links. `createSupabaseAdminClient()` constructs the elevated client only when invoked on the server and fails closed if its server-only configuration is absent or invalid. The admin client bypasses RLS, so it never proves caller identity or ownership: the authenticated Route Handler planned for E2 must validate the athlete and derive `profiles.id` before invoking trusted persistence.
 
 Device ingestion follows `Bearer JWT → auth.getUser(jwt) → profiles.role = athlete → user.id → admin ingestion`. Ownership fields are forbidden in the request body; E2 accepts only the mock provider, 1–50 items, and at most 256 KiB. Durable rate limiting remains required before enabling real providers.
+
+Strava is a cloud-side provider and does not enter through `/api/external-activities/device-ingest`. Its future trust model will use a server-side OAuth/provider connection.

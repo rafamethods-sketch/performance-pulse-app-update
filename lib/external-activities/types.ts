@@ -3,7 +3,8 @@ export type ExternalActivityProvider =
   | "apple_health"
   | "health_connect"
   | "garmin"
-  | "intervals";
+  | "intervals"
+  | "strava";
 
 export type ExternalActivityType =
   | "running"
