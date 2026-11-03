@@ -33,6 +33,24 @@ export type ProviderCredentialDeleteInput = {
   expectedCredentialVersion: number;
 };
 
+export type ProviderCredentialRefreshLeaseInput = {
+  connectionId: string;
+  expectedCredentialVersion: number;
+  refreshLockId: string;
+};
+
+export type ProviderCredentialRefreshCompleteInput = ProviderCredentialWriteInput & {
+  expectedCredentialVersion: number;
+  refreshLockId: string;
+};
+
+export type ProviderCredentialRefreshLease = {
+  connectionId: string;
+  credentialVersion: number;
+  refreshLockId: string;
+  refreshLockExpiresAt: string;
+};
+
 export type ProviderCredentialMetadata = {
   connectionId: string;
   provider: ProviderCredentialProvider;

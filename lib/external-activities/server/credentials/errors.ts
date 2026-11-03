@@ -9,6 +9,7 @@ export type ProviderCredentialErrorCode =
   | "provider_credentials_missing"
   | "provider_credentials_connection_missing"
   | "provider_credentials_conflict"
+  | "provider_credentials_refresh_in_progress"
   | "provider_credentials_invalid_input"
   | "provider_credentials_persistence_failed";
 
@@ -21,6 +22,7 @@ const errorMessages: Record<ProviderCredentialErrorCode, string> = {
   provider_credentials_missing: "Provider credentials are unavailable.",
   provider_credentials_connection_missing: "Provider connection is unavailable.",
   provider_credentials_conflict: "Provider credentials changed concurrently.",
+  provider_credentials_refresh_in_progress: "Provider credential refresh is already in progress.",
   provider_credentials_invalid_input: "Provider credential input is invalid.",
   provider_credentials_persistence_failed: "Provider credential persistence failed.",
 };

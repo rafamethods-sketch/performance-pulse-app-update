@@ -15,6 +15,9 @@ import type {
   ProviderCredentialMetadata,
   ProviderCredentialProvider,
   ProviderCredentialReplaceInput,
+  ProviderCredentialRefreshCompleteInput,
+  ProviderCredentialRefreshLease,
+  ProviderCredentialRefreshLeaseInput,
   ProviderCredentialWriteInput,
 } from "./types";
 
@@ -59,6 +62,13 @@ export type ProviderCredentialRepository = {
   deleteCredentials: (
     input: ProviderCredentialDeleteInput,
   ) => Promise<ProviderCredentialMetadata>;
+  claimRefreshLease: (
+    input: ProviderCredentialRefreshLeaseInput,
+  ) => Promise<ProviderCredentialRefreshLease>;
+  completeRefresh: (
+    input: ProviderCredentialRefreshCompleteInput,
+  ) => Promise<ProviderCredentialMetadata>;
+  releaseRefreshLease: (input: ProviderCredentialRefreshLeaseInput) => Promise<void>;
 };
 
 type RepositoryOptions = {
@@ -108,6 +118,13 @@ function validateExpectedVersion(version: number) {
     throw new ProviderCredentialError("provider_credentials_invalid_input");
   }
   return version;
+}
+
+function validateRefreshLockId(refreshLockId: string) {
+  if (typeof refreshLockId !== "string" || !uuidPattern.test(refreshLockId)) {
+    throw new ProviderCredentialError("provider_credentials_invalid_input");
+  }
+  return refreshLockId.toLowerCase();
 }
 
 function toDatabaseBytea(value: Buffer) {
@@ -297,6 +314,7 @@ export function createProviderCredentialRepository(
       })
       .eq("connection_id", validated.connectionId)
       .eq("credential_version", expectedVersion)
+      .or(`refresh_lock_expires_at.is.null,refresh_lock_expires_at.lte.${now().toISOString()}`)
       .select(metadataColumns)
       .maybeSingle();
 
@@ -314,6 +332,7 @@ export function createProviderCredentialRepository(
       .delete()
       .eq("connection_id", connectionId)
       .eq("credential_version", expectedVersion)
+      .or(`refresh_lock_expires_at.is.null,refresh_lock_expires_at.lte.${now().toISOString()}`)
       .select(metadataColumns)
       .maybeSingle();
 
@@ -322,10 +341,87 @@ export function createProviderCredentialRepository(
     return toMetadata(data as PersistedCredentialMetadata, provider);
   }
 
+  async function claimRefreshLease(input: ProviderCredentialRefreshLeaseInput) {
+    const connectionId = validateConnectionId(input.connectionId);
+    const expectedVersion = validateExpectedVersion(input.expectedCredentialVersion);
+    const refreshLockId = validateRefreshLockId(input.refreshLockId);
+    const { data, error } = await trustedClient.rpc(
+      "claim_external_provider_credential_refresh",
+      {
+        p_connection_id: connectionId,
+        p_expected_credential_version: expectedVersion,
+        p_refresh_lock_id: refreshLockId,
+      },
+    );
+
+    if (error) throw persistenceError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      throw new ProviderCredentialError("provider_credentials_refresh_in_progress");
+    }
+    return {
+      connectionId: row.connection_id,
+      credentialVersion: row.credential_version,
+      refreshLockId: row.refresh_lock_id,
+      refreshLockExpiresAt: row.refresh_lock_expires_at,
+    } as ProviderCredentialRefreshLease;
+  }
+
+  async function completeRefresh(input: ProviderCredentialRefreshCompleteInput) {
+    const validated = validateWriteInput(input);
+    const expectedVersion = validateExpectedVersion(input.expectedCredentialVersion);
+    const refreshLockId = validateRefreshLockId(input.refreshLockId);
+    const provider = await resolveProvider(validated.connectionId);
+    const encrypted = encryptPair(validated, provider);
+    const values = toEncryptedValues(validated, encrypted, now().toISOString());
+    const { data, error } = await trustedClient.rpc(
+      "complete_external_provider_credential_refresh",
+      {
+        p_connection_id: validated.connectionId,
+        p_expected_credential_version: expectedVersion,
+        p_refresh_lock_id: refreshLockId,
+        p_access_token_ciphertext: values.access_token_ciphertext,
+        p_access_token_nonce: values.access_token_nonce,
+        p_access_token_auth_tag: values.access_token_auth_tag,
+        p_refresh_token_ciphertext: values.refresh_token_ciphertext,
+        p_refresh_token_nonce: values.refresh_token_nonce,
+        p_refresh_token_auth_tag: values.refresh_token_auth_tag,
+        p_expires_at: values.expires_at,
+        p_encryption_key_version: values.encryption_key_version,
+        p_updated_at: values.updated_at,
+      },
+    );
+
+    if (error) throw persistenceError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new ProviderCredentialError("provider_credentials_conflict");
+    return toMetadata(row as PersistedCredentialMetadata, provider);
+  }
+
+  async function releaseRefreshLease(input: ProviderCredentialRefreshLeaseInput) {
+    const connectionId = validateConnectionId(input.connectionId);
+    const expectedVersion = validateExpectedVersion(input.expectedCredentialVersion);
+    const refreshLockId = validateRefreshLockId(input.refreshLockId);
+    const { data, error } = await trustedClient.rpc(
+      "release_external_provider_credential_refresh",
+      {
+        p_connection_id: connectionId,
+        p_expected_credential_version: expectedVersion,
+        p_refresh_lock_id: refreshLockId,
+      },
+    );
+
+    if (error) throw persistenceError(error);
+    if (data !== true) throw new ProviderCredentialError("provider_credentials_conflict");
+  }
+
   return {
     storeCredentials,
     loadCredentials,
     replaceCredentials,
     deleteCredentials,
+    claimRefreshLease,
+    completeRefresh,
+    releaseRefreshLease,
   };
 }
