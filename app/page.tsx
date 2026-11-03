@@ -121,6 +121,13 @@ import {
   type ExerciseVariantType
 } from "@/lib/exercises";
 import {
+  hasPlyometricProfile,
+  plyometricDemandLabels,
+  plyometricDirectionLabels,
+  plyometricSupportLabels,
+  plyometricTypeLabels
+} from "@/lib/plyometric-profile";
+import {
   activationRoleLabels,
   evidenceStrengthLabels,
   getActivationMusclesByRole,
@@ -9693,6 +9700,25 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
             <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
             <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
           </div>
+
+          {hasPlyometricProfile(selectedExercise) ? (
+            <div className="mt-4 rounded-md border border-line p-4">
+              <h3 className="text-sm font-semibold text-ink">Clasificación pliométrica</h3>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ["Tipo", selectedExercise.plyometricType ? plyometricTypeLabels[selectedExercise.plyometricType] : "Sin clasificar"],
+                  ["Apoyo", selectedExercise.plyometricSupport ? plyometricSupportLabels[selectedExercise.plyometricSupport] : "Sin clasificar"],
+                  ["Dirección", selectedExercise.plyometricDirection ? plyometricDirectionLabels[selectedExercise.plyometricDirection] : "Sin clasificar"],
+                  ["Demanda", selectedExercise.plyometricDemand ? plyometricDemandLabels[selectedExercise.plyometricDemand] : "Sin clasificar"]
+                ].map(([label, value]) => (
+                  <div className="rounded-md bg-panel/45 px-3 py-2" key={label}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {selectedExercise.variants?.length ? (
             <div className="mt-4 rounded-md border border-line p-4">

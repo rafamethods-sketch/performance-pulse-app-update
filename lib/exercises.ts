@@ -23,6 +23,10 @@ export type ExerciseType =
   | "plyometric"
   | "power"
   | "strength";
+export type PlyometricType = "jump" | "landing" | "reactive";
+export type PlyometricSupport = "alternating" | "bilateral" | "unilateral";
+export type PlyometricDirection = "horizontal" | "lateral" | "vertical";
+export type PlyometricDemand = 1 | 2 | 3;
 export type SessionExerciseSection = "activation" | "accessory" | "main";
 
 export type ExerciseBlock =
@@ -136,6 +140,10 @@ export type ExerciseDefinition = {
   id: string;
   name: string;
   pattern: ExercisePattern;
+  plyometricDemand?: PlyometricDemand;
+  plyometricDirection?: PlyometricDirection;
+  plyometricSupport?: PlyometricSupport;
+  plyometricType?: PlyometricType;
   primaryMuscles: string[];
   rank: number;
   secondaryMuscles: string[];
@@ -473,6 +481,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "squat-vertical-force-plyometric-tall-to-short-landing",
         name: "Tall to Short Landing",
+        plyometricType: "landing",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 1,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Ejercicio de aterrizaje en el que el deportista pasa de una posición alta a una posición atlética baja de forma rápida y controlada. Sirve para enseñar absorción de fuerza, rigidez útil, control de rodilla-cadera-tobillo y preparación para drop landings y saltos reactivos.",
@@ -490,6 +502,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Drop landing",
+        plyometricType: "landing",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 2,
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
           "Cae desde un cajón bajo y absorbe el impacto con control de cadera, rodilla y tobillo. Busca estabilidad, silencio en el apoyo y alineación correcta.",
@@ -523,6 +539,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "squat-vertical-force-plyometric-drop-landing-unilateral",
         name: "Drop landing unilateral",
+        plyometricType: "landing",
+        plyometricSupport: "unilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 2,
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
           "Aterrizaje unilateral desde una pequeña altura orientado a mejorar la absorción de fuerza, el control de rodilla y la estabilidad de cadera y tobillo. Priorizar caída silenciosa, alineación y control antes de progresar a saltos reactivos.",
@@ -540,6 +560,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Pogo jump bilateral",
+        plyometricType: "reactive",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 1,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza rebotes bilaterales rápidos con mínimo tiempo de contacto. Mantén tobillos activos, tronco estable y una amplitud pequeña y reactiva.",
@@ -593,6 +617,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "squat-vertical-force-plyometric-single-leg-pogo",
         name: "Pogo unilateral",
+        plyometricType: "reactive",
+        plyometricSupport: "unilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Saltos reactivos unilaterales de baja amplitud orientados al trabajo de rigidez de tobillo, reactividad del complejo pie-tobillo y control vertical con apoyo único. Mantener contacto breve, alineación estable y rebote elástico.",
@@ -651,6 +679,9 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Low hurdle hop",
+        plyometricType: "reactive",
+        plyometricDirection: "vertical",
+        plyometricDemand: 2,
         equipment: ["Peso corporal", "Vallas bajas"],
         technicalDescription:
           "Salta vallas bajas con contactos rápidos y controlados. Mantén ritmo, orientación de rodillas y una recepción elástica sin perder postura.",
@@ -661,6 +692,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Depth jump",
+        plyometricType: "reactive",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 3,
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
           "Cae desde un cajón y responde con un salto potente tras una recepción breve. Prioriza rigidez útil, alineación y contacto rápido con el suelo.",
@@ -671,6 +706,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Drop jump",
+        plyometricType: "reactive",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "vertical",
+        plyometricDemand: 3,
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
           "Cae desde un cajón y salta buscando mínimo tiempo de contacto. Mantén recepción elástica, tronco estable y salida vertical rápida.",
@@ -1163,6 +1202,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Broad jump landing",
+        plyometricType: "landing",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza un salto horizontal y centra la tarea en absorber la recepción. Mantén cadera atrás, rodillas alineadas y control de tronco al caer.",
@@ -1174,6 +1217,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "hinge-horizontal-force-plyometric-horizontal-bounds",
         name: "Bounds horizontales",
+        plyometricType: "jump",
+        plyometricSupport: "alternating",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Saltos horizontales alternos orientados a producir y absorber fuerza en dirección horizontal. Trabajan extensión potente de cadera, control de la recepción y transferencia hacia aceleración y desplazamientos deportivos.",
@@ -1234,6 +1281,9 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "hinge-horizontal-force-plyometric-horizontal-hops",
         name: "Hops horizontales",
+        plyometricType: "reactive",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Saltos horizontales repetidos con énfasis en reactividad, rigidez útil y desplazamiento hacia delante. Mantener contactos controlados, orientación horizontal y producción de fuerza desde cadera y tobillo.",
@@ -1292,6 +1342,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Repeated broad jump",
+        plyometricType: "reactive",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Encadena saltos horizontales repetidos manteniendo ritmo y recepciones estables. Reutiliza la fuerza horizontal sin perder alineación ni control.",
@@ -1302,6 +1356,9 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Horizontal hurdle hop",
+        plyometricType: "reactive",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Vallas bajas"],
         technicalDescription:
           "Supera vallas bajas con saltos horizontales reactivos y contactos controlados. Mantén rigidez útil, dirección estable y recepción rápida.",
@@ -1313,6 +1370,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "hinge-horizontal-force-plyometric-horizontal-drop-jump",
         name: "Drop jump horizontal",
+        plyometricType: "reactive",
+        plyometricSupport: "bilateral",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 3,
         equipment: ["Peso corporal", "Cajon bajo"],
         technicalDescription:
           "Ejercicio reactivo en el que se cae desde una pequeña altura y se proyecta el cuerpo hacia delante con un salto horizontal. Combina absorción rápida, orientación horizontal de la fuerza y reactividad tras el contacto.",
@@ -1755,6 +1816,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Lateral bound landing",
+        plyometricType: "landing",
+        plyometricSupport: "unilateral",
+        plyometricDirection: "lateral",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Salta lateralmente y centra la tarea en aterrizar estable sobre una pierna. Controla pelvis, rodilla y pie antes de reiniciar.",
@@ -1765,6 +1830,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Skater bound",
+        plyometricType: "reactive",
+        plyometricSupport: "alternating",
+        plyometricDirection: "lateral",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Encadena saltos laterales tipo patinador con recepción unilateral. Reutiliza la fuerza lateral manteniendo pelvis estable y contacto controlado.",
@@ -1807,6 +1876,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Alternating bounds",
+        plyometricType: "jump",
+        plyometricSupport: "alternating",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza bounds alternos avanzando de una pierna a otra. Mantén proyección, recepción activa y alineación de rodilla en cada apoyo.",
@@ -1817,6 +1890,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Single-leg bound",
+        plyometricType: "jump",
+        plyometricSupport: "unilateral",
+        plyometricDirection: "horizontal",
+        plyometricDemand: 2,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Salta y aterriza con la misma pierna, controlando fuerza unilateral y rigidez de apoyo. Mantén pelvis estable y contacto eficiente.",
@@ -1858,6 +1935,9 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Lateral hurdle hop",
+        plyometricType: "reactive",
+        plyometricDirection: "lateral",
+        plyometricDemand: 2,
         equipment: ["Vallas bajas"],
         technicalDescription:
           "Salta lateralmente sobre vallas bajas con apoyos reactivos. Mantén ritmo, control de pelvis y rodillas alineadas en cada contacto.",
