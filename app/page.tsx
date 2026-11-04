@@ -128,6 +128,10 @@ import {
   plyometricTypeLabels
 } from "@/lib/plyometric-profile";
 import {
+  calculateWeeklyPlyometricVolume,
+  filterSessionsInWeek
+} from "@/lib/plyometric-volume";
+import {
   activationRoleLabels,
   evidenceStrengthLabels,
   getActivationMusclesByRole,
@@ -6470,8 +6474,11 @@ function DecisionDashboardView() {
   );
 }
 
-function getClientTrainingSessionInputs(client?: CoachClient | null): TrainingSessionInput[] {
-  return (client?.sessionRecords ?? [])
+function getClientTrainingSessionInputs(
+  client?: CoachClient | null,
+  sessions: ClientSessionRecord[] = client?.sessionRecords ?? []
+): TrainingSessionInput[] {
+  return sessions
     .filter((session) =>
       (session.plannedExercises?.length ?? 0) > 0 ||
       (session.performedExercises?.length ?? 0) > 0
@@ -6485,7 +6492,9 @@ function getClientTrainingSessionInputs(client?: CoachClient | null): TrainingSe
 
 function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const loadData = client ? getClientLoadData(client) : null;
-  const weeklyTrainingSessions = getClientTrainingSessionInputs(client);
+  const weeklySessionRecords = filterSessionsInWeek(client?.sessionRecords ?? []);
+  const weeklyTrainingSessions = getClientTrainingSessionInputs(client, weeklySessionRecords);
+  const plyometricVolume = calculateWeeklyPlyometricVolume(weeklySessionRecords, exerciseLibrary);
   const previewSession = weeklyTrainingSessions[0] ?? null;
   const sessionExternalLoad = previewSession ? calculateSessionExternalLoad(previewSession, exerciseLibrary) : 0;
   const sessionExternalLoadByPattern = previewSession ? calculateExternalLoadByPattern(previewSession, exerciseLibrary) : {};
@@ -6536,7 +6545,7 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr_0.9fr]">
         <section className="rounded-md border border-line bg-panel/35 p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold text-ink">Carga externa semanal por patron</h3>
@@ -6586,6 +6595,78 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
               </p>
             )}
           </div>
+        </section>
+
+        <section className="rounded-md border border-line bg-panel/35 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-ink">Pliometría semanal</h3>
+              <p className="mt-1 text-xs font-medium text-ink/45">Contactos de tren inferior</p>
+            </div>
+            <span className="rounded-md border border-line bg-white px-2 py-1 text-[11px] font-semibold text-ink/55">
+              Plan / Real
+            </span>
+          </div>
+
+          {plyometricVolume.plannedSessionCount === 0 && !plyometricVolume.hasActualData ? (
+            <p className="mt-4 rounded-md border border-dashed border-line bg-white/60 p-4 text-sm font-semibold text-ink/50">
+              Sin contactos planificados esta semana.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-md bg-white px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Plan</p>
+                  <p className="mt-1 text-xl font-semibold text-ink">{plyometricVolume.plannedContacts}</p>
+                  <p className="text-xs text-ink/45">contactos</p>
+                </div>
+                <div className="rounded-md bg-white px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">Real</p>
+                  <p className="mt-1 text-xl font-semibold text-ink">
+                    {plyometricVolume.hasActualData ? plyometricVolume.actualContacts : "—"}
+                  </p>
+                  <p className="text-xs text-ink/45">contactos</p>
+                </div>
+              </div>
+
+              {plyometricVolume.plannedIncomplete || plyometricVolume.actualIncomplete ? (
+                <p className="rounded-md bg-white/70 px-3 py-2 text-xs font-medium text-ink/55">
+                  {plyometricVolume.plannedIncomplete && plyometricVolume.actualIncomplete
+                    ? "Plan y realizado con datos incompletos."
+                    : plyometricVolume.plannedIncomplete
+                      ? "Plan con datos incompletos."
+                      : "Realizado con datos incompletos."}
+                </p>
+              ) : null}
+
+              <div className="grid gap-2">
+                {[
+                  ["Zona 1", plyometricVolume.plannedByDemand.zone1, plyometricVolume.actualByDemand.zone1],
+                  ["Zona 2", plyometricVolume.plannedByDemand.zone2, plyometricVolume.actualByDemand.zone2],
+                  ["Zona 3", plyometricVolume.plannedByDemand.zone3, plyometricVolume.actualByDemand.zone3],
+                  ...(plyometricVolume.plannedByDemand.unclassified + plyometricVolume.actualByDemand.unclassified > 0
+                    ? [["Sin clasificar", plyometricVolume.plannedByDemand.unclassified, plyometricVolume.actualByDemand.unclassified] as [string, number, number]]
+                    : [])
+                ].map(([label, planned, actual]) => (
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm" key={label}>
+                    <span className="font-medium text-ink/65">{label}</span>
+                    <span className="font-semibold text-ink">
+                      {planned} / {plyometricVolume.hasActualData ? actual : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-line pt-3 text-xs text-ink/55">
+                <p className="font-semibold text-ink/70">
+                  {plyometricVolume.plannedSessionCount} plan · {plyometricVolume.actualSessionCount} realizadas
+                </p>
+                {plyometricVolume.actualContactsPerSession !== null ? (
+                  <p className="mt-1">{plyometricVolume.actualContactsPerSession.toFixed(1)} contactos/sesión realizada</p>
+                ) : null}
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
