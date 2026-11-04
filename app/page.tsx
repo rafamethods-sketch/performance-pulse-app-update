@@ -117,6 +117,7 @@ import {
   type BodyRegion,
   type ExerciseDefinition,
   type ExercisePattern,
+  type ExerciseType,
   type ExerciseVariantDifficulty,
   type ExerciseVariantType
 } from "@/lib/exercises";
@@ -2411,6 +2412,13 @@ function buildDemoClient(): CoachClient {
     createDemoPlannedExercise({ block: "main", name: "Drop jump", reps: 4, rpe: 7, sets: 4 }),
     createDemoPlannedExercise({ block: "auxiliary", name: "Medicine ball chest pass", reps: 6, rpe: 6, sets: 3 })
   ];
+  const currentWeekPlyometricExercises = [
+    createDemoPlannedExercise({ block: "activation", name: "Pogo jump bilateral", reps: 10, rpe: 6, sets: 3 }),
+    createDemoPlannedExercise({ block: "main", name: "Drop jump", reps: 5, rpe: 7, sets: 4 })
+  ];
+  const currentWeekLowerStrengthExercises = lowerExercises.filter((exercise) =>
+    !exercise.exerciseId || getExerciseById(exercise.exerciseId)?.exerciseType !== "plyometric"
+  );
   const coreExercises = [
     createDemoPlannedExercise({ block: "main", name: "Pallof press", reps: 10, rpe: 7, sets: 3, load: 16 }),
     createDemoPlannedExercise({ block: "main", name: "Dead bug", reps: 8, rpe: 6, sets: 3 }),
@@ -2446,7 +2454,7 @@ function buildDemoClient(): CoachClient {
       id: "demo-session-current-today-planned",
       isDemo: true,
       performedExercises: [],
-      plannedExercises: lowerExercises,
+      plannedExercises: currentWeekLowerStrengthExercises,
       sessionNumber: 3,
       status: "Planificada",
       summary: "Fuerza de tren inferior con técnica controlada",
@@ -2459,8 +2467,8 @@ function buildDemoClient(): CoachClient {
       athleteQuickFeedbackNote: "Buenas sensaciones y ritmo estable.",
       dayOffset: currentWeekStrengthOffset,
       duration: 60,
-      exercises: upperExercises,
-      finalRpe: 7,
+      exercises: [...currentWeekPlyometricExercises, ...upperExercises],
+      finalRpe: 8,
       id: "demo-session-current-strength",
       summary: "Fuerza de tren superior con ejecución estable",
       type: "Fuerza",
@@ -2478,9 +2486,9 @@ function buildDemoClient(): CoachClient {
     createDemoSession({
       athleteQuickFeedback: "up",
       athleteQuickFeedbackNote: "Buenas sensaciones y control del esfuerzo.",
-      dayOffset: -8,
+      dayOffset: getDemoWeekDayOffset(-5),
       duration: 68,
-      exercises: lowerExercises,
+      exercises: [...currentWeekPlyometricExercises, ...currentWeekLowerStrengthExercises],
       finalRpe: 8,
       id: "demo-session-week-minus-1-lower",
       summary: "Fuerza de tren inferior con control de RIR",
@@ -9344,6 +9352,18 @@ const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string>
 type ExerciseLibraryMode = "strength" | "resistance";
 type GuidedLibraryMode = ExerciseLibraryMode | "advanced";
 
+const exerciseTypeLabels: Record<ExerciseType, string> = {
+  accessory: "Accesorio",
+  conditioning: "Acondicionamiento",
+  control: "Control",
+  core: "Core",
+  hypertrophy: "Hipertrofia",
+  mobility: "Movilidad",
+  plyometric: "Pliometría",
+  power: "Potencia",
+  strength: "Fuerza"
+};
+
 const strengthAdaptations = [
   "Fuerza máxima",
   "Hipertrofia funcional",
@@ -9431,6 +9451,7 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   const [advancedLibrarySection, setAdvancedLibrarySection] = useState<ExerciseLibraryMode>("strength");
   const [advancedExerciseSearch, setAdvancedExerciseSearch] = useState("");
   const [advancedBodyRegionFilter, setAdvancedBodyRegionFilter] = useState<BodyRegion | "all">("all");
+  const [advancedExerciseTypeFilter, setAdvancedExerciseTypeFilter] = useState<ExerciseType | "all">("all");
   const [advancedPatternFilter, setAdvancedPatternFilter] = useState<ExercisePattern | "all">("all");
   const [advancedEquipmentFilter, setAdvancedEquipmentFilter] = useState("all");
   const [selectedAdvancedExerciseId, setSelectedAdvancedExerciseId] = useState("");
@@ -9454,6 +9475,10 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
     () => Array.from(new Set(exerciseLibrary.flatMap((exercise) => exercise.equipment))).sort((a, b) => a.localeCompare(b)),
     []
   );
+  const advancedExerciseTypeOptions = useMemo(
+    () => Array.from(new Set(exerciseLibrary.map((exercise) => exercise.exerciseType))).sort((a, b) => a.localeCompare(b)),
+    []
+  );
   const advancedStrengthExercises = useMemo(() => {
     const query = advancedExerciseSearch.trim().toLowerCase();
 
@@ -9466,12 +9491,34 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         exercise.equipment.join(" ")
       ].join(" ").toLowerCase().includes(query);
       const matchesBodyRegion = advancedBodyRegionFilter === "all" || exercise.bodyRegion === advancedBodyRegionFilter;
+      const matchesExerciseType = advancedExerciseTypeFilter === "all" || exercise.exerciseType === advancedExerciseTypeFilter;
       const matchesPattern = advancedPatternFilter === "all" || exercise.pattern === advancedPatternFilter;
       const matchesEquipment = advancedEquipmentFilter === "all" || exercise.equipment.includes(advancedEquipmentFilter);
 
-      return matchesSearch && matchesBodyRegion && matchesPattern && matchesEquipment;
+      return matchesSearch && matchesBodyRegion && matchesExerciseType && matchesPattern && matchesEquipment;
     });
-  }, [advancedBodyRegionFilter, advancedEquipmentFilter, advancedExerciseSearch, advancedPatternFilter]);
+  }, [advancedBodyRegionFilter, advancedEquipmentFilter, advancedExerciseSearch, advancedExerciseTypeFilter, advancedPatternFilter]);
+  const advancedPlyometricGroups = useMemo(() => {
+    const groupDefinitions = [
+      { key: "jump", label: "Saltos" },
+      { key: "reactive", label: "Reactivos" },
+      { key: "landing", label: "Aterrizajes" },
+      { key: "other", label: "Otros pliométricos" }
+    ] as const;
+
+    return groupDefinitions.map((group) => ({
+      ...group,
+      exercises: advancedStrengthExercises.filter((exercise) => {
+        const hasCompleteLowerBodyProfile = exercise.bodyRegion === "lower_body" &&
+          exercise.plyometricType &&
+          exercise.plyometricSupport &&
+          exercise.plyometricDirection &&
+          exercise.plyometricDemand;
+        if (group.key === "other") return !hasCompleteLowerBodyProfile;
+        return hasCompleteLowerBodyProfile && exercise.plyometricType === group.key;
+      })
+    })).filter((group) => group.exercises.length > 0);
+  }, [advancedStrengthExercises]);
   const selectedAdvancedExercise =
     advancedStrengthExercises.find((exercise) => exercise.id === selectedAdvancedExerciseId) ??
     advancedStrengthExercises[0];
@@ -9672,6 +9719,20 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                   </label>
 
                   <label className="space-y-2 text-sm font-medium text-ink/75">
+                    Tipo de ejercicio
+                    <select
+                      className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
+                      onChange={(event) => setAdvancedExerciseTypeFilter(event.target.value as ExerciseType | "all")}
+                      value={advancedExerciseTypeFilter}
+                    >
+                      <option value="all">Todos</option>
+                      {advancedExerciseTypeOptions.map((exerciseType) => (
+                        <option key={exerciseType} value={exerciseType}>{exerciseTypeLabels[exerciseType]}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2 text-sm font-medium text-ink/75">
                     Patrón
                     <select
                       className="h-11 w-full rounded-md border border-line bg-panel/35 px-3 text-ink outline-none focus:border-moss"
@@ -9708,17 +9769,51 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
                 </div>
                 {advancedStrengthExercises.length > 0 ? (
                   <div className="mt-3 grid max-h-[560px] gap-2 overflow-y-auto pr-1">
-                    {advancedStrengthExercises.map((exercise) => (
-                      <button
-                        className={`rounded-md border p-3 text-left transition ${selectedAdvancedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
-                        key={exercise.id}
-                        onClick={() => setSelectedAdvancedExerciseId(exercise.id)}
-                        type="button"
-                      >
-                        <span className="block text-sm font-semibold">{exercise.name}</span>
-                        <span className="mt-1 block text-xs opacity-65">{exercise.pattern} · {exercise.block}</span>
-                      </button>
-                    ))}
+                    {advancedExerciseTypeFilter === "plyometric"
+                      ? advancedPlyometricGroups.map((group) => (
+                          <div className="grid gap-2" key={group.key}>
+                            <div className="flex items-center justify-between gap-3 px-1 pt-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{group.label}</p>
+                              <span className="text-xs font-semibold text-ink/40">{group.exercises.length}</span>
+                            </div>
+                            {group.exercises.map((exercise) => {
+                              const profileSummary = exercise.plyometricSupport && exercise.plyometricDirection && exercise.plyometricDemand
+                                ? [
+                                    plyometricSupportLabels[exercise.plyometricSupport],
+                                    plyometricDirectionLabels[exercise.plyometricDirection],
+                                    plyometricDemandLabels[exercise.plyometricDemand].split(" · ")[0]
+                                  ].join(" · ")
+                                : null;
+
+                              return (
+                                <button
+                                  className={`rounded-md border p-3 text-left transition ${selectedAdvancedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+                                  key={exercise.id}
+                                  onClick={() => setSelectedAdvancedExerciseId(exercise.id)}
+                                  type="button"
+                                >
+                                  <span className="block text-sm font-semibold">{exercise.name}</span>
+                                  {profileSummary ? (
+                                    <span className="mt-1 block text-xs opacity-65">{profileSummary}</span>
+                                  ) : (
+                                    <span className="mt-1 block text-xs opacity-65">{bodyRegionLabels[exercise.bodyRegion]}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))
+                      : advancedStrengthExercises.map((exercise) => (
+                          <button
+                            className={`rounded-md border p-3 text-left transition ${selectedAdvancedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+                            key={exercise.id}
+                            onClick={() => setSelectedAdvancedExerciseId(exercise.id)}
+                            type="button"
+                          >
+                            <span className="block text-sm font-semibold">{exercise.name}</span>
+                            <span className="mt-1 block text-xs opacity-65">{exercise.pattern} · {exercise.block}</span>
+                          </button>
+                        ))}
                   </div>
                 ) : (
                   <p className="mt-3 rounded-md border border-dashed border-line bg-white p-5 text-sm font-semibold text-ink/50">No hay ejercicios que coincidan con esos filtros.</p>
