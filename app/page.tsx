@@ -37,6 +37,7 @@ import { CoachKneeAssessment } from "@/components/coach/coach-knee-assessment";
 import { CoachAnalyticsView } from "@/components/coach/coach-analytics-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
 import { CoachMessagesView } from "@/components/coach/coach-messages-view";
+import { ExerciseLibraryView } from "@/components/coach/exercise-library-view";
 import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
@@ -9446,8 +9447,8 @@ function GuidedSelectionButton({
   );
 }
 
-function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [libraryMode, setLibraryMode] = useState<GuidedLibraryMode>("strength");
+function LegacyExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
+  const [libraryMode, setLibraryMode] = useState<GuidedLibraryMode>("resistance");
   const [advancedLibrarySection, setAdvancedLibrarySection] = useState<ExerciseLibraryMode>("strength");
   const [advancedExerciseSearch, setAdvancedExerciseSearch] = useState("");
   const [advancedBodyRegionFilter, setAdvancedBodyRegionFilter] = useState<BodyRegion | "all">("all");
@@ -9568,7 +9569,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   if (libraryMode === "resistance") {
     return (
       <div className="mt-6 space-y-6">
-        {libraryModeCards}
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
           <section className="coach-surface rounded-md p-4">
             <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Resistencia / {resistanceGuidedSports.find((sport) => sport.value === selectedResistanceSport)?.label} / {selectedResistanceAdaptation}</p>
@@ -9885,6 +9885,33 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
         <ExerciseDetailCard selectedExercise={selectedExercise} />
       </div>
     </div>
+  );
+}
+
+function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
+  const [showResistanceMethods, setShowResistanceMethods] = useState(false);
+
+  if (showResistanceMethods) {
+    return (
+      <div className="mt-6 space-y-4">
+        <button
+          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 hover:border-moss/40"
+          onClick={() => setShowResistanceMethods(false)}
+          type="button"
+        >
+          ← Volver a Biblioteca de ejercicios
+        </button>
+        <LegacyExerciseProgressionsView client={client} />
+      </div>
+    );
+  }
+
+  return (
+    <ExerciseLibraryView
+      clientName={client?.name}
+      onOpenResistance={() => setShowResistanceMethods(true)}
+      renderDetail={(exercise) => <ExerciseDetailCard selectedExercise={exercise} />}
+    />
   );
 }
 
