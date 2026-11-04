@@ -16,9 +16,14 @@ import {
   exerciseLibraryFamilyOrder,
   getExerciseLibraryCompactAttribute,
   getExerciseLibraryFamilyLabel,
+  getExerciseLibraryGroups,
+  getStrengthLibraryRegion,
   matchesExerciseLibrarySearch,
   resolveExerciseLibraryFamily,
-  type ExerciseLibraryFamilyResolution
+  resolveExerciseLibraryGroup,
+  strengthLibraryRegionLabels,
+  type ExerciseLibraryFamilyResolution,
+  type StrengthLibraryRegion
 } from "@/lib/exercise-library-navigation";
 import {
   plyometricDemandLabels,
@@ -40,13 +45,6 @@ const exerciseTypeLabels: Record<ExerciseType, string> = {
   strength: "Fuerza"
 };
 
-const plyometricGroups = [
-  { key: "jump", label: "Saltos" },
-  { key: "reactive", label: "Reactivos" },
-  { key: "landing", label: "Aterrizajes" },
-  { key: "other", label: "Otros pliométricos" }
-] as const;
-
 export function ExerciseLibraryView({
   clientName,
   onOpenResistance,
@@ -57,6 +55,8 @@ export function ExerciseLibraryView({
   renderDetail: (exercise?: ExerciseDefinition) => ReactNode;
 }) {
   const [activeFamily, setActiveFamily] = useState<ActiveExerciseLibraryFamily>("all");
+  const [activeGroup, setActiveGroup] = useState<"all" | string>("all");
+  const [strengthRegion, setStrengthRegion] = useState<StrengthLibraryRegion>("lower");
   const [search, setSearch] = useState("");
   const [bodyRegionFilter, setBodyRegionFilter] = useState<BodyRegion | "all">("all");
   const [exerciseTypeFilter, setExerciseTypeFilter] = useState<ExerciseType | "all">("all");
@@ -93,18 +93,22 @@ export function ExerciseLibraryView({
   const filteredExercises = useMemo(() => exerciseLibrary.filter((exercise) => {
     const family = resolveExerciseLibraryFamily(exercise);
     const matchesFamily = activeFamily === "all" || family === activeFamily;
+    const matchesStrengthRegion = activeFamily !== "strength" || getStrengthLibraryRegion(exercise) === strengthRegion;
+    const matchesGroup = activeFamily === "all" || activeGroup === "all" || resolveExerciseLibraryGroup(exercise) === activeGroup;
     const matchesBodyRegion = bodyRegionFilter === "all" || exercise.bodyRegion === bodyRegionFilter;
     const matchesExerciseType = exerciseTypeFilter === "all" || exercise.exerciseType === exerciseTypeFilter;
     const matchesPattern = patternFilter === "all" || exercise.pattern === patternFilter;
     const matchesEquipment = equipmentFilter === "all" || exercise.equipment.includes(equipmentFilter);
 
     return matchesFamily &&
+      matchesStrengthRegion &&
+      matchesGroup &&
       matchesBodyRegion &&
       matchesExerciseType &&
       matchesPattern &&
       matchesEquipment &&
       matchesExerciseLibrarySearch(exercise, search);
-  }), [activeFamily, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, patternFilter, search]);
+  }), [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, patternFilter, search, strengthRegion]);
 
   const selectedExercise = filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ?? filteredExercises[0];
   const showFamilyOverview = activeFamily === "all" && !search.trim() && !hasAdvancedFilters;
@@ -124,8 +128,21 @@ export function ExerciseLibraryView({
 
   const selectFamily = (family: ActiveExerciseLibraryFamily) => {
     setActiveFamily(family);
+    setActiveGroup("all");
+    setStrengthRegion("lower");
     setShowMobileDetail(false);
   };
+
+  const activeGroups = activeFamily !== "all" && activeFamily !== "unclassified"
+    ? getExerciseLibraryGroups(activeFamily, activeFamily === "strength" ? strengthRegion : undefined)
+    : [];
+
+  const getGroupCount = (groupKey: string) => exerciseLibrary.filter((exercise) =>
+    resolveExerciseLibraryFamily(exercise) === activeFamily &&
+    (activeFamily !== "strength" || getStrengthLibraryRegion(exercise) === strengthRegion) &&
+    resolveExerciseLibraryGroup(exercise) === groupKey
+  ).length;
+  const activeGroupTotal = activeGroups.reduce((total, group) => total + getGroupCount(group.key), 0);
 
   const renderExerciseButton = (exercise: ExerciseDefinition) => (
     <button
@@ -143,16 +160,8 @@ export function ExerciseLibraryView({
 
   const renderPlyometricResults = () => (
     <div className="grid gap-4">
-      {plyometricGroups.map((group) => {
-        const exercises = filteredExercises.filter((exercise) => {
-          const hasCompleteLowerBodyProfile = exercise.bodyRegion === "lower_body" &&
-            exercise.plyometricType &&
-            exercise.plyometricSupport &&
-            exercise.plyometricDirection &&
-            exercise.plyometricDemand;
-          if (group.key === "other") return !hasCompleteLowerBodyProfile;
-          return hasCompleteLowerBodyProfile && exercise.plyometricType === group.key;
-        });
+      {getExerciseLibraryGroups("plyometric").map((group) => {
+        const exercises = filteredExercises.filter((exercise) => resolveExerciseLibraryGroup(exercise) === group.key);
         if (exercises.length === 0) return null;
 
         return (
@@ -256,6 +265,57 @@ export function ExerciseLibraryView({
             </FilterSelect>
           </div>
         </details>
+
+        {activeFamily !== "all" && activeFamily !== "unclassified" ? (
+          <div className="mt-4 rounded-md border border-line bg-panel/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+              {exerciseLibraryFamilyLabels[activeFamily]}
+            </p>
+            {activeFamily === "strength" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(["lower", "upper"] as const).map((region) => (
+                  <button
+                    className={`rounded-md px-3 py-2 text-sm font-semibold transition ${strengthRegion === region ? "bg-ink text-white" : "border border-line bg-white text-ink/65"}`}
+                    key={region}
+                    onClick={() => {
+                      setStrengthRegion(region);
+                      setActiveGroup("all");
+                      setShowMobileDetail(false);
+                    }}
+                    type="button"
+                  >
+                    {strengthLibraryRegionLabels[region]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              <button
+                className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === "all" ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
+                onClick={() => {
+                  setActiveGroup("all");
+                  setShowMobileDetail(false);
+                }}
+                type="button"
+              >
+                Todos · {activeGroupTotal}
+              </button>
+              {activeGroups.map((group) => (
+                <button
+                  className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === group.key ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
+                  key={group.key}
+                  onClick={() => {
+                    setActiveGroup(group.key);
+                    setShowMobileDetail(false);
+                  }}
+                  type="button"
+                >
+                  {group.label} · {getGroupCount(group.key)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
