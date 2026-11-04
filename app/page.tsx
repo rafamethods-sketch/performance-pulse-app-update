@@ -132,6 +132,10 @@ import {
   filterSessionsInWeek
 } from "@/lib/plyometric-volume";
 import {
+  calculatePlyometricWeeklyTrend,
+  formatPlyometricTrend
+} from "@/lib/plyometric-trends";
+import {
   activationRoleLabels,
   evidenceStrengthLabels,
   getActivationMusclesByRole,
@@ -6492,9 +6496,17 @@ function getClientTrainingSessionInputs(
 
 function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
   const loadData = client ? getClientLoadData(client) : null;
-  const weeklySessionRecords = filterSessionsInWeek(client?.sessionRecords ?? []);
+  const weeklyReferenceDate = new Date();
+  const previousWeekReferenceDate = new Date(weeklyReferenceDate);
+  previousWeekReferenceDate.setDate(previousWeekReferenceDate.getDate() - 7);
+  const weeklySessionRecords = filterSessionsInWeek(client?.sessionRecords ?? [], weeklyReferenceDate);
+  const previousWeeklySessionRecords = filterSessionsInWeek(client?.sessionRecords ?? [], previousWeekReferenceDate);
   const weeklyTrainingSessions = getClientTrainingSessionInputs(client, weeklySessionRecords);
   const plyometricVolume = calculateWeeklyPlyometricVolume(weeklySessionRecords, exerciseLibrary);
+  const previousPlyometricVolume = calculateWeeklyPlyometricVolume(previousWeeklySessionRecords, exerciseLibrary);
+  const plyometricTrend = calculatePlyometricWeeklyTrend(plyometricVolume, previousPlyometricVolume);
+  const totalPlyometricTrendLabel = formatPlyometricTrend(plyometricTrend.total);
+  const zone3PlyometricTrendLabel = formatPlyometricTrend(plyometricTrend.zone3);
   const previewSession = weeklyTrainingSessions[0] ?? null;
   const sessionExternalLoad = previewSession ? calculateSessionExternalLoad(previewSession, exerciseLibrary) : 0;
   const sessionExternalLoadByPattern = previewSession ? calculateExternalLoadByPattern(previewSession, exerciseLibrary) : {};
@@ -6626,6 +6638,11 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
                     {plyometricVolume.hasActualData ? plyometricVolume.actualContacts : "—"}
                   </p>
                   <p className="text-xs text-ink/45">contactos</p>
+                  {totalPlyometricTrendLabel ? (
+                    <p className="mt-1 text-[11px] font-semibold text-ink/55">
+                      {totalPlyometricTrendLabel} vs semana anterior
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -6650,9 +6667,16 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
                 ].map(([label, planned, actual]) => (
                   <div className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm" key={label}>
                     <span className="font-medium text-ink/65">{label}</span>
-                    <span className="font-semibold text-ink">
-                      {planned} / {plyometricVolume.hasActualData ? actual : "—"}
-                    </span>
+                    <div className="text-right">
+                      <p className="font-semibold text-ink">
+                        {planned} / {plyometricVolume.hasActualData ? actual : "—"}
+                      </p>
+                      {label === "Zona 3" && zone3PlyometricTrendLabel ? (
+                        <p className="text-[11px] font-semibold text-ink/45">
+                          {zone3PlyometricTrendLabel} vs anterior
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -6665,6 +6689,19 @@ function WeeklyLoadView({ client }: { client?: CoachClient | null }) {
                   <p className="mt-1">{plyometricVolume.actualContactsPerSession.toFixed(1)} contactos/sesión realizada</p>
                 ) : null}
               </div>
+
+              {plyometricTrend.notices.length > 0 ? (
+                <div className="grid gap-2">
+                  {plyometricTrend.notices.map((notice) => (
+                    <div className="rounded-md border border-clay/20 bg-clay/10 px-3 py-2" key={notice.id}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-clay">Atención</p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-ink/70">{notice.message}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : plyometricTrend.total.status === "no_reference" && plyometricVolume.hasActualData ? (
+                <p className="text-xs font-medium text-ink/45">Sin referencia de la semana anterior.</p>
+              ) : null}
             </div>
           )}
         </section>
