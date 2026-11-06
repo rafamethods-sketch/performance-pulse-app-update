@@ -37,6 +37,7 @@ import { CoachKneeAssessment } from "@/components/coach/coach-knee-assessment";
 import { CoachAnalyticsView } from "@/components/coach/coach-analytics-view";
 import { ClientDashboardView } from "@/components/coach/client-dashboard-view";
 import { CoachMessagesView } from "@/components/coach/coach-messages-view";
+import { ExerciseLibraryView } from "@/components/coach/exercise-library-view";
 import { CoachResourcesView, type ResourceLink } from "@/components/coach/coach-resources-view";
 import { CoachTodayView } from "@/components/coach/coach-today-view";
 import { ResistanceMethodsView } from "@/components/coach/resistance-methods-view";
@@ -9446,8 +9447,8 @@ function GuidedSelectionButton({
   );
 }
 
-function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
-  const [libraryMode, setLibraryMode] = useState<GuidedLibraryMode>("strength");
+function LegacyExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
+  const [libraryMode, setLibraryMode] = useState<GuidedLibraryMode>("resistance");
   const [advancedLibrarySection, setAdvancedLibrarySection] = useState<ExerciseLibraryMode>("strength");
   const [advancedExerciseSearch, setAdvancedExerciseSearch] = useState("");
   const [advancedBodyRegionFilter, setAdvancedBodyRegionFilter] = useState<BodyRegion | "all">("all");
@@ -9568,7 +9569,6 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   if (libraryMode === "resistance") {
     return (
       <div className="mt-6 space-y-6">
-        {libraryModeCards}
         <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
           <section className="coach-surface rounded-md p-4">
             <p className="text-xs font-semibold uppercase text-moss">Biblioteca / Resistencia / {resistanceGuidedSports.find((sport) => sport.value === selectedResistanceSport)?.label} / {selectedResistanceAdaptation}</p>
@@ -9888,6 +9888,33 @@ function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
   );
 }
 
+function ExerciseProgressionsView({ client }: { client?: CoachClient | null }) {
+  const [showResistanceMethods, setShowResistanceMethods] = useState(false);
+
+  if (showResistanceMethods) {
+    return (
+      <div className="mt-6 space-y-4">
+        <button
+          className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 hover:border-moss/40"
+          onClick={() => setShowResistanceMethods(false)}
+          type="button"
+        >
+          ← Volver a Biblioteca de ejercicios
+        </button>
+        <LegacyExerciseProgressionsView client={client} />
+      </div>
+    );
+  }
+
+  return (
+    <ExerciseLibraryView
+      clientName={client?.name}
+      onOpenResistance={() => setShowResistanceMethods(true)}
+      renderDetail={(exercise) => <ExerciseDetailCard selectedExercise={exercise} />}
+    />
+  );
+}
+
 function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseDefinition }) {
   const fatigueEntries = selectedExercise
     ? Object.entries(selectedExercise.fatigueMap).sort(([, a], [, b]) => b - a)
@@ -9934,8 +9961,8 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
           ) : null}
 
           {selectedExercise.variants?.length ? (
-            <div className="mt-4 rounded-md border border-line p-4">
-              <h3 className="text-sm font-semibold text-ink">Variantes</h3>
+            <details className="mt-4 rounded-md border border-line p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-ink">Variantes · {selectedExercise.variants.length}</summary>
               <div className="mt-3 grid gap-3">
                 {selectedExercise.variants.map((variant) => (
                   <article className="rounded-md bg-panel/45 p-3" key={variant.id}>
@@ -9954,18 +9981,20 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                   </article>
                 ))}
               </div>
-            </div>
+            </details>
           ) : null}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-md border border-line p-4">
+          <details className="mt-4 rounded-md border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink">Ejecución y musculatura</summary>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-md bg-panel/35 p-4">
               <h3 className="text-sm font-semibold text-ink">Errores a evitar</h3>
               <div className="mt-3 grid gap-2">
                 {selectedExercise.errorsToAvoid.map((error) => <p className="rounded-md bg-panel/55 px-3 py-2 text-sm text-ink/70" key={error}>{error}</p>)}
               </div>
             </div>
 
-            <div className="rounded-md border border-line p-4">
+            <div className="rounded-md bg-panel/35 p-4">
               <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
               <div className="mt-3">
                 <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
@@ -9976,12 +10005,13 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                 <p className="mt-1 text-sm text-ink/70">{selectedExercise.secondaryMuscles.join(", ") || "Pendiente de completar"}</p>
               </div>
             </div>
-          </div>
+            </div>
+          </details>
 
-          <div className="mt-4 rounded-md border border-line p-4">
+          <details className="mt-4 rounded-md border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink">Activación muscular basada en evidencia</summary>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-ink">Activación muscular basada en evidencia</h3>
                 <p className="mt-1 text-xs text-ink/50">Escala cualitativa basada en fuentes PubMed añadidas a la biblioteca.</p>
               </div>
               {activationEvidence ? <span className="w-fit rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/65">{evidenceStrengthLabels[activationEvidence.evidenceStrength]}</span> : null}
@@ -10021,10 +10051,10 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                 </div>
               </div>
             ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Sin evidencia PubMed añadida todavía para este ejercicio.</p>}
-          </div>
+          </details>
 
-          <div className="mt-4 rounded-md border border-line p-4">
-            <h3 className="text-sm font-semibold text-ink">Mapa de fatiga</h3>
+          <details className="mt-4 rounded-md border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink">Mapa de fatiga</summary>
             {fatigueEntries.length > 0 ? (
               <div className="mt-3 grid gap-2">
                 {fatigueEntries.map(([muscle, value]) => (
@@ -10038,7 +10068,7 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                 ))}
               </div>
             ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Pendiente de completar para este ejercicio.</p>}
-          </div>
+          </details>
         </div>
       ) : (
         <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/50">Selecciona un ejercicio para ver su ficha.</div>
