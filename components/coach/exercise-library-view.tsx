@@ -197,6 +197,10 @@ export function ExerciseLibraryView({
     resolveExerciseLibraryGroup(exercise) === groupKey
   ).length;
   const activeGroupTotal = activeGroups.reduce((total, group) => total + getGroupCount(group.key), 0);
+  const getVisibleGroupLabel = (group: (typeof activeGroups)[number]) => {
+    if (activeFamily !== "strength" || !group.key.endsWith("_accessory")) return group.label;
+    return strengthRegion === "lower" ? "Accesorios inferiores" : "Accesorios superiores";
+  };
 
   const renderExerciseButton = (exercise: ExerciseDefinition) => (
     <button
@@ -343,10 +347,11 @@ export function ExerciseLibraryView({
               {exerciseLibraryFamilyLabels[activeFamily]}
             </p>
             {activeFamily === "strength" ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 whitespace-nowrap">
+                <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/45">Área</span>
                 {(["lower", "upper"] as const).map((region) => (
                   <button
-                    className={`rounded-md px-3 py-2 text-sm font-semibold transition ${strengthRegion === region ? "bg-ink text-white" : "border border-line bg-white text-ink/65"}`}
+                    className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${strengthRegion === region ? "bg-ink text-white" : "border border-line bg-white text-ink/65"}`}
                     key={region}
                     onClick={() => {
                       setStrengthRegion(region);
@@ -358,9 +363,33 @@ export function ExerciseLibraryView({
                     {strengthLibraryRegionLabels[region]}
                   </button>
                 ))}
+                <span aria-hidden="true" className="mx-1 h-7 w-px shrink-0 bg-line" />
+                <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/45">Patrón</span>
+                <button
+                  className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === "all" ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
+                  onClick={() => {
+                    setActiveGroup("all");
+                    setShowMobileDetail(false);
+                  }}
+                  type="button"
+                >
+                  Todos · {activeGroupTotal}
+                </button>
+                {activeGroups.map((group) => (
+                  <button
+                    className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === group.key ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
+                    key={group.key}
+                    onClick={() => {
+                      setActiveGroup(group.key);
+                      setShowMobileDetail(false);
+                    }}
+                    type="button"
+                  >
+                    {getVisibleGroupLabel(group)} · {getGroupCount(group.key)}
+                  </button>
+                ))}
               </div>
-            ) : null}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            ) : <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
               <button
                 className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === "all" ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
                 onClick={() => {
@@ -381,10 +410,10 @@ export function ExerciseLibraryView({
                   }}
                   type="button"
                 >
-                  {group.label} · {getGroupCount(group.key)}
+                  {getVisibleGroupLabel(group)} · {getGroupCount(group.key)}
                 </button>
               ))}
-            </div>
+            </div>}
           </div>
         ) : null}
       </section>
@@ -405,8 +434,8 @@ export function ExerciseLibraryView({
             ))}
           </div>
         </section>
-      ) : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <section className={`${showMobileDetail ? "hidden lg:block" : "block"} coach-surface rounded-md p-4`}>
+      ) : <div className="grid items-start gap-5 lg:h-[clamp(38rem,calc(100dvh-10rem),54rem)] lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <section className={`${showMobileDetail ? "hidden lg:flex" : "flex"} coach-surface min-h-0 flex-col rounded-md p-4 lg:h-full`}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-ink">Ejercicios</h3>
@@ -416,7 +445,7 @@ export function ExerciseLibraryView({
           </div>
 
           {filteredExercises.length > 0 ? (
-            <div className="mt-4">
+            <div className="mt-4 min-h-0 flex-1 lg:overflow-y-auto lg:pr-1">
               {activeFamily === "plyometric" ? renderPlyometricResults() : <div className="grid gap-2">{displayedExercises.map(renderExerciseButton)}</div>}
               {displayedExercises.length < filteredExercises.length ? (
                 <button className="mt-4 w-full rounded-md border border-line bg-white px-4 py-3 text-sm font-semibold text-moss hover:border-moss/40" onClick={() => setVisibleResultCount((current) => current + 30)} type="button">
@@ -432,7 +461,7 @@ export function ExerciseLibraryView({
           )}
         </section>
 
-        <div className={`${showMobileDetail ? "block" : "hidden lg:block"} lg:sticky lg:top-6 lg:self-start`}>
+        <div className={`${showMobileDetail ? "block" : "hidden lg:block"} lg:h-full lg:min-h-0 lg:overflow-y-auto lg:[&>section]:min-h-full`}>
           <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 lg:hidden" onClick={() => setShowMobileDetail(false)} type="button">
             ← Volver a resultados
           </button>
