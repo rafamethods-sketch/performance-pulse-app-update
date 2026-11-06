@@ -3340,7 +3340,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         name: "Push jerk",
         olympicCatch: "high",
         olympicFamily: "jerk",
-        olympicPrerequisiteIds: [],
+        olympicPrerequisiteIds: ["olympic-derivatives-power-push-press"],
         olympicStage: "power",
         olympicStartPosition: "rack",
         equipment: ["Barra"],
@@ -3404,7 +3404,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         name: "Split jerk",
         olympicCatch: "split",
         olympicFamily: "jerk",
-        olympicPrerequisiteIds: ["olympic-derivatives-power-push-jerk"],
+        olympicPrerequisiteIds: ["olympic-derivatives-power-push-jerk", "olympic-derivatives-power-tall-jerk"],
         olympicStage: "full_lift",
         olympicStartPosition: "rack",
         equipment: ["Barra"],
@@ -3453,6 +3453,193 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           }
         ],
         fatigueMap: { quadriceps: 0.45, glutes: 0.4, hamstrings: 0.25, calves: 0.25, gluteMed: 0.25, shoulders: 0.45, triceps: 0.25, rotatorCuff: 0.25, core: 0.3 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-snatch-pull",
+        name: "Snatch Pull",
+        olympicCatch: "none",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: [],
+        olympicStage: "pull",
+        olympicStartPosition: "floor",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Tirón específico de snatch desde el suelo sin recepción. Mantén el agarre amplio, la barra cerca y una transición controlada antes de completar la extensión.",
+        errorsToAvoid: ["Perder la espalda en la salida", "Alejar la barra", "Flexionar los brazos antes de completar la extensión"],
+        primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquiosurales", "Trapecio"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Antebrazos", "Upper back"],
+        fatigueMap: { glutes: 0.85, quadriceps: 0.75, hamstrings: 0.75, traps: 0.7, spinalErectors: 0.5, core: 0.4, calves: 0.35, forearms: 0.35, upperBack: 0.5 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-overhead-squat",
+        name: "Overhead Squat",
+        olympicCatch: "full",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: [],
+        olympicStage: "receiving",
+        olympicStartPosition: "other",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Sentadilla profunda manteniendo la barra bloqueada sobre la cabeza. Desarrolla la posición de recepción completa del snatch, la estabilidad overhead y el control del tronco.",
+        errorsToAvoid: ["Perder la barra hacia delante", "Flexionar los codos", "Colapsar rodillas o tronco en profundidad"],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides", "Upper back"],
+        secondaryMuscles: ["Isquiosurales", "Core", "Trapecio", "Manguito rotador", "Aductores"],
+        variants: [
+          {
+            id: "overhead-squat-variant-pvc",
+            name: "Overhead squat con PVC / pica",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["PVC / Pica"],
+            description: "Regresión técnica para practicar alineación, profundidad y estabilidad overhead con carga mínima.",
+            coachingNotes: "Mantener presión activa contra la pica y ajustar la profundidad al rango controlable."
+          },
+          {
+            id: "overhead-squat-variant-kettlebell-unilateral",
+            name: "Overhead squat unilateral con kettlebell",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Kettlebell"],
+            description: "Variante unilateral para trabajar estabilidad overhead y control lateral sin replicar el snatch de barra.",
+            coachingNotes: "Usar carga moderada y mantener pelvis y caja torácica controladas."
+          }
+        ],
+        fatigueMap: { quadriceps: 0.65, glutes: 0.55, shoulders: 0.5, upperBack: 0.55, hamstrings: 0.25, core: 0.5, traps: 0.35, rotatorCuff: 0.35, adductors: 0.25 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-snatch",
+        name: "Snatch",
+        olympicCatch: "full",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-11", "olympic-derivatives-power-overhead-squat"],
+        olympicStage: "full_lift",
+        olympicStartPosition: "floor",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Levantamiento completo desde el suelo hasta una recepción profunda sobre la cabeza. Coordina salida, extensión, entrada bajo la barra y estabilización overhead.",
+        errorsToAvoid: ["Alejar la barra", "Entrar tarde bajo la barra", "Recibir sin bloqueo overhead estable"],
+        primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquiosurales", "Trapecio", "Upper back"],
+        secondaryMuscles: ["Erectores espinales", "Core", "Gemelos", "Deltoides", "Manguito rotador", "Antebrazos"],
+        variants: [
+          {
+            id: "snatch-variant-dumbbell-unilateral",
+            name: "Snatch unilateral con mancuerna",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuerna"],
+            description: "Adaptación unilateral de potencia con una trayectoria y recepción distintas al snatch canónico de barra.",
+            coachingNotes: "Tratarla como variante práctica, no como prerrequisito técnico del snatch de barra."
+          },
+          {
+            id: "snatch-variant-kettlebell-unilateral",
+            name: "Snatch unilateral con kettlebell",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Kettlebell"],
+            description: "Variante unilateral de potencia con kettlebell que no sustituye la progresión técnica de barra.",
+            coachingNotes: "Controlar el giro de la kettlebell y evitar impacto sobre el antebrazo."
+          }
+        ],
+        fatigueMap: { glutes: 0.9, quadriceps: 0.85, hamstrings: 0.75, traps: 0.8, upperBack: 0.75, spinalErectors: 0.5, core: 0.55, calves: 0.4, shoulders: 0.5, rotatorCuff: 0.35, forearms: 0.35 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-push-press",
+        name: "Push Press",
+        olympicCatch: "high",
+        olympicFamily: "jerk",
+        olympicPrerequisiteIds: [],
+        olympicStage: "fundamentals",
+        olympicStartPosition: "rack",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde front rack, utiliza un dip-drive vertical para transferir fuerza de las piernas al empuje overhead sin una recepción baja marcada.",
+        errorsToAvoid: ["Inclinar el dip hacia delante", "Iniciar el press antes del drive", "Perder control de costillas en el bloqueo"],
+        primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides", "Tríceps"],
+        secondaryMuscles: ["Gemelos", "Trapecio", "Core", "Manguito rotador"],
+        variants: [
+          {
+            id: "push-press-variant-dumbbells",
+            name: "Push press con mancuernas",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Mancuernas"],
+            description: "Variante bilateral con mancuernas para trabajar transferencia de piernas y empuje overhead.",
+            coachingNotes: "Mantener el dip vertical y coordinar ambos brazos."
+          },
+          {
+            id: "push-press-variant-kettlebells",
+            name: "Push press con kettlebells",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Kettlebells"],
+            description: "Variante bilateral con kettlebells que mantiene un dip-drive reconocible con diferente posición de carga.",
+            coachingNotes: "Conservar rack estable y evitar abrir las costillas."
+          },
+          {
+            id: "push-press-variant-landmine",
+            name: "Landmine push press",
+            type: "material",
+            difficulty: "intermediate",
+            equipment: ["Landmine"],
+            description: "Adaptación de potencia diagonal; no forma parte de la progresión técnica hacia el jerk de barra.",
+            coachingNotes: "Mantener control del tronco y transferir el impulso de piernas sin convertirlo en un press aislado."
+          }
+        ],
+        fatigueMap: { quadriceps: 0.4, glutes: 0.3, shoulders: 0.5, triceps: 0.4, calves: 0.2, traps: 0.25, core: 0.3, rotatorCuff: 0.2 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-press-in-split",
+        name: "Press in Split",
+        olympicCatch: "split",
+        olympicFamily: "jerk",
+        olympicPrerequisiteIds: [],
+        olympicStage: "fundamentals",
+        olympicStartPosition: "rack",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Press overhead realizado desde una posición de split estable. Enseña orientación de pies, reparto de apoyos y soporte overhead específico del jerk.",
+        errorsToAvoid: ["Split demasiado estrecho", "Perder equilibrio entre apoyos", "Arquear la zona lumbar al bloquear"],
+        primaryMuscles: ["Deltoides", "Tríceps", "Cuádriceps", "Glúteo mayor"],
+        secondaryMuscles: ["Glúteo medio", "Core", "Trapecio", "Manguito rotador"],
+        variants: [
+          {
+            id: "press-in-split-variant-pvc",
+            name: "Press in split con PVC / pica",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["PVC / Pica"],
+            description: "Regresión para aprender la posición de split y el bloqueo overhead con carga mínima.",
+            coachingNotes: "Priorizar colocación de pies y equilibrio antes de añadir carga."
+          }
+        ],
+        fatigueMap: { shoulders: 0.4, triceps: 0.35, quadriceps: 0.25, glutes: 0.25, gluteMed: 0.2, core: 0.3, traps: 0.2, rotatorCuff: 0.25 }
+      }),
+      squatExercise({
+        id: "olympic-derivatives-power-tall-jerk",
+        name: "Tall Jerk",
+        olympicCatch: "split",
+        olympicFamily: "jerk",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-press-in-split"],
+        olympicStage: "receiving",
+        olympicStartPosition: "rack",
+        equipment: ["Barra"],
+        technicalDescription:
+          "Desde una posición alta en rack y con impulso mínimo, entra rápidamente bajo la barra para recibir en split estable. Prioriza velocidad de pies y soporte overhead.",
+        errorsToAvoid: ["Impulsar en exceso con las piernas", "Mover los pies tarde", "Recibir con la barra fuera del centro de apoyo"],
+        primaryMuscles: ["Deltoides", "Tríceps", "Cuádriceps", "Glúteo mayor"],
+        secondaryMuscles: ["Glúteo medio", "Core", "Trapecio", "Manguito rotador", "Gemelos"],
+        variants: [
+          {
+            id: "tall-jerk-variant-pvc",
+            name: "Tall jerk con PVC / pica",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["PVC / Pica"],
+            description: "Regresión técnica para practicar velocidad de pies y recepción en split sin carga relevante.",
+            coachingNotes: "Entrar bajo la pica con rapidez manteniendo el tronco vertical."
+          }
+        ],
+        fatigueMap: { shoulders: 0.4, triceps: 0.3, quadriceps: 0.3, glutes: 0.25, gluteMed: 0.25, core: 0.3, traps: 0.25, rotatorCuff: 0.25, calves: 0.2 }
       })
     ]
   },
