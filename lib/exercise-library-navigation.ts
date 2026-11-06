@@ -218,16 +218,80 @@ export function getExerciseLibraryCompactAttribute(exercise: ExerciseDefinition)
     : groupLabel;
 }
 
-export function matchesExerciseLibrarySearch(exercise: ExerciseDefinition, query: string) {
-  const normalizedQuery = normalizeSearchValue(query);
-  if (!normalizedQuery) return true;
+const equipmentAliases: Record<string, string> = {
+  "banda": "Bandas",
+  "banda elastica": "Bandas",
+  "banda suave": "Bandas",
+  "cajon": "Cajón",
+  "cajon bajo": "Cajón",
+  "cajones": "Cajón",
+  "kettlebell": "Kettlebells",
+  "kettlebells": "Kettlebells",
+  "mancuerna": "Mancuernas",
+  "mancuernas": "Mancuernas",
+  "plataforma": "Plataformas",
+  "plataformas": "Plataformas",
+  "soporte": "Soportes",
+  "soportes": "Soportes"
+};
 
-  return normalizeSearchValue([
-    exercise.name,
+const searchAliases: Record<string, string> = {
+  "dorsal ancho": "dorsal lats",
+  "espalda alta": "upper back",
+  "flexores de cadera": "flexores cadera hip flexors",
+  "flexores cadera": "flexores de cadera",
+  "hamstrings": "isquios isquiosurales",
+  "isquios": "isquiosurales hamstrings",
+  "isquiosurales": "isquios hamstrings",
+  "upper back": "espalda alta"
+};
+
+export function getNormalizedEquipmentLabel(equipment: string) {
+  return equipmentAliases[normalizeSearchValue(equipment)] ?? equipment;
+}
+
+export function getExerciseLibraryEquipmentOptions(exercises: readonly ExerciseDefinition[]) {
+  return Array.from(new Set(exercises.flatMap((exercise) => exercise.equipment.map(getNormalizedEquipmentLabel))))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export function exerciseMatchesNormalizedEquipment(exercise: ExerciseDefinition, equipment: string) {
+  return equipment === "all" || exercise.equipment.some((item) => getNormalizedEquipmentLabel(item) === equipment);
+}
+
+export function scoreExerciseLibrarySearch(exercise: ExerciseDefinition, query: string) {
+  const normalizedQuery = normalizeSearchValue(query);
+  if (!normalizedQuery) return 0;
+
+  const name = normalizeSearchValue(exercise.name);
+  if (name === normalizedQuery) return 1000;
+  if (name.startsWith(normalizedQuery)) return 850;
+  if (name.includes(normalizedQuery)) return 700;
+
+  const variantNames = (exercise.variants ?? []).map((variant) => normalizeSearchValue(variant.name));
+  if (variantNames.some((variant) => variant === normalizedQuery)) return 650;
+  if (variantNames.some((variant) => variant.includes(normalizedQuery))) return 550;
+
+  const navigationText = normalizeSearchValue([
+    getExerciseLibraryFamilyLabel(exercise),
+    getExerciseLibraryGroupLabel(exercise),
     exercise.pattern,
-    exercise.block,
-    ...exercise.equipment
-  ].join(" ")).includes(normalizedQuery);
+    exercise.block
+  ].join(" "));
+  if (navigationText.includes(normalizedQuery)) return 400;
+
+  const equipmentText = normalizeSearchValue(exercise.equipment.map(getNormalizedEquipmentLabel).join(" "));
+  if (equipmentText.includes(normalizedQuery)) return 300;
+
+  const muscles = [...exercise.primaryMuscles, ...exercise.secondaryMuscles];
+  const muscleText = normalizeSearchValue(muscles.flatMap((muscle) => [muscle, searchAliases[normalizeSearchValue(muscle)] ?? ""]).join(" "));
+  if (muscleText.includes(normalizedQuery)) return 200;
+
+  return -1;
+}
+
+export function matchesExerciseLibrarySearch(exercise: ExerciseDefinition, query: string) {
+  return scoreExerciseLibrarySearch(exercise, query) >= 0;
 }
 
 function normalizeSearchValue(value: string) {

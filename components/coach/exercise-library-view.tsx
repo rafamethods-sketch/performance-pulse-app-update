@@ -9,18 +9,24 @@ import {
   type BodyRegion,
   type ExerciseDefinition,
   type ExercisePattern,
-  type ExerciseType
+  type ExerciseType,
+  type PlyometricDemand,
+  type PlyometricDirection,
+  type PlyometricSupport
 } from "@/lib/exercises";
 import {
   exerciseLibraryFamilyLabels,
   exerciseLibraryFamilyOrder,
   getExerciseLibraryCompactAttribute,
+  getExerciseLibraryEquipmentOptions,
   getExerciseLibraryFamilyLabel,
   getExerciseLibraryGroups,
+  getNormalizedEquipmentLabel,
   getStrengthLibraryRegion,
-  matchesExerciseLibrarySearch,
+  exerciseMatchesNormalizedEquipment,
   resolveExerciseLibraryFamily,
   resolveExerciseLibraryGroup,
+  scoreExerciseLibrarySearch,
   strengthLibraryRegionLabels,
   type ExerciseLibraryFamilyResolution,
   type StrengthLibraryRegion
@@ -62,11 +68,15 @@ export function ExerciseLibraryView({
   const [exerciseTypeFilter, setExerciseTypeFilter] = useState<ExerciseType | "all">("all");
   const [patternFilter, setPatternFilter] = useState<ExercisePattern | "all">("all");
   const [equipmentFilter, setEquipmentFilter] = useState("all");
+  const [plyometricSupportFilter, setPlyometricSupportFilter] = useState<PlyometricSupport | "all">("all");
+  const [plyometricDirectionFilter, setPlyometricDirectionFilter] = useState<PlyometricDirection | "all">("all");
+  const [plyometricDemandFilter, setPlyometricDemandFilter] = useState<PlyometricDemand | "all">("all");
   const [selectedExerciseId, setSelectedExerciseId] = useState("");
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [visibleResultCount, setVisibleResultCount] = useState(30);
 
   const equipmentOptions = useMemo(
-    () => Array.from(new Set(exerciseLibrary.flatMap((exercise) => exercise.equipment))).sort((a, b) => a.localeCompare(b)),
+    () => getExerciseLibraryEquipmentOptions(exerciseLibrary),
     []
   );
   const exerciseTypeOptions = useMemo(
@@ -88,9 +98,16 @@ export function ExerciseLibraryView({
   const hasAdvancedFilters = bodyRegionFilter !== "all" ||
     exerciseTypeFilter !== "all" ||
     patternFilter !== "all" ||
-    equipmentFilter !== "all";
+    equipmentFilter !== "all" ||
+    plyometricSupportFilter !== "all" ||
+    plyometricDirectionFilter !== "all" ||
+    plyometricDemandFilter !== "all";
 
-  const filteredExercises = useMemo(() => exerciseLibrary.filter((exercise) => {
+  const filteredExercises = useMemo(() => exerciseLibrary.map((exercise, catalogIndex) => ({
+    catalogIndex,
+    exercise,
+    searchScore: scoreExerciseLibrarySearch(exercise, search)
+  })).filter(({ exercise, searchScore }) => {
     const family = resolveExerciseLibraryFamily(exercise);
     const matchesFamily = activeFamily === "all" || family === activeFamily;
     const matchesStrengthRegion = activeFamily !== "strength" || getStrengthLibraryRegion(exercise) === strengthRegion;
@@ -98,7 +115,10 @@ export function ExerciseLibraryView({
     const matchesBodyRegion = bodyRegionFilter === "all" || exercise.bodyRegion === bodyRegionFilter;
     const matchesExerciseType = exerciseTypeFilter === "all" || exercise.exerciseType === exerciseTypeFilter;
     const matchesPattern = patternFilter === "all" || exercise.pattern === patternFilter;
-    const matchesEquipment = equipmentFilter === "all" || exercise.equipment.includes(equipmentFilter);
+    const matchesEquipment = exerciseMatchesNormalizedEquipment(exercise, equipmentFilter);
+    const matchesPlyometricSupport = plyometricSupportFilter === "all" || exercise.plyometricSupport === plyometricSupportFilter;
+    const matchesPlyometricDirection = plyometricDirectionFilter === "all" || exercise.plyometricDirection === plyometricDirectionFilter;
+    const matchesPlyometricDemand = plyometricDemandFilter === "all" || exercise.plyometricDemand === plyometricDemandFilter;
 
     return matchesFamily &&
       matchesStrengthRegion &&
@@ -107,11 +127,34 @@ export function ExerciseLibraryView({
       matchesExerciseType &&
       matchesPattern &&
       matchesEquipment &&
-      matchesExerciseLibrarySearch(exercise, search);
-  }), [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, patternFilter, search, strengthRegion]);
+      matchesPlyometricSupport &&
+      matchesPlyometricDirection &&
+      matchesPlyometricDemand &&
+      searchScore >= 0;
+  }).sort((a, b) => search.trim()
+    ? b.searchScore - a.searchScore || a.catalogIndex - b.catalogIndex
+    : a.catalogIndex - b.catalogIndex
+  ).map(({ exercise }) => exercise), [
+    activeFamily,
+    activeGroup,
+    bodyRegionFilter,
+    equipmentFilter,
+    exerciseTypeFilter,
+    patternFilter,
+    plyometricDemandFilter,
+    plyometricDirectionFilter,
+    plyometricSupportFilter,
+    search,
+    strengthRegion
+  ]);
 
   const selectedExercise = filteredExercises.find((exercise) => exercise.id === selectedExerciseId) ?? filteredExercises[0];
   const showFamilyOverview = activeFamily === "all" && !search.trim() && !hasAdvancedFilters;
+  const displayedExercises = filteredExercises.slice(0, visibleResultCount);
+
+  useEffect(() => {
+    setVisibleResultCount(30);
+  }, [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, patternFilter, plyometricDemandFilter, plyometricDirectionFilter, plyometricSupportFilter, search, strengthRegion]);
 
   useEffect(() => {
     if (!selectedExercise) {
@@ -126,10 +169,21 @@ export function ExerciseLibraryView({
     setShowMobileDetail(true);
   };
 
+  const clearAdvancedFilters = () => {
+    setBodyRegionFilter("all");
+    setExerciseTypeFilter("all");
+    setPatternFilter("all");
+    setEquipmentFilter("all");
+    setPlyometricSupportFilter("all");
+    setPlyometricDirectionFilter("all");
+    setPlyometricDemandFilter("all");
+  };
+
   const selectFamily = (family: ActiveExerciseLibraryFamily) => {
     setActiveFamily(family);
     setActiveGroup("all");
     setStrengthRegion("lower");
+    clearAdvancedFilters();
     setShowMobileDetail(false);
   };
 
@@ -146,14 +200,16 @@ export function ExerciseLibraryView({
 
   const renderExerciseButton = (exercise: ExerciseDefinition) => (
     <button
-      className={`w-full rounded-md border p-3 text-left transition ${selectedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+      className={`w-full rounded-md border px-3 py-2.5 text-left transition ${selectedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
       key={exercise.id}
       onClick={() => selectExercise(exercise)}
       type="button"
     >
       <span className="block text-sm font-semibold">{exercise.name}</span>
       <span className="mt-1 block text-xs opacity-65">
-        {getExerciseLibraryFamilyLabel(exercise)} · {getExerciseLibraryCompactAttribute(exercise)}
+        {activeFamily === "all"
+          ? `${getExerciseLibraryFamilyLabel(exercise)} · ${getExerciseLibraryCompactAttribute(exercise)}`
+          : `${getExerciseLibraryCompactAttribute(exercise)} · ${getNormalizedEquipmentLabel(exercise.equipment[0] ?? "Sin material")}`}
       </span>
     </button>
   );
@@ -161,7 +217,7 @@ export function ExerciseLibraryView({
   const renderPlyometricResults = () => (
     <div className="grid gap-4">
       {getExerciseLibraryGroups("plyometric").map((group) => {
-        const exercises = filteredExercises.filter((exercise) => resolveExerciseLibraryGroup(exercise) === group.key);
+        const exercises = displayedExercises.filter((exercise) => resolveExerciseLibraryGroup(exercise) === group.key);
         if (exercises.length === 0) return null;
 
         return (
@@ -177,13 +233,13 @@ export function ExerciseLibraryView({
 
               return (
                 <button
-                  className={`w-full rounded-md border p-3 text-left transition ${selectedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
+                  className={`w-full rounded-md border px-3 py-2.5 text-left transition ${selectedExercise?.id === exercise.id ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink hover:border-moss/40"}`}
                   key={exercise.id}
                   onClick={() => selectExercise(exercise)}
                   type="button"
                 >
                   <span className="block text-sm font-semibold">{exercise.name}</span>
-                  <span className="mt-1 block text-xs opacity-65">Pliometría · {profile}</span>
+                  <span className="mt-1 block text-xs opacity-65">{profile}</span>
                 </button>
               );
             })}
@@ -244,27 +300,42 @@ export function ExerciseLibraryView({
           ))}
         </div>
 
-        <details className="mt-4 rounded-md border border-line bg-panel/30 px-4 py-3">
+        {!showFamilyOverview ? <details className="mt-4 rounded-md border border-line bg-panel/30 px-4 py-3">
           <summary className="cursor-pointer text-sm font-semibold text-ink/70">Filtros avanzados{hasAdvancedFilters ? " · activos" : ""}</summary>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <FilterSelect label="Región corporal" onChange={(value) => setBodyRegionFilter(value as BodyRegion | "all")} value={bodyRegionFilter}>
+            {activeFamily === "all" ? <FilterSelect label="Región corporal" onChange={(value) => setBodyRegionFilter(value as BodyRegion | "all")} value={bodyRegionFilter}>
               <option value="all">Todas</option>
               {bodyRegions.map((region) => <option key={region} value={region}>{bodyRegionLabels[region]}</option>)}
-            </FilterSelect>
-            <FilterSelect label="Tipo actual" onChange={(value) => setExerciseTypeFilter(value as ExerciseType | "all")} value={exerciseTypeFilter}>
+            </FilterSelect> : null}
+            {(activeFamily === "all" || activeFamily === "strength") ? <FilterSelect label="Tipo actual" onChange={(value) => setExerciseTypeFilter(value as ExerciseType | "all")} value={exerciseTypeFilter}>
               <option value="all">Todos</option>
               {exerciseTypeOptions.map((type) => <option key={type} value={type}>{exerciseTypeLabels[type]}</option>)}
-            </FilterSelect>
-            <FilterSelect label="Patrón" onChange={(value) => setPatternFilter(value as ExercisePattern | "all")} value={patternFilter}>
+            </FilterSelect> : null}
+            {(activeFamily === "all" || activeFamily === "power_olympic") ? <FilterSelect label="Patrón" onChange={(value) => setPatternFilter(value as ExercisePattern | "all")} value={patternFilter}>
               <option value="all">Todos</option>
               {exercisePatterns.map((pattern) => <option key={pattern} value={pattern}>{pattern}</option>)}
-            </FilterSelect>
+            </FilterSelect> : null}
+            {activeFamily === "plyometric" ? <>
+              <FilterSelect label="Apoyo" onChange={(value) => setPlyometricSupportFilter(value as PlyometricSupport | "all")} value={plyometricSupportFilter}>
+                <option value="all">Todos</option>
+                {Object.entries(plyometricSupportLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </FilterSelect>
+              <FilterSelect label="Dirección" onChange={(value) => setPlyometricDirectionFilter(value as PlyometricDirection | "all")} value={plyometricDirectionFilter}>
+                <option value="all">Todas</option>
+                {Object.entries(plyometricDirectionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </FilterSelect>
+              <FilterSelect label="Demanda" onChange={(value) => setPlyometricDemandFilter(value === "all" ? "all" : Number(value) as PlyometricDemand)} value={String(plyometricDemandFilter)}>
+                <option value="all">Todas</option>
+                {Object.entries(plyometricDemandLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </FilterSelect>
+            </> : null}
             <FilterSelect label="Material" onChange={setEquipmentFilter} value={equipmentFilter}>
               <option value="all">Todo el material</option>
               {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
             </FilterSelect>
           </div>
-        </details>
+          {hasAdvancedFilters ? <button className="mt-4 text-sm font-semibold text-moss hover:underline" onClick={clearAdvancedFilters} type="button">Limpiar filtros</button> : null}
+        </details> : null}
 
         {activeFamily !== "all" && activeFamily !== "unclassified" ? (
           <div className="mt-4 rounded-md border border-line bg-panel/20 p-3">
@@ -318,52 +389,56 @@ export function ExerciseLibraryView({
         ) : null}
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      {showFamilyOverview ? (
+        <section className="coach-surface rounded-md p-4">
+          <div>
+            <h3 className="text-lg font-semibold text-ink">Explorar por familia</h3>
+            <p className="mt-1 text-sm text-ink/50">Elige una familia para ver su navegación y sus ejercicios.</p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleFamilies.map((family) => (
+              <button className="rounded-md border border-line bg-panel/25 p-4 text-left transition hover:border-moss/40 hover:bg-mint/35" key={family} onClick={() => selectFamily(family)} type="button">
+                <span className="block text-sm font-semibold text-ink">{family === "unclassified" ? "Otros" : exerciseLibraryFamilyLabels[family]}</span>
+                <span className="mt-1 block text-xs text-ink/45">{familyCounts.get(family) ?? 0} ejercicios</span>
+                <span className="mt-4 block text-xs font-semibold text-moss">Ver ejercicios →</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <section className={`${showMobileDetail ? "hidden lg:block" : "block"} coach-surface rounded-md p-4`}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg font-semibold text-ink">{showFamilyOverview ? "Explorar por familia" : "Ejercicios"}</h3>
-              <p className="mt-1 text-sm text-ink/50">
-                {showFamilyOverview ? "Una muestra estable de cada familia." : `${filteredExercises.length} resultados`}
-              </p>
+              <h3 className="text-lg font-semibold text-ink">Ejercicios</h3>
+              <p className="mt-1 text-sm text-ink/50">{filteredExercises.length} resultados</p>
             </div>
-            {!showFamilyOverview ? <span className="rounded-md border border-line bg-panel/50 px-2 py-1 text-xs font-semibold text-ink/55">{filteredExercises.length}</span> : null}
+            <span className="rounded-md border border-line bg-panel/50 px-2 py-1 text-xs font-semibold text-ink/55">{filteredExercises.length}</span>
           </div>
 
-          {showFamilyOverview ? (
-            <div className="mt-4 grid gap-4">
-              {visibleFamilies.map((family) => {
-                const examples = exerciseLibrary.filter((exercise) => resolveExerciseLibraryFamily(exercise) === family).slice(0, 5);
-                return (
-                  <article className="rounded-md border border-line bg-panel/25 p-3" key={family}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-sm font-semibold text-ink">{family === "unclassified" ? "Otros" : exerciseLibraryFamilyLabels[family]}</h4>
-                        <p className="mt-0.5 text-xs text-ink/45">{familyCounts.get(family) ?? 0} ejercicios</p>
-                      </div>
-                      <button className="text-xs font-semibold text-moss hover:underline" onClick={() => selectFamily(family)} type="button">Ver todos</button>
-                    </div>
-                    <div className="mt-3 grid gap-2">{examples.map(renderExerciseButton)}</div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : filteredExercises.length > 0 ? (
-            <div className="mt-4 max-h-[680px] overflow-y-auto pr-1">
-              {activeFamily === "plyometric" ? renderPlyometricResults() : <div className="grid gap-2">{filteredExercises.map(renderExerciseButton)}</div>}
+          {filteredExercises.length > 0 ? (
+            <div className="mt-4">
+              {activeFamily === "plyometric" ? renderPlyometricResults() : <div className="grid gap-2">{displayedExercises.map(renderExerciseButton)}</div>}
+              {displayedExercises.length < filteredExercises.length ? (
+                <button className="mt-4 w-full rounded-md border border-line bg-white px-4 py-3 text-sm font-semibold text-moss hover:border-moss/40" onClick={() => setVisibleResultCount((current) => current + 30)} type="button">
+                  Mostrar más · {filteredExercises.length - displayedExercises.length} pendientes
+                </button>
+              ) : null}
             </div>
           ) : (
-            <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-6 text-center text-sm font-semibold text-ink/50">No hay ejercicios que coincidan con la búsqueda y los filtros.</p>
+            <div className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-6 text-center">
+              <p className="text-sm font-semibold text-ink/50">No hay ejercicios que coincidan con la búsqueda y los filtros.</p>
+              {hasAdvancedFilters ? <button className="mt-3 text-sm font-semibold text-moss hover:underline" onClick={clearAdvancedFilters} type="button">Limpiar filtros</button> : null}
+            </div>
           )}
         </section>
 
-        <div className={showMobileDetail ? "block" : "hidden lg:block"}>
+        <div className={`${showMobileDetail ? "block" : "hidden lg:block"} lg:sticky lg:top-6 lg:self-start`}>
           <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70 lg:hidden" onClick={() => setShowMobileDetail(false)} type="button">
             ← Volver a resultados
           </button>
           {renderDetail(selectedExercise)}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
