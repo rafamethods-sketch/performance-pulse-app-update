@@ -23,6 +23,10 @@ export type ExerciseType =
   | "plyometric"
   | "power"
   | "strength";
+export type OlympicFamily = "general" | "clean" | "snatch" | "jerk";
+export type OlympicStage = "fundamentals" | "pull" | "receiving" | "power" | "full_lift";
+export type OlympicStartPosition = "floor" | "hang" | "rack" | "blocks" | "other";
+export type OlympicCatch = "none" | "high" | "full" | "split";
 export type PlyometricType = "jump" | "landing" | "reactive";
 export type PlyometricSupport = "alternating" | "bilateral" | "unilateral";
 export type PlyometricDirection = "horizontal" | "lateral" | "vertical";
@@ -139,6 +143,11 @@ export type ExerciseDefinition = {
   fatigueMap: FatigueMap;
   id: string;
   name: string;
+  olympicCatch?: OlympicCatch;
+  olympicFamily?: OlympicFamily;
+  olympicPrerequisiteIds?: string[];
+  olympicStage?: OlympicStage;
+  olympicStartPosition?: OlympicStartPosition;
   pattern: ExercisePattern;
   plyometricDemand?: PlyometricDemand;
   plyometricDirection?: PlyometricDirection;
@@ -2914,6 +2923,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Jump shrug desde hang",
+        olympicCatch: "none",
+        olympicFamily: "general",
+        olympicPrerequisiteIds: [],
+        olympicStage: "fundamentals",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde posición hang, realiza una triple extensión explosiva y termina con un encogimiento alto sin recepción. Mantén la barra cerca, brazos largos hasta la extensión y control del apoyo.",
@@ -2924,6 +2938,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang clean pull",
+        olympicCatch: "none",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-1"],
+        olympicStage: "pull",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde hang, tira de la barra con extensión potente de cadera, rodilla y tobillo sin recibirla. Mantén trayectoria vertical cercana y hombros sobre la barra antes de acelerar.",
@@ -2934,6 +2953,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang high pull",
+        olympicCatch: "none",
+        olympicFamily: "general",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-1"],
+        olympicStage: "pull",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde hang, acelera la barra con triple extensión y continúa el tirón alto manteniendo codos arriba y fuera. La barra debe viajar cerca del cuerpo sin perder equilibrio.",
@@ -2944,6 +2968,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Clean pull desde suelo",
+        olympicCatch: "none",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-1"],
+        olympicStage: "pull",
+        olympicStartPosition: "floor",
         equipment: ["Barra"],
         technicalDescription:
           "Tira desde el suelo pasando por rodilla con control y acelera hacia una extensión completa. Mantén la barra cerca, espalda firme y transición fluida al segundo tirón.",
@@ -2954,6 +2983,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang muscle clean",
+        olympicCatch: "high",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-2", "olympic-derivatives-power-3"],
+        olympicStage: "receiving",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde hang, extiende potente y recibe la barra en rack sin caída profunda. Mantén la barra cerca, codos rápidos y postura estable al finalizar.",
@@ -2964,6 +2998,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang power clean",
+        olympicCatch: "high",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-5"],
+        olympicStage: "power",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde hang, realiza triple extensión y recibe la barra en posición power con codos rápidos. Mantén recepción estable, pies activos y barra cercana.",
@@ -3014,6 +3053,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Power clean",
+        olympicCatch: "high",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-6", "olympic-derivatives-power-4"],
+        olympicStage: "power",
+        olympicStartPosition: "floor",
         equipment: ["Barra"],
         technicalDescription:
           "Desde el suelo, acelera la barra y recibela en posición power. Coordina salida, transición por rodilla, segundo tirón y recepción estable con codos altos.",
@@ -3075,6 +3119,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Clean",
+        olympicCatch: "full",
+        olympicFamily: "clean",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-7"],
+        olympicStage: "full_lift",
+        olympicStartPosition: "floor",
         equipment: ["Barra"],
         technicalDescription:
           "Desde el suelo, tira y recibe la barra en una sentadilla frontal más profunda. Mantén trayectoria cercana, codos rápidos y estabilidad en la recepción.",
@@ -3146,6 +3195,10 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "olympic-derivatives-power-muscle-snatch",
         name: "Muscle snatch",
+        olympicCatch: "high",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: [],
+        olympicStage: "receiving",
         equipment: ["Barra"],
         technicalDescription:
           "Derivado olímpico de arrancada orientado a la extensión potente de cadera, rodilla y tobillo y al tirón vertical hasta una recepción alta sin profundidad de sentadilla. Priorizar trayectoria cercana de la barra, extensión completa y control overhead.",
@@ -3163,6 +3216,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang power snatch",
+        olympicCatch: "high",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-muscle-snatch"],
+        olympicStage: "power",
+        olympicStartPosition: "hang",
         equipment: ["Barra"],
         technicalDescription:
           "Desde hang, realiza triple extensión y recibe la barra por encima de la cabeza en posición power. Mantén trayectoria cercana, bloqueo estable y control overhead.",
@@ -3213,6 +3271,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Power snatch",
+        olympicCatch: "high",
+        olympicFamily: "snatch",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-10"],
+        olympicStage: "power",
+        olympicStartPosition: "floor",
         equipment: ["Barra"],
         technicalDescription:
           "Desde el suelo, acelera la barra y recibela por encima de la cabeza en posición power. Coordina salida, tirón y recepción overhead estable.",
@@ -3275,6 +3338,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "olympic-derivatives-power-push-jerk",
         name: "Push jerk",
+        olympicCatch: "high",
+        olympicFamily: "jerk",
+        olympicPrerequisiteIds: [],
+        olympicStage: "power",
+        olympicStartPosition: "rack",
         equipment: ["Barra"],
         technicalDescription:
           "Derivado olímpico de empuje vertical en el que se utiliza un dip-drive de piernas para impulsar la barra y recibirla sobre la cabeza con flexión parcial de rodillas. Trabaja transferencia de fuerza desde tren inferior hacia overhead y estabilidad en recepción.",
@@ -3334,6 +3402,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "olympic-derivatives-power-split-jerk",
         name: "Split jerk",
+        olympicCatch: "split",
+        olympicFamily: "jerk",
+        olympicPrerequisiteIds: ["olympic-derivatives-power-push-jerk"],
+        olympicStage: "full_lift",
+        olympicStartPosition: "rack",
         equipment: ["Barra"],
         technicalDescription:
           "Derivado olímpico de empuje vertical con recepción en split stance. Utiliza el impulso de piernas para elevar la barra y una recepción asimétrica para estabilizarla sobre la cabeza. Requiere coordinación, velocidad bajo la barra, control del split y estabilidad overhead.",

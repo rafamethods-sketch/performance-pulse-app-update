@@ -130,6 +130,15 @@ import {
   plyometricTypeLabels
 } from "@/lib/plyometric-profile";
 import {
+  getOlympicNextSteps,
+  getOlympicPrerequisites,
+  isOlympicExercise,
+  olympicCatchLabels,
+  olympicFamilyLabels,
+  olympicStageLabels,
+  olympicStartPositionLabels
+} from "@/lib/olympic-progression";
+import {
   calculateWeeklyPlyometricVolume,
   filterSessionsInWeek
 } from "@/lib/plyometric-volume";
@@ -9921,6 +9930,12 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
     : [];
   const activationEvidence = getExerciseActivationEvidence(selectedExercise);
   const activationMusclesByRole = getActivationMusclesByRole(activationEvidence);
+  const olympicPrerequisites = selectedExercise && isOlympicExercise(selectedExercise)
+    ? getOlympicPrerequisites(selectedExercise, exerciseLibrary)
+    : [];
+  const olympicNextSteps = selectedExercise && isOlympicExercise(selectedExercise)
+    ? getOlympicNextSteps(selectedExercise, exerciseLibrary)
+    : [];
 
   return (
     <section className="coach-surface rounded-md p-4">
@@ -9956,6 +9971,43 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                     <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          ) : null}
+
+          {isOlympicExercise(selectedExercise) ? (
+            <div className="mt-4 rounded-md border border-line p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-moss">Progresión olímpica</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ["Familia", olympicFamilyLabels[selectedExercise.olympicFamily!]],
+                  ["Etapa", olympicStageLabels[selectedExercise.olympicStage!]],
+                  selectedExercise.olympicStartPosition ? ["Inicio", olympicStartPositionLabels[selectedExercise.olympicStartPosition]] : null,
+                  ["Recepción", olympicCatchLabels[selectedExercise.olympicCatch!]]
+                ].filter((entry): entry is string[] => Boolean(entry)).map(([label, value]) => (
+                  <div className="rounded-md bg-panel/45 px-3 py-2" key={label}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/45">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-ink/75">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md bg-panel/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Prerrequisitos</p>
+                  {olympicPrerequisites.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {olympicPrerequisites.map((exercise) => <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/70" key={exercise.id}>{exercise.name}</span>)}
+                    </div>
+                  ) : <p className="mt-2 text-sm font-semibold text-moss">Punto de entrada</p>}
+                </div>
+                {olympicNextSteps.length ? (
+                  <div className="rounded-md bg-panel/30 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">Siguientes pasos</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {olympicNextSteps.map((exercise) => <span className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/70" key={exercise.id}>{exercise.name}</span>)}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
