@@ -10,6 +10,8 @@ import {
   type ExerciseDefinition,
   type ExercisePattern,
   type ExerciseType,
+  type OlympicFamily,
+  type OlympicStage,
   type PlyometricDemand,
   type PlyometricDirection,
   type PlyometricSupport
@@ -36,6 +38,13 @@ import {
   plyometricDirectionLabels,
   plyometricSupportLabels
 } from "@/lib/plyometric-profile";
+import {
+  getOlympicCompactSummary,
+  olympicFamilyLabels,
+  olympicFamilyOrder,
+  olympicStageLabels,
+  olympicStageOrder
+} from "@/lib/olympic-progression";
 
 type ActiveExerciseLibraryFamily = "all" | ExerciseLibraryFamilyResolution;
 
@@ -71,6 +80,8 @@ export function ExerciseLibraryView({
   const [plyometricSupportFilter, setPlyometricSupportFilter] = useState<PlyometricSupport | "all">("all");
   const [plyometricDirectionFilter, setPlyometricDirectionFilter] = useState<PlyometricDirection | "all">("all");
   const [plyometricDemandFilter, setPlyometricDemandFilter] = useState<PlyometricDemand | "all">("all");
+  const [olympicFamilyFilter, setOlympicFamilyFilter] = useState<OlympicFamily | "all">("all");
+  const [olympicStageFilter, setOlympicStageFilter] = useState<OlympicStage | "all">("all");
   const [selectedExerciseId, setSelectedExerciseId] = useState("");
   const [showMobileDetail, setShowMobileDetail] = useState(false);
   const [visibleResultCount, setVisibleResultCount] = useState(30);
@@ -119,6 +130,8 @@ export function ExerciseLibraryView({
     const matchesPlyometricSupport = plyometricSupportFilter === "all" || exercise.plyometricSupport === plyometricSupportFilter;
     const matchesPlyometricDirection = plyometricDirectionFilter === "all" || exercise.plyometricDirection === plyometricDirectionFilter;
     const matchesPlyometricDemand = plyometricDemandFilter === "all" || exercise.plyometricDemand === plyometricDemandFilter;
+    const matchesOlympicFamily = olympicFamilyFilter === "all" || exercise.olympicFamily === olympicFamilyFilter;
+    const matchesOlympicStage = olympicStageFilter === "all" || exercise.olympicStage === olympicStageFilter;
 
     return matchesFamily &&
       matchesStrengthRegion &&
@@ -130,6 +143,8 @@ export function ExerciseLibraryView({
       matchesPlyometricSupport &&
       matchesPlyometricDirection &&
       matchesPlyometricDemand &&
+      matchesOlympicFamily &&
+      matchesOlympicStage &&
       searchScore >= 0;
   }).sort((a, b) => search.trim()
     ? b.searchScore - a.searchScore || a.catalogIndex - b.catalogIndex
@@ -141,6 +156,8 @@ export function ExerciseLibraryView({
     equipmentFilter,
     exerciseTypeFilter,
     patternFilter,
+    olympicFamilyFilter,
+    olympicStageFilter,
     plyometricDemandFilter,
     plyometricDirectionFilter,
     plyometricSupportFilter,
@@ -154,7 +171,7 @@ export function ExerciseLibraryView({
 
   useEffect(() => {
     setVisibleResultCount(30);
-  }, [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, patternFilter, plyometricDemandFilter, plyometricDirectionFilter, plyometricSupportFilter, search, strengthRegion]);
+  }, [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, olympicFamilyFilter, olympicStageFilter, patternFilter, plyometricDemandFilter, plyometricDirectionFilter, plyometricSupportFilter, search, strengthRegion]);
 
   useEffect(() => {
     if (!selectedExercise) {
@@ -177,6 +194,8 @@ export function ExerciseLibraryView({
     setPlyometricSupportFilter("all");
     setPlyometricDirectionFilter("all");
     setPlyometricDemandFilter("all");
+    setOlympicFamilyFilter("all");
+    setOlympicStageFilter("all");
   };
 
   const selectFamily = (family: ActiveExerciseLibraryFamily) => {
@@ -211,7 +230,9 @@ export function ExerciseLibraryView({
     >
       <span className="block text-sm font-semibold">{exercise.name}</span>
       <span className="mt-1 block text-xs opacity-65">
-        {activeFamily === "all"
+        {activeFamily === "power_olympic" && activeGroup === "olympic" && getOlympicCompactSummary(exercise)
+          ? getOlympicCompactSummary(exercise)
+          : activeFamily === "all"
           ? `${getExerciseLibraryFamilyLabel(exercise)} · ${getExerciseLibraryCompactAttribute(exercise)}`
           : `${getExerciseLibraryCompactAttribute(exercise)} · ${getNormalizedEquipmentLabel(exercise.equipment[0] ?? "Sin material")}`}
       </span>
@@ -394,6 +415,8 @@ export function ExerciseLibraryView({
                 className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${activeGroup === "all" ? "bg-moss text-white" : "border border-line bg-white text-ink/65"}`}
                 onClick={() => {
                   setActiveGroup("all");
+                  setOlympicFamilyFilter("all");
+                  setOlympicStageFilter("all");
                   setShowMobileDetail(false);
                 }}
                 type="button"
@@ -406,6 +429,8 @@ export function ExerciseLibraryView({
                   key={group.key}
                   onClick={() => {
                     setActiveGroup(group.key);
+                    setOlympicFamilyFilter("all");
+                    setOlympicStageFilter("all");
                     setShowMobileDetail(false);
                   }}
                   type="button"
@@ -414,6 +439,24 @@ export function ExerciseLibraryView({
                 </button>
               ))}
             </div>}
+            {activeFamily === "power_olympic" && activeGroup === "olympic" ? (
+              <div className="mt-3 grid gap-2 border-t border-line pt-3">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 whitespace-nowrap">
+                  <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/45">Familia</span>
+                  <OlympicFilterButton active={olympicFamilyFilter === "all"} label="Todos" onClick={() => setOlympicFamilyFilter("all")} />
+                  {olympicFamilyOrder.map((family) => (
+                    <OlympicFilterButton active={olympicFamilyFilter === family} key={family} label={olympicFamilyLabels[family]} onClick={() => setOlympicFamilyFilter(family)} />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 whitespace-nowrap">
+                  <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/45">Etapa</span>
+                  <OlympicFilterButton active={olympicStageFilter === "all"} label="Todos" onClick={() => setOlympicStageFilter("all")} />
+                  {olympicStageOrder.map((stage) => (
+                    <OlympicFilterButton active={olympicStageFilter === stage} key={stage} label={olympicStageLabels[stage]} onClick={() => setOlympicStageFilter(stage)} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -469,6 +512,14 @@ export function ExerciseLibraryView({
         </div>
       </div>}
     </div>
+  );
+}
+
+function OlympicFilterButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition ${active ? "bg-steel text-white" : "border border-line bg-white text-ink/65"}`} onClick={onClick} type="button">
+      {label}
+    </button>
   );
 }
 
