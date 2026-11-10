@@ -9948,7 +9948,10 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
                 {bodyRegionLabels[selectedExercise.bodyRegion]} - {selectedExercise.pattern} - {selectedExercise.block} - #{selectedExercise.rank}
               </p>
             </div>
-            <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">{selectedExercise.equipment.join(" / ")}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedExercise.coreLimbMovement ? <span className="rounded-md border border-line bg-panel/50 px-3 py-1 text-xs font-semibold text-ink/65">Extremidades en movimiento</span> : null}
+              <span className="rounded-md bg-mint px-3 py-1 text-xs font-semibold text-moss">{selectedExercise.equipment.join(" / ")}</span>
+            </div>
           </div>
 
           <div className="mt-5 rounded-md bg-panel/45 p-4">

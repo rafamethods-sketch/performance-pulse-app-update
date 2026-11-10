@@ -137,6 +137,7 @@ export type ExerciseVariant = {
 export type ExerciseDefinition = {
   bodyRegion: BodyRegion;
   block: ExerciseBlock;
+  coreLimbMovement?: boolean;
   equipment: string[];
   errorsToAvoid: string[];
   exerciseType: ExerciseType;
@@ -6050,6 +6051,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-bear-walk-unilateral",
         name: "Bear walk unilateral",
+        coreLimbMovement: true,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Ejercicio global de apoyo y desplazamiento en cuadrupedia con énfasis en control unilateral, estabilidad de tronco, cintura escapular y cadera. Avanzar o mantener posición alternando apoyos sin perder alineación.",
@@ -6067,6 +6069,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-turkish-get-up-start",
         name: "Turkish get-up: inicio",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
         technicalDescription:
           "Primera fase del levantamiento turco. Desde decúbito supino, mantener un brazo estable hacia arriba y realizar el inicio del incorporado controlando hombro, tronco y respiración.",
@@ -6084,6 +6087,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-turkish-get-up-second-step",
         name: "Turkish get-up: segundo paso",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
         technicalDescription:
           "Segunda fase del levantamiento turco, progresando desde el apoyo inicial hacia una posición más estable de transición. Priorizar control del hombro, apoyo del brazo libre y estabilidad del tronco.",
@@ -6101,6 +6105,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-turkish-get-up-third-step",
         name: "Turkish get-up: tercer paso",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
         technicalDescription:
           "Tercera fase del levantamiento turco, integrando transición de cadera y apoyo inferior. Mantener brazo estable, tronco activo y control de cadera durante el paso.",
@@ -6118,6 +6123,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-turkish-get-up-complete",
         name: "Turkish get-up completo",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
         technicalDescription:
           "Levantamiento turco completo, integrando estabilidad de hombro, control de tronco, transición de cadera, apoyo unilateral y coordinación global desde el suelo hasta la posición de pie y vuelta.",
@@ -6179,6 +6185,50 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Oblicuos", "Caderas"],
         secondaryMuscles: ["Transverso abdominal", "Hombros", "Pectoral"],
         fatigueMap: { obliques: 0.9, transverseAbdominis: 0.6, hips: 0.7, shoulders: 0.5, chest: 0.3 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-rotation-cable-chop-high-low",
+        name: "Cable chop alto-bajo",
+        coreLimbMovement: true,
+        equipment: ["Polea"],
+        technicalDescription:
+          "Traza una diagonal desde una posición alta hacia el lado contrario y abajo, coordinando brazos, tronco y cadera. Controla la rotación y termina estable sin convertir el gesto en un tirón aislado de brazos.",
+        errorsToAvoid: ["Tirar solo con los brazos", "Perder el control de la pelvis", "Acelerar sin controlar el final de la diagonal"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Caderas", "Hombros", "Glúteos"],
+        variants: [
+          {
+            id: "cable-chop-high-low-variant-band",
+            name: "Chop alto-bajo con banda",
+            type: "material",
+            equipment: ["Banda elástica"],
+            description: "Misma diagonal alto-bajo utilizando una banda anclada en posición alta.",
+            coachingNotes: "Mantener tensión útil durante toda la trayectoria sin perder la dirección diagonal."
+          }
+        ],
+        fatigueMap: { obliques: 0.85, transverseAbdominis: 0.65, hips: 0.45, shoulders: 0.35, glutes: 0.3 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-rotation-cable-lift-low-high",
+        name: "Cable lift bajo-alto",
+        coreLimbMovement: true,
+        equipment: ["Polea"],
+        technicalDescription:
+          "Traza una diagonal desde una posición baja hacia el lado contrario y arriba, coordinando la extensión y rotación controlada de cadera y tronco con el desplazamiento de los brazos.",
+        errorsToAvoid: ["Elevar la carga solo con los hombros", "Arquear la zona lumbar", "Perder apoyo o control al finalizar arriba"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Caderas", "Hombros", "Glúteos"],
+        variants: [
+          {
+            id: "cable-lift-low-high-variant-band",
+            name: "Lift bajo-alto con banda",
+            type: "material",
+            equipment: ["Banda elástica"],
+            description: "Misma diagonal bajo-alto utilizando una banda anclada en posición baja.",
+            coachingNotes: "Conservar la trayectoria ascendente y el control de costillas durante todo el gesto."
+          }
+        ],
+        fatigueMap: { obliques: 0.85, transverseAbdominis: 0.65, hips: 0.45, shoulders: 0.4, glutes: 0.3 }
       })
     ]
   },
@@ -6189,6 +6239,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Pallof press",
+        coreLimbMovement: true,
         equipment: ["Banda elástica", "Polea"],
         technicalDescription:
           "Empuja la banda o polea al frente resistiendo que el tronco rote. Mantén pelvis y costillas alineadas, brazos firmes y respiración controlada.",
@@ -6199,6 +6250,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Half-kneeling Pallof press",
+        coreLimbMovement: true,
         equipment: ["Banda elástica", "Polea"],
         technicalDescription:
           "Desde medio arrodillado, realiza Pallof press resistiendo rotación y manteniendo pelvis neutra. La posición debe reducir compensaciones y exigir control lumbopelvico.",
@@ -6209,6 +6261,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Anti-rotation walkout",
+        coreLimbMovement: true,
         equipment: ["Banda elástica", "Polea"],
         technicalDescription:
           "Camina lateralmente alejandote de la resistencia y mantén el tronco sin rotar. Cada paso debe ser estable, con pelvis nivelada y brazos firmes.",
@@ -6219,6 +6272,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Dead bug anti-rotation",
+        coreLimbMovement: true,
         equipment: ["Banda elástica"],
         technicalDescription:
           "Realiza dead bug resistiendo una tracción lateral de banda. Mantén lumbar estable, pelvis controlada y movimiento lento de piernas o brazos.",
@@ -6226,6 +6280,73 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Transverso abdominal", "Oblicuos"],
         secondaryMuscles: ["Recto abdominal", "Flexores cadera", "Estabilizadores lumbares"],
         fatigueMap: { transverseAbdominis: 0.9, obliques: 0.8, rectusAbdominis: 0.5, hipFlexors: 0.3, lumbarStabilizers: 0.5 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-rotation-pallof-march",
+        name: "Pallof march",
+        coreLimbMovement: true,
+        equipment: ["Polea"],
+        technicalDescription:
+          "Mantén los brazos al frente resistiendo la rotación mientras alternas la elevación de cada rodilla. La pelvis y el tronco deben permanecer orientados y estables durante la marcha.",
+        errorsToAvoid: ["Rotar hacia la resistencia", "Inclinar el tronco al elevar la rodilla", "Perder tensión entre pasos"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Glúteos", "Flexores cadera", "Hombros"],
+        variants: [
+          {
+            id: "pallof-march-variant-band",
+            name: "Pallof march con banda",
+            type: "material",
+            equipment: ["Banda elástica"],
+            description: "Marcha antirotacional utilizando una banda anclada lateralmente.",
+            coachingNotes: "Mantener una tensión constante y evitar acercarse al anclaje durante la marcha."
+          }
+        ],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.85, glutes: 0.4, hipFlexors: 0.3, shoulders: 0.25 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-rotation-plank-shoulder-tap",
+        name: "Plank shoulder tap",
+        coreLimbMovement: true,
+        equipment: ["Peso corporal"],
+        technicalDescription:
+          "Desde plancha alta, retira una mano para tocar el hombro contrario alternando lados. Mantén pelvis y caja torácica estables mientras cambia el apoyo.",
+        errorsToAvoid: ["Rotar la pelvis", "Separar demasiado los pies para eliminar la demanda", "Hundirse entre los hombros"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Hombros", "Serrato anterior", "Glúteos"],
+        variants: [
+          {
+            id: "plank-shoulder-tap-variant-elevated",
+            name: "Plank shoulder tap con apoyo elevado",
+            type: "regression",
+            difficulty: "basic",
+            equipment: ["Banco"],
+            description: "Regresión con las manos elevadas para reducir la palanca y facilitar el control de la pelvis.",
+            coachingNotes: "Elegir una altura que permita retirar la mano sin desplazar el tronco."
+          }
+        ],
+        fatigueMap: { obliques: 0.85, transverseAbdominis: 0.8, shoulders: 0.45, serratusAnterior: 0.35, glutes: 0.3 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-rotation-bear-plank-drag",
+        name: "Bear-plank drag",
+        coreLimbMovement: true,
+        equipment: ["Mancuerna"],
+        technicalDescription:
+          "Desde una posición de bear plank estable, arrastra una carga transversalmente con una mano. Resiste la rotación y el desplazamiento de la pelvis al cambiar el apoyo.",
+        errorsToAvoid: ["Rotar la pelvis al arrastrar", "Elevar demasiado la cadera", "Usar una carga que obligue a perder la posición"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Hombros", "Serrato anterior", "Glúteos"],
+        variants: [
+          {
+            id: "bear-plank-drag-variant-kettlebell",
+            name: "Bear-plank drag con kettlebell",
+            type: "material",
+            equipment: ["Kettlebell"],
+            description: "Mismo arrastre transversal utilizando una kettlebell como carga.",
+            coachingNotes: "Arrastrar desde una parte segura del implemento sin alterar la posición del tronco."
+          }
+        ],
+        fatigueMap: { obliques: 0.9, transverseAbdominis: 0.85, shoulders: 0.5, serratusAnterior: 0.35, glutes: 0.35 }
       })
     ]
   },
@@ -6283,6 +6404,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Side plank with reach",
+        coreLimbMovement: true,
         equipment: ["Peso corporal"],
         technicalDescription:
           "Desde plancha lateral, añade alcance del brazo manteniendo cadera alta y tronco estable. El alcance debe desafiar el control sin perder alineación.",
@@ -6310,6 +6432,28 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Oblicuos", "Transverso abdominal"],
         secondaryMuscles: ["Antebrazos", "Glúteos", "Hombros"],
         fatigueMap: { obliques: 1, transverseAbdominis: 0.8, forearms: 0.5, glutes: 0.3, shoulders: 0.2 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-lateral-flexion-side-plank-row",
+        name: "Side plank row",
+        coreLimbMovement: true,
+        equipment: ["Polea"],
+        technicalDescription:
+          "Mantén una plancha lateral mientras el brazo libre realiza un remo. La estabilización lateral del tronco es parte esencial del ejercicio y debe conservarse durante toda la tracción.",
+        errorsToAvoid: ["Dejar caer la pelvis", "Rotar el tronco para completar el remo", "Perder el apoyo activo del hombro"],
+        primaryMuscles: ["Oblicuos", "Transverso abdominal"],
+        secondaryMuscles: ["Dorsal", "Espalda media", "Glúteo medio", "Hombros"],
+        variants: [
+          {
+            id: "side-plank-row-variant-band",
+            name: "Side plank row con banda",
+            type: "material",
+            equipment: ["Banda elástica"],
+            description: "Mismo remo desde plancha lateral utilizando una banda como resistencia.",
+            coachingNotes: "Alinear el anclaje con la trayectoria del remo y conservar la cadera elevada."
+          }
+        ],
+        fatigueMap: { obliques: 0.95, transverseAbdominis: 0.8, lats: 0.45, midBack: 0.35, gluteMed: 0.5, shoulders: 0.35 }
       })
     ]
   },
@@ -6367,6 +6511,27 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Erectores espinales", "Estabilizadores lumbares"],
         secondaryMuscles: ["Glúteos", "Isquios"],
         fatigueMap: { spinalErectors: 0.8, lumbarStabilizers: 0.7, glutes: 0.3, hamstrings: 0.2 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-flexion-extension-45-degree-lumbar-extension",
+        name: "Extensión lumbar a 45° en banco romano",
+        equipment: ["Banco romano"],
+        technicalDescription:
+          "Realiza una extensión intencional y controlada de la columna y el tronco en banco romano a 45 grados. Se diferencia de la extensión de cadera de Hinge: aquí la acción buscada es vertebral, no mantener la columna neutra mientras se mueve la cadera.",
+        errorsToAvoid: ["Convertirlo en una bisagra de cadera", "Hiperextender de forma brusca", "Usar impulso o perder el control segmentario"],
+        primaryMuscles: ["Erectores espinales", "Estabilizadores lumbares"],
+        secondaryMuscles: ["Glúteos", "Isquios"],
+        variants: [
+          {
+            id: "lumbar-extension-45-variant-horizontal-bench",
+            name: "Extensión lumbar en banco horizontal",
+            type: "support",
+            equipment: ["Banco romano"],
+            description: "Misma intención de extensión vertebral controlada utilizando un banco horizontal.",
+            coachingNotes: "Mantener la acción centrada en el tronco y no convertirla en una extensión dominante de cadera."
+          }
+        ],
+        fatigueMap: { spinalErectors: 0.9, lumbarStabilizers: 0.8, glutes: 0.25, hamstrings: 0.2 }
       })
     ]
   },
@@ -6377,6 +6542,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Dead bug",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Bloque de yoga", "Fitball"],
         technicalDescription:
           "Mueve brazos y piernas alternos manteniendo lumbar estable y pelvis neutra. Ajusta material para mejorar feedback sin perder respiración ni control.",
@@ -6387,6 +6553,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Bird dog",
+        coreLimbMovement: true,
         equipment: ["Peso corporal", "Banda elástica"],
         technicalDescription:
           "Desde cuadrupedia, extiende brazo y pierna contrarios manteniendo pelvis y costillas estables. El movimiento debe ser lento, simétrico y sin rotación.",
@@ -6417,6 +6584,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Ab wheel rollout",
+        coreLimbMovement: true,
         equipment: ["Rueda abdominal"],
         technicalDescription:
           "Rueda hacia delante manteniendo pelvis y costillas controladas, y vuelve sin colapsar lumbar. Ajusta rango para conservar tensión abdominal y hombros estables.",
@@ -6424,6 +6592,58 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         primaryMuscles: ["Recto abdominal", "Transverso abdominal"],
         secondaryMuscles: ["Dorsal", "Hombros", "Estabilizadores lumbares"],
         fatigueMap: { rectusAbdominis: 1, transverseAbdominis: 0.8, lats: 0.5, shoulders: 0.4, lumbarStabilizers: 0.6 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-flexion-extension-body-saw",
+        name: "Body saw",
+        coreLimbMovement: true,
+        equipment: ["Deslizadores"],
+        technicalDescription:
+          "Desde plancha de antebrazos, desplaza el cuerpo hacia delante y atrás variando la palanca sin perder el control de pelvis y costillas. El tronco resiste la extensión mientras hombros y piernas se desplazan.",
+        errorsToAvoid: ["Hundirse de lumbar", "Mover solo los brazos", "Aumentar el recorrido más allá del control disponible"],
+        primaryMuscles: ["Recto abdominal", "Transverso abdominal"],
+        secondaryMuscles: ["Hombros", "Dorsal", "Estabilizadores lumbares"],
+        variants: [
+          {
+            id: "body-saw-variant-suspension",
+            name: "Body saw en suspensión",
+            type: "material",
+            equipment: ["Suspensión / TRX"],
+            description: "Body saw con los pies suspendidos para mantener el mismo patrón de palanca dinámica.",
+            coachingNotes: "Reducir el recorrido si la suspensión dificulta mantener la posición lumbopélvica."
+          }
+        ],
+        fatigueMap: { rectusAbdominis: 0.95, transverseAbdominis: 0.9, shoulders: 0.45, lats: 0.4, lumbarStabilizers: 0.65 }
+      }),
+      squatExercise({
+        id: "core-trunk-control-anti-flexion-extension-dead-bug-pullover",
+        name: "Dead bug pullover",
+        coreLimbMovement: true,
+        equipment: ["Mancuerna"],
+        technicalDescription:
+          "Mantén pelvis y zona lumbar estables mientras desplazas una carga con los brazos en un patrón de pullover. Ajusta el recorrido para conservar el control lumbopélvico durante todo el movimiento.",
+        errorsToAvoid: ["Arquear la zona lumbar", "Buscar más recorrido perdiendo las costillas", "Mover la carga con impulso"],
+        primaryMuscles: ["Transverso abdominal", "Recto abdominal"],
+        secondaryMuscles: ["Dorsal", "Hombros", "Estabilizadores lumbares"],
+        variants: [
+          {
+            id: "dead-bug-pullover-variant-kettlebell",
+            name: "Dead bug pullover con kettlebell",
+            type: "material",
+            equipment: ["Kettlebell"],
+            description: "Mismo patrón de pullover utilizando una kettlebell como carga.",
+            coachingNotes: "Sujetar el implemento con seguridad y mantener el rango compatible con una pelvis estable."
+          },
+          {
+            id: "dead-bug-pullover-variant-band",
+            name: "Dead bug pullover con banda",
+            type: "material",
+            equipment: ["Banda elástica"],
+            description: "Mismo patrón con resistencia elástica anclada detrás de la cabeza.",
+            coachingNotes: "Mantener tensión continua sin dejar que la banda altere la posición de las costillas."
+          }
+        ],
+        fatigueMap: { transverseAbdominis: 0.95, rectusAbdominis: 0.8, lats: 0.45, shoulders: 0.35, lumbarStabilizers: 0.65 }
       })
     ]
   }
