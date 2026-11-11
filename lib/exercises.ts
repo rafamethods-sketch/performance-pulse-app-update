@@ -653,7 +653,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "single-leg-pogo-variant-assisted",
             name: "Pogos asistidos unilaterales",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Soporte"],
             description:
               "Variante unilateral asistida para introducir reactividad a una pierna con menor demanda de equilibrio.",
@@ -663,7 +663,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "single-leg-pogo-variant-band-assisted",
             name: "Pogos unilaterales asistidos con goma",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Goma elástica"],
             description: "Variante unilateral asistida con goma para reducir impacto y facilitar el rebote.",
             coachingNotes: "No usar la goma para compensar una mala estabilidad del apoyo."
@@ -1011,7 +1011,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "good-morning-variant-smith-machine",
             name: "Buenos días en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower"],
             description:
               "Variante guiada en multipower que reduce la demanda de estabilización libre y facilita el control de trayectoria.",
@@ -1546,7 +1546,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "reverse-lunge-variant-smith-machine",
             name: "Zancada hacia atrás en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower"],
             description: "Variante guiada que facilita estabilidad y permite sobrecarga controlada.",
             coachingNotes: "Ajustar la posición para que el recorrido no fuerce la rodilla ni la cadera."
@@ -1734,7 +1734,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "bulgarian-split-squat-variant-smith-machine",
             name: "Búlgara en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower", "Banco"],
             description: "Variante guiada que permite mayor estabilidad y sobrecarga controlada.",
             coachingNotes: "Ajustar la posición del banco para evitar tensión excesiva en la cadera trasera."
@@ -4182,7 +4182,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "bench-press-variant-floor-press",
             name: "Floor press",
             type: "range",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Barra", "Mancuernas"],
             description:
               "Variante con rango limitado por el suelo, útil para controlar hombro y enfatizar la fase media-final del empuje.",
@@ -4674,7 +4674,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "t-bar-row-variant-chest-supported",
             name: "Remo T con apoyo de pecho",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Máquina", "Banco inclinado", "Barra T"],
             description: "Variante con apoyo de pecho que reduce la demanda lumbar y facilita focalizar en tracción.",
             coachingNotes: "No despegar el pecho del apoyo para completar la repetición."
@@ -4782,7 +4782,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "pull-up-chin-up-variant-eccentric",
             name: "Dominada excéntrica",
             type: "tempo",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Barra"],
             description: "Variante con énfasis en la fase excéntrica para desarrollar control y fuerza específica.",
             coachingNotes: "Controlar la bajada sin perder posición escapular ni colgarse pasivamente."

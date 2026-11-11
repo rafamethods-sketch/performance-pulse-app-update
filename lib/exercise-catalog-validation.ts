@@ -2,7 +2,7 @@ import type { ExerciseDefinition } from "@/lib/exercises";
 
 export type ExerciseCatalogValidationIssue = {
   exerciseId: string;
-  field: "errorsToAvoid" | "intentCue";
+  field: "errorsToAvoid" | "intentCue" | "variants";
   message: string;
 };
 
@@ -57,6 +57,15 @@ export function validateExerciseCatalog(
         issues.push(createIssue(exercise.id, "intentCue", `La pauta supera ${MAX_INTENT_CUE_LENGTH} caracteres.`));
       }
     }
+
+    exercise.variants?.forEach((variant) => {
+      if (
+        variant.difficulty !== undefined &&
+        !(["basic", "intermediate", "advanced"] as const).includes(variant.difficulty)
+      ) {
+        issues.push(createIssue(exercise.id, "variants", `La variante "${variant.id}" tiene una categoría no válida.`));
+      }
+    });
   });
 
   return issues;

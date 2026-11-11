@@ -119,6 +119,7 @@ import {
   type ExerciseDefinition,
   type ExercisePattern,
   type ExerciseType,
+  type ExerciseVariant,
   type ExerciseVariantDifficulty,
   type ExerciseVariantType
 } from "@/lib/exercises";
@@ -9349,9 +9350,26 @@ const exerciseVariantTypeLabels: Record<ExerciseVariantType, string> = {
 
 const exerciseVariantDifficultyLabels: Record<ExerciseVariantDifficulty, string> = {
   advanced: "Avanzada",
-  basic: "Básica",
+  basic: "Base",
   intermediate: "Intermedia"
 };
+
+const exerciseVariantDifficultyOrder: Record<ExerciseVariantDifficulty, number> = {
+  basic: 0,
+  intermediate: 1,
+  advanced: 2
+};
+
+function sortExerciseVariantsByDifficulty(variants: ExerciseVariant[]) {
+  return variants
+    .map((variant, editorialIndex) => ({ editorialIndex, variant }))
+    .sort((a, b) =>
+      (a.variant.difficulty ? exerciseVariantDifficultyOrder[a.variant.difficulty] : 3) -
+        (b.variant.difficulty ? exerciseVariantDifficultyOrder[b.variant.difficulty] : 3) ||
+      a.editorialIndex - b.editorialIndex
+    )
+    .map(({ variant }) => variant);
+}
 
 type ExerciseLibraryMode = "strength" | "resistance";
 type GuidedLibraryMode = ExerciseLibraryMode | "advanced";
@@ -10041,7 +10059,7 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
             <details className="mt-4 rounded-md border border-line p-4">
               <summary className="cursor-pointer text-sm font-semibold text-ink">Variantes · {selectedExercise.variants.length}</summary>
               <div className="mt-3 grid gap-3">
-                {selectedExercise.variants.map((variant) => (
+                {sortExerciseVariantsByDifficulty(selectedExercise.variants).map((variant) => (
                   <article className="rounded-md bg-panel/45 p-3" key={variant.id}>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -13891,7 +13909,7 @@ function CoachTrainingPlanner({
                         value={exercise.selectedVariantId ?? ""}
                       >
                         <option value="">Sin variante específica</option>
-                        {selectedLibraryExercise.variants.map((variant) => (
+                        {sortExerciseVariantsByDifficulty(selectedLibraryExercise.variants).map((variant) => (
                           <option key={variant.id} value={variant.id}>{variant.name}</option>
                         ))}
                       </select>
