@@ -411,8 +411,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Colapsar las rodillas hacia dentro",
           "Inclinar excesivamente el tronco",
           "Dejar que la pelvis se desplace sin control",
-          "Empujar solo con la punta del pie",
-          "Usar el cinturón demasiado bajo o mal ajustado"
+          "Empujar solo con la punta del pie"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquiosurales", "Gemelos", "Core"],
@@ -508,8 +507,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder contacto completo del pie",
           "Hundirse demasiado sin control",
           "Bloquear las rodillas al aterrizar",
-          "Perder la posición del tronco",
-          "Hacer el gesto lento y sin intención reactiva"
+          "Perder la posición del tronco"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
         secondaryMuscles: ["Isquiosurales", "Glúteo medio", "Core"],
@@ -568,8 +566,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Aterrizar con el tronco descontrolado",
           "Caer de puntillas sin controlar talón",
           "Usar una altura excesiva",
-          "Perder equilibrio tras el contacto",
-          "Buscar velocidad antes que control"
+          "Perder equilibrio tras el contacto"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
         secondaryMuscles: ["Glúteo medio", "Isquiosurales", "Core"],
@@ -647,8 +644,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder rigidez de tobillo",
           "Colapsar la rodilla hacia dentro",
           "Balancear excesivamente el tronco",
-          "Buscar altura en vez de contacto breve",
-          "Realizarlo con dolor en pie, Aquiles o rodilla"
+          "Buscar altura en vez de contacto breve"
         ],
         primaryMuscles: ["Gemelos", "Sóleo", "Cuádriceps"],
         secondaryMuscles: ["Glúteo medio", "Glúteo mayor", "Core"],
@@ -996,7 +992,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Convertirlo en una sentadilla",
           "Bajar más de lo que permite la movilidad de cadera",
           "Perder tensión en la espalda alta",
-          "Usar demasiada carga para el nivel técnico",
           "Bloquear las rodillas en exceso"
         ],
         primaryMuscles: ["Isquiosurales", "Glúteo mayor", "Erectores espinales"],
@@ -1249,7 +1244,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Buscar distancia perdiendo control",
           "No terminar la extensión de cadera",
           "Caer con demasiada rigidez",
-          "Perder la orientación del tronco",
           "Convertirlo en carrera sin fase de salto clara"
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
@@ -1312,7 +1306,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Hundirse demasiado en cada apoyo",
           "Buscar velocidad sin estabilidad",
           "Caer con rodilla colapsada",
-          "Usar demasiada distancia entre contactos",
           "Perder alineación de pelvis y tronco"
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Gemelos"],
@@ -1401,7 +1394,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Usar una altura excesiva",
           "Pasar demasiado tiempo en el suelo",
           "No proyectar la cadera hacia delante",
-          "Aterrizar sin control",
           "Colapsar rodillas o tobillos",
           "Perder rigidez del tronco"
         ],
@@ -2385,8 +2377,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Compensar con inclinación lateral del tronco",
           "Rotar excesivamente los pies hacia fuera",
           "Colapsar las rodillas hacia dentro",
-          "Dar pasos demasiado largos perdiendo control",
-          "Convertirlo en un ejercicio rápido sin control postural"
+          "Dar pasos demasiado largos perdiendo control"
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Cuádriceps", "Core"],
@@ -2558,7 +2549,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: [
           "Contener la respiración",
           "Redondear la espalda",
-          "Inclinar el tronco",
           "Presionar de forma brusca",
           "Perder la posición neutra de pelvis",
           "Generar dolor o molestia excesiva"
@@ -2618,7 +2608,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Usar impulso",
           "Flexionar demasiado la cadera",
           "Perder alineación de tronco y pelvis",
-          "Buscar más recorrido a costa del control",
           "Arquear la zona lumbar"
         ],
         primaryMuscles: ["Aductores"],
@@ -3222,8 +3211,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Alejar la barra del cuerpo",
           "No completar la extensión de cadera",
           "Recibir con hombros inestables",
-          "Arquear la zona lumbar en la posición overhead",
-          "Usar demasiada carga para el nivel técnico"
+          "Arquear la zona lumbar en la posición overhead"
         ],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Deltoides"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Trapecio", "Core", "Manguito rotador"],
@@ -3367,8 +3355,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder verticalidad del tronco",
           "Empujar la barra hacia delante",
           "No bloquear de forma estable sobre la cabeza",
-          "Recibir con rodillas colapsadas",
-          "Perder control de core y costillas"
+          "Recibir con rodillas colapsadas"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
         secondaryMuscles: ["Gemelos", "Tríceps", "Trapecio", "Core", "Manguito rotador"],
@@ -3432,7 +3419,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Recibir con el peso mal repartido",
           "Perder la línea de la barra sobre el centro de masas",
           "Colapsar la rodilla adelantada",
-          "Arquear la zona lumbar",
           "Recuperar los pies sin control"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
@@ -3677,8 +3663,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Dar pasos demasiado largos al inicio",
           "Apoyar el pie muy por delante del centro de masas",
           "Perder tensión de tronco",
-          "Frenar antes de completar la distancia",
-          "Mirar al suelo en exceso"
+          "Frenar antes de completar la distancia"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Isquiosurales"],
         secondaryMuscles: ["Gemelos", "Core", "Flexores de cadera"],
@@ -3694,7 +3679,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Salir sin intención máxima",
           "Perder coordinación de brazos",
           "Talonear por delante del cuerpo",
-          "Tensar hombros y cuello",
           "Acortar en exceso la zancada",
           "Desacelerar antes de terminar"
         ],
@@ -3720,8 +3704,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Colapsar rodillas hacia dentro",
           "Apoyar muy estrecho",
           "Perder equilibrio al detenerse",
-          "Usar demasiados pasos de frenada sin control",
-          "Mirar al suelo todo el tiempo"
+          "Usar demasiados pasos de frenada sin control"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Aductores", "Glúteo medio", "Core"],
@@ -3738,7 +3721,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Colapsar la rodilla de apoyo",
           "Girar solo con el tronco",
           "Apoyar el pie demasiado lejos del cuerpo",
-          "Perder el control de la cadera",
           "Reiniciar la aceleración sin estabilidad"
         ],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquiosurales"],
@@ -3763,8 +3745,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder ritmo de brazos",
           "Pisar la escalera continuamente",
           "Elevar demasiado el centro de masas",
-          "Moverse rápido sin precisión",
-          "Bloquear la respiración"
+          "Moverse rápido sin precisión"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps"],
         secondaryMuscles: ["Flexores de cadera", "Core", "Tibial anterior"],
@@ -3781,7 +3762,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder orientación lateral",
           "Colapsar rodillas",
           "Subir demasiado el centro de masas",
-          "Perder ritmo de brazos",
           "Sacrificar precisión por velocidad"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps", "Glúteo medio"],
@@ -3799,8 +3779,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Cruzar los pies perdiendo equilibrio",
           "Mirar solo al suelo",
           "Perder coordinación de brazos",
-          "Acelerar sin precisión",
-          "Bloquear la cadera"
+          "Acelerar sin precisión"
         ],
         primaryMuscles: ["Cuádriceps", "Gemelos", "Core"],
         secondaryMuscles: ["Glúteo medio", "Aductores", "Glúteo mayor"],
@@ -3817,8 +3796,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Hundirse en cada apoyo",
           "Colapsar rodillas",
           "Perder rigidez activa del tobillo",
-          "Saltar demasiado alto",
-          "Perder ritmo"
+          "Saltar demasiado alto"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps"],
         secondaryMuscles: ["Glúteo mayor", "Glúteo medio", "Core", "Tibial anterior"],
@@ -3839,7 +3817,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Ejercicio de agilidad reactiva basado en estímulos visuales. El deportista debe reaccionar a una señal de color y desplazarse hacia el cono o zona correspondiente, priorizando percepción, decisión, primer apoyo y control de frenada.",
         errorsToAvoid: [
           "Anticipar la señal",
-          "Moverse antes del estímulo",
           "Perder postura al reaccionar",
           "Frenar sin control",
           "Mirar al suelo en vez de al estímulo",
@@ -5014,8 +4991,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder control en la bajada",
           "Compensar con balanceo excesivo",
           "Llevar el cuello hacia delante",
-          "Hacer repeticiones explosivas sin rango útil",
-          "Continuar cuando se pierde velocidad o técnica"
+          "Hacer repeticiones explosivas sin rango útil"
         ],
         primaryMuscles: ["Dorsal", "Bíceps", "Trapecio medio"],
         secondaryMuscles: ["Romboides", "Deltoides posterior", "Antebrazos", "Core"],
@@ -5650,7 +5626,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Girar el tronco",
           "Elevar el hombro",
           "Perder control escapular",
-          "Usar demasiada tensión de banda",
           "Mover la muñeca en vez del hombro"
         ],
         primaryMuscles: ["Manguito rotador"],
@@ -5846,8 +5821,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Cargar demasiado la pierna trasera",
           "Colapsar la rodilla de la pierna adelantada",
           "Rotar desde la zona lumbar en vez de desde la cadera",
-          "Perder columna neutra",
-          "Buscar rango excesivo sin control",
           "Convertirlo en una sentadilla",
           "Perder apoyo estable del pie delantero"
         ],
@@ -6154,8 +6127,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Acelerar las transiciones",
           "Colapsar hombro o muñeca",
           "Perder estabilidad de cadera",
-          "No controlar la bajada",
-          "Perder respiración"
+          "No controlar la bajada"
         ],
         primaryMuscles: ["Core", "Hombros", "Glúteos"],
         secondaryMuscles: ["Manguito rotador", "Oblicuos", "Cuádriceps", "Isquiosurales"],

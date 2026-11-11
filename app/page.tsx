@@ -9947,14 +9947,39 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
           </div>
 
           <div className="mt-5 rounded-md bg-panel/45 p-4">
-            <h3 className="text-sm font-semibold text-ink">Descripción técnica</h3>
-            <p className="mt-2 text-sm leading-6 text-ink/70">{selectedExercise.technicalDescription}</p>
+            <h3 className="text-sm font-semibold text-ink">Ejecución</h3>
+            <p className="mt-3 text-sm leading-6 text-ink/70">
+              <span className="font-semibold text-ink">Descripción técnica</span> · {selectedExercise.technicalDescription}
+            </p>
             {selectedExercise.intentCue ? (
               <p className="mt-3 text-sm text-ink/70">
                 <span className="font-semibold text-ink">Intención</span> · {selectedExercise.intentCue}
               </p>
             ) : null}
+            <div className="mt-3">
+              <p className="text-sm font-semibold text-ink">Errores a evitar</p>
+              <ul className="mt-2 grid gap-1 text-sm leading-5 text-ink/70 sm:grid-cols-2">
+                {selectedExercise.errorsToAvoid.map((error) => <li className="flex gap-2" key={error}><span aria-hidden="true" className="text-coral">•</span><span>{error}</span></li>)}
+              </ul>
+            </div>
           </div>
+
+          <details className="mt-4 rounded-md border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink">Musculatura implicada</summary>
+            {fatigueEntries.length > 0 ? (
+              <div className="mt-3 grid gap-2">
+                {fatigueEntries.map(([muscle, value]) => (
+                  <div className="grid grid-cols-[130px_1fr_42px] items-center gap-3" key={muscle}>
+                    <span className="text-sm font-medium text-ink/65">{formatFatigueKey(muscle)}</span>
+                    <span className="h-2 overflow-hidden rounded-full bg-panel">
+                      <span className="block h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${Math.round(value * 100)}%` }} />
+                    </span>
+                    <span className="text-right text-sm font-semibold text-ink">{value.toFixed(1)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Pendiente de completar para este ejercicio.</p>}
+          </details>
 
           {hasPlyometricProfile(selectedExercise) ? (
             <div className="mt-4 rounded-md border border-line p-4">
@@ -10035,47 +10060,6 @@ function ExerciseDetailCard({ selectedExercise }: { selectedExercise?: ExerciseD
               </div>
             </details>
           ) : null}
-
-          <details className="mt-4 rounded-md border border-line p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-ink">Ejecución y musculatura</summary>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-md bg-panel/35 p-4">
-              <h3 className="text-sm font-semibold text-ink">Errores a evitar</h3>
-              <div className="mt-3 grid gap-2">
-                {selectedExercise.errorsToAvoid.map((error) => <p className="rounded-md bg-panel/55 px-3 py-2 text-sm text-ink/70" key={error}>{error}</p>)}
-              </div>
-            </div>
-
-            <div className="rounded-md bg-panel/35 p-4">
-              <h3 className="text-sm font-semibold text-ink">Músculos implicados</h3>
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase text-ink/45">Principales</p>
-                <p className="mt-1 text-sm text-ink/70">{selectedExercise.primaryMuscles.join(", ") || "Pendiente de completar"}</p>
-              </div>
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase text-ink/45">Secundarios</p>
-                <p className="mt-1 text-sm text-ink/70">{selectedExercise.secondaryMuscles.join(", ") || "Pendiente de completar"}</p>
-              </div>
-            </div>
-            </div>
-          </details>
-
-          <details className="mt-4 rounded-md border border-line p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-ink">Mapa de fatiga</summary>
-            {fatigueEntries.length > 0 ? (
-              <div className="mt-3 grid gap-2">
-                {fatigueEntries.map(([muscle, value]) => (
-                  <div className="grid grid-cols-[130px_1fr_42px] items-center gap-3" key={muscle}>
-                    <span className="text-sm font-medium text-ink/65">{formatFatigueKey(muscle)}</span>
-                    <span className="h-2 overflow-hidden rounded-full bg-panel">
-                      <span className="block h-full rounded-full bg-gradient-to-r from-moss to-steel" style={{ width: `${Math.round(value * 100)}%` }} />
-                    </span>
-                    <span className="text-right text-sm font-semibold text-ink">{value.toFixed(1)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="mt-3 rounded-md bg-panel/45 px-3 py-3 text-sm text-ink/55">Pendiente de completar para este ejercicio.</p>}
-          </details>
         </div>
       ) : (
         <div className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-6 text-center text-sm text-ink/50">Selecciona un ejercicio para ver su ficha.</div>

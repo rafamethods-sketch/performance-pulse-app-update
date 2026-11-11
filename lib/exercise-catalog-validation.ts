@@ -16,6 +16,10 @@ export function validateExerciseCatalog(
   exercises.forEach((exercise) => {
     const seenErrors = new Set<string>();
 
+    if (exercise.errorsToAvoid.length > 5) {
+      issues.push(createIssue(exercise.id, "errorsToAvoid", "Supera el máximo editorial de 5 errores."));
+    }
+
     exercise.errorsToAvoid.forEach((error) => {
       const normalizedError = error.trim();
       const firstLetter = normalizedError.match(/\p{L}/u)?.[0];
