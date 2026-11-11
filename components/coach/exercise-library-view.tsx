@@ -82,6 +82,7 @@ export function ExerciseLibraryView({
   const [plyometricDemandFilter, setPlyometricDemandFilter] = useState<PlyometricDemand | "all">("all");
   const [olympicFamilyFilter, setOlympicFamilyFilter] = useState<OlympicFamily | "all">("all");
   const [olympicStageFilter, setOlympicStageFilter] = useState<OlympicStage | "all">("all");
+  const [coreLimbMovementFilter, setCoreLimbMovementFilter] = useState<"all" | "yes">("all");
   const [selectedExerciseId, setSelectedExerciseId] = useState("");
   const [showMobileDetail, setShowMobileDetail] = useState(false);
   const [visibleResultCount, setVisibleResultCount] = useState(30);
@@ -112,7 +113,8 @@ export function ExerciseLibraryView({
     equipmentFilter !== "all" ||
     plyometricSupportFilter !== "all" ||
     plyometricDirectionFilter !== "all" ||
-    plyometricDemandFilter !== "all";
+    plyometricDemandFilter !== "all" ||
+    coreLimbMovementFilter !== "all";
 
   const filteredExercises = useMemo(() => exerciseLibrary.map((exercise, catalogIndex) => ({
     catalogIndex,
@@ -132,6 +134,7 @@ export function ExerciseLibraryView({
     const matchesPlyometricDemand = plyometricDemandFilter === "all" || exercise.plyometricDemand === plyometricDemandFilter;
     const matchesOlympicFamily = olympicFamilyFilter === "all" || exercise.olympicFamily === olympicFamilyFilter;
     const matchesOlympicStage = olympicStageFilter === "all" || exercise.olympicStage === olympicStageFilter;
+    const matchesCoreLimbMovement = coreLimbMovementFilter === "all" || exercise.coreLimbMovement === true;
 
     return matchesFamily &&
       matchesStrengthRegion &&
@@ -145,6 +148,7 @@ export function ExerciseLibraryView({
       matchesPlyometricDemand &&
       matchesOlympicFamily &&
       matchesOlympicStage &&
+      matchesCoreLimbMovement &&
       searchScore >= 0;
   }).sort((a, b) => search.trim()
     ? b.searchScore - a.searchScore || a.catalogIndex - b.catalogIndex
@@ -153,6 +157,7 @@ export function ExerciseLibraryView({
     activeFamily,
     activeGroup,
     bodyRegionFilter,
+    coreLimbMovementFilter,
     equipmentFilter,
     exerciseTypeFilter,
     patternFilter,
@@ -171,7 +176,7 @@ export function ExerciseLibraryView({
 
   useEffect(() => {
     setVisibleResultCount(30);
-  }, [activeFamily, activeGroup, bodyRegionFilter, equipmentFilter, exerciseTypeFilter, olympicFamilyFilter, olympicStageFilter, patternFilter, plyometricDemandFilter, plyometricDirectionFilter, plyometricSupportFilter, search, strengthRegion]);
+  }, [activeFamily, activeGroup, bodyRegionFilter, coreLimbMovementFilter, equipmentFilter, exerciseTypeFilter, olympicFamilyFilter, olympicStageFilter, patternFilter, plyometricDemandFilter, plyometricDirectionFilter, plyometricSupportFilter, search, strengthRegion]);
 
   useEffect(() => {
     if (!selectedExercise) {
@@ -196,6 +201,7 @@ export function ExerciseLibraryView({
     setPlyometricDemandFilter("all");
     setOlympicFamilyFilter("all");
     setOlympicStageFilter("all");
+    setCoreLimbMovementFilter("all");
   };
 
   const selectFamily = (family: ActiveExerciseLibraryFamily) => {
@@ -354,6 +360,10 @@ export function ExerciseLibraryView({
                 {Object.entries(plyometricDemandLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </FilterSelect>
             </> : null}
+            {activeFamily === "core" ? <FilterSelect label="Movimiento de extremidades" onChange={(value) => setCoreLimbMovementFilter(value as "all" | "yes")} value={coreLimbMovementFilter}>
+              <option value="all">Todos</option>
+              <option value="yes">Sí</option>
+            </FilterSelect> : null}
             <FilterSelect label="Material" onChange={setEquipmentFilter} value={equipmentFilter}>
               <option value="all">Todo el material</option>
               {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
