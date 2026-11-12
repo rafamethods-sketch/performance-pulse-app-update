@@ -1,3 +1,5 @@
+import { assertValidExerciseCatalog } from "@/lib/exercise-catalog-validation";
+
 export type ExercisePattern =
   | "Squat / Vertical Force"
   | "Hinge / Horizontal Force"
@@ -143,6 +145,7 @@ export type ExerciseDefinition = {
   exerciseType: ExerciseType;
   fatigueMap: FatigueMap;
   id: string;
+  intentCue?: string;
   name: string;
   olympicCatch?: OlympicCatch;
   olympicFamily?: OlympicFamily;
@@ -371,6 +374,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Back squat",
+        intentCue: "Empuja el suelo",
         equipment: ["Barra"],
         technicalDescription:
           "Coloca la barra sobre la espalda, fija el tronco y desciende manteniendo pies activos y rodillas alineadas. Sube empujando el suelo y conservando el control de la carga.",
@@ -403,12 +407,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Variante de sentadilla con carga aplicada desde la cadera mediante cinturón o máquina específica. Permite entrenar el patrón de sentadilla con menor carga axial sobre la columna, manteniendo énfasis en cuádriceps y glúteo mayor.",
         errorsToAvoid: [
-          "perder profundidad útil por exceso de carga",
-          "colapsar las rodillas hacia dentro",
-          "inclinar excesivamente el tronco",
-          "dejar que la pelvis se desplace sin control",
-          "empujar solo con la punta del pie",
-          "usar el cinturón demasiado bajo o mal ajustado"
+          "Perder profundidad útil por exceso de carga",
+          "Colapsar las rodillas hacia dentro",
+          "Inclinar excesivamente el tronco",
+          "Dejar que la pelvis se desplace sin control",
+          "Empujar solo con la punta del pie"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Aductores", "Isquiosurales", "Gemelos", "Core"],
@@ -453,6 +456,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Squat jump",
+        intentCue: "Proyecta el cuerpo hacia arriba",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Parte desde una posición estable de sentadilla y salta sin contramovimiento marcado. Prioriza salida explosiva, tronco firme y aterrizaje equilibrado.",
@@ -499,12 +503,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de aterrizaje en el que el deportista pasa de una posición alta a una posición atlética baja de forma rápida y controlada. Sirve para enseñar absorción de fuerza, rigidez útil, control de rodilla-cadera-tobillo y preparación para drop landings y saltos reactivos.",
         errorsToAvoid: [
-          "caer con rodillas colapsadas hacia dentro",
-          "perder contacto completo del pie",
-          "hundirse demasiado sin control",
-          "bloquear las rodillas al aterrizar",
-          "perder la posición del tronco",
-          "hacer el gesto lento y sin intención reactiva"
+          "Caer con rodillas colapsadas hacia dentro",
+          "Perder contacto completo del pie",
+          "Hundirse demasiado sin control",
+          "Bloquear las rodillas al aterrizar",
+          "Perder la posición del tronco"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
         secondaryMuscles: ["Isquiosurales", "Glúteo medio", "Core"],
@@ -512,6 +515,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Drop landing",
+        intentCue: "Absorbe la caída",
         plyometricType: "landing",
         plyometricSupport: "bilateral",
         plyometricDirection: "vertical",
@@ -549,6 +553,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "squat-vertical-force-plyometric-drop-landing-unilateral",
         name: "Drop landing unilateral",
+        intentCue: "Frena la caída sobre una pierna",
         plyometricType: "landing",
         plyometricSupport: "unilateral",
         plyometricDirection: "vertical",
@@ -557,12 +562,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Aterrizaje unilateral desde una pequeña altura orientado a mejorar la absorción de fuerza, el control de rodilla y la estabilidad de cadera y tobillo. Priorizar caída silenciosa, alineación y control antes de progresar a saltos reactivos.",
         errorsToAvoid: [
-          "colapsar rodilla hacia dentro",
-          "aterrizar con el tronco descontrolado",
-          "caer de puntillas sin controlar talón",
-          "usar una altura excesiva",
-          "perder equilibrio tras el contacto",
-          "buscar velocidad antes que control"
+          "Colapsar rodilla hacia dentro",
+          "Aterrizar con el tronco descontrolado",
+          "Caer de puntillas sin controlar talón",
+          "Usar una altura excesiva",
+          "Perder equilibrio tras el contacto"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Gemelos"],
         secondaryMuscles: ["Glúteo medio", "Isquiosurales", "Core"],
@@ -570,6 +574,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Pogo jump bilateral",
+        intentCue: "Rebota rápido contra el suelo",
         plyometricType: "reactive",
         plyometricSupport: "bilateral",
         plyometricDirection: "vertical",
@@ -635,12 +640,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Saltos reactivos unilaterales de baja amplitud orientados al trabajo de rigidez de tobillo, reactividad del complejo pie-tobillo y control vertical con apoyo único. Mantener contacto breve, alineación estable y rebote elástico.",
         errorsToAvoid: [
-          "hundirse demasiado en cada contacto",
-          "perder rigidez de tobillo",
-          "colapsar la rodilla hacia dentro",
-          "balancear excesivamente el tronco",
-          "buscar altura en vez de contacto breve",
-          "realizarlo con dolor en pie, Aquiles o rodilla"
+          "Hundirse demasiado en cada contacto",
+          "Perder rigidez de tobillo",
+          "Colapsar la rodilla hacia dentro",
+          "Balancear excesivamente el tronco",
+          "Buscar altura en vez de contacto breve"
         ],
         primaryMuscles: ["Gemelos", "Sóleo", "Cuádriceps"],
         secondaryMuscles: ["Glúteo medio", "Glúteo mayor", "Core"],
@@ -649,7 +653,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "single-leg-pogo-variant-assisted",
             name: "Pogos asistidos unilaterales",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Soporte"],
             description:
               "Variante unilateral asistida para introducir reactividad a una pierna con menor demanda de equilibrio.",
@@ -659,7 +663,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "single-leg-pogo-variant-band-assisted",
             name: "Pogos unilaterales asistidos con goma",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Goma elástica"],
             description: "Variante unilateral asistida con goma para reducir impacto y facilitar el rebote.",
             coachingNotes: "No usar la goma para compensar una mala estabilidad del apoyo."
@@ -927,6 +931,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Romanian deadlift",
+        intentCue: "Aleja la cadera hacia atrás",
         equipment: ["Mancuernas", "Barra"],
         technicalDescription:
           "Desciende la carga con rodillas desbloqueadas y cadera atrás, manteniéndola cerca del cuerpo. Sube extendiendo la cadera sin perder columna neutra.",
@@ -983,12 +988,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de bisagra de cadera con barra orientado al control de la flexión de cadera, la extensión de cadera y la resistencia de la cadena posterior. Mantener columna neutra, desplazamiento de cadera hacia atrás y tensión activa en isquiosurales, glúteos y erectores espinales.",
         errorsToAvoid: [
-          "flexionar la columna lumbar",
-          "convertirlo en una sentadilla",
-          "bajar más de lo que permite la movilidad de cadera",
-          "perder tensión en la espalda alta",
-          "usar demasiada carga para el nivel técnico",
-          "bloquear las rodillas en exceso"
+          "Flexionar la columna lumbar",
+          "Convertirlo en una sentadilla",
+          "Bajar más de lo que permite la movilidad de cadera",
+          "Perder tensión en la espalda alta",
+          "Bloquear las rodillas en exceso"
         ],
         primaryMuscles: ["Isquiosurales", "Glúteo mayor", "Erectores espinales"],
         secondaryMuscles: ["Aductores", "Core", "Upper back"],
@@ -1007,7 +1011,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "good-morning-variant-smith-machine",
             name: "Buenos días en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower"],
             description:
               "Variante guiada en multipower que reduce la demanda de estabilización libre y facilita el control de trayectoria.",
@@ -1185,6 +1189,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Broad jump",
+        intentCue: "Proyecta el cuerpo hacia delante",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Salta horizontalmente proyectando la cadera y aterriza con control. Busca extensión potente, braceo coordinado y recepción estable.",
@@ -1235,12 +1240,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Saltos horizontales alternos orientados a producir y absorber fuerza en dirección horizontal. Trabajan extensión potente de cadera, control de la recepción y transferencia hacia aceleración y desplazamientos deportivos.",
         errorsToAvoid: [
-          "aterrizar con la rodilla colapsada",
-          "buscar distancia perdiendo control",
-          "no terminar la extensión de cadera",
-          "caer con demasiada rigidez",
-          "perder la orientación del tronco",
-          "convertirlo en carrera sin fase de salto clara"
+          "Aterrizar con la rodilla colapsada",
+          "Buscar distancia perdiendo control",
+          "No terminar la extensión de cadera",
+          "Caer con demasiada rigidez",
+          "Convertirlo en carrera sin fase de salto clara"
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
         secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
@@ -1298,12 +1302,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Saltos horizontales repetidos con énfasis en reactividad, rigidez útil y desplazamiento hacia delante. Mantener contactos controlados, orientación horizontal y producción de fuerza desde cadera y tobillo.",
         errorsToAvoid: [
-          "perder control de la recepción",
-          "hundirse demasiado en cada apoyo",
-          "buscar velocidad sin estabilidad",
-          "caer con rodilla colapsada",
-          "usar demasiada distancia entre contactos",
-          "perder alineación de pelvis y tronco"
+          "Perder control de la recepción",
+          "Hundirse demasiado en cada apoyo",
+          "Buscar velocidad sin estabilidad",
+          "Caer con rodilla colapsada",
+          "Perder alineación de pelvis y tronco"
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Gemelos"],
         secondaryMuscles: ["Cuádriceps", "Glúteo medio", "Core"],
@@ -1388,12 +1391,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio reactivo en el que se cae desde una pequeña altura y se proyecta el cuerpo hacia delante con un salto horizontal. Combina absorción rápida, orientación horizontal de la fuerza y reactividad tras el contacto.",
         errorsToAvoid: [
-          "usar una altura excesiva",
-          "pasar demasiado tiempo en el suelo",
-          "no proyectar la cadera hacia delante",
-          "aterrizar sin control",
-          "colapsar rodillas o tobillos",
-          "perder rigidez del tronco"
+          "Usar una altura excesiva",
+          "Pasar demasiado tiempo en el suelo",
+          "No proyectar la cadera hacia delante",
+          "Colapsar rodillas o tobillos",
+          "Perder rigidez del tronco"
         ],
         primaryMuscles: ["Glúteo mayor", "Isquiosurales", "Cuádriceps"],
         secondaryMuscles: ["Gemelos", "Glúteo medio", "Core"],
@@ -1484,11 +1486,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio unilateral de control de descenso desde cajón o step, con énfasis en alineación cadera-rodilla-pie, control excéntrico y estabilidad lumbopélvica.",
         errorsToAvoid: [
-          "colapsar la rodilla hacia dentro",
-          "dejar caer la pelvis",
-          "perder control del pie",
-          "bajar demasiado rápido",
-          "compensar con inclinación excesiva del tronco"
+          "Colapsar la rodilla hacia dentro",
+          "Dejar caer la pelvis",
+          "Perder control del pie",
+          "Bajar demasiado rápido",
+          "Compensar con inclinación excesiva del tronco"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Glúteo medio", "Aductores", "Gemelos", "Core"],
@@ -1544,7 +1546,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "reverse-lunge-variant-smith-machine",
             name: "Zancada hacia atrás en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower"],
             description: "Variante guiada que facilita estabilidad y permite sobrecarga controlada.",
             coachingNotes: "Ajustar la posición para que el recorrido no fuerce la rodilla ni la cadera."
@@ -1732,7 +1734,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "bulgarian-split-squat-variant-smith-machine",
             name: "Búlgara en multipower",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Multipower", "Banco"],
             description: "Variante guiada que permite mayor estabilidad y sobrecarga controlada.",
             coachingNotes: "Ajustar la posición del banco para evitar tensión excesiva en la cadera trasera."
@@ -1840,6 +1842,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Skater bound",
+        intentCue: "Proyecta el cuerpo hacia el lado",
         plyometricType: "reactive",
         plyometricSupport: "alternating",
         plyometricDirection: "lateral",
@@ -2370,12 +2373,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Desplazamiento controlado con miniband orientado al trabajo de abductores de cadera, especialmente glúteo medio y glúteo menor. Mantener ligera flexión de cadera y rodilla, pelvis estable y tensión constante en la banda durante los pasos.",
         errorsToAvoid: [
-          "juntar los pies y perder tensión en la banda",
-          "compensar con inclinación lateral del tronco",
-          "rotar excesivamente los pies hacia fuera",
-          "colapsar las rodillas hacia dentro",
-          "dar pasos demasiado largos perdiendo control",
-          "convertirlo en un ejercicio rápido sin control postural"
+          "Juntar los pies y perder tensión en la banda",
+          "Compensar con inclinación lateral del tronco",
+          "Rotar excesivamente los pies hacia fuera",
+          "Colapsar las rodillas hacia dentro",
+          "Dar pasos demasiado largos perdiendo control"
         ],
         primaryMuscles: ["Glúteo medio", "Glúteo menor"],
         secondaryMuscles: ["Glúteo mayor", "Cuádriceps", "Core"],
@@ -2547,7 +2549,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         errorsToAvoid: [
           "Contener la respiración",
           "Redondear la espalda",
-          "Inclinar el tronco",
           "Presionar de forma brusca",
           "Perder la posición neutra de pelvis",
           "Generar dolor o molestia excesiva"
@@ -2607,7 +2608,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Usar impulso",
           "Flexionar demasiado la cadera",
           "Perder alineación de tronco y pelvis",
-          "Buscar más recorrido a costa del control",
           "Arquear la zona lumbar"
         ],
         primaryMuscles: ["Aductores"],
@@ -2924,6 +2924,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Jump shrug desde hang",
+        intentCue: "Empuja el suelo y extiéndete",
         olympicCatch: "none",
         olympicFamily: "general",
         olympicPrerequisiteIds: [],
@@ -2939,6 +2940,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hang clean pull",
+        intentCue: "Acelera la barra cerca del cuerpo",
         olympicCatch: "none",
         olympicFamily: "clean",
         olympicPrerequisiteIds: ["olympic-derivatives-power-1"],
@@ -3054,6 +3056,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Power clean",
+        intentCue: "Extiéndete y entra bajo la barra",
         olympicCatch: "high",
         olympicFamily: "clean",
         olympicPrerequisiteIds: ["olympic-derivatives-power-6", "olympic-derivatives-power-4"],
@@ -3204,12 +3207,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Derivado olímpico de arrancada orientado a la extensión potente de cadera, rodilla y tobillo y al tirón vertical hasta una recepción alta sin profundidad de sentadilla. Priorizar trayectoria cercana de la barra, extensión completa y control overhead.",
         errorsToAvoid: [
-          "tirar con los brazos demasiado pronto",
-          "alejar la barra del cuerpo",
-          "no completar la extensión de cadera",
-          "recibir con hombros inestables",
-          "arquear la zona lumbar en la posición overhead",
-          "usar demasiada carga para el nivel técnico"
+          "Tirar con los brazos demasiado pronto",
+          "Alejar la barra del cuerpo",
+          "No completar la extensión de cadera",
+          "Recibir con hombros inestables",
+          "Arquear la zona lumbar en la posición overhead"
         ],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Deltoides"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Trapecio", "Core", "Manguito rotador"],
@@ -3272,6 +3274,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Power snatch",
+        intentCue: "Extiéndete y entra bajo la barra",
         olympicCatch: "high",
         olympicFamily: "snatch",
         olympicPrerequisiteIds: ["olympic-derivatives-power-10"],
@@ -3348,12 +3351,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Derivado olímpico de empuje vertical en el que se utiliza un dip-drive de piernas para impulsar la barra y recibirla sobre la cabeza con flexión parcial de rodillas. Trabaja transferencia de fuerza desde tren inferior hacia overhead y estabilidad en recepción.",
         errorsToAvoid: [
-          "hacer el dip demasiado profundo",
-          "perder verticalidad del tronco",
-          "empujar la barra hacia delante",
-          "no bloquear de forma estable sobre la cabeza",
-          "recibir con rodillas colapsadas",
-          "perder control de core y costillas"
+          "Hacer el dip demasiado profundo",
+          "Perder verticalidad del tronco",
+          "Empujar la barra hacia delante",
+          "No bloquear de forma estable sobre la cabeza",
+          "Recibir con rodillas colapsadas"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
         secondaryMuscles: ["Gemelos", "Tríceps", "Trapecio", "Core", "Manguito rotador"],
@@ -3403,6 +3405,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "olympic-derivatives-power-split-jerk",
         name: "Split jerk",
+        intentCue: "Impulsa y entra bajo la barra",
         olympicCatch: "split",
         olympicFamily: "jerk",
         olympicPrerequisiteIds: ["olympic-derivatives-power-push-jerk", "olympic-derivatives-power-tall-jerk"],
@@ -3412,12 +3415,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Derivado olímpico de empuje vertical con recepción en split stance. Utiliza el impulso de piernas para elevar la barra y una recepción asimétrica para estabilizarla sobre la cabeza. Requiere coordinación, velocidad bajo la barra, control del split y estabilidad overhead.",
         errorsToAvoid: [
-          "separar poco los pies en la recepción",
-          "recibir con el peso mal repartido",
-          "perder la línea de la barra sobre el centro de masas",
-          "colapsar la rodilla adelantada",
-          "arquear la zona lumbar",
-          "recuperar los pies sin control"
+          "Separar poco los pies en la recepción",
+          "Recibir con el peso mal repartido",
+          "Perder la línea de la barra sobre el centro de masas",
+          "Colapsar la rodilla adelantada",
+          "Recuperar los pies sin control"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Deltoides"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Tríceps", "Glúteo medio", "Core", "Manguito rotador"],
@@ -3474,6 +3476,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "olympic-derivatives-power-overhead-squat",
         name: "Overhead Squat",
+        intentCue: "Empuja la barra hacia el techo",
         olympicCatch: "full",
         olympicFamily: "snatch",
         olympicPrerequisiteIds: [],
@@ -3660,8 +3663,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Dar pasos demasiado largos al inicio",
           "Apoyar el pie muy por delante del centro de masas",
           "Perder tensión de tronco",
-          "Frenar antes de completar la distancia",
-          "Mirar al suelo en exceso"
+          "Frenar antes de completar la distancia"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor", "Isquiosurales"],
         secondaryMuscles: ["Gemelos", "Core", "Flexores de cadera"],
@@ -3677,7 +3679,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Salir sin intención máxima",
           "Perder coordinación de brazos",
           "Talonear por delante del cuerpo",
-          "Tensar hombros y cuello",
           "Acortar en exceso la zancada",
           "Desacelerar antes de terminar"
         ],
@@ -3703,8 +3704,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Colapsar rodillas hacia dentro",
           "Apoyar muy estrecho",
           "Perder equilibrio al detenerse",
-          "Usar demasiados pasos de frenada sin control",
-          "Mirar al suelo todo el tiempo"
+          "Usar demasiados pasos de frenada sin control"
         ],
         primaryMuscles: ["Cuádriceps", "Glúteo mayor"],
         secondaryMuscles: ["Isquiosurales", "Gemelos", "Aductores", "Glúteo medio", "Core"],
@@ -3721,7 +3721,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Colapsar la rodilla de apoyo",
           "Girar solo con el tronco",
           "Apoyar el pie demasiado lejos del cuerpo",
-          "Perder el control de la cadera",
           "Reiniciar la aceleración sin estabilidad"
         ],
         primaryMuscles: ["Glúteo mayor", "Cuádriceps", "Isquiosurales"],
@@ -3746,8 +3745,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder ritmo de brazos",
           "Pisar la escalera continuamente",
           "Elevar demasiado el centro de masas",
-          "Moverse rápido sin precisión",
-          "Bloquear la respiración"
+          "Moverse rápido sin precisión"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps"],
         secondaryMuscles: ["Flexores de cadera", "Core", "Tibial anterior"],
@@ -3764,7 +3762,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Perder orientación lateral",
           "Colapsar rodillas",
           "Subir demasiado el centro de masas",
-          "Perder ritmo de brazos",
           "Sacrificar precisión por velocidad"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps", "Glúteo medio"],
@@ -3782,8 +3779,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Cruzar los pies perdiendo equilibrio",
           "Mirar solo al suelo",
           "Perder coordinación de brazos",
-          "Acelerar sin precisión",
-          "Bloquear la cadera"
+          "Acelerar sin precisión"
         ],
         primaryMuscles: ["Cuádriceps", "Gemelos", "Core"],
         secondaryMuscles: ["Glúteo medio", "Aductores", "Glúteo mayor"],
@@ -3800,8 +3796,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Hundirse en cada apoyo",
           "Colapsar rodillas",
           "Perder rigidez activa del tobillo",
-          "Saltar demasiado alto",
-          "Perder ritmo"
+          "Saltar demasiado alto"
         ],
         primaryMuscles: ["Gemelos", "Cuádriceps"],
         secondaryMuscles: ["Glúteo mayor", "Glúteo medio", "Core", "Tibial anterior"],
@@ -3822,7 +3817,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Ejercicio de agilidad reactiva basado en estímulos visuales. El deportista debe reaccionar a una señal de color y desplazarse hacia el cono o zona correspondiente, priorizando percepción, decisión, primer apoyo y control de frenada.",
         errorsToAvoid: [
           "Anticipar la señal",
-          "Moverse antes del estímulo",
           "Perder postura al reaccionar",
           "Frenar sin control",
           "Mirar al suelo en vez de al estímulo",
@@ -4139,6 +4133,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Bench press",
+        intentCue: "Aleja la barra del pecho",
         equipment: ["Barra", "Mancuernas"],
         technicalDescription:
           "Presiona desde banco con escápulas estables, pies apoyados y trayectoria controlada. Baja con control hacia el pecho y empuja manteniendo muñecas y codos alineados.",
@@ -4187,7 +4182,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "bench-press-variant-floor-press",
             name: "Floor press",
             type: "range",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Barra", "Mancuernas"],
             description:
               "Variante con rango limitado por el suelo, útil para controlar hombro y enfatizar la fase media-final del empuje.",
@@ -4294,6 +4289,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Overhead press / Press militar",
+        intentCue: "Empuja la barra hacia arriba",
         equipment: ["Barra", "Mancuernas"],
         technicalDescription:
           "Presiona por encima de la cabeza con tronco firme, costillas abajo y trayectoria vertical. Termina con brazos estables y cabeza alineada bajo la carga.",
@@ -4609,6 +4605,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Seated cable row",
+        intentCue: "Lleva los codos atrás",
         equipment: ["Polea"],
         technicalDescription:
           "Rema sentado en polea llevando codos atrás con pecho alto y escápulas controladas. Mantén torso estable y evita balancear el cuerpo.",
@@ -4677,7 +4674,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "t-bar-row-variant-chest-supported",
             name: "Remo T con apoyo de pecho",
             type: "support",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Máquina", "Banco inclinado", "Barra T"],
             description: "Variante con apoyo de pecho que reduce la demanda lumbar y facilita focalizar en tracción.",
             coachingNotes: "No despegar el pecho del apoyo para completar la repetición."
@@ -4785,7 +4782,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
             id: "pull-up-chin-up-variant-eccentric",
             name: "Dominada excéntrica",
             type: "tempo",
-            difficulty: "intermediate",
+            difficulty: "basic",
             equipment: ["Peso corporal", "Barra"],
             description: "Variante con énfasis en la fase excéntrica para desarrollar control y fuerza específica.",
             coachingNotes: "Controlar la bajada sin perder posición escapular ni colgarse pasivamente."
@@ -4832,6 +4829,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Lat pulldown",
+        intentCue: "Lleva los codos al suelo",
         equipment: ["Máquina", "Polea"],
         technicalDescription:
           "Realiza jalón vertical llevando la barra o agarre hacia la parte alta del pecho. Inicia con depresión escapular y controla la vuelta sin perder postura.",
@@ -4989,12 +4987,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Variante explosiva de dominada orientada a producir fuerza rápidamente en tracción vertical. Buscar intención máxima de subida, control escapular y recepción controlada en la bajada, sin perder posición de hombros.",
         errorsToAvoid: [
-          "tirar solo con brazos sin depresión escapular",
-          "perder control en la bajada",
-          "compensar con balanceo excesivo",
-          "llevar el cuello hacia delante",
-          "hacer repeticiones explosivas sin rango útil",
-          "continuar cuando se pierde velocidad o técnica"
+          "Tirar solo con brazos sin depresión escapular",
+          "Perder control en la bajada",
+          "Compensar con balanceo excesivo",
+          "Llevar el cuello hacia delante",
+          "Hacer repeticiones explosivas sin rango útil"
         ],
         primaryMuscles: ["Dorsal", "Bíceps", "Trapecio medio"],
         secondaryMuscles: ["Romboides", "Deltoides posterior", "Antebrazos", "Core"],
@@ -5203,11 +5200,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio accesorio de tracción horizontal con banda elástica orientado a deltoides posterior, manguito rotador y control escapular. Separar la banda manteniendo brazos controlados y escápulas estables.",
         errorsToAvoid: [
-          "arquear la zona lumbar",
-          "encoger hombros",
-          "flexionar demasiado los codos",
-          "tirar con impulso",
-          "perder control escapular"
+          "Arquear la zona lumbar",
+          "Encoger hombros",
+          "Flexionar demasiado los codos",
+          "Tirar con impulso",
+          "Perder control escapular"
         ],
         primaryMuscles: ["Deltoides posterior", "Manguito rotador"],
         secondaryMuscles: ["Trapecio medio", "Romboides", "Core"],
@@ -5580,11 +5577,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de activación y control escapular con banda elástica. Realizar retracción escapular manteniendo cuello relajado, costillas controladas y sin compensar con extensión lumbar.",
         errorsToAvoid: [
-          "encoger los hombros",
-          "tirar con los brazos en vez de mover escápulas",
-          "arquear la zona lumbar",
-          "adelantar la cabeza",
-          "usar demasiada tensión de banda"
+          "Encoger los hombros",
+          "Tirar con los brazos en vez de mover escápulas",
+          "Arquear la zona lumbar",
+          "Adelantar la cabeza",
+          "Usar demasiada tensión de banda"
         ],
         primaryMuscles: ["Espalda alta", "Trapecio"],
         secondaryMuscles: ["Trapecio inferior", "Manguito rotador", "Hombros", "Core"],
@@ -5625,12 +5622,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de activación del manguito rotador con banda elástica. Mantener el codo próximo al cuerpo o apoyado según variante, controlar la escápula y realizar rotación externa sin compensar con tronco ni muñeca.",
         errorsToAvoid: [
-          "separar excesivamente el codo",
-          "girar el tronco",
-          "elevar el hombro",
-          "perder control escapular",
-          "usar demasiada tensión de banda",
-          "mover la muñeca en vez del hombro"
+          "Separar excesivamente el codo",
+          "Girar el tronco",
+          "Elevar el hombro",
+          "Perder control escapular",
+          "Mover la muñeca en vez del hombro"
         ],
         primaryMuscles: ["Manguito rotador"],
         secondaryMuscles: ["Hombros", "Espalda alta", "Core"],
@@ -5788,11 +5784,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de movilidad y control de rotación interna de cadera. Trabajar el rango disponible manteniendo pelvis estable y evitando compensaciones lumbares o de rodilla.",
         errorsToAvoid: [
-          "mover la pelvis para ganar rango",
-          "forzar la rodilla",
-          "compensar con la zona lumbar",
-          "perder control del recorrido",
-          "buscar rango con dolor"
+          "Mover la pelvis para ganar rango",
+          "Forzar la rodilla",
+          "Compensar con la zona lumbar",
+          "Perder control del recorrido",
+          "Buscar rango con dolor"
         ],
         primaryMuscles: ["Caderas", "Glúteo medio"],
         secondaryMuscles: ["Glúteos", "Aductores", "Core"],
@@ -5805,11 +5801,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio de control de cadera con apoyo, orientado a mejorar la rotación interna y la estabilidad lumbopélvica. Mantener apoyo estable, pelvis controlada y rotar desde la cadera sin perder alineación de rodilla y pie.",
         errorsToAvoid: [
-          "colapsar la rodilla",
-          "perder apoyo del pie",
-          "rotar desde la lumbar",
-          "desplazar la pelvis sin control",
-          "forzar el rango"
+          "Colapsar la rodilla",
+          "Perder apoyo del pie",
+          "Rotar desde la lumbar",
+          "Desplazar la pelvis sin control",
+          "Forzar el rango"
         ],
         primaryMuscles: ["Caderas", "Glúteo medio"],
         secondaryMuscles: ["Glúteos", "Aductores", "Core", "Cuádriceps"],
@@ -5825,8 +5821,6 @@ const exerciseGroups: ExerciseGroupSeed[] = [
           "Cargar demasiado la pierna trasera",
           "Colapsar la rodilla de la pierna adelantada",
           "Rotar desde la zona lumbar en vez de desde la cadera",
-          "Perder columna neutra",
-          "Buscar rango excesivo sin control",
           "Convertirlo en una sentadilla",
           "Perder apoyo estable del pie delantero"
         ],
@@ -6056,11 +6050,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Ejercicio global de apoyo y desplazamiento en cuadrupedia con énfasis en control unilateral, estabilidad de tronco, cintura escapular y cadera. Avanzar o mantener posición alternando apoyos sin perder alineación.",
         errorsToAvoid: [
-          "hundir la zona lumbar",
-          "rotar excesivamente la pelvis",
-          "perder apoyo activo de manos",
-          "elevar demasiado la cadera",
-          "mover rápido sin control"
+          "Hundir la zona lumbar",
+          "Rotar excesivamente la pelvis",
+          "Perder apoyo activo de manos",
+          "Elevar demasiado la cadera",
+          "Mover rápido sin control"
         ],
         primaryMuscles: ["Core", "Hombros"],
         secondaryMuscles: ["Serrato anterior", "Glúteos", "Cuádriceps"],
@@ -6074,11 +6068,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Primera fase del levantamiento turco. Desde decúbito supino, mantener un brazo estable hacia arriba y realizar el inicio del incorporado controlando hombro, tronco y respiración.",
         errorsToAvoid: [
-          "perder verticalidad del brazo",
-          "encoger el hombro",
-          "impulsarse sin control",
-          "perder tensión abdominal",
-          "mirar al suelo en vez de controlar la carga/brazo"
+          "Perder verticalidad del brazo",
+          "Encoger el hombro",
+          "Impulsarse sin control",
+          "Perder tensión abdominal",
+          "Mirar al suelo en vez de controlar la carga/brazo"
         ],
         primaryMuscles: ["Core", "Hombros"],
         secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos"],
@@ -6092,11 +6086,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Segunda fase del levantamiento turco, progresando desde el apoyo inicial hacia una posición más estable de transición. Priorizar control del hombro, apoyo del brazo libre y estabilidad del tronco.",
         errorsToAvoid: [
-          "perder alineación del brazo elevado",
-          "colapsar el apoyo",
-          "rotar sin control",
-          "perder respiración",
-          "acelerar la transición"
+          "Perder alineación del brazo elevado",
+          "Colapsar el apoyo",
+          "Rotar sin control",
+          "Perder respiración",
+          "Acelerar la transición"
         ],
         primaryMuscles: ["Core", "Hombros"],
         secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos", "Cuádriceps"],
@@ -6110,11 +6104,11 @@ const exerciseGroups: ExerciseGroupSeed[] = [
         technicalDescription:
           "Tercera fase del levantamiento turco, integrando transición de cadera y apoyo inferior. Mantener brazo estable, tronco activo y control de cadera durante el paso.",
         errorsToAvoid: [
-          "perder verticalidad del brazo",
-          "colapsar la cadera",
-          "apoyar la rodilla sin control",
-          "perder orientación del tronco",
-          "ir demasiado rápido"
+          "Perder verticalidad del brazo",
+          "Colapsar la cadera",
+          "Apoyar la rodilla sin control",
+          "Perder orientación del tronco",
+          "Ir demasiado rápido"
         ],
         primaryMuscles: ["Core", "Hombros"],
         secondaryMuscles: ["Manguito rotador", "Oblicuos", "Glúteos", "Cuádriceps"],
@@ -6123,17 +6117,17 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-ground-support-turkish-get-up-complete",
         name: "Turkish get-up completo",
+        intentCue: "Levántate manteniendo la carga estable",
         coreLimbMovement: true,
         equipment: ["Peso corporal", "Kettlebell", "Mancuerna"],
         technicalDescription:
           "Levantamiento turco completo, integrando estabilidad de hombro, control de tronco, transición de cadera, apoyo unilateral y coordinación global desde el suelo hasta la posición de pie y vuelta.",
         errorsToAvoid: [
-          "perder verticalidad del brazo",
-          "acelerar las transiciones",
-          "colapsar hombro o muñeca",
-          "perder estabilidad de cadera",
-          "no controlar la bajada",
-          "perder respiración"
+          "Perder verticalidad del brazo",
+          "Acelerar las transiciones",
+          "Colapsar hombro o muñeca",
+          "Perder estabilidad de cadera",
+          "No controlar la bajada"
         ],
         primaryMuscles: ["Core", "Hombros", "Glúteos"],
         secondaryMuscles: ["Manguito rotador", "Oblicuos", "Cuádriceps", "Isquiosurales"],
@@ -6158,6 +6152,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Standing cable rotation",
+        intentCue: "Gira contra la resistencia",
         equipment: ["Polea"],
         technicalDescription:
           "Rota de pie con polea manteniendo base estable, pelvis controlada y transferencia de fuerza desde cadera a tronco. El movimiento debe ser continuo y coordinado.",
@@ -6239,6 +6234,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Pallof press",
+        intentCue: "Que la polea no te gire",
         coreLimbMovement: true,
         equipment: ["Banda elástica", "Polea"],
         technicalDescription:
@@ -6394,6 +6390,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Side plank",
+        intentCue: "Impide que la cadera caiga",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Mantén plancha lateral con cuerpo alineado, cadera elevada y hombro estable. Debe verse una línea firme sin hundir pelvis ni rotar el tronco.",
@@ -6515,6 +6512,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "core-trunk-control-flexion-extension-45-degree-lumbar-extension",
         name: "Extensión lumbar a 45° en banco romano",
+        intentCue: "Extiende el tronco con control",
         equipment: ["Banco romano"],
         technicalDescription:
           "Realiza una extensión intencional y controlada de la columna y el tronco en banco romano a 45 grados. Se diferencia de la extensión de cadera de Hinge: aquí la acción buscada es vertebral, no mantener la columna neutra mientras se mueve la cadera.",
@@ -6584,6 +6582,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Ab wheel rollout",
+        intentCue: "Aleja la rueda manteniendo el tronco firme",
         coreLimbMovement: true,
         equipment: ["Rueda abdominal"],
         technicalDescription:
@@ -6664,6 +6663,10 @@ export const exerciseLibrary: ExerciseDefinition[] = exerciseGroups.flatMap((gro
     rank: index + 1
   }));
 });
+
+if (process.env.NODE_ENV !== "production") {
+  assertValidExerciseCatalog(exerciseLibrary);
+}
 
 export function getExercisesByPattern(pattern: ExercisePattern) {
   return sortExercises(exerciseLibrary.filter((exercise) => exercise.pattern === pattern));
