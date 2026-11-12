@@ -297,6 +297,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Sentadilla asistida con feedback manual",
+        intentCue: "Empuja el suelo",
         equipment: ["Manual", "Soporte"],
         technicalDescription:
           "Realiza una sentadilla con apoyo o feedback manual para guiar la flexión de cadera, rodilla y tobillo. Mantén el peso repartido en todo el pie y controla el descenso y la subida.",
@@ -334,6 +335,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Sit to Stand",
+        intentCue: "Levántate empujando el suelo",
         equipment: ["Peso corporal", "Cajon"],
         technicalDescription:
           "Desde un cajón o silla, levántate y vuelve a sentarte controlando la posición del pie y la dirección de las rodillas. Mantén el tronco estable y evita caer al sentarte.",
@@ -344,6 +346,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Goblet squat",
+        intentCue: "Empuja el suelo",
         equipment: ["Mancuerna", "Kettlebell"],
         technicalDescription:
           "Sujeta la carga delante del pecho y desciende flexionando cadera, rodilla y tobillo. Mantén el peso repartido en todo el pie, rodillas alineadas y subida controlada.",
@@ -364,6 +367,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Front squat",
+        intentCue: "Empuja el suelo",
         equipment: ["Barra"],
         technicalDescription:
           "Sostén la barra delante de los hombros y desciende con tronco estable y codos altos. Mantén el centro de presión equilibrado y sube sin perder la posición torácica.",
@@ -392,6 +396,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Leg press",
+        intentCue: "Empuja la plataforma",
         equipment: ["Máquina"],
         technicalDescription:
           "Empuja la plataforma manteniendo pelvis estable y rodillas alineadas con los pies. Usa un rango útil, controla la bajada y evita bloquear de forma brusca.",
@@ -419,6 +424,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hack squat",
+        intentCue: "Empuja la plataforma",
         equipment: ["Máquina"],
         technicalDescription:
           "Desciende en la máquina manteniendo apoyo completo del pie y espalda estable contra el respaldo. Controla profundidad, alineación de rodilla y ritmo.",
@@ -814,6 +820,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Hip hinge con palo",
+        intentCue: "Aleja la cadera hacia atrás",
         equipment: ["Peso corporal", "Palo"],
         technicalDescription:
           "Coloca el palo en contacto con cabeza, espalda y sacro mientras haces la bisagra. Busca movimiento desde la cadera sin perder los puntos de contacto.",
@@ -824,6 +831,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Wall hinge drill",
+        intentCue: "Lleva la cadera hacia la pared",
         equipment: ["Peso corporal", "Pared"],
         technicalDescription:
           "De espaldas a una pared, lleva la cadera atrás hasta tocarla manteniendo columna neutra. Controla el recorrido y evita que las rodillas dominen el movimiento.",
@@ -921,6 +929,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Kettlebell deadlift",
+        intentCue: "Empuja el suelo",
         equipment: ["Kettlebell"],
         technicalDescription:
           "Coloca la kettlebell entre los pies y levanta desde una bisagra estable. Mantén espalda neutra, brazos largos y la carga cerca del cuerpo.",
@@ -984,6 +993,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "hinge-horizontal-force-strength-good-morning",
         name: "Good morning",
+        intentCue: "Aleja la cadera hacia atrás",
         equipment: ["Barra"],
         technicalDescription:
           "Ejercicio de bisagra de cadera con barra orientado al control de la flexión de cadera, la extensión de cadera y la resistencia de la cadena posterior. Mantener columna neutra, desplazamiento de cadera hacia atrás y tensión activa en isquiosurales, glúteos y erectores espinales.",
@@ -1032,6 +1042,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Peso muerto con barra hexagonal",
+        intentCue: "Empuja el suelo",
         equipment: ["Barra hexagonal"],
         technicalDescription:
           "Colocate dentro de la barra hexagonal y levanta empujando el suelo con tronco estable. Mantén la carga centrada, cadera y hombros subiendo coordinados.",
@@ -1073,6 +1084,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Conventional deadlift",
+        intentCue: "Empuja el suelo",
         equipment: ["Barra"],
         technicalDescription:
           "Levanta la barra desde el suelo manteniéndola cerca de las piernas. Fija tronco, empuja el suelo y extiende cadera y rodilla sin perder posición.",
@@ -1515,6 +1527,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Reverse lunge",
+        intentCue: "Empuja el suelo para volver",
         equipment: ["Peso corporal", "Mancuernas"],
         technicalDescription:
           "Da un paso atrás y desciende hasta una zancada estable. Vuelve empujando con la pierna delantera y manteniendo control de rodilla y pelvis.",
@@ -1605,6 +1618,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Step-up",
+        intentCue: "Eleva el cuerpo sobre el cajón",
         equipment: ["Cajon", "Mancuernas"],
         technicalDescription:
           "Sube a un cajón empujando principalmente con la pierna apoyada arriba. Mantén pelvis estable, rodilla alineada y bajada controlada.",
@@ -1653,6 +1667,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Unilateral leg press",
+        intentCue: "Empuja la plataforma con una pierna",
         equipment: ["Máquina"],
         technicalDescription:
           "Empuja la plataforma con una pierna manteniendo pelvis estable y rodilla alineada. Controla la bajada y usa un rango que permita tensión sin dolor.",
@@ -1713,6 +1728,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Bulgarian split squat",
+        intentCue: "Eleva el cuerpo con la pierna delantera",
         equipment: ["Mancuernas", "Banco"],
         technicalDescription:
           "Apoya el pie trasero en un banco y baja con control sobre la pierna delantera. Mantén pelvis estable, rodilla alineada y empuje completo del pie.",
@@ -2150,6 +2166,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Nordic curl",
+        intentCue: "Frena la caída con los isquios",
         equipment: ["Peso corporal", "Soporte"],
         technicalDescription:
           "Fija los pies y controla el descenso del tronco desde las rodillas. Mantén cadera extendida y usa asistencia si necesitas conservar calidad.",
@@ -2772,6 +2789,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Standing calf raise",
+        intentCue: "Empuja el suelo con el antepié",
         equipment: ["Máquina", "Mancuernas"],
         technicalDescription:
           "Eleva talones de pie con rodillas extendidas y control del tobillo. Pausa arriba y baja con rango completo sin perder alineación del pie.",
@@ -4073,6 +4091,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Incline push-up",
+        intentCue: "Aleja el cuerpo del apoyo",
         equipment: ["Peso corporal", "Soporte"],
         technicalDescription:
           "Realiza flexiones con manos elevadas en un soporte, manteniendo cuerpo alineado y control escapular. Baja con control y empuja sin perder postura.",
@@ -4083,6 +4102,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Push-up",
+        intentCue: "Aleja el cuerpo del suelo",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza una flexión manteniendo línea cabeza-cadera-tobillo, manos firmes y codos controlados. Empuja el suelo hasta recuperar una posición estable.",
@@ -4241,6 +4261,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Landmine press",
+        intentCue: "Empuja la carga en diagonal",
         equipment: ["Barra", "Landmine"],
         technicalDescription:
           "Empuja la barra en diagonal desde landmine, manteniendo costillas controladas y hombro centrado. La trayectoria debe ser estable, con final fuerte sin inclinar el tronco.",
@@ -4346,6 +4367,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Chest press",
+        intentCue: "Empuja las asas hacia delante",
         equipment: ["Máquina"],
         technicalDescription:
           "Presiona en máquina con espalda apoyada, muñecas neutras y ritmo controlado. Mantén hombros estables y tensión continua durante todo el recorrido.",
@@ -4585,6 +4607,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
     exercises: [
       squatExercise({
         name: "Supported dumbbell row",
+        intentCue: "Lleva el codo hacia la cadera",
         equipment: ["Mancuerna", "Banco"],
         technicalDescription:
           "Rema con una mancuerna apoyando el cuerpo en banco, llevando el codo atrás sin rotar el tronco. Mantén escápula controlada y bajada estable.",
@@ -4595,6 +4618,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Inverted row / Australian pull-up",
+        intentCue: "Acerca el pecho a la barra",
         equipment: ["Peso corporal", "Barra"],
         technicalDescription:
           "Tira del cuerpo hacia una barra baja manteniendo línea corporal y escápulas activas. Ajusta la inclinación para controlar dificultad sin perder postura.",
@@ -4693,6 +4717,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Assisted pull-up / Chin-up",
+        intentCue: "Lleva el pecho hacia la barra",
         equipment: ["Banda", "Máquina asistida"],
         technicalDescription:
           "Realiza dominadas asistidas iniciando con control escapular y llevando pecho hacia la barra. Usa asistencia suficiente para completar rango sin perder técnica.",
@@ -4734,6 +4759,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Pull-up / Chin-up",
+        intentCue: "Lleva el pecho hacia la barra",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza dominada o chin-up desde colgado, iniciando con escápulas y llevando el cuerpo hacia la barra. Mantén control, rango completo y sin balanceo excesivo.",
@@ -4888,6 +4914,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Cable pullover",
+        intentCue: "Lleva las manos hacia los muslos",
         equipment: ["Polea"],
         technicalDescription:
           "Extiende los hombros desde polea manteniendo codos casi fijos y tronco estable. Busca tensión de dorsal sin convertirlo en empuje ni flexionar codos.",
@@ -5196,6 +5223,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       squatExercise({
         id: "upper-body-accessories-shoulder-band-pull-apart",
         name: "Band Pull Apart",
+        intentCue: "Separa las manos",
         equipment: ["Banda elástica"],
         technicalDescription:
           "Ejercicio accesorio de tracción horizontal con banda elástica orientado a deltoides posterior, manguito rotador y control escapular. Separar la banda manteniendo brazos controlados y escápulas estables.",
@@ -5242,6 +5270,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Face pull",
+        intentCue: "Lleva las manos hacia la cara",
         equipment: ["Polea", "Banda"],
         technicalDescription:
           "Tira hacia la cara con codos altos, rotación externa y escápulas controladas. Debe verse deltoides posterior y espalda media trabajando sin elevar hombros.",
