@@ -1728,7 +1728,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Bulgarian split squat",
-        intentCue: "Eleva el cuerpo con la pierna delantera",
+        intentCue: "Empuja el suelo manteniendo el dedo gordo apoyado",
         equipment: ["Mancuernas", "Banco"],
         technicalDescription:
           "Apoya el pie trasero en un banco y baja con control sobre la pierna delantera. Mantén pelvis estable, rodilla alineada y empuje completo del pie.",
@@ -2166,7 +2166,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Nordic curl",
-        intentCue: "Frena la caída con los isquios",
+        intentCue: "Frena la caída",
         equipment: ["Peso corporal", "Soporte"],
         technicalDescription:
           "Fija los pies y controla el descenso del tronco desde las rodillas. Mantén cadera extendida y usa asistencia si necesitas conservar calidad.",
@@ -4102,7 +4102,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Push-up",
-        intentCue: "Aleja el cuerpo del suelo",
+        intentCue: "Empuja intentando juntar los codos",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza una flexión manteniendo línea cabeza-cadera-tobillo, manos firmes y codos controlados. Empuja el suelo hasta recuperar una posición estable.",
@@ -4153,7 +4153,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Bench press",
-        intentCue: "Aleja la barra del pecho",
+        intentCue: "Empuja intentando juntar los codos",
         equipment: ["Barra", "Mancuernas"],
         technicalDescription:
           "Presiona desde banco con escápulas estables, pies apoyados y trayectoria controlada. Baja con control hacia el pecho y empuja manteniendo muñecas y codos alineados.",
@@ -4629,7 +4629,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Seated cable row",
-        intentCue: "Lleva los codos atrás",
+        intentCue: "Junta los codos atrás",
         equipment: ["Polea"],
         technicalDescription:
           "Rema sentado en polea llevando codos atrás con pecho alto y escápulas controladas. Mantén torso estable y evita balancear el cuerpo.",
@@ -4717,7 +4717,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Assisted pull-up / Chin-up",
-        intentCue: "Lleva el pecho hacia la barra",
+        intentCue: "Intenta partir la barra",
         equipment: ["Banda", "Máquina asistida"],
         technicalDescription:
           "Realiza dominadas asistidas iniciando con control escapular y llevando pecho hacia la barra. Usa asistencia suficiente para completar rango sin perder técnica.",
@@ -4759,7 +4759,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Pull-up / Chin-up",
-        intentCue: "Lleva el pecho hacia la barra",
+        intentCue: "Intenta partir la barra",
         equipment: ["Peso corporal"],
         technicalDescription:
           "Realiza dominada o chin-up desde colgado, iniciando con escápulas y llevando el cuerpo hacia la barra. Mantén control, rango completo y sin balanceo excesivo.",
@@ -5270,7 +5270,7 @@ const exerciseGroups: ExerciseGroupSeed[] = [
       }),
       squatExercise({
         name: "Face pull",
-        intentCue: "Lleva las manos hacia la cara",
+        intentCue: "Lleva los codos atrás y abre las manos",
         equipment: ["Polea", "Banda"],
         technicalDescription:
           "Tira hacia la cara con codos altos, rotación externa y escápulas controladas. Debe verse deltoides posterior y espalda media trabajando sin elevar hombros.",
