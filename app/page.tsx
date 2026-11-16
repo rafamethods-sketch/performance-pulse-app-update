@@ -843,6 +843,7 @@ export default function ClientsPage() {
                 onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+                onOpenTrainingSession={openTrainingSession}
                 onRemoveDemoData={() => {
                   setClients((currentClients) => currentClients.filter((listedClient) => !isDemoClient(listedClient)));
                 }}
@@ -888,6 +889,7 @@ export default function ClientsPage() {
                 onOpenClientSheet={openClientSheet}
                 onOpenDashboard={(clientId) => openClientPanel(clientId, "dashboard")}
                 onOpenDetails={(clientId) => openClientPanel(clientId, "details")}
+                onOpenTrainingSession={openTrainingSession}
                 onRemoveDemoData={() => {
                   setClients((currentClients) => currentClients.filter((listedClient) => !isDemoClient(listedClient)));
                 }}
@@ -2891,6 +2893,7 @@ function CoachManagementView({
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
+  onOpenTrainingSession,
   onRemoveDemoData,
   onSectionChange,
   panel,
@@ -2904,6 +2907,7 @@ function CoachManagementView({
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   onRemoveDemoData: () => void;
   onSectionChange: (section: ManagementSection) => void;
   panel: TrainerClientPanel;
@@ -2958,6 +2962,7 @@ function CoachManagementView({
           onOpenClientSheet={onOpenClientSheet}
           onOpenDashboard={onOpenDashboard}
           onOpenDetails={onOpenDetails}
+          onOpenTrainingSession={onOpenTrainingSession}
           onRemoveDemoData={onRemoveDemoData}
           panel={panel}
           setClients={setClients}
@@ -3028,6 +3033,7 @@ function CoachClientsView({
   onOpenClientSheet,
   onOpenDashboard,
   onOpenDetails,
+  onOpenTrainingSession,
   onRemoveDemoData,
   panel,
   setClients
@@ -3039,6 +3045,7 @@ function CoachClientsView({
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   onRemoveDemoData: () => void;
   panel: TrainerClientPanel;
   setClients: React.Dispatch<React.SetStateAction<CoachClient[]>>;
@@ -3302,6 +3309,7 @@ function CoachClientsView({
         }
         onOpenClientSheet={onOpenClientSheet}
         onOpenDetails={() => onOpenDetails(client.id)}
+        onOpenTrainingSession={onOpenTrainingSession}
         onSaveDecision={(entry) =>
           setClients((currentClients) =>
             currentClients.map((listedClient) => listedClient.id === client.id

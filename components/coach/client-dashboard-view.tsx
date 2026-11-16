@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SheetId } from "@/lib/data";
-import type { CoachDecisionLogEntry } from "@/components/coach/types";
+import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
 import { fromWeeklyCoachReview, fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
 import { getPlannedSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
@@ -58,6 +58,7 @@ type DashboardSessionRecord = TrainingSessionInput & {
   duration?: number | string | null;
   finalNotes?: string | null;
   finalRpe?: number | string | null;
+  id?: string;
   notes?: string | null;
   performedExercises?: SessionExerciseInput[];
   plannedExercises?: SessionExerciseInput[];
@@ -129,7 +130,16 @@ type ClientDashboardViewProps = {
   onDeleteDecision: (decisionId: string) => void;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
   onOpenDetails: () => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   onSaveDecision: (entry: CoachDecisionLogEntry) => void;
+};
+
+type DashboardWatchSignal = {
+  action: SheetId;
+  label: string;
+  meta: string;
+  targetTrainingSession?: TargetTrainingSession;
+  tone: "calm" | "warning" | "danger";
 };
 
 function getDashboardMonotonyStatus(value: number) {
@@ -520,16 +530,17 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     }
   );
   const alerts: string[] = [];
-  const watchSignals: Array<{ action: SheetId; label: string; meta: string; tone: "calm" | "warning" | "danger" }> = [];
+  const watchSignals: DashboardWatchSignal[] = [];
 
   const addWatchSignal = (
     label: string,
     meta: string,
     action: SheetId,
-    tone: "calm" | "warning" | "danger" = "warning"
+    tone: "calm" | "warning" | "danger" = "warning",
+    targetTrainingSession?: TargetTrainingSession
   ) => {
     if (watchSignals.some((signal) => signal.label === label)) return;
-    watchSignals.push({ action, label, meta, tone });
+    watchSignals.push({ action, label, meta, targetTrainingSession, tone });
   };
 
   if (latestRpe !== null && latestRpe >= 8) {
@@ -582,7 +593,16 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     addWatchSignal("Sesiones pendientes", `${pendingReviews} por revisar`, "training", "calm");
   }
   if (recentDiscomfort.length > 0) {
-    addWatchSignal("Molestias recientes", `${recentDiscomfort.length} registro(s) en 14 días`, "clientWellness", "warning");
+    const sourceSession = [...recentDiscomfort].reverse().find((session) => session.id);
+    addWatchSignal(
+      "Molestias recientes",
+      `${recentDiscomfort.length} registro(s) en 14 días`,
+      "clientWellness",
+      "warning",
+      sourceSession?.id
+        ? { clientId: client.id, sessionDate: sourceSession.date, sessionId: sourceSession.id }
+        : undefined
+    );
   }
   if (negativeFeedback.length > 0) {
     addWatchSignal("Feedback negativo", `${negativeFeedback.length} respuesta(s) recientes`, "training", "warning");
@@ -680,6 +700,7 @@ export function ClientDashboardView({
   onBack,
   onOpenClientSheet,
   onOpenDetails,
+  onOpenTrainingSession,
   onSaveDecision
 }: ClientDashboardViewProps) {
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -771,10 +792,10 @@ export function ClientDashboardView({
       <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
       <DashboardCurrentState client={client} dashboardData={dashboardData} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <DashboardAttention clientId={client.id} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} review={weeklyReview} />
+        <DashboardAttention clientId={client.id} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} onOpenTrainingSession={onOpenTrainingSession} review={weeklyReview} />
         <DashboardRelevantChanges dashboardData={dashboardData} />
       </div>
-      <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} clientId={client.id} />
+      <DashboardWatchSignalsBlock dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} onOpenTrainingSession={onOpenTrainingSession} clientId={client.id} />
       <section className="coach-surface flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md px-4 py-3">
         <div>
           <h3 className="font-semibold text-ink">Métricas y evolución</h3>
@@ -955,10 +976,11 @@ function DashboardRelevantChanges({ dashboardData }: { dashboardData: ReturnType
   );
 }
 
-function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, review }: {
+function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, onOpenTrainingSession, review }: {
   clientId: string;
   dashboardData: ReturnType<typeof getClientDashboardData>;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   review: WeeklyCoachReview;
 }) {
   const signals = dashboardData.watchSignals.filter((signal) => signal.tone !== "calm" && !(signal.label === "Limitaciones registradas" && signal.meta.toLowerCase().includes("pendiente de completar"))).slice(0, 2);
@@ -979,7 +1001,7 @@ function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, review
                 <p className="font-semibold text-ink">{signal.label}</p>
                 <p className="mt-0.5 break-words text-xs text-ink/55">{signal.meta}</p>
               </div>
-              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => onOpenClientSheet(clientId, signal.action)} type="button">Revisar</button>
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action)} type="button">Revisar</button>
             </article>
           ))}
         </div>
@@ -1633,11 +1655,13 @@ function PatternZoneWatchBlock({ dashboardData }: { dashboardData: ReturnType<ty
 function DashboardWatchSignalsBlock({
   clientId,
   dashboardData,
-  onOpenClientSheet
+  onOpenClientSheet,
+  onOpenTrainingSession
 }: {
   clientId: string;
   dashboardData: ReturnType<typeof getClientDashboardData>;
   onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 }) {
   const toneClass = {
     calm: "border-steel/20 bg-steel/10 text-steel",
@@ -1669,7 +1693,7 @@ function DashboardWatchSignalsBlock({
                   </div>
                   <button
                     className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => onOpenClientSheet(clientId, signal.action)}
+                    onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action)}
                     type="button"
                   >
                     Revisar
