@@ -79,6 +79,7 @@ import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
 import { formatExerciseTempo, isCompleteExerciseTempo, normalizeExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
+import { getContextualPrescriptionRules, isContextualPrescriptionComplete } from "@/lib/session-prescription";
 import {
   getWeeklyCoachReview,
   getWeeklyReviewStyle,
@@ -7586,7 +7587,7 @@ function PlanningView({
         exerciseName: exercise.name,
         executionMode: getDefaultSessionExerciseExecutionMode(exerciseId),
         id: `planned-exercise-${Date.now()}-${slot.id}`,
-        intensityMethod: "rir",
+        intensityMethod: undefined,
         planningSlotId: slot.id,
         prescriptionBlockId: block.id,
         prescriptionRole: slot.role,
@@ -13251,11 +13252,12 @@ function CoachTrainingPlanner({
         exerciseSearch: "",
         executionMode: "set_tracking",
         id: exerciseId,
-        intensityMethod: "rir",
+        intensityMethod: "",
         load: "",
         observation: "",
         percent1RM: "",
         prescriptionMode: "standard",
+        prescriptionSource: "custom",
         reps: "",
         rest: "",
         sessionBlock,
@@ -13450,6 +13452,16 @@ function CoachTrainingPlanner({
 
     if (strengthExercises.some((exercise) => exercise.tempo && !isCompleteExerciseTempo(exercise.tempo))) {
       setSessionSendMessage("Completa las cuatro fases del tempo o quítalo antes de guardar.");
+      return;
+    }
+
+    const incompleteMainExercise = strengthExercises.find((exercise) =>
+      exercise.sessionBlock === "main" && !isContextualPrescriptionComplete(exercise)
+    );
+    if (incompleteMainExercise) {
+      setSessionWizardStep(2);
+      setExpandedStrengthExerciseId(incompleteMainExercise.id);
+      setSessionSendMessage("Completa la prescripción de los ejercicios del bloque principal antes de guardar.");
       return;
     }
 
@@ -13726,12 +13738,14 @@ function CoachTrainingPlanner({
             const sessionSection = sessionBlock === "activation" ? "activation" : sessionBlock === "main" ? "main" : "accessory";
             const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
-            const effectiveIntensityMethod = exercise.intensityMethod || "rir";
+            const effectiveIntensityMethod = exercise.intensityMethod ?? "";
             const equipmentOptions = selectedLibraryExercise?.equipment ?? [];
             const selectedVariant =
               selectedLibraryExercise?.variants?.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
             const isExpanded = expandedStrengthExerciseId === exercise.id;
             const exerciseSummary = getExerciseSummaryLine(exercise);
+            const prescriptionRules = getContextualPrescriptionRules(exercise.sessionBlock);
+            const isPrescriptionComplete = isContextualPrescriptionComplete(exercise);
             const roleLabel = planningPrescriptionRoles.find((role) => role.id === exercise.prescriptionRole)?.label ?? "Sin rol";
             const sourceLabel = exercise.prescriptionSource === "default" ? "Default del mesociclo" : exercise.prescriptionSource === "custom" ? "Personalizado" : "Legacy";
 
@@ -13745,7 +13759,10 @@ function CoachTrainingPlanner({
                   type="button"
                 >
                   <span className="block truncate text-sm font-semibold text-ink">{exerciseSummary.name}</span>
-                  <span className="mt-0.5 block text-[11px] font-semibold text-ink/45">{roleLabel} · {sourceLabel}</span>
+                  <span className="mt-0.5 block text-[11px] font-semibold text-ink/45">
+                    {prescriptionRules.showRole ? `${roleLabel} · ` : ""}{sourceLabel}
+                  </span>
+                  {!isPrescriptionComplete ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Prescripción incompleta</span> : null}
                   {exerciseSummary.prescription ? <span className="mt-1 block text-sm font-medium text-ink/65">{exerciseSummary.prescription}</span> : null}
                   {exerciseSummary.advanced ? <span className="mt-1 block text-xs font-semibold text-steel">{exerciseSummary.advanced}</span> : null}
                 </button>
@@ -13757,33 +13774,17 @@ function CoachTrainingPlanner({
                   type="button"
                 >
                   <Trash2 size={16} />
-                </button> : <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setExpandedStrengthExerciseId(exercise.id)} type="button">Editar</button>}
+                </button> : <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setExpandedStrengthExerciseId(exercise.id)} type="button">{isPrescriptionComplete ? "Editar" : "Completar"}</button>}
               </div>
               {isExpanded ? <>
               <div className="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-line bg-panel/30 p-2">
-                <label className="min-w-40 flex-1 text-xs font-semibold text-ink/55">
-                  Bloque de sesión
-                  <select
-                    className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink"
-                    onChange={(event) => updateStrengthExercise(exercise.id, {
-                      block: event.target.value === "complementary" ? "auxiliary" : event.target.value as StrengthSessionBlock,
-                      sessionBlock: event.target.value as SessionExerciseBlock
-                    })}
-                    value={exercise.sessionBlock ?? ""}
-                  >
-                    <option disabled value="">Sin clasificar</option>
-                    <option value="activation">Activación</option>
-                    <option value="main">Bloque principal</option>
-                    <option value="complementary">Complementario</option>
-                  </select>
-                </label>
-                <label className="min-w-44 flex-1 text-xs font-semibold text-ink/55">
+                {prescriptionRules.showRole ? <label className="min-w-44 flex-1 text-xs font-semibold text-ink/55">
                   Rol del ejercicio
                   <select className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" onChange={(event) => applyStrengthExerciseRole(exercise.id, event.target.value as PlanningPrescriptionRole | "")} value={exercise.prescriptionRole ?? ""}>
-                    <option value="">Sin rol / Legacy</option>
+                    <option disabled value="">Selecciona un rol</option>
                     {planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                   </select>
-                </label>
+                </label> : <p className="min-w-0 flex-1 text-xs font-medium text-ink/50">La sección Activación se aplica automáticamente.</p>}
                 {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
                 <div className="flex gap-1" aria-label="Orden del ejercicio">
                   <button aria-label="Subir ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, -1)} type="button">↑</button>
@@ -13966,20 +13967,21 @@ function CoachTrainingPlanner({
               ) : null}
               </> : null}
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                {prescriptionRules.showAdvancedByDefault ? <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Metodo
                   <select
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink outline-none focus:border-moss"
                     onChange={(event) =>
                       updateStrengthExercise(exercise.id, { intensityMethod: event.target.value as PlannedStrengthExerciseDraft["intensityMethod"] })
                     }
-                    value={exercise.intensityMethod || "rir"}
+                    value={exercise.intensityMethod ?? ""}
                   >
+                    <option value="">Sin método</option>
                     {strengthIntensityMethodOptions.filter((option) => exercise.prescriptionMode === "custom" || option.value === "rir" || option.value === "rpe").map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
-                </label>
+                </label> : null}
                 <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Series
                   <input
@@ -14004,7 +14006,7 @@ function CoachTrainingPlanner({
                     value={exercise.reps}
                   />
                 </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
+                {prescriptionRules.showAdvancedByDefault ? <><label className="space-y-1 text-xs font-semibold text-ink/55">
                   Carga
                   <div className="flex h-10 overflow-hidden rounded-md border border-line bg-panel/35 focus-within:border-moss">
                     <input
@@ -14076,7 +14078,7 @@ function CoachTrainingPlanner({
                       <span className="flex items-center bg-white px-2 text-xs font-semibold text-ink/50">m/s</span>
                     </div>
                   </label>
-                ) : (
+                ) : effectiveIntensityMethod === "rir" ? (
                   <label className="space-y-1 text-xs font-semibold text-ink/55">
                     RIR
                     <input
@@ -14090,7 +14092,7 @@ function CoachTrainingPlanner({
                       value={exercise.targetRir}
                     />
                   </label>
-                )}
+                ) : null}</> : null}
               </div>
               {exercise.prescriptionMode === "custom" ? <><div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 <button
