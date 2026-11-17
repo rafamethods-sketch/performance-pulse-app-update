@@ -79,7 +79,7 @@ import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
 import { formatExerciseTempo, isCompleteExerciseTempo, normalizeExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
-import { getContextualPrescriptionRules, isContextualPrescriptionComplete } from "@/lib/session-prescription";
+import { formatPrescriptionRest, getContextualPrescriptionRules, isContextualPrescriptionComplete, isPrescriptionIntensityInputAllowed } from "@/lib/session-prescription";
 import {
   getWeeklyCoachReview,
   getWeeklyReviewStyle,
@@ -1743,6 +1743,8 @@ function getSortedPerformanceTests(client?: CoachClient | null) {
   });
 }
 
+// Retained for client-context surfaces even though the session wizard no longer renders that summary.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getRecentPerformanceTestReferences(client?: CoachClient | null, sessionType?: CoachSessionType, sport?: ResistanceSport) {
   const entries = getSortedPerformanceTests(client);
   const sportCategories: PerformanceTestCategory[] =
@@ -1878,6 +1880,8 @@ function getCoachIntakeReview(client: CoachClient) {
   };
 }
 
+// Retained for client-context surfaces even though the session wizard no longer renders that summary.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function OnboardingSummaryCard({ client, compact = false, title = "Ficha inicial" }: { client: CoachClient; compact?: boolean; title?: string }) {
   const summary = getOnboardingSummary(client);
   const completion = getOnboardingCompletion(client);
@@ -13014,10 +13018,6 @@ function CoachTrainingPlanner({
   const selectedResistanceMethod = getResistanceMethodById(selectedResistanceMethodId);
   const resistanceSportProfiles = getSportZoneProfiles();
   const selectedResistanceZoneGuide = getResistanceZoneGuide(selectedResistanceSport, targetResistanceZoneId);
-  const recentPerformanceTestReferences = getRecentPerformanceTestReferences(activeSessionClient, sessionType, selectedResistanceSport);
-  const pinnedPlanningPrivateNotes = (activeSessionClient?.coachPrivateNotes ?? [])
-    .filter((note) => note.pinned && note.text.trim())
-    .slice(0, 3);
   const normalizedTemplateSearch = templateSearchTerm.trim().toLowerCase();
   const filterTemplate = (template: SessionTemplate) => {
     const matchesCategory = templateCategoryFilter === "Todas" || template.category === templateCategoryFilter;
@@ -13136,7 +13136,7 @@ function CoachTrainingPlanner({
         clusterConfig: exercise.clusterConfig ?? undefined,
         tempo: exercise.tempo ?? undefined,
         reps: String(exercise.plannedReps ?? ""),
-        rest: String(exercise.plannedRest ?? ""),
+        rest: formatPrescriptionRest(String(exercise.plannedRest ?? "")),
         selectedEquipment: exercise.selectedEquipment ?? "",
         selectedVariantId: exercise.selectedVariantId ?? "",
         selectedVariantName: exercise.selectedVariantName ?? "",
@@ -13322,7 +13322,7 @@ function CoachTrainingPlanner({
       prescriptionMode: "standard",
       prescriptionSource: "default",
       reps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
-      rest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
+      rest: formatPrescriptionRest(getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds)),
       sets: defaults.sets,
       tempo: undefined,
       targetRir: defaults.effortScale === "rpe" ? "" : getPrescriptionRange(defaults.rirMin, defaults.rirMax),
@@ -13625,6 +13625,7 @@ function CoachTrainingPlanner({
         bandColor: exercise.bandColor ?? "",
         bandResistance: exercise.bandResistance ?? "",
         percent1RM: exercise.percent1RM ?? "",
+        rest: formatPrescriptionRest(exercise.rest ?? ""),
         selectedEquipment: exercise.selectedEquipment ?? "",
         selectedVariantId: exercise.selectedVariantId ?? "",
         selectedVariantName: exercise.selectedVariantName ?? "",
@@ -13784,14 +13785,14 @@ function CoachTrainingPlanner({
                     <option disabled value="">Selecciona un rol</option>
                     {planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                   </select>
-                </label> : <p className="min-w-0 flex-1 text-xs font-medium text-ink/50">La sección Activación se aplica automáticamente.</p>}
+                </label> : null}
                 {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
                 <div className="flex gap-1" aria-label="Orden del ejercicio">
                   <button aria-label="Subir ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, -1)} type="button">↑</button>
                   <button aria-label="Bajar ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, 1)} type="button">↓</button>
                 </div>
               </div>
-              <div className="grid gap-3 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
+              <div>
                 <div className="space-y-1 text-xs font-semibold text-ink/55">
                   Ejercicio
                   <input
@@ -13831,16 +13832,16 @@ function CoachTrainingPlanner({
                     </div>
                   ) : null}
                 </div>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Observaciones
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
-                    placeholder="Notas del ejercicio"
-                    value={exercise.observation}
-                  />
-                </label>
               </div>
+              <details className="mt-3 rounded-md border border-line bg-panel/25 p-3">
+                <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">Observaciones · <span className="font-medium text-ink/40">Opcional{exercise.observation ? " · Con nota" : ""}</span></summary>
+                <textarea
+                  className="mt-3 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
+                  placeholder="Notas del ejercicio"
+                  value={exercise.observation}
+                />
+              </details>
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-xs font-semibold text-ink/45">Prescripción</span>
                 {(["standard", "custom"] as const).map((mode) => (
@@ -14027,9 +14028,10 @@ function CoachTrainingPlanner({
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-rest`}
                     onChange={(event) => updateStrengthPrescription(exercise.id, { rest: event.target.value })}
+                    onBlur={(event) => updateStrengthPrescription(exercise.id, { rest: formatPrescriptionRest(event.target.value) })}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "rest")}
                     inputMode="numeric"
-                    placeholder="02:30"
+                    placeholder="MM:SS"
                     value={exercise.rest}
                   />
                 </label>
@@ -14040,9 +14042,11 @@ function CoachTrainingPlanner({
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
                       inputMode="decimal"
-                      onChange={(event) => updateStrengthPrescription(exercise.id, { targetRpe: event.target.value })}
+                      onChange={(event) => {
+                        if (isPrescriptionIntensityInputAllowed(event.target.value, 1, 10)) updateStrengthPrescription(exercise.id, { targetRpe: event.target.value });
+                      }}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
-                      placeholder="0-10"
+                      placeholder="1-10"
                       type="text"
                       value={exercise.targetRpe}
                     />
@@ -14085,9 +14089,11 @@ function CoachTrainingPlanner({
                       className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                       data-planner-field={`${exercise.id}-intensity`}
                       inputMode="decimal"
-                      onChange={(event) => updateStrengthPrescription(exercise.id, { targetRir: event.target.value })}
+                      onChange={(event) => {
+                        if (isPrescriptionIntensityInputAllowed(event.target.value, 0, 6)) updateStrengthPrescription(exercise.id, { targetRir: event.target.value });
+                      }}
                       onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "intensity")}
-                      placeholder="RIR"
+                      placeholder="0-6"
                       type="text"
                       value={exercise.targetRir}
                     />
@@ -14252,7 +14258,7 @@ function CoachTrainingPlanner({
             <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
               <div>
                 <h2 className="text-xl font-semibold text-ink" id="session-planner-modal-title">{editingSessionId ? "Editar sesión" : "Crear sesión"}</h2>
-                <p className="mt-1 text-sm text-ink/55">{activeSessionClient.name} · Semana {selectedBlockWeek}{sessionDate ? ` · ${formatDisplayDate(sessionDate)}` : ""}</p>
+                <p className="mt-1 text-sm font-semibold text-moss">{activeSessionClient.name} · {currentBlockLabel || "Sin mesociclo"} · Semana {selectedBlockWeek}</p>
               </div>
               <button
                 aria-label="Cerrar planificador"
@@ -14279,54 +14285,6 @@ function CoachTrainingPlanner({
                   </button>
                 ))}
               </nav>
-              {sessionWizardStep === 0 ? <details className="rounded-md border border-line bg-white p-4">
-                <summary className="cursor-pointer list-none text-sm font-semibold text-ink">Contexto resumido del cliente</summary>
-                <div className="mt-4">
-                  <MenstrualCoachContextCard client={activeSessionClient} compact />
-                </div>
-                <div className="mt-4">
-                  <OnboardingSummaryCard client={activeSessionClient} compact title="Contexto del cliente" />
-                </div>
-                {pinnedPlanningPrivateNotes.length > 0 ? (
-                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs font-semibold uppercase text-ink/45">Notas internas fijadas</p>
-                      <span className="w-fit rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink/50">
-                        Solo entrenador
-                      </span>
-                    </div>
-                    <ul className="mt-2 space-y-2 text-sm text-ink/70">
-                      {pinnedPlanningPrivateNotes.map((note) => (
-                        <li className="rounded-md border border-line bg-white px-3 py-2" key={note.id}>
-                          {note.title ? <span className="font-semibold text-ink">{note.title}: </span> : null}
-                          {note.text}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {recentPerformanceTestReferences.length > 0 ? (
-                  <div className="mt-4 rounded-md border border-line bg-panel/35 p-3">
-                    <p className="text-xs font-semibold uppercase text-ink/45">Tests recientes</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {recentPerformanceTestReferences.map((entry) => (
-                        <span className="rounded-md border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink/65" key={entry.id}>
-                          {entry.testName}: {formatPerformanceTestValue(entry)} · {formatDisplayDate(entry.date)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </details> : null}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Planificar sesión</h2>
-          </div>
-          <span className="rounded-md bg-mint px-3 py-1 text-xs font-medium text-moss">
-            {sessionType}
-          </span>
-        </div>
-
         {activeSessionAccessInfo.status === "expired" ? (
           <div className="mt-4 rounded-md border border-line border-l-4 border-l-coral bg-panel/35 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -14341,8 +14299,9 @@ function CoachTrainingPlanner({
           </div>
         ) : null}
 
-        {sessionWizardStep === 0 ? <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-        <h3 className="font-semibold text-ink">Datos básicos</h3>
+        {sessionWizardStep === 0 ? <section className="rounded-md border border-line bg-panel/35 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-moss">{activeSessionClient.name} · {currentBlockLabel || "Sin mesociclo"} · Semana {selectedBlockWeek}</p>
+        <h3 className="mt-2 font-semibold text-ink">Datos básicos</h3>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label className="space-y-2 text-sm font-medium text-ink/75 xl:col-span-1">
             Nombre / resumen de la sesión
@@ -14370,16 +14329,11 @@ function CoachTrainingPlanner({
             </select>
           </label>
         </div>
-        <p className="mt-3 text-xs text-ink/45">{activeSessionClient.name} · {currentBlockLabel || "Sin mesociclo"} · Semana {selectedBlockWeek}</p>
         </section> : null}
 
-        {sessionWizardStep === 0 ? <details className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-ink">Plantillas y opciones de sesión</summary>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="font-semibold text-ink">Plantillas de sesión</h3>
-              <p className="mt-1 text-sm text-ink/55">Carga una plantilla del sistema o reutiliza una plantilla propia.</p>
-            </div>
+        {sessionWizardStep === 0 ? <section className="mt-4 rounded-md border border-line bg-panel/35 p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-sm font-semibold text-ink">Plantillas de sesión</h3>
             <div className="flex flex-wrap gap-2">
               <button
                 className="inline-flex w-fit items-center justify-center rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink/70"
@@ -14541,7 +14495,7 @@ function CoachTrainingPlanner({
               </div>
             </div>
           ) : null}
-        </details> : null}
+        </section> : null}
 
         {sessionType === "Fuerza" ? (
           <>
@@ -14856,15 +14810,15 @@ function CoachTrainingPlanner({
           </div>
         ) : null}
 
-        {sessionWizardStep < 4 ? <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-          <label className="space-y-2 text-sm font-medium text-ink/75">
-            Observaciones finales
+        {sessionWizardStep < 4 ? <details className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-ink/70">Observaciones finales · <span className="font-medium text-ink/45">Opcional</span></summary>
+          <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
             <textarea
               className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-3 text-ink outline-none focus:border-moss"
               placeholder="Notas finales de la sesión"
             />
           </label>
-        </section> : null}
+        </details> : null}
 
 
         <footer className="sticky bottom-0 z-10 mt-5 flex items-center justify-between gap-3 border-t border-line bg-white/95 py-4 backdrop-blur">

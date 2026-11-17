@@ -59,10 +59,58 @@ function hasValue(value?: string) {
   return Boolean(value?.trim());
 }
 
+function parseBoundedValue(value: string) {
+  return Number(value.trim().replace(",", "."));
+}
+
+export function isPrescriptionIntensityValueValid(value: string | undefined, min: number, max: number) {
+  if (!hasValue(value)) return false;
+  const parts = value!.trim().split(/\s*[-–]\s*/);
+  if (parts.length > 2 || parts.some((part) => !part.trim())) return false;
+  return parts.every((part) => {
+    const parsed = parseBoundedValue(part);
+    return Number.isFinite(parsed) && parsed >= min && parsed <= max;
+  });
+}
+
+export function isPrescriptionIntensityInputAllowed(value: string, min: number, max: number) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^\d+(?:[.,]\d+)?[-–]?$/.test(trimmed)) {
+    const first = parseBoundedValue(trimmed.replace(/[-–]$/, ""));
+    return Number.isFinite(first) && first >= min && first <= max;
+  }
+  return isPrescriptionIntensityValueValid(trimmed, min, max);
+}
+
+function formatRestSeconds(seconds: number) {
+  const wholeSeconds = Math.max(0, Math.round(seconds));
+  return `${String(Math.floor(wholeSeconds / 60)).padStart(2, "0")}:${String(wholeSeconds % 60).padStart(2, "0")}`;
+}
+
+export function formatPrescriptionRest(value?: string): string {
+  const raw = value?.trim();
+  if (!raw) return "";
+  const clock = raw.match(/^(\d+):(\d{2})\s*(?:s|seg|sec)?$/i);
+  if (clock && Number(clock[2]) < 60) return `${clock[1].padStart(2, "0")}:${clock[2]}`;
+
+  const range = raw.split(/\s*[-–]\s*/);
+  if (range.length === 2) {
+    const formatted = range.map((part) => formatPrescriptionRest(part));
+    return formatted.every(Boolean) ? formatted.join("–") : raw;
+  }
+
+  const minutes = raw.match(/^(\d+(?:[.,]\d+)?)\s*min$/i);
+  if (minutes) return formatRestSeconds(Number(minutes[1].replace(",", ".")) * 60);
+  const seconds = raw.match(/^(\d+(?:[.,]\d+)?)\s*(?:s|seg|sec)?$/i);
+  if (seconds) return formatRestSeconds(Number(seconds[1].replace(",", ".")));
+  return raw;
+}
+
 function hasIntensityValue(exercise: ContextualPrescriptionDraft) {
   switch (exercise.intensityMethod) {
     case "rpe":
-      return hasValue(exercise.targetRpe);
+      return isPrescriptionIntensityValueValid(exercise.targetRpe, 1, 10);
     case "percent_1rm":
       return hasValue(exercise.percent1RM);
     case "velocity":
@@ -71,7 +119,7 @@ function hasIntensityValue(exercise: ContextualPrescriptionDraft) {
     case "external_load":
       return hasValue(exercise.load);
     case "rir":
-      return hasValue(exercise.targetRir);
+      return isPrescriptionIntensityValueValid(exercise.targetRir, 0, 6);
     default:
       return true;
   }
