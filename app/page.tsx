@@ -12447,7 +12447,7 @@ const setMethodOptions: Array<{ description: string; id: SetMethod; label: strin
   { description: "Misma estructura entre series", id: "straight", label: "Lineal", visual: "▆ ▆ ▆ ▆" },
   { description: "Evolución progresiva", id: "ascending", label: "Ascendente", visual: "▂ ▄ ▆ █" },
   { description: "Evolución descendente", id: "descending", label: "Descendente", visual: "█ ▆ ▄ ▂" },
-  { description: "Repeticiones agrupadas con pausas breves", id: "cluster", label: "Cluster", visual: "▮▮ · ▮▮ · ▮▮" }
+  { description: "Repeticiones agrupadas", id: "cluster", label: "Cluster", visual: "▮▮ · ▮▮ · ▮▮" }
 ];
 
 function getSetMethodLabel(method?: SetMethod | null) {
@@ -13011,7 +13011,6 @@ function CoachTrainingPlanner({
   const [strengthExercises, setStrengthExercises] = useState<PlannedStrengthExerciseDraft[]>([]);
   const [expandedStrengthExerciseId, setExpandedStrengthExerciseId] = useState("");
   const [showAthleteSessionPreview, setShowAthleteSessionPreview] = useState(false);
-  const [openSetMethodExerciseId, setOpenSetMethodExerciseId] = useState("");
   const [collapsedStrengthBlocks, setCollapsedStrengthBlocks] = useState<Record<StrengthSessionBlock, boolean>>({
     activation: false,
     auxiliary: false,
@@ -13838,7 +13837,7 @@ function CoachTrainingPlanner({
                 </div>
               </div>
               {isExpanded ? <>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-line bg-panel/20 p-2">
                 {prescriptionRules.showRole ? <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
                   Rol
                   <select className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink" onChange={(event) => applyStrengthExerciseRole(exercise.id, event.target.value as PlanningPrescriptionRole | "")} value={exercise.prescriptionRole ?? ""}>
@@ -13846,54 +13845,10 @@ function CoachTrainingPlanner({
                     {planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                   </select>
                 </label> : null}
-                {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
-              </div>
-              {exercise.exerciseId ? <details className="mb-3">
-                <summary className="w-fit cursor-pointer list-none text-xs font-semibold text-moss">Cambiar ejercicio</summary>
-                <div className="mt-2 space-y-1 text-xs font-semibold text-ink/55">
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                    onChange={(event) =>
-                      updateStrengthExercise(exercise.id, {
-                        bandColor: "",
-                        bandResistance: "",
-                        exerciseId: "",
-                        exerciseSearch: event.target.value,
-                        selectedEquipment: "",
-                        selectedVariantId: "",
-                        selectedVariantName: ""
-                      })
-                    }
-                    placeholder="Buscar ejercicio..."
-                    type="search"
-                    value={exercise.exerciseSearch}
-                  />
-                  {exercise.exerciseSearch && !exercise.exerciseId ? (
-                    <div className="mt-2 max-h-56 overflow-y-auto rounded-md border border-line bg-white shadow-soft">
-                      {exerciseSuggestions.length > 0 ? exerciseSuggestions.map((libraryExercise) => (
-                        <button
-                          className="block w-full border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
-                          key={libraryExercise.id}
-                          onClick={() => selectStrengthLibraryExercise(exercise.id, libraryExercise)}
-                          type="button"
-                        >
-                          <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
-                          <span className="mt-0.5 block text-xs font-medium text-ink/55">
-                            {libraryExercise.pattern} · {libraryExercise.block} · {libraryExercise.equipment.join(" / ")}
-                          </span>
-                        </button>
-                      )) : (
-                        <p className="px-3 py-3 text-sm font-medium text-ink/50">Sin coincidencias.</p>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </details> : null}
-              <div className="mt-3 flex items-center gap-2">
                 <span className="text-xs font-semibold text-ink/45">Prescripción</span>
                 {(["standard", "custom"] as const).map((mode) => (
                   <button
-                    className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${(exercise.prescriptionMode ?? "standard") === mode ? "border-ink bg-ink text-white" : "border-line bg-panel/35 text-ink/60"}`}
+                    className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${(exercise.prescriptionMode ?? "standard") === mode ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/60"}`}
                     key={mode}
                     onClick={() => updateStrengthExercise(exercise.id, { prescriptionMode: mode })}
                     type="button"
@@ -13901,83 +13856,57 @@ function CoachTrainingPlanner({
                     {mode === "standard" ? "Estándar" : "Personalizado"}
                   </button>
                 ))}
+                {equipmentOptions.length > 1 ? (
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
+                    Material
+                    <select
+                      className="h-8 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                      onChange={(event) => {
+                        const currentVariant = libraryVariants.find((variant) => variant.id === exercise.selectedVariantId);
+                        const variantSupportsEquipment = !currentVariant?.equipment?.length || currentVariant.equipment.includes(event.target.value);
+                        updateStrengthExercise(exercise.id, {
+                          bandColor: isElasticBandEquipment(event.target.value) ? exercise.bandColor ?? "" : "",
+                          bandResistance: isElasticBandEquipment(event.target.value) ? exercise.bandResistance ?? "" : "",
+                          selectedEquipment: event.target.value,
+                          selectedVariantId: variantSupportsEquipment ? exercise.selectedVariantId : "",
+                          selectedVariantName: variantSupportsEquipment ? exercise.selectedVariantName : ""
+                        });
+                      }}
+                      value={selectedEquipmentValue}
+                    >
+                      <option value="">Seleccionar</option>
+                      {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                {selectableVariants.length ? (
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
+                    Variante
+                    <select
+                      className="h-8 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                      onChange={(event) => {
+                        const variant = selectableVariants.find((item) => item.id === event.target.value);
+                        updateStrengthExercise(exercise.id, {
+                          selectedEquipment: variant?.equipment?.length === 1 ? variant.equipment[0] : exercise.selectedEquipment,
+                          selectedVariantId: variant?.id ?? "",
+                          selectedVariantName: variant?.name ?? ""
+                        });
+                      }}
+                      value={selectedVariant?.id ?? ""}
+                    >
+                      <option value="">Sin variante</option>
+                      {sortExerciseVariantsByDifficulty(selectableVariants).map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                {isElasticBandEquipment(selectedEquipmentValue) ? <>
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">Color<select className="h-8 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink" onChange={(event) => updateStrengthExercise(exercise.id, { bandColor: event.target.value })} value={exercise.bandColor ?? ""}><option value="">Sin especificar</option>{bandColorOptions.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">Resistencia<input className="h-8 w-32 rounded-md border border-line bg-white px-2 text-xs font-semibold text-ink" onChange={(event) => updateStrengthExercise(exercise.id, { bandResistance: event.target.value })} placeholder="Ligera, 15-25 kg..." value={exercise.bandResistance ?? ""} /></label>
+                </> : null}
+                {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
               </div>
-              {exercise.prescriptionMode === "custom" ? <>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Enlace vídeo técnico
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { videoUrl: event.target.value })}
-                    placeholder="https://..."
-                    type="url"
-                    value={exercise.videoUrl ?? ""}
-                  />
-                </label>
-                <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Clave técnica para el deportista
-                  <input
-                    className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss"
-                    onChange={(event) => updateStrengthExercise(exercise.id, { videoNote: event.target.value })}
-                    placeholder="Mantén columna neutra y controla la fase excéntrica."
-                    type="text"
-                    value={exercise.videoNote ?? ""}
-                  />
-                </label>
-                <p className="text-xs font-medium text-ink/45 md:col-span-2">
-                  Los vídeos se guardan como enlaces. La app no sube archivos ni analiza automáticamente el movimiento.
-                </p>
-              </div>
-              </> : null}
-              {selectedLibraryExercise && (equipmentOptions.length > 0 || selectedLibraryExercise.variants?.length) ? (
+              {selectedLibraryExercise && selectedVariant ? (
                 <div className="mt-3 flex flex-wrap items-start gap-3">
-                  {equipmentOptions.length > 1 ? (
-                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
-                      Material
-                      <select
-                        className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
-                        onChange={(event) => {
-                          const currentVariant = libraryVariants.find((variant) => variant.id === exercise.selectedVariantId);
-                          const variantSupportsEquipment = !currentVariant?.equipment?.length || currentVariant.equipment.includes(event.target.value);
-                          updateStrengthExercise(exercise.id, {
-                            bandColor: isElasticBandEquipment(event.target.value) ? exercise.bandColor ?? "" : "",
-                            bandResistance: isElasticBandEquipment(event.target.value) ? exercise.bandResistance ?? "" : "",
-                            selectedEquipment: event.target.value,
-                            selectedVariantId: variantSupportsEquipment ? exercise.selectedVariantId : "",
-                            selectedVariantName: variantSupportsEquipment ? exercise.selectedVariantName : ""
-                          });
-                        }}
-                        value={selectedEquipmentValue}
-                      >
-                        <option value="">Seleccionar material</option>
-                        {equipmentOptions.map((equipment) => (
-                          <option key={equipment} value={equipment}>{equipment}</option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                  {selectableVariants.length ? (
-                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
-                      Variante
-                      <select
-                        className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
-                        onChange={(event) => {
-                          const variant = selectableVariants.find((item) => item.id === event.target.value);
-                          updateStrengthExercise(exercise.id, {
-                            selectedEquipment: variant?.equipment?.length === 1 ? variant.equipment[0] : exercise.selectedEquipment,
-                            selectedVariantId: variant?.id ?? "",
-                            selectedVariantName: variant?.name ?? ""
-                          });
-                        }}
-                        value={selectedVariant?.id ?? ""}
-                      >
-                        <option value="">Sin variante específica</option>
-                        {sortExerciseVariantsByDifficulty(selectableVariants).map((variant) => (
-                          <option key={variant.id} value={variant.id}>{variant.name}</option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
                   {selectedVariant ? (
                     <div className="basis-full rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65">
                       <p className="font-semibold text-ink">
@@ -13990,38 +13919,11 @@ function CoachTrainingPlanner({
                       ) : null}
                     </div>
                   ) : null}
-                  {isElasticBandEquipment(selectedEquipmentValue) ? (
-                    <div className="grid basis-full gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2">
-                      <label className="space-y-1 text-xs font-semibold text-ink/55">
-                        Color de la banda
-                        <select
-                          className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                          onChange={(event) => updateStrengthExercise(exercise.id, { bandColor: event.target.value })}
-                          value={exercise.bandColor ?? ""}
-                        >
-                          <option value="">Sin especificar</option>
-                          {bandColorOptions.map((color) => (
-                            <option key={color} value={color}>{color}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="space-y-1 text-xs font-semibold text-ink/55">
-                        Resistencia de la banda
-                        <input
-                          className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                          onChange={(event) => updateStrengthExercise(exercise.id, { bandResistance: event.target.value })}
-                          placeholder="Ligera, media, fuerte, 15-25 kg..."
-                          type="text"
-                          value={exercise.bandResistance ?? ""}
-                        />
-                      </label>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
                 {prescriptionRules.showAdvancedByDefault ? <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Metodo
+                  Método
                   <select
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink outline-none focus:border-moss"
                     onChange={(event) =>
@@ -14152,55 +14054,56 @@ function CoachTrainingPlanner({
                   </label>
                 ) : null}</> : null}
               </div>
-              {exercise.prescriptionMode === "custom" ? <><div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                <button
-                  className="rounded-md border border-line bg-panel/35 px-3 py-2 text-xs font-semibold text-ink/65"
-                  onClick={() => setOpenSetMethodExerciseId((current) => current === exercise.id ? "" : exercise.id)}
-                  type="button"
-                >
-                  Método · {getSetMethodLabel(exercise.setMethod)}{formatExerciseTempo(exercise.tempo) ? ` · Tempo ${formatExerciseTempo(exercise.tempo)}` : ""}
-                </button>
-                {exercise.reps ? (
-                  <details className="group min-w-0 flex-1">
-                    <summary className="cursor-pointer list-none text-xs font-semibold text-steel">{exercise.reps} reps · Ver perfil</summary>
-                    <div className="mt-2"><RepetitionSpectrum reps={exercise.reps} /></div>
-                  </details>
-                ) : null}
-              </div>
-              {openSetMethodExerciseId === exercise.id ? (
-                <div className="mt-3 rounded-md border border-line bg-panel/25 p-3">
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    {setMethodOptions.map((option) => (
+              {exercise.prescriptionMode === "custom" ? <section className="mt-3 border-t border-line pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-ink/60">Estructura de series</p>
+                  {exercise.reps ? (
+                    <details className="group min-w-0">
+                      <summary className="cursor-pointer list-none text-xs font-semibold text-steel">{exercise.reps} reps · Ver perfil</summary>
+                      <div className="mt-2"><RepetitionSpectrum reps={exercise.reps} /></div>
+                    </details>
+                  ) : null}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 xl:grid-cols-4">
+                  {setMethodOptions.map((option) => {
+                    const active = (exercise.setMethod ?? "straight") === option.id;
+                    const heights = option.id === "ascending" ? [7, 12, 17, 22] : option.id === "descending" ? [22, 17, 12, 7] : [16, 16, 16, 16];
+                    return (
                       <button
-                        className={`rounded-md border p-3 text-left transition ${(exercise.setMethod ?? "straight") === option.id ? "border-ink bg-ink text-white" : "border-line bg-white text-ink"}`}
+                        className={`flex min-h-24 flex-col rounded-md border p-2.5 text-left transition ${active ? "border-ink bg-ink text-white" : "border-line bg-white text-ink"}`}
                         key={option.id}
                         onClick={() => changeStrengthSetMethod(exercise.id, option.id)}
                         type="button"
                       >
-                        <span className="block text-xs font-semibold uppercase">{option.label}</span>
-                        <span className="mt-2 block font-mono text-base tracking-wider">{option.visual}</span>
-                        <span className={`mt-1 block text-xs ${(exercise.setMethod ?? "straight") === option.id ? "text-white/65" : "text-ink/50"}`}>{option.description}</span>
+                        <span className="text-xs font-semibold">{option.label}</span>
+                        <span className="mt-2 flex h-6 items-end gap-1" aria-hidden="true">
+                          {option.id === "cluster" ? [0, 1, 2].map((group) => (
+                            <span className="flex items-end gap-0.5" key={group}>
+                              <span className={`h-4 w-1.5 rounded-sm ${active ? "bg-white/85" : "bg-steel/70"}`} />
+                              <span className={`h-4 w-1.5 rounded-sm ${active ? "bg-white/85" : "bg-steel/70"}`} />
+                              {group < 2 ? <span className={`mx-0.5 mb-1 size-1 rounded-full ${active ? "bg-white/45" : "bg-ink/25"}`} /> : null}
+                            </span>
+                          )) : heights.map((height, index) => <span className={`w-1.5 rounded-sm ${active ? "bg-white/85" : "bg-steel/70"}`} key={index} style={{ height }} />)}
+                        </span>
+                        <span className={`mt-auto pt-1 text-[11px] leading-tight ${active ? "text-white/65" : "text-ink/50"}`}>{option.description}</span>
                       </button>
+                    );
+                  })}
+                </div>
+                {(exercise.setMethod === "ascending" || exercise.setMethod === "descending") ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {Array.from({ length: Math.max(1, Number.parseInt(exercise.sets, 10) || exercise.plannedSetReps?.length || 4) }, (_, index) => (
+                      <label className="w-20 text-[10px] font-semibold text-ink/45" key={index}>Serie {index + 1}<input className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updatePlannedSetSequence(exercise.id, index, event.target.value)} value={exercise.plannedSetReps?.[index] ?? ""} /></label>
                     ))}
                   </div>
-                  {(exercise.setMethod === "ascending" || exercise.setMethod === "descending") ? (
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-ink/55">Repeticiones por serie</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {Array.from({ length: Math.max(1, Number.parseInt(exercise.sets, 10) || exercise.plannedSetReps?.length || 4) }, (_, index) => (
-                          <label className="w-20 text-[10px] font-semibold text-ink/45" key={index}>Serie {index + 1}<input className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updatePlannedSetSequence(exercise.id, index, event.target.value)} value={exercise.plannedSetReps?.[index] ?? ""} /></label>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {exercise.setMethod === "cluster" ? (
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-ink/55">Estructura cluster<input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, repsPerMiniSet: event.target.value.split("+").map((value) => value.trim()).filter(Boolean) } })} placeholder="2+2+2" value={(exercise.clusterConfig?.repsPerMiniSet ?? []).join("+")} /></label>
-                      <label className="text-xs font-semibold text-ink/55">Pausa intra-cluster<input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, intraClusterRestSeconds: event.target.value } })} placeholder="20 s" value={exercise.clusterConfig?.intraClusterRestSeconds ?? ""} /></label>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                ) : null}
+                {exercise.setMethod === "cluster" ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label className="text-xs font-semibold text-ink/55">Estructura cluster<input className="mt-1 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, repsPerMiniSet: event.target.value.split("+").map((value) => value.trim()).filter(Boolean) } })} placeholder="2+2+2" value={(exercise.clusterConfig?.repsPerMiniSet ?? []).join("+")} /></label>
+                    <label className="text-xs font-semibold text-ink/55">Pausa intra-cluster<input className="mt-1 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink" inputMode="numeric" onChange={(event) => updateStrengthPrescription(exercise.id, { clusterConfig: { ...exercise.clusterConfig, intraClusterRestSeconds: event.target.value } })} placeholder="20 s" value={exercise.clusterConfig?.intraClusterRestSeconds ?? ""} /></label>
+                  </div>
+                ) : null}
+              </section> : null}
               <details className="mt-3 border-t border-line pt-3">
                 <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">
                   Más opciones{exercise.tempo ? ` · Tempo ${formatExerciseTempo(exercise.tempo) || "incompleto"}` : ""}
@@ -14229,7 +14132,16 @@ function CoachTrainingPlanner({
                     />
                   ) : null}
                 </div>
-              </details></> : null}
+              </details>
+              <details className="mt-3 border-t border-line pt-3">
+                <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">
+                  Información para el deportista · <span className="font-medium text-ink/40">Opcional{exercise.videoUrl || exercise.videoNote ? " · Con contenido" : ""}</span>
+                </summary>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">Enlace vídeo técnico<input className="h-9 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss" onChange={(event) => updateStrengthExercise(exercise.id, { videoUrl: event.target.value })} placeholder="https://..." type="url" value={exercise.videoUrl ?? ""} /></label>
+                  <label className="space-y-1 text-xs font-semibold text-ink/55">Clave técnica para el deportista<input className="h-9 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-medium text-ink outline-none focus:border-moss" onChange={(event) => updateStrengthExercise(exercise.id, { videoNote: event.target.value })} placeholder="Mantén columna neutra y controla la fase excéntrica." type="text" value={exercise.videoNote ?? ""} /></label>
+                </div>
+              </details>
               <details className="mt-3 rounded-md border border-line bg-panel/25 p-3">
                 <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">Observaciones · <span className="font-medium text-ink/40">Opcional{exercise.observation ? " · Con nota" : ""}</span></summary>
                 <textarea
