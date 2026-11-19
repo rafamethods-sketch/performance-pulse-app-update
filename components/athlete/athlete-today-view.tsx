@@ -5,6 +5,11 @@ import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
+import {
+  getExerciseGroupPosition,
+  getGroupLabel,
+  type ExerciseGroup
+} from "@/lib/session-exercise-groups";
 import { SessionPlanVsActual } from "@/components/shared/session-plan-vs-actual";
 import type { ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
@@ -69,6 +74,7 @@ type AthleteExercise = {
   bandResistance?: string | null;
   block?: string | null;
   exerciseId?: string | null;
+  exerciseGroupId?: string | null;
   exerciseName?: string | null;
   exerciseRpe?: number | string | null;
   exerciseEffort?: SessionExerciseEffort | null;
@@ -133,6 +139,7 @@ type AthleteSessionRecord = {
   finalNotes?: string | null;
   finalRpe?: number | string | null;
   discomfort?: AthleteSessionDiscomfort;
+  exerciseGroups?: ExerciseGroup[];
   performedExercises?: AthleteExercise[];
   plannedExercises?: AthleteExercise[];
   resistanceMethodId?: string;
@@ -1336,7 +1343,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                         .map((exercise, index) => ({ exercise, index }))
                         .filter(({ exercise }) => getAthleteExerciseBlockKey(exercise) === block.key);
                       const isOpen = openExerciseBlock === block.key;
-                      const exerciseGroups = block.key === "activation"
+                      const presentationGroups = block.key === "activation"
                         ? getAthleteActivationGroups(blockExercises)
                         : [{ key: block.key, label: "", exercises: blockExercises }];
                       const completionExercises = blockExercises.filter(({ exercise }) => getSessionExerciseExecutionMode(exercise) === "completion_only");
@@ -1381,11 +1388,14 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                           </button>
                           {isOpen ? (
                             <div className="mt-3 grid gap-4">
-                              {exerciseGroups.map((group) => (
+                              {presentationGroups.map((group) => (
                                 <div className="grid gap-3" key={group.key}>
                                   {group.label ? <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-ink/45">{group.label}</h4> : null}
                                   {group.exercises.map(({ exercise, index }) => {
                                     const exerciseKey = getAthleteExerciseUiKey(exercise, index);
+                                    const explicitGroup = exercise.exerciseGroupId ? session.exerciseGroups?.find((candidate) => candidate.id === exercise.exerciseGroupId) : undefined;
+                                    const explicitGroupLabel = explicitGroup ? getGroupLabel(session.exerciseGroups, explicitGroup.id, explicitGroup.sessionBlock, performedExercises) : "";
+                                    const explicitGroupPosition = explicitGroup ? getExerciseGroupPosition(performedExercises, exercise) : null;
                                     return (
                                     <AthleteExerciseCard
                                       exercise={exercise}
@@ -1393,6 +1403,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                       isFinished={finishedExerciseKeys.has(exerciseKey)}
                                       isOpen={openExerciseKey === exerciseKey}
                                       key={exerciseKey}
+                                      navigationLabel={explicitGroup && explicitGroupPosition ? `${explicitGroupLabel}${explicitGroupPosition}` : undefined}
                                       onFinish={() => finishExercise(index)}
                                       onOpen={() => setOpenExerciseKey((current) => current === exerciseKey ? null : exerciseKey)}
                                       onUpdateExecution={persistExerciseExecution}
@@ -1829,7 +1840,7 @@ function AthleteSessionPreviewModal({
         ) : null}
 
         <div className="mt-5">
-          <AthleteSessionPlan exercises={session.plannedExercises ?? []} />
+          <AthleteSessionPlan exerciseGroups={session.exerciseGroups} exercises={session.plannedExercises ?? []} />
         </div>
       </section>
     </div>
@@ -2037,11 +2048,12 @@ function getUpdatedExerciseFromSetDetails(exercise: AthleteExercise, setDetails:
   return updates;
 }
 
-function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
+function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLabel, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
   exercise: AthleteExercise;
   index: number;
   isFinished: boolean;
   isOpen: boolean;
+  navigationLabel?: string;
   onFinish: () => void;
   onOpen: () => void;
   onToggleCompletion: (index: number, completed: boolean) => void;
@@ -2258,7 +2270,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, onFinish, on
           {isFinished || exerciseCompleted ? "✓" : "•"}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-ink">{exerciseName}</span>
+          <span className="block truncate text-sm font-semibold text-ink">{navigationLabel ? <span className="mr-2 text-xs text-moss">{navigationLabel}</span> : null}{exerciseName}</span>
           <span className="mt-0.5 block text-xs text-ink/50">
             {completionOnly ? exerciseStatus : `${resolvedPlannedSets}/${plannedSetCount} series · ${exercise.exerciseEffort ? `${exercise.exerciseEffort.type.toUpperCase()} ${exercise.exerciseEffort.value}` : "RPE —"}`}
           </span>
