@@ -102,6 +102,11 @@ export function formatPrescriptionRest(value?: string): string {
 
   const minutes = raw.match(/^(\d+(?:[.,]\d+)?)\s*min$/i);
   if (minutes) return formatRestSeconds(Number(minutes[1].replace(",", ".")) * 60);
+  const compactClock = raw.match(/^\d{3,4}$/);
+  if (compactClock) {
+    const seconds = Number(raw.slice(-2));
+    if (seconds < 60) return `${raw.slice(0, -2).padStart(2, "0")}:${raw.slice(-2)}`;
+  }
   const seconds = raw.match(/^(\d+(?:[.,]\d+)?)\s*(?:s|seg|sec)?$/i);
   if (seconds) return formatRestSeconds(Number(seconds[1].replace(",", ".")));
   return raw;

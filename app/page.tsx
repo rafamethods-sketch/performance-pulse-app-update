@@ -12412,6 +12412,11 @@ type PlannedStrengthExerciseDraft = {
   videoUrl?: string;
 };
 type SessionTemplateExercise = PlannedStrengthExerciseDraft;
+const equipmentOnlySessionVariantIds = new Set([
+  "push-press-variant-dumbbells",
+  "push-press-variant-kettlebells",
+  "push-press-variant-landmine"
+]);
 type SessionTemplateCategory = "Fuerza" | "Potencia" | "Resistencia" | "Mixto" | "Recuperación";
 type SessionTemplate = {
   cardioPlanDraft?: CardioPlanDraft;
@@ -13753,9 +13758,18 @@ function CoachTrainingPlanner({
             const exerciseSuggestions = searchExercises(exercise.exerciseSearch, { section: sessionSection });
             const selectedLibraryExercise = getExerciseById(exercise.exerciseId);
             const effectiveIntensityMethod = exercise.intensityMethod ?? "";
-            const equipmentOptions = selectedLibraryExercise?.equipment ?? [];
-            const selectedVariant =
-              selectedLibraryExercise?.variants?.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
+            const libraryVariants = selectedLibraryExercise?.variants ?? [];
+            const equipmentOptions = Array.from(new Set([
+              ...(selectedLibraryExercise?.equipment ?? []),
+              ...libraryVariants.flatMap((variant) => variant.equipment ?? [])
+            ]));
+            const selectedEquipmentOnlyVariant = libraryVariants.find((variant) =>
+              equipmentOnlySessionVariantIds.has(variant.id) &&
+              (variant.id === exercise.selectedVariantId || (!exercise.selectedVariantId && variant.name === exercise.selectedVariantName))
+            ) ?? null;
+            const selectableVariants = libraryVariants.filter((variant) => !equipmentOnlySessionVariantIds.has(variant.id));
+            const selectedVariant = selectableVariants.find((variant) => variant.id === exercise.selectedVariantId) ?? null;
+            const selectedEquipmentValue = selectedEquipmentOnlyVariant?.equipment?.[0] ?? exercise.selectedEquipment ?? "";
             const isExpanded = expandedStrengthExerciseId === exercise.id;
             const exerciseSummary = getExerciseSummaryLine(exercise);
             const prescriptionRules = getContextualPrescriptionRules(exercise.sessionBlock);
@@ -13778,6 +13792,7 @@ function CoachTrainingPlanner({
                       {!isPrescriptionComplete ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Prescripción incompleta</span> : null}
                       {exerciseSummary.prescription ? <span className="mt-1 block text-sm font-medium text-ink/65">{exerciseSummary.prescription}</span> : null}
                       {exerciseSummary.advanced ? <span className="mt-1 block text-xs font-semibold text-steel">{exerciseSummary.advanced}</span> : null}
+                      {!isExpanded && exercise.observation ? <span className="mt-1 block truncate text-xs font-medium text-ink/55">Nota · {exercise.observation}</span> : null}
                     </button>
                   ) : (
                     <div>
@@ -13833,9 +13848,9 @@ function CoachTrainingPlanner({
                 </label> : null}
                 {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
               </div>
-              {exercise.exerciseId ? <div>
-                <div className="space-y-1 text-xs font-semibold text-ink/55">
-                  Ejercicio
+              {exercise.exerciseId ? <details className="mb-3">
+                <summary className="w-fit cursor-pointer list-none text-xs font-semibold text-moss">Cambiar ejercicio</summary>
+                <div className="mt-2 space-y-1 text-xs font-semibold text-ink/55">
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     onChange={(event) =>
@@ -13873,7 +13888,7 @@ function CoachTrainingPlanner({
                     </div>
                   ) : null}
                 </div>
-              </div> : null}
+              </details> : null}
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-xs font-semibold text-ink/45">Prescripción</span>
                 {(["standard", "custom"] as const).map((mode) => (
@@ -13913,21 +13928,26 @@ function CoachTrainingPlanner({
                   Los vídeos se guardan como enlaces. La app no sube archivos ni analiza automáticamente el movimiento.
                 </p>
               </div>
+              </> : null}
               {selectedLibraryExercise && (equipmentOptions.length > 0 || selectedLibraryExercise.variants?.length) ? (
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {equipmentOptions.length > 0 ? (
-                    <label className="space-y-1 text-xs font-semibold text-ink/55">
+                <div className="mt-3 flex flex-wrap items-start gap-3">
+                  {equipmentOptions.length > 1 ? (
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
                       Material
                       <select
-                        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
-                        onChange={(event) =>
+                        className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
+                        onChange={(event) => {
+                          const currentVariant = libraryVariants.find((variant) => variant.id === exercise.selectedVariantId);
+                          const variantSupportsEquipment = !currentVariant?.equipment?.length || currentVariant.equipment.includes(event.target.value);
                           updateStrengthExercise(exercise.id, {
                             bandColor: isElasticBandEquipment(event.target.value) ? exercise.bandColor ?? "" : "",
                             bandResistance: isElasticBandEquipment(event.target.value) ? exercise.bandResistance ?? "" : "",
-                            selectedEquipment: event.target.value
-                          })
-                        }
-                        value={exercise.selectedEquipment ?? ""}
+                            selectedEquipment: event.target.value,
+                            selectedVariantId: variantSupportsEquipment ? exercise.selectedVariantId : "",
+                            selectedVariantName: variantSupportsEquipment ? exercise.selectedVariantName : ""
+                          });
+                        }}
+                        value={selectedEquipmentValue}
                       >
                         <option value="">Seleccionar material</option>
                         {equipmentOptions.map((equipment) => (
@@ -13936,29 +13956,30 @@ function CoachTrainingPlanner({
                       </select>
                     </label>
                   ) : null}
-                  {selectedLibraryExercise.variants?.length ? (
-                    <label className="space-y-1 text-xs font-semibold text-ink/55">
+                  {selectableVariants.length ? (
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
                       Variante
                       <select
-                        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                        className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink outline-none focus:border-moss"
                         onChange={(event) => {
-                          const variant = selectedLibraryExercise.variants?.find((item) => item.id === event.target.value);
+                          const variant = selectableVariants.find((item) => item.id === event.target.value);
                           updateStrengthExercise(exercise.id, {
+                            selectedEquipment: variant?.equipment?.length === 1 ? variant.equipment[0] : exercise.selectedEquipment,
                             selectedVariantId: variant?.id ?? "",
                             selectedVariantName: variant?.name ?? ""
                           });
                         }}
-                        value={exercise.selectedVariantId ?? ""}
+                        value={selectedVariant?.id ?? ""}
                       >
                         <option value="">Sin variante específica</option>
-                        {sortExerciseVariantsByDifficulty(selectedLibraryExercise.variants).map((variant) => (
+                        {sortExerciseVariantsByDifficulty(selectableVariants).map((variant) => (
                           <option key={variant.id} value={variant.id}>{variant.name}</option>
                         ))}
                       </select>
                     </label>
                   ) : null}
                   {selectedVariant ? (
-                    <div className="rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65 md:col-span-2">
+                    <div className="basis-full rounded-md border border-line bg-panel/35 p-3 text-xs font-medium text-ink/65">
                       <p className="font-semibold text-ink">
                         {selectedVariant.difficulty ? exerciseVariantDifficultyLabels[selectedVariant.difficulty] : "Variante"} · {exerciseVariantTypeLabels[selectedVariant.type]}
                       </p>
@@ -13969,8 +13990,8 @@ function CoachTrainingPlanner({
                       ) : null}
                     </div>
                   ) : null}
-                  {isElasticBandEquipment(exercise.selectedEquipment) ? (
-                    <div className="grid gap-3 rounded-md border border-line bg-panel/35 p-3 md:col-span-2 md:grid-cols-2">
+                  {isElasticBandEquipment(selectedEquipmentValue) ? (
+                    <div className="grid basis-full gap-3 rounded-md border border-line bg-panel/35 p-3 md:grid-cols-2">
                       <label className="space-y-1 text-xs font-semibold text-ink/55">
                         Color de la banda
                         <select
@@ -13998,7 +14019,6 @@ function CoachTrainingPlanner({
                   ) : null}
                 </div>
               ) : null}
-              </> : null}
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
                 {prescriptionRules.showAdvancedByDefault ? <label className="space-y-1 text-xs font-semibold text-ink/55">
                   Metodo

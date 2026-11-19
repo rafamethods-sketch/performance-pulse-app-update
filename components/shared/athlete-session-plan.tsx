@@ -16,6 +16,7 @@ export type AthleteSessionPlanExercise = {
   intensityMethod?: string | null;
   load?: number | string | null;
   name?: string | null;
+  observation?: string | null;
   percent1RM?: number | string | null;
   plannedLoad?: number | string | null;
   plannedReps?: number | string | null;
@@ -28,6 +29,7 @@ export type AthleteSessionPlanExercise = {
   rest?: number | string | null;
   section?: string | null;
   selectedEquipment?: string | null;
+  selectedVariantId?: string | null;
   selectedVariantName?: string | null;
   sessionBlock?: "activation" | "main" | "complementary" | null;
   setMethod?: SetMethod | null;
@@ -39,6 +41,12 @@ export type AthleteSessionPlanExercise = {
   videoNote?: string | null;
   videoUrl?: string | null;
 };
+
+const equipmentOnlySessionVariantIds = new Set([
+  "push-press-variant-dumbbells",
+  "push-press-variant-kettlebells",
+  "push-press-variant-landmine"
+]);
 
 type BlockKey = "activation" | "main" | "complementary";
 
@@ -152,22 +160,31 @@ export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPla
                 const load = exercise.plannedLoad ?? exercise.load;
                 const intensity = getIntensity(exercise);
                 const tempo = formatExerciseTempo(exercise.tempo);
-                const material = [exercise.selectedEquipment, exercise.selectedVariantName, exercise.bandColor, exercise.bandResistance].filter(hasValue).join(" · ");
-                const hasDetail = method !== "straight" || sequence.length > 0 || Boolean(tempo) || Boolean(exercise.videoNote) || Boolean(exercise.videoUrl) || Boolean(material);
+                const libraryExercise = getExerciseById(exercise.exerciseId || "");
+                const selectedVariant = libraryExercise?.variants?.find((variant) =>
+                  variant.id === exercise.selectedVariantId || (!exercise.selectedVariantId && variant.name === exercise.selectedVariantName)
+                );
+                const equipmentOnlyVariant = selectedVariant && equipmentOnlySessionVariantIds.has(selectedVariant.id) ? selectedVariant : null;
+                const equipment = equipmentOnlyVariant?.equipment?.[0] ?? exercise.selectedEquipment;
+                const variant = equipmentOnlyVariant ? "" : exercise.selectedVariantName;
+                const material = [equipment, exercise.bandColor, exercise.bandResistance].filter(hasValue).join(" · ");
+                const hasDetail = method !== "straight" || sequence.length > 0 || Boolean(tempo) || Boolean(exercise.videoNote) || Boolean(exercise.videoUrl) || Boolean(variant);
                 return (
-                  <details className="group min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm open:p-4" key={exercise.id || `${getExerciseName(exercise)}-${index}`}>
+                  <details className="group min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm" key={exercise.id || `${getExerciseName(exercise)}-${index}`}>
                     <summary className="cursor-pointer list-none pr-1 marker:hidden">
-                      <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] sm:items-center">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-ink sm:text-base">{getExerciseName(exercise)}</p>
-                          <p className="mt-2 text-xl font-bold tracking-tight text-ink">{getVolume(exercise)}</p>
-                          <div className="mt-2 grid gap-0.5 text-sm text-ink/65">
-                            {hasPositiveLoad(load) ? <p className="font-semibold text-ink">{load} kg</p> : null}
-                            {intensity ? <p>{intensity}</p> : null}
-                            {rest ? <p>Descanso {rest}</p> : null}
-                          </div>
+                          <p className="mt-1 text-xl font-bold tracking-tight text-ink">{getVolume(exercise)}</p>
+                          {exercise.observation ? <p className="mt-1 truncate text-xs font-medium text-ink/55">Nota · {exercise.observation}</p> : null}
                         </div>
-                        {hasDetail ? <span className="shrink-0 text-lg text-ink/35 transition group-open:rotate-180">⌄</span> : null}
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold text-ink/65 sm:justify-end">
+                          {hasPositiveLoad(load) ? <span className="rounded-md bg-panel/55 px-2.5 py-1.5 text-ink">{load} kg</span> : null}
+                          {intensity ? <span className="rounded-md bg-panel/55 px-2.5 py-1.5">{intensity}</span> : null}
+                          {rest ? <span className="rounded-md bg-panel/55 px-2.5 py-1.5">Descanso {rest}</span> : null}
+                          {material ? <span className="rounded-md bg-panel/55 px-2.5 py-1.5">{material}</span> : null}
+                          {hasDetail ? <span className="ml-auto text-lg text-ink/35 transition group-open:rotate-180 sm:ml-1">⌄</span> : null}
+                          </div>
                       </div>
                     </summary>
                     {hasDetail ? (
@@ -182,7 +199,7 @@ export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPla
                         ) : null}
                         {method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds ? <p><span className="font-semibold text-ink">Pausa entre mini-bloques:</span> {formatRest(exercise.clusterConfig.intraClusterRestSeconds)}</p> : null}
                         {tempo && exercise.tempo ? <TempoHelp tempo={exercise.tempo} /> : null}
-                        {material ? <p><span className="font-semibold text-ink">Material:</span> {material}</p> : null}
+                        {variant ? <p><span className="font-semibold text-ink">Variante:</span> {variant}</p> : null}
                         {exercise.videoNote ? <p className="rounded-md bg-panel/45 px-3 py-2"><span className="font-semibold text-ink">Clave técnica:</span> {exercise.videoNote}</p> : null}
                         {exercise.videoUrl ? <a className="inline-flex w-fit items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink" href={exercise.videoUrl} rel="noreferrer" target="_blank">Ver técnica <ExternalLink size={14} /></a> : null}
                       </div>
