@@ -12762,6 +12762,7 @@ function createSystemTemplateExercise(
   prescription: Partial<Pick<PlannedStrengthExerciseDraft, "intensityMethod" | "load" | "observation" | "percent1RM" | "reps" | "rest" | "selectedEquipment" | "sets" | "targetRir" | "targetRpe" | "targetVelocity">> = {}
 ): SessionTemplateExercise {
   const exercise = getExerciseById(exerciseId);
+  const sessionBlock: SessionExerciseBlock = block === "auxiliary" ? "complementary" : block;
 
   return {
     block,
@@ -12773,11 +12774,14 @@ function createSystemTemplateExercise(
     load: prescription.load ?? "",
     observation: prescription.observation ?? "",
     percent1RM: prescription.percent1RM ?? "",
+    prescriptionRole: block === "main" ? "principal" : block === "auxiliary" ? "accessory" : undefined,
+    prescriptionSource: "custom",
     reps: prescription.reps ?? "",
     rest: prescription.rest ?? "",
     selectedEquipment: prescription.selectedEquipment ?? "",
     selectedVariantId: "",
     selectedVariantName: "",
+    sessionBlock,
     sets: prescription.sets ?? "",
     targetRir: prescription.targetRir ?? "",
     targetRpe: prescription.targetRpe ?? "",
@@ -13617,24 +13621,34 @@ function CoachTrainingPlanner({
       targetZone: ""
     });
     setStrengthExercises(
-      template.strengthExercises.map((exercise, index) => ({
-        ...exercise,
-        executionMode: exercise.executionMode ?? getDefaultSessionExerciseExecutionMode(exercise.exerciseId),
-        id: `exercise-${Date.now()}-${index}`,
-        intensityMethod: exercise.intensityMethod ?? "",
-        bandColor: exercise.bandColor ?? "",
-        bandResistance: exercise.bandResistance ?? "",
-        percent1RM: exercise.percent1RM ?? "",
-        rest: formatPrescriptionRest(exercise.rest ?? ""),
-        selectedEquipment: exercise.selectedEquipment ?? "",
-        selectedVariantId: exercise.selectedVariantId ?? "",
-        selectedVariantName: exercise.selectedVariantName ?? "",
-        targetRir: exercise.targetRir ?? "",
-        targetRpe: exercise.targetRpe ?? "",
-        targetVelocity: exercise.targetVelocity ?? "",
-        videoNote: exercise.videoNote ?? "",
-        videoUrl: exercise.videoUrl ?? ""
-      }))
+      template.strengthExercises.map((exercise, index) => {
+        const sessionBlock = exercise.sessionBlock ?? (
+          exercise.block === "activation" ? "activation" : exercise.block === "auxiliary" ? "complementary" : exercise.block === "main" ? "main" : undefined
+        );
+        const prescriptionSource = "custom" as const;
+
+        return {
+          ...exercise,
+          executionMode: exercise.executionMode ?? getDefaultSessionExerciseExecutionMode(exercise.exerciseId),
+          id: `exercise-${Date.now()}-${index}`,
+          intensityMethod: exercise.intensityMethod ?? "",
+          bandColor: exercise.bandColor ?? "",
+          bandResistance: exercise.bandResistance ?? "",
+          percent1RM: exercise.percent1RM ?? "",
+          prescriptionBlockId: undefined,
+          prescriptionSource,
+          rest: formatPrescriptionRest(exercise.rest ?? ""),
+          selectedEquipment: exercise.selectedEquipment ?? "",
+          selectedVariantId: exercise.selectedVariantId ?? "",
+          selectedVariantName: exercise.selectedVariantName ?? "",
+          sessionBlock,
+          targetRir: exercise.targetRir ?? "",
+          targetRpe: exercise.targetRpe ?? "",
+          targetVelocity: exercise.targetVelocity ?? "",
+          videoNote: exercise.videoNote ?? "",
+          videoUrl: exercise.videoUrl ?? ""
+        };
+      })
     );
     setShowTemplateLibrary(false);
     setSessionSendMessage("Plantilla cargada. Revisa y ajusta antes de enviar.");
@@ -13672,7 +13686,7 @@ function CoachTrainingPlanner({
           ? `${exercise.sets}×${exercise.reps}`
           : [exercise.sets ? `${exercise.sets} series` : "", exercise.reps ? `${exercise.reps} reps` : ""].filter(Boolean).join(" · ");
     const intensity = getExerciseIntensitySummary(exercise);
-    const rest = exercise.rest ? `${exercise.rest} s` : "";
+    const rest = exercise.rest ?? "";
     const intraClusterRest = method === "cluster" && exercise.clusterConfig?.intraClusterRestSeconds
       ? `${exercise.clusterConfig.intraClusterRestSeconds} s intra`
       : "";
@@ -13693,7 +13707,7 @@ function CoachTrainingPlanner({
       variant: variantLine
     };
   };
-  const renderStrengthBlock = (sessionBlock: SessionExerciseBlock | "unclassified", title: string, description?: string) => {
+  const renderStrengthBlock = (sessionBlock: SessionExerciseBlock | "unclassified", title: string) => {
     const blockExercises = strengthExercises.filter((exercise) =>
       sessionBlock === "unclassified" ? !exercise.sessionBlock : exercise.sessionBlock === sessionBlock
     );
@@ -13707,29 +13721,28 @@ function CoachTrainingPlanner({
 
     return (
       <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
-        <button
-          className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
-          onClick={() => setCollapsedStrengthBlocks((current) => ({ ...current, [legacyBlock]: !current[legacyBlock] }))}
-          type="button"
-        >
-          <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
-          <span>{blockLabel} · {blockSummary}</span>
-        </button>
-        {!isCollapsed ? (
-        <>
-        {description ? <p className="mt-2 text-sm text-ink/55">{description}</p> : null}
-        <div className="mt-3 flex justify-end">
-          {sessionBlock !== "unclassified" ? (
+        <div className="flex items-center justify-between gap-3">
           <button
-            className="inline-flex w-fit items-center justify-center gap-2 rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white"
-            onClick={() => addStrengthExercise(sessionBlock)}
+            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-semibold uppercase tracking-wide text-ink transition hover:text-moss"
+            onClick={() => setCollapsedStrengthBlocks((current) => ({ ...current, [legacyBlock]: !current[legacyBlock] }))}
             type="button"
           >
-            <Plus size={16} />
-            Añadir ejercicio
+            <span className="text-lg leading-none">{isCollapsed ? "›" : "⌄"}</span>
+            <span>{blockLabel} · {blockSummary}</span>
           </button>
+          {sessionBlock !== "unclassified" ? (
+            <button
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white"
+              onClick={() => addStrengthExercise(sessionBlock)}
+              type="button"
+            >
+              <Plus size={14} />
+              Añadir ejercicio
+            </button>
           ) : null}
         </div>
+        {!isCollapsed ? (
+        <>
         <div className="mt-4 grid gap-3">
           {blockExercises.length === 0 ? (
             <div className="rounded-md border border-dashed border-line bg-white px-4 py-5 text-sm font-medium text-ink/45">
@@ -13747,27 +13760,58 @@ function CoachTrainingPlanner({
             const exerciseSummary = getExerciseSummaryLine(exercise);
             const prescriptionRules = getContextualPrescriptionRules(exercise.sessionBlock);
             const isPrescriptionComplete = isContextualPrescriptionComplete(exercise);
-            const roleLabel = planningPrescriptionRoles.find((role) => role.id === exercise.prescriptionRole)?.label ?? "Sin rol";
             const sourceLabel = exercise.prescriptionSource === "default" ? "Default del mesociclo" : exercise.prescriptionSource === "custom" ? "Personalizado" : "Legacy";
 
             return (
             <article className="rounded-md border border-line bg-white p-3" key={exercise.id}>
-              <div className={`flex items-start gap-3 ${isExpanded ? "mb-3" : ""}`}>
-                <button
-                  aria-expanded={isExpanded}
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => setExpandedStrengthExerciseId((current) => current === exercise.id ? "" : exercise.id)}
-                  type="button"
-                >
-                  <span className="block truncate text-sm font-semibold text-ink">{exerciseSummary.name}</span>
-                  <span className="mt-0.5 block text-[11px] font-semibold text-ink/45">
-                    {prescriptionRules.showRole ? `${roleLabel} · ` : ""}{sourceLabel}
-                  </span>
-                  {!isPrescriptionComplete ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Prescripción incompleta</span> : null}
-                  {exerciseSummary.prescription ? <span className="mt-1 block text-sm font-medium text-ink/65">{exerciseSummary.prescription}</span> : null}
-                  {exerciseSummary.advanced ? <span className="mt-1 block text-xs font-semibold text-steel">{exerciseSummary.advanced}</span> : null}
-                </button>
-                {isExpanded ? <button
+              <div className={`flex items-start gap-2 ${isExpanded ? "mb-3" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  {exercise.exerciseId ? (
+                    <button
+                      aria-expanded={isExpanded}
+                      className="w-full text-left"
+                      onClick={() => setExpandedStrengthExerciseId((current) => current === exercise.id ? "" : exercise.id)}
+                      type="button"
+                    >
+                      <span className="block truncate text-sm font-semibold text-ink">{exerciseSummary.name}</span>
+                      <span className="mt-0.5 block text-[11px] font-semibold text-ink/45">{sourceLabel}</span>
+                      {!isPrescriptionComplete ? <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Prescripción incompleta</span> : null}
+                      {exerciseSummary.prescription ? <span className="mt-1 block text-sm font-medium text-ink/65">{exerciseSummary.prescription}</span> : null}
+                      {exerciseSummary.advanced ? <span className="mt-1 block text-xs font-semibold text-steel">{exerciseSummary.advanced}</span> : null}
+                    </button>
+                  ) : (
+                    <div>
+                      <input
+                        aria-label="Buscar ejercicio"
+                        className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
+                        onChange={(event) => updateStrengthExercise(exercise.id, { exerciseSearch: event.target.value })}
+                        onFocus={() => setExpandedStrengthExerciseId(exercise.id)}
+                        placeholder="Buscar ejercicio..."
+                        type="search"
+                        value={exercise.exerciseSearch}
+                      />
+                      {exercise.exerciseSearch && isExpanded ? (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-md border border-line bg-white shadow-soft">
+                          {exerciseSuggestions.length > 0 ? exerciseSuggestions.map((libraryExercise) => (
+                            <button
+                              className="block w-full border-b border-line px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                              key={libraryExercise.id}
+                              onClick={() => selectStrengthLibraryExercise(exercise.id, libraryExercise)}
+                              type="button"
+                            >
+                              <span className="block text-sm font-semibold text-ink">{libraryExercise.name}</span>
+                              <span className="mt-0.5 block text-xs font-medium text-ink/55">{libraryExercise.pattern} · {libraryExercise.block} · {libraryExercise.equipment.join(" / ")}</span>
+                            </button>
+                          )) : <p className="px-3 py-3 text-sm font-medium text-ink/50">Sin coincidencias.</p>}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1" aria-label="Acciones del ejercicio">
+                  <button aria-label="Subir ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, -1)} title="Subir ejercicio" type="button">↑</button>
+                  <button aria-label="Bajar ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, 1)} title="Bajar ejercicio" type="button">↓</button>
+                  <button
                   aria-label="Eliminar ejercicio"
                   className="grid size-9 shrink-0 place-items-center rounded-md border border-line text-ink/45 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
                   onClick={() => removeStrengthExercise(exercise.id)}
@@ -13775,24 +13819,21 @@ function CoachTrainingPlanner({
                   type="button"
                 >
                   <Trash2 size={16} />
-                </button> : <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setExpandedStrengthExerciseId(exercise.id)} type="button">{isPrescriptionComplete ? "Editar" : "Completar"}</button>}
+                  </button>
+                </div>
               </div>
               {isExpanded ? <>
-              <div className="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-line bg-panel/30 p-2">
-                {prescriptionRules.showRole ? <label className="min-w-44 flex-1 text-xs font-semibold text-ink/55">
-                  Rol del ejercicio
-                  <select className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm font-semibold text-ink" onChange={(event) => applyStrengthExerciseRole(exercise.id, event.target.value as PlanningPrescriptionRole | "")} value={exercise.prescriptionRole ?? ""}>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {prescriptionRules.showRole ? <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink/50">
+                  Rol
+                  <select className="h-8 rounded-md border border-line bg-panel/30 px-2 text-xs font-semibold text-ink" onChange={(event) => applyStrengthExerciseRole(exercise.id, event.target.value as PlanningPrescriptionRole | "")} value={exercise.prescriptionRole ?? ""}>
                     <option disabled value="">Selecciona un rol</option>
                     {planningPrescriptionRoles.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                   </select>
                 </label> : null}
                 {exercise.prescriptionSource === "custom" && exercise.prescriptionRole ? <button className="rounded-md border border-moss/25 bg-mint px-3 py-2 text-xs font-semibold text-moss" onClick={() => restoreStrengthExerciseDefault(exercise.id)} type="button">Restaurar default</button> : null}
-                <div className="flex gap-1" aria-label="Orden del ejercicio">
-                  <button aria-label="Subir ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, -1)} type="button">↑</button>
-                  <button aria-label="Bajar ejercicio" className="grid size-9 place-items-center rounded-md border border-line bg-white text-sm font-bold text-ink/60" onClick={() => moveStrengthExercise(exercise.id, 1)} type="button">↓</button>
-                </div>
               </div>
-              <div>
+              {exercise.exerciseId ? <div>
                 <div className="space-y-1 text-xs font-semibold text-ink/55">
                   Ejercicio
                   <input
@@ -13832,16 +13873,7 @@ function CoachTrainingPlanner({
                     </div>
                   ) : null}
                 </div>
-              </div>
-              <details className="mt-3 rounded-md border border-line bg-panel/25 p-3">
-                <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">Observaciones · <span className="font-medium text-ink/40">Opcional{exercise.observation ? " · Con nota" : ""}</span></summary>
-                <textarea
-                  className="mt-3 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink outline-none focus:border-moss"
-                  onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
-                  placeholder="Notas del ejercicio"
-                  value={exercise.observation}
-                />
-              </details>
+              </div> : null}
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-xs font-semibold text-ink/45">Prescripción</span>
                 {(["standard", "custom"] as const).map((mode) => (
@@ -14178,6 +14210,15 @@ function CoachTrainingPlanner({
                   ) : null}
                 </div>
               </details></> : null}
+              <details className="mt-3 rounded-md border border-line bg-panel/25 p-3">
+                <summary className="cursor-pointer list-none text-xs font-semibold text-ink/60">Observaciones · <span className="font-medium text-ink/40">Opcional{exercise.observation ? " · Con nota" : ""}</span></summary>
+                <textarea
+                  className="mt-3 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink outline-none focus:border-moss"
+                  onChange={(event) => updateStrengthExercise(exercise.id, { observation: event.target.value })}
+                  placeholder="Notas del ejercicio"
+                  value={exercise.observation}
+                />
+              </details>
               </> : null}
             </article>
             );
@@ -14499,10 +14540,10 @@ function CoachTrainingPlanner({
 
         {sessionType === "Fuerza" ? (
           <>
-            {sessionWizardStep === 1 ? renderStrengthBlock("activation", "Activación", "Prepara al deportista para la tarea principal.") : null}
-            {sessionWizardStep === 1 && strengthExercises.some((exercise) => !exercise.sessionBlock) ? renderStrengthBlock("unclassified", "Sin clasificar", "Ejercicios legacy. Asigna un bloque solo si deseas editar su estructura.") : null}
-            {sessionWizardStep === 2 ? renderStrengthBlock("main", "Bloque principal", "Trabajo prioritario de la sesión.") : null}
-            {sessionWizardStep === 3 ? renderStrengthBlock("complementary", "Bloque complementario", "Trabajo accesorio o complementario de la sesión.") : null}
+            {sessionWizardStep === 1 ? renderStrengthBlock("activation", "Activación") : null}
+            {sessionWizardStep === 1 && strengthExercises.some((exercise) => !exercise.sessionBlock) ? renderStrengthBlock("unclassified", "Sin clasificar") : null}
+            {sessionWizardStep === 2 ? renderStrengthBlock("main", "Bloque principal") : null}
+            {sessionWizardStep === 3 ? renderStrengthBlock("complementary", "Bloque complementario") : null}
             {sessionWizardStep === 4 ? (
               <section className="mt-5 grid gap-3">
                 <div className="rounded-md border border-line bg-white p-4">
@@ -14810,7 +14851,7 @@ function CoachTrainingPlanner({
           </div>
         ) : null}
 
-        {sessionWizardStep < 4 ? <details className="mt-5 rounded-md border border-line bg-panel/35 p-4">
+        {sessionWizardStep === 4 ? <details className="mt-5 rounded-md border border-line bg-panel/35 p-4">
           <summary className="cursor-pointer list-none text-sm font-semibold text-ink/70">Observaciones finales · <span className="font-medium text-ink/45">Opcional</span></summary>
           <label className="mt-3 block space-y-2 text-sm font-medium text-ink/75">
             <textarea
