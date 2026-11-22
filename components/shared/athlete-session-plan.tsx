@@ -4,6 +4,14 @@ import { ExternalLink } from "lucide-react";
 import { formatExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
 import { getExerciseById } from "@/lib/exercises";
 import type { ClusterConfig, SetMethod } from "@/lib/training-prescription";
+import {
+  getExerciseGroupMethodLabel,
+  getExerciseGroupPosition,
+  getExercisesForGroup,
+  getExplicitGroupsForSection,
+  getGroupLabel,
+  type ExerciseGroup
+} from "@/lib/session-exercise-groups";
 
 export type AthleteSessionPlanExercise = {
   bandColor?: string | null;
@@ -11,6 +19,7 @@ export type AthleteSessionPlanExercise = {
   block?: string | null;
   clusterConfig?: ClusterConfig | null;
   exerciseId?: string | null;
+  exerciseGroupId?: string | null;
   exerciseName?: string | null;
   id?: string | null;
   intensityMethod?: string | null;
@@ -137,7 +146,7 @@ function TempoHelp({ tempo }: { tempo: ExerciseTempo }) {
   );
 }
 
-export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPlanExercise[] }) {
+export function AthleteSessionPlan({ exerciseGroups = [], exercises }: { exerciseGroups?: ExerciseGroup[]; exercises: AthleteSessionPlanExercise[] }) {
   if (exercises.length === 0) {
     return <p className="rounded-md border border-line bg-panel/35 p-4 text-sm text-ink/60">Esta sesión todavía no tiene ejercicios detallados.</p>;
   }
@@ -146,6 +155,7 @@ export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPla
     <div className="grid gap-4">
       {blocks.map((block) => {
         const blockExercises = exercises.filter((exercise) => getBlockKey(exercise) === block.key);
+        const blockGroups = getExplicitGroupsForSection(exerciseGroups, block.key, blockExercises);
         if (blockExercises.length === 0) return null;
         return (
           <section className="rounded-xl border border-line bg-panel/30 p-3 sm:p-4" key={block.key}>
@@ -169,12 +179,22 @@ export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPla
                 const variant = equipmentOnlyVariant ? "" : exercise.selectedVariantName;
                 const material = [equipment, exercise.bandColor, exercise.bandResistance].filter(hasValue).join(" · ");
                 const hasDetail = method !== "straight" || sequence.length > 0 || Boolean(tempo) || Boolean(exercise.videoNote) || Boolean(exercise.videoUrl) || Boolean(variant);
+                const group = exercise.exerciseGroupId ? blockGroups.find((candidate) => candidate.id === exercise.exerciseGroupId) : undefined;
+                const groupMembers = group ? getExercisesForGroup(blockExercises, group.id) : [];
+                const groupLabel = group ? getGroupLabel(exerciseGroups, group.id, group.sessionBlock, blockExercises) : "";
+                const groupPosition = group ? getExerciseGroupPosition(blockExercises, exercise) : null;
+                const isFirstGroupMember = groupMembers[0] === exercise;
                 return (
-                  <details className="group min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm" key={exercise.id || `${getExerciseName(exercise)}-${index}`}>
+                  <div className={group ? "rounded-xl border border-moss/20 bg-mint/20 p-2" : ""} key={exercise.id || `${getExerciseName(exercise)}-${index}`}>
+                  {group && isFirstGroupMember ? <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-semibold">
+                    <span className="uppercase tracking-wide text-moss">{groupLabel} · {getExerciseGroupMethodLabel(group.method, groupMembers.length)}</span>
+                    <span className="text-ink/50">{group.restBetweenExercises ? `Entre ejercicios · ${formatRest(group.restBetweenExercises)}` : ""}{group.restBetweenExercises && group.restBetweenRounds ? " · " : ""}{group.restBetweenRounds ? `Entre rondas · ${formatRest(group.restBetweenRounds)}` : ""}</span>
+                  </div> : null}
+                  <details className="group min-w-0 rounded-xl border border-line bg-white p-3 shadow-sm">
                     <summary className="cursor-pointer list-none pr-1 marker:hidden">
                       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,auto)] sm:items-center">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-ink sm:text-base">{getExerciseName(exercise)}</p>
+                          <p className="truncate text-sm font-bold text-ink sm:text-base">{group && groupPosition ? <span className="mr-2 text-moss">{groupLabel}{groupPosition}</span> : null}{getExerciseName(exercise)}</p>
                           <p className="mt-1 text-xl font-bold tracking-tight text-ink">{getVolume(exercise)}</p>
                           {exercise.observation ? <p className="mt-1 truncate text-xs font-medium text-ink/55">Nota · {exercise.observation}</p> : null}
                         </div>
@@ -204,7 +224,7 @@ export function AthleteSessionPlan({ exercises }: { exercises: AthleteSessionPla
                         {exercise.videoUrl ? <a className="inline-flex w-fit items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink" href={exercise.videoUrl} rel="noreferrer" target="_blank">Ver técnica <ExternalLink size={14} /></a> : null}
                       </div>
                     ) : null}
-                  </details>
+                  </details></div>
                 );
               })}
             </div>
