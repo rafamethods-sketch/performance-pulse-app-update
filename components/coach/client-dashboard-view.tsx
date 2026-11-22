@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { SheetId } from "@/lib/data";
 import type { CoachDecisionLogEntry, TargetTrainingSession } from "@/components/coach/types";
-import { fromWeeklyCoachReview, fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
+import { fromSessionCompatibility, type DecisionExplanation } from "@/lib/decision-explanation";
 import { getPlannedSessionImpact, getSessionImpactStyle } from "@/lib/session-impact";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { exerciseLibrary } from "@/lib/exercises";
@@ -28,10 +28,10 @@ import {
 } from "@/lib/session-load";
 import {
   getWeeklyCoachReview,
-  getWeeklyReviewStyle,
   type WeeklyCoachReview,
   type WeeklyReviewSession
 } from "@/lib/weekly-review";
+import { getRacReviewWeeklySummary } from "@/lib/rac-review-weekly-summary";
 
 type DashboardSessionRecord = TrainingSessionInput & {
   actualDurationMinutes?: number | string | null;
@@ -52,7 +52,9 @@ type DashboardSessionRecord = TrainingSessionInput & {
   completed?: boolean;
   date: string;
   discomfort?: {
+    bodyArea?: string | null;
     hasDiscomfort?: boolean;
+    intensity?: number | null;
     notes?: string | null;
   };
   duration?: number | string | null;
@@ -725,6 +727,15 @@ export function ClientDashboardView({
     referenceDate: today,
     sessions: client.sessionRecords as WeeklyReviewSession[]
   });
+  const racReviewSummary = getRacReviewWeeklySummary(client.sessionRecords.map((session) => ({
+    completed: hasDashboardRealSessionData(session),
+    date: session.date,
+    discomfort: session.discomfort?.hasDiscomfort || session.discomfort?.notes
+      ? { bodyArea: session.discomfort.bodyArea, intensity: session.discomfort.intensity }
+      : null,
+    load: getDashboardSrpe(session),
+    readiness: getDashboardReadiness(session)
+  })), today);
   const plannedImpact = nextSession ? getPlannedSessionImpact(nextSession as WeeklyReviewSession) : null;
   const plannedImpactStyle = plannedImpact ? getSessionImpactStyle(plannedImpact.level) : null;
   const recentSessions = client.sessionRecords.filter((session) => session !== nextSession);
@@ -738,11 +749,6 @@ export function ClientDashboardView({
   }) : null;
   const compatibilityStyle = compatibility ? getSessionCompatibilityStyle(compatibility.level) : null;
   const todayKey = getLocalDecisionDateKey(today);
-  const weeklyDecisionSaved = (client.decisionLog ?? []).some((entry) =>
-    entry.source === "weeklyReview" &&
-    entry.decision === weeklyReview.suggestedDecision &&
-    getLocalDecisionDateKey(new Date(entry.date)) === todayKey
-  );
   const compatibilityDecisionSaved = Boolean(nextSession && compatibility && (client.decisionLog ?? []).some((entry) =>
     entry.source === "compatibility" &&
     entry.decision === compatibility.suggestedAction &&
@@ -750,23 +756,6 @@ export function ClientDashboardView({
     entry.context?.sessionSummary === nextSession.summary &&
     getLocalDecisionDateKey(new Date(entry.date)) === todayKey
   ));
-
-  function saveWeeklyDecision() {
-    if (weeklyDecisionSaved) return;
-    const weekBounds = getDecisionWeekBounds(today);
-    onSaveDecision(createCoachDecisionEntry({
-      context: {
-        confidence: weeklyReview.confidence,
-        primaryReason: weeklyReview.primaryReason?.label,
-        reviewLevel: weeklyReview.level,
-        type: "weeklyReview",
-        ...weekBounds
-      },
-      decision: weeklyReview.suggestedDecision,
-      reason: weeklyReview.primaryReason?.label,
-      source: "weeklyReview"
-    }));
-  }
 
   function saveCompatibilityDecision() {
     if (!nextSession || !compatibility || compatibilityDecisionSaved) return;
@@ -789,7 +778,7 @@ export function ClientDashboardView({
   return (
     <div className="mt-6 grid gap-4">
       <ClientHeader client={client} onBack={onBack} onOpenClientSheet={onOpenClientSheet} onOpenDetails={onOpenDetails} />
-      <WeeklyDecisionBlock onSaveSuggestedDecision={saveWeeklyDecision} review={weeklyReview} suggestedDecisionSaved={weeklyDecisionSaved} />
+      <WeeklyDecisionBlock onOpenClientSheet={onOpenClientSheet} clientId={client.id} summary={racReviewSummary} />
       <DashboardCurrentState client={client} dashboardData={dashboardData} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <DashboardAttention clientId={client.id} dashboardData={dashboardData} onOpenClientSheet={onOpenClientSheet} onOpenTrainingSession={onOpenTrainingSession} review={weeklyReview} />
@@ -1011,55 +1000,44 @@ function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, onOpen
 }
 
 function WeeklyDecisionBlock({
-  onSaveSuggestedDecision,
-  review,
-  suggestedDecisionSaved
+  clientId,
+  onOpenClientSheet,
+  summary
 }: {
-  onSaveSuggestedDecision: () => void;
-  review: WeeklyCoachReview;
-  suggestedDecisionSaved: boolean;
+  clientId: string;
+  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  summary: ReturnType<typeof getRacReviewWeeklySummary>;
 }) {
-  const style = getWeeklyReviewStyle(review.level);
-  const impactSummary = [
-    `${review.stats.highImpactSessions} ${review.stats.highImpactSessions === 1 ? "alto" : "altos"}`,
-    `${review.stats.moderateImpactSessions} ${review.stats.moderateImpactSessions === 1 ? "medio" : "medios"}`,
-    `${review.stats.lowImpactSessions} ${review.stats.lowImpactSessions === 1 ? "bajo" : "bajos"}`,
-    review.stats.unknownImpactSessions > 0 ? `${review.stats.unknownImpactSessions} sin datos` : ""
-  ].filter(Boolean).join(" · ");
+  const indicators = [
+    { label: "Sesiones", value: summary.sessions },
+    { label: "Carga", value: summary.load },
+    { label: "Bienestar", value: summary.wellness },
+    { label: "Molestias", value: summary.discomfort }
+  ];
 
   return (
-    <section className={`coach-surface highlight-summary-card overflow-hidden rounded-md border p-4 sm:p-5 ${style.borderClassName}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-300">Lectura semanal</p>
-          <h3 className="mt-1 text-xl font-semibold text-white">RAC Review semanal</h3>
-          <p className="mt-1 text-sm text-white/70">{review.primaryReason?.label ?? review.description}</p>
+    <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">RAC Review</p>
+          <h3 className="mt-1 text-lg font-semibold text-ink">Resumen semanal</h3>
         </div>
-        <span className={`inline-flex w-fit items-center gap-2 rounded-md px-2.5 py-1 text-xs font-semibold ${style.badgeClassName}`}>
-          <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${style.dotClassName}`} />
-          {review.label}
-        </span>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-white/15 pt-3 text-xs text-white/75">
-        <span><span className="font-semibold text-white">Cumplimiento:</span> {review.stats.completedSessions}/{review.stats.plannedSessions}</span>
-        <span><span className="font-semibold text-white">Impacto:</span> {impactSummary}</span>
-        <span><span className="font-semibold text-white">Molestias:</span> {review.stats.discomfortSessions}</span>
-      </div>
-      <details className="mt-3 border-t border-white/15 pt-2 text-sm text-white/75">
-        <summary className="cursor-pointer font-semibold text-white/85">Ver en qué se basa</summary>
-        <div className="mt-2 rounded-md bg-white p-3 text-ink">
-          <p>{review.description}</p>
-          <DecisionExplanationDetails explanation={fromWeeklyCoachReview(review)} summary="Datos usados" />
-          <button
-            className="mt-3 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-55"
-            disabled={suggestedDecisionSaved}
-            onClick={onSaveSuggestedDecision}
-            type="button"
-          >
-            {suggestedDecisionSaved ? "Lectura semanal guardada" : "Guardar lectura semanal"}
-          </button>
+        <div className="text-right">
+          <p className="text-xs font-semibold text-ink/70">Esta semana</p>
+          <p className="mt-0.5 text-xs text-ink/45">{summary.weekLabel}</p>
         </div>
-      </details>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-line py-3 lg:grid-cols-4">
+        {indicators.map((indicator) => (
+          <article className="min-w-0" key={indicator.label}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/45">{indicator.label}</p>
+            <p className="mt-1 break-words text-lg font-semibold leading-tight text-ink">{indicator.value}</p>
+          </article>
+        ))}
+      </div>
+      <button className="mt-3 text-sm font-semibold text-steel transition hover:text-ink" onClick={() => onOpenClientSheet(clientId, "clientWellness")} type="button">
+        Ver seguimiento <span aria-hidden="true">›</span>
+      </button>
     </section>
   );
 }
