@@ -6115,7 +6115,6 @@ function ClientWellnessView({
 }) {
   const [wellnessRange, setWellnessRange] = useState<7 | 14 | 28>(7);
   const [wellnessMetric, setWellnessMetric] = useState<"calm" | "energy" | "readiness" | "recovery" | "sleep">("readiness");
-  const [showWellnessDetails, setShowWellnessDetails] = useState(false);
   const [showAllWellnessNotes, setShowAllWellnessNotes] = useState(false);
   const records = client?.sessionRecords ?? [];
   const wellnessRecords = records
@@ -6148,7 +6147,17 @@ function ClientWellnessView({
     if (values.length === 0) return 0;
     return values.reduce((total, value) => total + value, 0) / values.length;
   };
-  const visibleWellnessRecords = wellnessRecords.slice(0, wellnessRange).reverse();
+  const latestWellnessDate = getReviewSessionDate(wellnessRecords[0]?.date);
+  const wellnessWindowStart = latestWellnessDate ? new Date(latestWellnessDate) : null;
+  wellnessWindowStart?.setDate(wellnessWindowStart.getDate() - wellnessRange + 1);
+  const visibleWellnessRecords = wellnessRecords
+    .filter((session) => {
+      const date = getReviewSessionDate(session.date);
+      return date && wellnessWindowStart && latestWellnessDate
+        ? date >= wellnessWindowStart && date <= latestWellnessDate
+        : false;
+    })
+    .reverse();
   const latestReadiness = readinessScore(latestWellness);
   const wellnessMetricOptions: Array<{ label: string; value: typeof wellnessMetric }> = [
     { label: "Readiness", value: "readiness" },
@@ -6161,26 +6170,39 @@ function ClientWellnessView({
     if (wellnessMetric === "readiness") return readinessScore(wellness);
     return positiveWellnessValue(wellness, wellnessMetric);
   };
-  const wellnessChartPoints = visibleWellnessRecords.map((session, index) => {
-    const score = getWellnessMetricScore(session.wellness);
-    const x = visibleWellnessRecords.length <= 1 ? 52 : 10 + (index / (visibleWellnessRecords.length - 1)) * 86;
-    const y = 88 - ((Math.max(1, Math.min(5, score)) - 1) / 4) * 78;
-    return { date: session.date, score, x, y };
-  });
+  const chartRecords = visibleWellnessRecords
+    .map((session) => ({ date: session.date, score: getWellnessMetricScore(session.wellness) }))
+    .filter((point) => point.score > 0);
+  const wellnessChartPoints = chartRecords.map((point, index) => ({
+    ...point,
+    x: chartRecords.length <= 1 ? 52 : 10 + (index / (chartRecords.length - 1)) * 86,
+    y: 88 - ((Math.max(1, Math.min(5, point.score)) - 1) / 4) * 78
+  }));
   const wellnessCurvePath = wellnessChartPoints.reduce((path, point, index) => {
     if (index === 0) return `M ${point.x} ${point.y}`;
     const previousPoint = wellnessChartPoints[index - 1];
     const middleX = (previousPoint.x + point.x) / 2;
     return `${path} C ${middleX} ${previousPoint.y}, ${middleX} ${point.y}, ${point.x} ${point.y}`;
   }, "");
-  const detailWellness = latestWellness;
-  const detailBars = detailWellness ? [
-    ["Sueño", positiveWellnessValue(detailWellness, "sleep")],
-    ["Energía", positiveWellnessValue(detailWellness, "energy")],
-    ["Recuperación", positiveWellnessValue(detailWellness, "recovery")],
-    ["Calma / ánimo", positiveWellnessValue(detailWellness, "calm")],
-    ["Motivación", positiveWellnessValue(detailWellness, "motivation")]
-  ] : [];
+  const latestDiscomfort = discomfortRecords[0]?.discomfort;
+  const wellnessSummary = [
+    { label: "Readiness", value: latestReadiness > 0 ? `${latestReadiness.toFixed(1).replace(".", ",")}/5` : "—" },
+    { label: "Sueño", value: positiveWellnessValue(latestWellness, "sleep") > 0 ? `${positiveWellnessValue(latestWellness, "sleep")}/5` : "—" },
+    { label: "Energía", value: positiveWellnessValue(latestWellness, "energy") > 0 ? `${positiveWellnessValue(latestWellness, "energy")}/5` : "—" },
+    { label: "Recuperación", value: positiveWellnessValue(latestWellness, "recovery") > 0 ? `${positiveWellnessValue(latestWellness, "recovery")}/5` : "—" },
+    {
+      label: "Molestias",
+      value: latestDiscomfort
+        ? `${latestDiscomfort.bodyArea || "Zona sin especificar"}${hasDisplayValue(latestDiscomfort.intensity) ? ` · ${latestDiscomfort.intensity}/10` : ""}`
+        : "Sin molestias"
+    }
+  ];
+  const todaySummary = [
+    { label: "Sueño", value: positiveWellnessValue(latestWellness, "sleep") },
+    { label: "Energía", value: positiveWellnessValue(latestWellness, "energy") },
+    { label: "Recuperación", value: positiveWellnessValue(latestWellness, "recovery") },
+    { label: "Calma", value: positiveWellnessValue(latestWellness, "calm") }
+  ];
 
   function markDiscomfortReviewed(session: ClientSessionRecord) {
     if (!client || session.discomfort?.reviewedAt) return;
@@ -6219,9 +6241,13 @@ function ClientWellnessView({
           </div>
           <span className="text-xs font-semibold text-ink/45">{formatDisplayDate(session.date)}</span>
         </div>
-        <p className={`mt-2 text-sm leading-relaxed text-ink/65 ${compact ? "line-clamp-2" : ""}`}>
-          {session.discomfort?.notes || "Molestia registrada sin notas."}
+        <p className="mt-2 text-sm font-semibold text-ink/75">
+          {session.discomfort?.bodyArea || "Zona sin especificar"}
+          {hasDisplayValue(session.discomfort?.intensity) ? ` · ${session.discomfort?.intensity}/10` : ""}
         </p>
+        {session.discomfort?.notes ? (
+          <p className={`mt-1 text-xs leading-relaxed text-ink/55 ${compact ? "line-clamp-1" : ""}`}>{session.discomfort.notes}</p>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {session.id ? (
             <button
@@ -6254,60 +6280,31 @@ function ClientWellnessView({
 
   return (
     <div className="mt-6 grid gap-5">
-      <section className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-          <div className="highlight-summary-card min-h-64 p-5 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Último readiness</p>
-            {latestReadiness > 0 ? (
-              <>
-                <p className="mt-3 text-5xl font-bold tracking-tight sm:text-6xl">{latestReadiness.toFixed(1)}<span className="ml-1 text-2xl font-medium text-white/45">/5</span></p>
-                <p className="mt-3 text-sm font-medium text-white/70">Lectura orientativa del último registro disponible.</p>
-                <p className="mt-1 text-xs text-white/45">{wellnessRecords[0]?.date ? formatDisplayDate(wellnessRecords[0].date) : "Sin fecha disponible"}</p>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-2xl font-semibold">Sin datos todavía</p>
-                <p className="mt-2 text-sm text-white/60">Añade registros para consultar la evolución.</p>
-              </>
-            )}
+      <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Bienestar</p>
+            <h2 className="mt-1 text-lg font-semibold text-ink">Último registro</h2>
           </div>
-          <div className="coach-surface min-h-64 rounded-md p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Notas y molestias recientes</h2>
-                <p className="mt-1 text-sm text-ink/55">Pendientes primero; las revisadas se mantienen al final.</p>
-              </div>
-              <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{discomfortRecords.length}</span>
+          <p className="text-xs font-semibold text-ink/45">{wellnessRecords[0]?.date ? formatDisplayDate(wellnessRecords[0].date) : "Sin fecha"}</p>
+        </div>
+        <div className="mt-4 grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-y border-line py-3 sm:grid-cols-3 lg:grid-cols-5">
+          {wellnessSummary.map((item) => (
+            <div className="min-w-0" key={item.label}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink/45">{item.label}</p>
+              <p className="mt-1 break-words text-base font-semibold leading-tight text-ink">{item.value}</p>
             </div>
-            {discomfortRecords.length > 0 ? (
-              <div className="mt-4 grid gap-2">
-                {discomfortRecords.slice(0, 4).map((session) => renderWellnessNote(session, true))}
-                {discomfortRecords.length > 4 ? (
-                  <button className="w-fit text-xs font-semibold text-moss" onClick={() => setShowAllWellnessNotes(true)} type="button">
-                    Ver todas ({discomfortRecords.length})
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm font-semibold text-ink/45">Sin notas o molestias recientes.</p>
-            )}
-          </div>
+          ))}
+        </div>
       </section>
 
       <section className="coach-surface min-w-0 rounded-md p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-semibold text-ink">Evolución diaria del bienestar</h3>
-            <p className="mt-1 text-sm text-ink/55">Lectura visual de readiness, sueño, energía, recuperación y calma.</p>
+            <h3 className="font-semibold text-ink">Bienestar</h3>
+            <p className="mt-1 text-sm text-ink/55">Evolución diaria · escala 1–5.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink transition hover:bg-mint"
-              onClick={() => setShowWellnessDetails(true)}
-              type="button"
-            >
-              Ver detalles
-            </button>
-            <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
+          <div className="flex w-fit rounded-md border border-line bg-panel/35 p-1">
               {[7, 14, 28].map((range) => (
                 <button
                   className={`rounded px-3 py-1 text-xs font-semibold transition ${wellnessRange === range ? "bg-ink text-white" : "text-ink/60 hover:bg-white"}`}
@@ -6315,10 +6312,9 @@ function ClientWellnessView({
                   onClick={() => setWellnessRange(range as 7 | 14 | 28)}
                   type="button"
                 >
-                  {range} días
+                  {range}d
                 </button>
               ))}
-            </div>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -6334,7 +6330,7 @@ function ClientWellnessView({
           ))}
         </div>
 
-        {visibleWellnessRecords.length > 0 ? (
+        {wellnessChartPoints.length > 0 ? (
           <div className="mt-5 grid min-w-0 gap-4">
             <div className="min-w-0 overflow-hidden rounded-md border border-line bg-panel/35 p-3 sm:p-4">
               <svg aria-label={`Evolución temporal de ${wellnessMetricOptions.find((option) => option.value === wellnessMetric)?.label ?? "bienestar"}, escala de 1 a 5`} className="h-64 w-full overflow-visible sm:h-72" preserveAspectRatio="none" viewBox="0 0 100 100">
@@ -6359,37 +6355,51 @@ function ClientWellnessView({
                 ))}
               </svg>
               <div className="mt-2 flex min-w-0 justify-between gap-2 text-[10px] font-semibold text-ink/45">
-                {visibleWellnessRecords.map((session, index) => (
-                  <span className="min-w-0 truncate" key={`${session.date}-${index}`}>{formatDisplayDate(session.date)}</span>
+                {wellnessChartPoints.map((point, index) => (
+                  <span className="min-w-0 truncate" key={`${point.date}-${index}`}>{formatDisplayDate(point.date)}</span>
                 ))}
               </div>
             </div>
-            <p className="text-xs font-semibold text-ink/50">
-              {latestReadiness > 0 && wellnessRecords[0]?.date
-                ? `Último readiness registrado: ${latestReadiness.toFixed(1)}/5 · ${formatDisplayDate(wellnessRecords[0].date)}`
-                : "Sin un último readiness registrado."}
-            </p>
-            <div className="grid gap-3 md:grid-cols-4">
-              {[
-                ["Sueño", positiveWellnessValue(latestWellness, "sleep")],
-                ["Energía", positiveWellnessValue(latestWellness, "energy")],
-                ["Recuperación", positiveWellnessValue(latestWellness, "recovery")],
-                ["Calma", positiveWellnessValue(latestWellness, "calm")]
-              ].map(([label, value]) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-ink">{label}</p>
-                    <span className="text-sm font-semibold text-ink/70">{Number(value) > 0 ? `${value}/5` : "Sin datos"}</span>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                    <div className="h-full rounded-full bg-steel" style={{ width: `${Math.min(100, (Number(value) / 5) * 100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
-          <p className="mt-4 text-sm font-semibold text-ink/50">Aún no hay suficientes registros para mostrar la evolución.</p>
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">Sin datos de esta métrica en el periodo seleccionado.</p>
+        )}
+      </section>
+
+      <section className="coach-surface min-w-0 rounded-md p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h3 className="font-semibold text-ink">Resumen del último registro</h3>
+          <span className="text-xs font-semibold text-ink/45">{wellnessRecords[0]?.date ? formatDisplayDate(wellnessRecords[0].date) : "Sin fecha"}</span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4">
+          {todaySummary.map((item) => (
+            <div className="flex min-w-0 items-center justify-between gap-2 border-b border-line/70 py-2 sm:border-b-0" key={item.label}>
+              <span className="text-sm font-medium text-ink/60">{item.label}</span>
+              <span className="shrink-0 text-sm font-semibold text-ink">{item.value > 0 ? `${item.value}/5` : "—"}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="coach-surface min-w-0 rounded-md p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Molestias recientes</h2>
+            <p className="mt-1 text-sm text-ink/55">Pendientes primero; las revisadas se mantienen al final.</p>
+          </div>
+          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{discomfortRecords.length}</span>
+        </div>
+        {discomfortRecords.length > 0 ? (
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {discomfortRecords.slice(0, 4).map((session) => renderWellnessNote(session, true))}
+            {discomfortRecords.length > 4 ? (
+              <button className="w-fit text-xs font-semibold text-moss md:col-span-2" onClick={() => setShowAllWellnessNotes(true)} type="button">
+                Ver todas ({discomfortRecords.length})
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md border border-dashed border-line bg-panel/35 p-3 text-sm font-semibold text-ink/45">Sin molestias recientes.</p>
         )}
       </section>
 
@@ -6425,48 +6435,6 @@ function ClientWellnessView({
         </div>
       ) : null}
 
-      {showWellnessDetails ? (
-        <div className="assessment-modal-overlay" onClick={() => setShowWellnessDetails(false)} role="presentation">
-          <section
-            aria-modal="true"
-            className="assessment-modal-panel max-h-[88vh] max-w-3xl overflow-y-auto"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <header className="assessment-modal-header sticky top-0 z-10 flex items-start justify-between gap-4 px-5 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-ink">Detalle de bienestar</h3>
-                <p className="mt-1 text-sm text-ink/55">Desglose del último registro disponible.</p>
-              </div>
-              <button
-                aria-label="Cerrar detalle de bienestar"
-                className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-panel text-ink/70 transition hover:bg-mint"
-                onClick={() => setShowWellnessDetails(false)}
-                type="button"
-              >
-                <X size={16} />
-              </button>
-            </header>
-            <div className="assessment-modal-body grid gap-3 px-5 py-5">
-              {detailBars.length > 0 ? detailBars.map(([label, value]) => (
-                <div className="rounded-md border border-line bg-panel/35 p-3" key={label}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-ink">{label}</p>
-                    <span className="text-sm font-semibold text-ink/70">{Number(value) > 0 ? `${value}/5` : "Sin datos"}</span>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                    <div className="h-full rounded-full bg-moss" style={{ width: `${Math.min(100, (Number(value) / 5) * 100)}%` }} />
-                  </div>
-                </div>
-              )) : (
-                <p className="rounded-md border border-dashed border-line bg-panel/35 p-4 text-sm font-semibold text-ink/50">
-                  Sin registros de bienestar todavía.
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-      ) : null}
     </div>
   );
 }
