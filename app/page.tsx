@@ -75,6 +75,7 @@ import {
   type LoadVelocityPoint,
   type LoadVelocityProfile
 } from "@/lib/assessment-catalog";
+import { formatAssessmentAge } from "@/lib/assessment-age";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
@@ -10604,6 +10605,18 @@ function DsiAnalysisCard({ assessments }: { assessments: AssessmentEntry[] }) {
         ? "Falta IMTP"
         : "Faltan datos";
 
+  if (validDsi === null) {
+    return (
+      <details className="rounded-md border border-line bg-panel/30 p-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-ink">DSI</span>
+          <span className="text-xs font-semibold text-ink/50">Datos insuficientes ›</span>
+        </summary>
+        <p className="mt-2 border-t border-line pt-2 text-xs text-ink/50">{missingLabel}. Requiere fuerza pico comparable de CMJ e IMTP.</p>
+      </details>
+    );
+  }
+
   return (
     <article className="rounded-md border border-line bg-panel/30 p-4 md:col-span-2 xl:col-span-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -11493,6 +11506,30 @@ function AssessmentsView({
       left: kneeAssessment.performance.left as number
     } : null;
   })();
+  const recentAssessmentResults = assessmentGroups
+    .map((group) => ({ group, latest: group.entries[group.entries.length - 1] }))
+    .sort((left, right) => getAssessmentDateValue(right.latest.date) - getAssessmentDateValue(left.latest.date))
+    .slice(0, 6);
+  const functionalAssessmentItems = [
+    {
+      count: client?.hipAssessments?.length ?? 0,
+      label: "Cadera",
+      latestDate: client?.hipAssessments?.[0]?.date,
+      onOpen: () => { setSelectedHipAssessment(client?.hipAssessments?.[0] ?? null); setShowHipAssessment(true); }
+    },
+    {
+      count: client?.kneeAssessments?.length ?? 0,
+      label: "Rodilla",
+      latestDate: client?.kneeAssessments?.[0]?.date,
+      onOpen: () => { setSelectedKneeAssessment(client?.kneeAssessments?.[0] ?? null); setShowKneeAssessment(true); }
+    },
+    {
+      count: client?.ankleAssessments?.length ?? 0,
+      label: "Tobillo",
+      latestDate: client?.ankleAssessments?.[0]?.date,
+      onOpen: () => { setSelectedAnkleAssessment(client?.ankleAssessments?.[0] ?? null); setShowAnkleAssessment(true); }
+    }
+  ];
 
   return (
     <div className="mt-6 grid gap-6">
@@ -11506,17 +11543,61 @@ function AssessmentsView({
             <p className="mt-1 text-sm text-ink/55">Tests, mediciones y reevaluaciones principales del cliente.</p>
           </div>
           <button
-            className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!client}
             onClick={openNewAssessmentForm}
             type="button"
           >
-            + Añadir valoración
+            Nueva valoración
           </button>
         </div>
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section className="coach-surface min-w-0 rounded-md p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-ink">Resultados recientes</h3>
+            <p className="mt-1 text-sm text-ink/55">Qué se ha medido y cuándo.</p>
+          </div>
+          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{recentAssessmentResults.length}</span>
+        </div>
+        {recentAssessmentResults.length > 0 ? (
+          <div className="mt-3 divide-y divide-line rounded-md border border-line bg-panel/20">
+            {recentAssessmentResults.map(({ group, latest }) => (
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-2.5" key={group.key}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-ink">{group.name}</p>
+                    {favoriteTests.includes(group.key) ? <span className="rounded border border-moss/25 bg-mint px-1.5 py-0.5 text-[10px] font-semibold text-moss">Referencia</span> : null}
+                  </div>
+                  <p className="mt-0.5 text-xs text-ink/50">{group.category} · {formatAssessmentAge(latest.date)}</p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-ink/75">{latest.result || "—"}</p>
+                <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setSelectedEvolutionKey(group.key)} type="button">Ver detalle</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Aún no hay resultados registrados.</p>
+        )}
+      </section>
+
+      <section className="coach-surface min-w-0 rounded-md p-4">
+        <div>
+          <h3 className="font-semibold text-ink">Valoración funcional</h3>
+          <p className="mt-1 text-sm text-ink/55">Accesos a los protocolos y su historial.</p>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
+          {functionalAssessmentItems.map((item) => (
+            <button className="min-w-0 rounded-md border border-line bg-panel/25 p-3 text-left transition hover:bg-panel/55" disabled={!client} key={item.label} onClick={item.onOpen} type="button">
+              <span className="block text-sm font-semibold text-ink">{item.label}</span>
+              <span className="mt-1 block text-xs font-medium text-ink/50">{item.latestDate ? `Última · ${formatAssessmentAge(item.latestDate)}` : "Sin valoración"}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
@@ -11535,7 +11616,7 @@ function AssessmentsView({
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Sin valoración. Inicia un primer registro para facilitar futuros retests.</p>}
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section className="hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
@@ -11554,7 +11635,7 @@ function AssessmentsView({
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section className="hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Valoraciones funcionales</p>
@@ -11573,7 +11654,7 @@ function AssessmentsView({
         })}</div> : <p className="mt-4 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Inicia una valoración para crear un primer registro y facilitar futuros retests.</p>}
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section className="hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-semibold text-ink">Valoraciones principales</h3>
