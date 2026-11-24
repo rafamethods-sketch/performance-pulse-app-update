@@ -10987,6 +10987,8 @@ function AssessmentsView({
   const [loadVelocityProfile, setLoadVelocityProfile] = useState<LoadVelocityProfile>({ exercise: "", loads: [createLoadVelocityPoint()] });
   const [editingAssessmentIndex, setEditingAssessmentIndex] = useState<number | null>(null);
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
+  const [assessmentHistoryQuery, setAssessmentHistoryQuery] = useState("");
+  const [selectedHistoryKey, setSelectedHistoryKey] = useState<string | null>(null);
   const assessments: AssessmentEntry[] = client?.assessments ?? [];
   const assessmentGroups = buildAssessmentGroups(assessments);
   const isEditingAssessment = editingAssessmentIndex !== null;
@@ -11005,6 +11007,8 @@ function AssessmentsView({
     setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
     setEditingAssessmentIndex(null);
     setSelectedEvolutionKey(null);
+    setAssessmentHistoryQuery("");
+    setSelectedHistoryKey(null);
     setSelectedAnkleAssessment(null);
     setShowAnkleAssessment(false);
     setSelectedKneeAssessment(null);
@@ -11430,6 +11434,13 @@ function AssessmentsView({
     .map((group) => ({ group, latest: group.entries[group.entries.length - 1] }))
     .sort((left, right) => getAssessmentDateValue(right.latest.date) - getAssessmentDateValue(left.latest.date))
     .slice(0, 6);
+  const normalizedAssessmentHistoryQuery = normalizeAssessmentKey(assessmentHistoryQuery);
+  const assessmentHistoryMatches = normalizedAssessmentHistoryQuery && !selectedHistoryKey
+    ? assessmentGroups
+        .filter((group) => normalizeAssessmentKey(`${group.name} ${group.category}`).includes(normalizedAssessmentHistoryQuery))
+        .sort((left, right) => left.name.localeCompare(right.name, "es"))
+    : [];
+  const selectedHistoryGroup = assessmentGroups.find((group) => group.key === selectedHistoryKey) ?? null;
   const functionalAssessmentItems = [
     {
       count: client?.hipAssessments?.length ?? 0,
@@ -11634,23 +11645,71 @@ function AssessmentsView({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-ink">Historial</h3>
-            <p className="mt-1 text-sm text-ink/55">Accede a cualquier test y consulta todos sus registros.</p>
+            <p className="mt-1 text-sm text-ink/55">Busca cualquier test para consultar sus registros.</p>
           </div>
-          <span className="rounded-md border border-line bg-panel/60 px-2 py-1 text-xs font-semibold text-ink/50">{assessmentGroups.length}</span>
+          <span className="text-xs font-semibold text-ink/40">{assessmentGroups.length} disponibles</span>
         </div>
         {assessmentGroups.length > 0 ? (
-          <div className="mt-3 grid gap-1 rounded-md border border-line bg-panel/20 p-2 sm:grid-cols-2 lg:grid-cols-3">
-            {[...assessmentGroups]
-              .sort((left, right) => left.name.localeCompare(right.name, "es"))
-              .map((group) => (
-                <button className="flex min-w-0 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition hover:bg-white" key={group.key} onClick={() => setSelectedEvolutionKey(group.key)} type="button">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-ink/70">{group.name}</span>
-                    <span className="block truncate text-[11px] font-medium text-ink/40">{group.category}</span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-medium text-ink/40">{group.entries.length} ›</span>
+          <div className="relative mt-3">
+            <div className="flex gap-2">
+              <input
+                aria-label="Buscar test en el historial"
+                className="h-10 min-w-0 flex-1 rounded-md border border-line bg-white px-3 text-sm text-ink outline-none placeholder:text-ink/35 focus:border-moss"
+                onChange={(event) => {
+                  setAssessmentHistoryQuery(event.target.value);
+                  setSelectedHistoryKey(null);
+                }}
+                placeholder="Buscar test por nombre o categoría..."
+                type="search"
+                value={assessmentHistoryQuery}
+              />
+              {assessmentHistoryQuery || selectedHistoryKey ? (
+                <button
+                  className="h-10 shrink-0 rounded-md border border-line bg-white px-3 text-xs font-semibold text-ink/55 transition hover:bg-panel hover:text-ink"
+                  onClick={() => {
+                    setAssessmentHistoryQuery("");
+                    setSelectedHistoryKey(null);
+                  }}
+                  type="button"
+                >
+                  Limpiar
                 </button>
-              ))}
+              ) : null}
+            </div>
+
+            {assessmentHistoryMatches.length > 0 ? (
+              <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-line bg-white p-1 shadow-lg">
+                {assessmentHistoryMatches.map((group) => (
+                  <button
+                    className="flex w-full min-w-0 items-center justify-between gap-3 rounded px-2.5 py-2 text-left transition hover:bg-panel"
+                    key={group.key}
+                    onClick={() => {
+                      setAssessmentHistoryQuery(group.name);
+                      setSelectedHistoryKey(group.key);
+                    }}
+                    type="button"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink/70">{group.name}</span>
+                      <span className="block truncate text-[11px] font-medium text-ink/40">{group.category}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] font-medium text-ink/40">{group.entries.length} registros</span>
+                  </button>
+                ))}
+              </div>
+            ) : normalizedAssessmentHistoryQuery && !selectedHistoryGroup ? (
+              <p className="mt-2 px-1 text-xs font-medium text-ink/45">No hay tests que coincidan con la búsqueda.</p>
+            ) : null}
+
+            {selectedHistoryGroup ? (
+              <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel/25 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">{selectedHistoryGroup.name}</p>
+                  <p className="mt-0.5 text-xs text-ink/45">{selectedHistoryGroup.category} · {selectedHistoryGroup.entries.length} registros</p>
+                </div>
+                <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setSelectedEvolutionKey(selectedHistoryGroup.key)} type="button">Ver detalle</button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <p className="mt-3 rounded-md border border-dashed border-line bg-panel/25 p-3 text-sm text-ink/50">Aún no hay tests en el historial.</p>
