@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import { getExerciseById } from "@/lib/exercises";
 import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
+import { formatAssessmentReassessmentPeriod, getAssessmentReassessmentState, isAssessmentReassessmentDue } from "@/lib/assessment-reassessment";
 
 type AttentionFilter = "all" | "alerts" | "sessions" | "technique" | "wellness" | "management";
 type AttentionPeriod = 7 | 14 | 30 | 90;
@@ -119,6 +120,7 @@ type CoachClient = {
   assessmentPreferences?: {
     favoriteTests?: string[];
     reassessmentDates?: Record<string, string>;
+    reassessmentEndDates?: Record<string, string>;
   };
   assessments?: Array<{
     date?: string;
@@ -793,18 +795,17 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
     }
 
     Object.entries(client.assessmentPreferences?.reassessmentDates ?? {}).forEach(([assessmentKey, reassessmentDate]) => {
-      const parsedDate = parseAccessDate(reassessmentDate);
-      if (!parsedDate) return;
-      const daysUntilReassessment = Math.ceil((parsedDate.getTime() - today.getTime()) / 86400000);
-      if (daysUntilReassessment > 7) return;
+      const reassessmentEndDate = client.assessmentPreferences?.reassessmentEndDates?.[assessmentKey];
+      if (!isAssessmentReassessmentDue(reassessmentDate, reassessmentEndDate, today)) return;
+      const reassessmentState = getAssessmentReassessmentState(reassessmentDate, reassessmentEndDate, today);
 
       items.push({
         action: "assessments",
-        badge: daysUntilReassessment < 0 ? "Reevaluación pendiente" : "Reevaluar pronto",
+        badge: reassessmentState.label,
         clientId: client.id,
         clientName: client.name,
         date: reassessmentDate,
-        detail: `Fecha objetivo: ${formatDisplayDate(reassessmentDate)}`,
+        detail: `Periodo objetivo: ${formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}`,
         id: `reassessment-${client.id}-${assessmentKey}`,
         meta: client.sport || client.modality || undefined,
         section: "reassessmentDue",

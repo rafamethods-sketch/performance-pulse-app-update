@@ -32,6 +32,7 @@ import {
   type WeeklyReviewSession
 } from "@/lib/weekly-review";
 import { getRacReviewWeeklySummary } from "@/lib/rac-review-weekly-summary";
+import { isAssessmentReassessmentDue } from "@/lib/assessment-reassessment";
 
 type DashboardSessionRecord = TrainingSessionInput & {
   actualDurationMinutes?: number | string | null;
@@ -105,6 +106,7 @@ type CoachClient = {
   assessmentPreferences?: {
     favoriteTests?: string[];
     reassessmentDates?: Record<string, string>;
+    reassessmentEndDates?: Record<string, string>;
   };
   assessments?: Array<{
     category?: string;
@@ -510,13 +512,8 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     const date = getDashboardDate(session.date);
     return date && getDashboardDayDiff(date) <= 14 && getDashboardQuickFeedbackRating(session.athleteQuickFeedback) === "bad";
   });
-  const reassessmentDates = Object.values(client.assessmentPreferences?.reassessmentDates ?? {})
-    .map(getDashboardDate)
-    .filter((date): date is Date => Boolean(date));
-  const dueReassessments = reassessmentDates.filter((date) => {
-    const diff = Math.ceil((date.getTime() - today.getTime()) / 86_400_000);
-    return diff <= 14;
-  });
+  const dueReassessments = Object.entries(client.assessmentPreferences?.reassessmentDates ?? {})
+    .filter(([assessmentKey, startDate]) => isAssessmentReassessmentDue(startDate, client.assessmentPreferences?.reassessmentEndDates?.[assessmentKey], today, 14));
   const sessionDistribution = recentSessions.reduce<Record<ReturnType<typeof getDashboardSessionKind>, { count: number; load: number }>>(
     (distribution, session) => {
       const kind = getDashboardSessionKind(session);

@@ -76,6 +76,7 @@ import {
   type LoadVelocityProfile
 } from "@/lib/assessment-catalog";
 import { formatAssessmentAge } from "@/lib/assessment-age";
+import { formatAssessmentReassessmentPeriod, getAssessmentReassessmentState } from "@/lib/assessment-reassessment";
 import { getNextSessionCompatibility, getSessionCompatibilityStyle } from "@/lib/session-compatibility";
 import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
@@ -1507,6 +1508,7 @@ type AssessmentImprovementDirection = "higher_is_better" | "lower_is_better" | "
 type AssessmentPreferences = {
   favoriteTests?: string[];
   reassessmentDates?: Record<string, string>;
+  reassessmentEndDates?: Record<string, string>;
 };
 
 type ClientBusinessStatus = "active" | "paused" | "inactive";
@@ -5734,6 +5736,7 @@ function ClientProgressView({
   const assessmentGroups = buildAssessmentGroups(assessments as AssessmentEntry[]);
   const favoriteTests = client?.assessmentPreferences?.favoriteTests ?? [];
   const reassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const reassessmentEndDates = client?.assessmentPreferences?.reassessmentEndDates ?? {};
   const favoriteAssessmentGroups = assessmentGroups.filter((group) => favoriteTests.includes(group.key));
   const recentAssessmentGroups = [...favoriteAssessmentGroups, ...assessmentGroups.filter((group) => !favoriteTests.includes(group.key))]
     .filter((group, index, list) => list.findIndex((item) => item.key === group.key) === index)
@@ -5779,10 +5782,10 @@ function ClientProgressView({
   const dueReassessments = favoriteAssessmentGroups
     .map((group) => ({
       group,
-      state: getAssessmentReassessmentState(reassessmentDates[group.key]),
+      state: getAssessmentReassessmentState(reassessmentDates[group.key], reassessmentEndDates[group.key]),
       targetDate: reassessmentDates[group.key]
     }))
-    .filter((item) => item.state.label === "Reevaluación pendiente" || item.state.label === "Reevaluar pronto");
+    .filter((item) => item.state.label === "Fuera de plazo" || item.state.label === "En periodo" || item.state.label === "Reevaluar pronto");
   const warningSignals = [
     ...discomfortSessions.map((session) => ({
       action: "Ir a Sesiones",
@@ -5877,7 +5880,8 @@ function ClientProgressView({
         }, numericEntries[0])
       : latestEntry;
     const reassessmentDate = reassessmentDates[group.key];
-    const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+    const reassessmentEndDate = reassessmentEndDates[group.key];
+    const reassessmentState = getAssessmentReassessmentState(reassessmentDate, reassessmentEndDate);
     const changeLabel = getAssessmentChangeLabel(previousEntry?.parsedValue ?? null, latestEntry.parsedValue, group.unit);
 
     return (
@@ -5899,7 +5903,7 @@ function ClientProgressView({
         </div>
         {reassessmentDate ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-ink/50">Próxima reevaluación: {formatDisplayDate(reassessmentDate)}</span>
+            <span className="text-xs font-semibold text-ink/50">Próxima reevaluación: {formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}</span>
             {reassessmentState.label ? <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
           </div>
         ) : null}
@@ -7263,6 +7267,7 @@ function PlanningView({
   const planningAssessmentGroups = buildAssessmentGroups((client?.assessments ?? []) as AssessmentEntry[]);
   const planningFavoriteGroups = planningAssessmentGroups.filter((group) => client?.assessmentPreferences?.favoriteTests?.includes(group.key));
   const planningReassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const planningReassessmentEndDates = client?.assessmentPreferences?.reassessmentEndDates ?? {};
   const planningReferenceCount =
     planningFavoriteGroups.length +
     Object.keys(planningReassessmentDates).length +
@@ -7695,7 +7700,8 @@ function PlanningView({
                   }, numericEntries[0])
                 : latestEntry;
               const reassessmentDate = planningReassessmentDates[group.key];
-              const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+              const reassessmentEndDate = planningReassessmentEndDates[group.key];
+              const reassessmentState = getAssessmentReassessmentState(reassessmentDate, reassessmentEndDate);
 
               return (
                 <article className="rounded-md border border-line bg-panel/35 px-3 py-2.5" key={group.key}>
@@ -7709,7 +7715,7 @@ function PlanningView({
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/60">
                     <p>Último: <span className="font-semibold text-ink">{latestEntry.result}</span></p>
                     <p>Mejor: <span className="font-semibold text-ink">{bestEntry.result}</span></p>
-                    {reassessmentDate ? <p className="text-ink/50">Reevaluación: {formatDisplayDate(reassessmentDate)}</p> : null}
+                    {reassessmentDate ? <p className="text-ink/50">Reevaluación: {formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}</p> : null}
                   </div>
                 </article>
               );
@@ -10913,16 +10919,10 @@ function getAssessmentChangeLabel(fromValue: number | null, toValue: number | nu
   return `${sign}${Number(diff.toFixed(2))}${unit ? ` ${unit}` : ""}`;
 }
 
-function getAssessmentReassessmentState(dateKey?: string) {
-  if (!dateKey) return { label: "", tone: "" };
-  const target = new Date(`${dateKey}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return { label: "", tone: "" };
-  const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diffDays = Math.ceil((target.getTime() - todayOnly.getTime()) / 86400000);
-  if (diffDays < 0) return { label: "Reevaluación pendiente", tone: "border-red-200 bg-red-50 text-red-700" };
-  if (diffDays <= 7) return { label: "Reevaluar pronto", tone: "border-amber-200 bg-amber-50 text-amber-700" };
-  return { label: "Al día", tone: "border-line bg-panel text-ink/60" };
+function AssessmentReassessmentBadge({ endDate, startDate }: { endDate?: string; startDate?: string }) {
+  const state = getAssessmentReassessmentState(startDate, endDate);
+  if (!state.label) return null;
+  return <span className={`inline-flex shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${state.tone}`}>{state.label}</span>;
 }
 
 function buildAssessmentGroups(assessments: AssessmentEntry[]) {
@@ -10994,6 +10994,7 @@ function AssessmentsView({
   const isEditingAssessment = editingAssessmentIndex !== null;
   const favoriteTests = client?.assessmentPreferences?.favoriteTests ?? [];
   const reassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
+  const reassessmentEndDates = client?.assessmentPreferences?.reassessmentEndDates ?? {};
   const favoriteGroups = assessmentGroups.filter((group) => favoriteTests.includes(group.key));
   const selectedEvolutionGroup = assessmentGroups.find((group) => group.key === selectedEvolutionKey) ?? null;
 
@@ -11136,7 +11137,8 @@ function AssessmentsView({
       ...client,
       assessmentPreferences: {
         favoriteTests: nextPreferences.favoriteTests ?? client.assessmentPreferences?.favoriteTests ?? [],
-        reassessmentDates: nextPreferences.reassessmentDates ?? client.assessmentPreferences?.reassessmentDates ?? {}
+        reassessmentDates: nextPreferences.reassessmentDates ?? client.assessmentPreferences?.reassessmentDates ?? {},
+        reassessmentEndDates: nextPreferences.reassessmentEndDates ?? client.assessmentPreferences?.reassessmentEndDates ?? {}
       }
     });
   }
@@ -11149,12 +11151,20 @@ function AssessmentsView({
     updateAssessmentPreferences({ favoriteTests: nextFavorites });
   }
 
-  function updateReassessmentDate(groupKey: string, date: string) {
+  function updateReassessmentSchedule(groupKey: string, startDate: string, endDate: string) {
+    const nextStartDates = { ...(client?.assessmentPreferences?.reassessmentDates ?? {}) };
+    const nextEndDates = { ...(client?.assessmentPreferences?.reassessmentEndDates ?? {}) };
+    if (!startDate) {
+      delete nextStartDates[groupKey];
+      delete nextEndDates[groupKey];
+    } else {
+      nextStartDates[groupKey] = startDate;
+      if (endDate && endDate !== startDate) nextEndDates[groupKey] = endDate;
+      else delete nextEndDates[groupKey];
+    }
     updateAssessmentPreferences({
-      reassessmentDates: {
-        ...(client?.assessmentPreferences?.reassessmentDates ?? {}),
-        [groupKey]: date
-      }
+      reassessmentDates: nextStartDates,
+      reassessmentEndDates: nextEndDates
     });
   }
 
@@ -11500,6 +11510,7 @@ function AssessmentsView({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-semibold text-ink">{group.name}</p>
                     {favoriteTests.includes(group.key) ? <span className="rounded border border-moss/25 bg-mint px-1.5 py-0.5 text-[10px] font-semibold text-moss">Referencia</span> : null}
+                    <AssessmentReassessmentBadge endDate={reassessmentEndDates[group.key]} startDate={reassessmentDates[group.key]} />
                   </div>
                   <p className="mt-0.5 text-xs text-ink/50">{group.category} · {formatAssessmentAge(latest.date)}</p>
                 </div>
@@ -11690,7 +11701,10 @@ function AssessmentsView({
                     type="button"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-ink/70">{group.name}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-ink/70">{group.name}</span>
+                        <AssessmentReassessmentBadge endDate={reassessmentEndDates[group.key]} startDate={reassessmentDates[group.key]} />
+                      </span>
                       <span className="block truncate text-[11px] font-medium text-ink/40">{group.category}</span>
                     </span>
                     <span className="shrink-0 text-[11px] font-medium text-ink/40">{group.entries.length} registros</span>
@@ -11704,7 +11718,10 @@ function AssessmentsView({
             {selectedHistoryGroup ? (
               <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel/25 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{selectedHistoryGroup.name}</p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-ink">{selectedHistoryGroup.name}</p>
+                    <AssessmentReassessmentBadge endDate={reassessmentEndDates[selectedHistoryGroup.key]} startDate={reassessmentDates[selectedHistoryGroup.key]} />
+                  </div>
                   <p className="mt-0.5 text-xs text-ink/45">{selectedHistoryGroup.category} · {selectedHistoryGroup.entries.length} registros</p>
                 </div>
                 <button className="shrink-0 text-xs font-semibold text-moss" onClick={() => setSelectedEvolutionKey(selectedHistoryGroup.key)} type="button">Ver detalle</button>
@@ -12065,8 +12082,9 @@ function AssessmentsView({
           onDeleteEntry={handleDeleteAssessment}
           onEditEntry={handleEditAssessment}
           onToggleFavorite={() => toggleFavoriteAssessment(selectedEvolutionGroup.key)}
-          onUpdateReassessmentDate={(date) => updateReassessmentDate(selectedEvolutionGroup.key, date)}
+          onUpdateReassessmentSchedule={(startDate, endDate) => updateReassessmentSchedule(selectedEvolutionGroup.key, startDate, endDate)}
           reassessmentDate={reassessmentDates[selectedEvolutionGroup.key] ?? ""}
+          reassessmentEndDate={reassessmentEndDates[selectedEvolutionGroup.key] ?? ""}
         />
       ) : null}
     </div>
@@ -12133,8 +12151,9 @@ function AssessmentEvolutionModal({
   onDeleteEntry,
   onEditEntry,
   onToggleFavorite,
-  onUpdateReassessmentDate,
-  reassessmentDate
+  onUpdateReassessmentSchedule,
+  reassessmentDate,
+  reassessmentEndDate
 }: {
   group: AssessmentGroup;
   isFavorite: boolean;
@@ -12142,9 +12161,16 @@ function AssessmentEvolutionModal({
   onDeleteEntry: (index: number) => void;
   onEditEntry: (assessment: AssessmentEntry, index: number) => void;
   onToggleFavorite: () => void;
-  onUpdateReassessmentDate: (date: string) => void;
+  onUpdateReassessmentSchedule: (startDate: string, endDate: string) => void;
   reassessmentDate: string;
+  reassessmentEndDate: string;
 }) {
+  const [reassessmentStartDraft, setReassessmentStartDraft] = useState(reassessmentDate);
+  const [reassessmentEndDraft, setReassessmentEndDraft] = useState(reassessmentEndDate);
+  useEffect(() => {
+    setReassessmentStartDraft(reassessmentDate);
+    setReassessmentEndDraft(reassessmentEndDate);
+  }, [reassessmentDate, reassessmentEndDate]);
   const latestEntry = group.entries[group.entries.length - 1];
   const isBilateral = getAssessmentCatalogTest(latestEntry.protocolId)?.summary?.mode === "bilateral";
   const isLoadVelocity = Boolean(latestEntry.loadVelocityProfile);
@@ -12159,7 +12185,9 @@ function AssessmentEvolutionModal({
         return (entry.parsedValue ?? -Infinity) > (best.parsedValue ?? -Infinity) ? entry : best;
       })
     : latestEntry;
-  const reassessmentState = getAssessmentReassessmentState(reassessmentDate);
+  const reassessmentState = getAssessmentReassessmentState(reassessmentDate, reassessmentEndDate);
+  const hasInvalidReassessmentRange = Boolean(reassessmentEndDraft) && (!reassessmentStartDraft || reassessmentEndDraft < reassessmentStartDraft);
+  const hasReassessmentChanges = reassessmentStartDraft !== reassessmentDate || reassessmentEndDraft !== reassessmentEndDate;
 
   return (
     <div aria-modal="true" className="assessment-modal-overlay" onClick={onClose} role="dialog">
@@ -12168,7 +12196,10 @@ function AssessmentEvolutionModal({
           <div>
             <p className="text-xs font-semibold uppercase text-moss">Evolución</p>
             <h3 className="text-xl font-semibold text-ink">{group.name}</h3>
-            <p className="mt-1 text-sm text-ink/55">{group.category} · {assessmentImprovementDirectionLabels[group.direction]}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-ink/55">{group.category} · {assessmentImprovementDirectionLabels[group.direction]}</p>
+              <AssessmentReassessmentBadge endDate={reassessmentEndDate} startDate={reassessmentDate} />
+            </div>
           </div>
           <button aria-label="Cerrar" className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink/60 transition hover:bg-panel hover:text-ink" onClick={onClose} type="button">
             <X size={18} />
@@ -12191,7 +12222,7 @@ function AssessmentEvolutionModal({
             <ClientInfoCard label="Mejor resultado" value={isLoadVelocity || isBilateral || group.direction === "neutral" || comparableEntries.length === 0 ? "—" : bestEntry.result} />
             <ClientInfoCard label="Cambio anterior" value={isLoadVelocity || isBilateral ? "—" : getAssessmentChangeLabel(previousComparableEntry?.parsedValue ?? null, comparableEntries.at(-1)?.parsedValue ?? null, group.unit)} />
             <ClientInfoCard label="Registros" value={`${group.entries.length}`} />
-            <ClientInfoCard label="Próxima reevaluación" value={reassessmentDate ? formatDisplayDate(reassessmentDate) : "Sin programar"} />
+            <ClientInfoCard label="Próxima reevaluación" value={formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)} />
           </div>
 
           <section className="rounded-md border border-line bg-panel/30 p-3">
@@ -12199,16 +12230,29 @@ function AssessmentEvolutionModal({
               <h4 className="font-semibold text-ink">Acciones del test</h4>
               {reassessmentState.label ? <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_minmax(12rem,1fr)_auto_auto] lg:items-end">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_minmax(9rem,1fr)_minmax(9rem,1fr)_auto_auto] lg:items-end">
               <button className={`h-10 rounded-md border px-3 text-sm font-semibold transition ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/65 hover:bg-panel"}`} onClick={onToggleFavorite} type="button">
                 {isFavorite ? "Quitar de referencias" : "Marcar como referencia"}
               </button>
               <label className="text-xs font-semibold text-ink/55">
-                Próxima reevaluación
-                <input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => onUpdateReassessmentDate(event.target.value)} type="date" value={reassessmentDate} />
+                Inicio
+                <input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => setReassessmentStartDraft(event.target.value)} type="date" value={reassessmentStartDraft} />
+              </label>
+              <label className="text-xs font-semibold text-ink/55">
+                Fin opcional
+                <input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss" min={reassessmentStartDraft || undefined} onChange={(event) => setReassessmentEndDraft(event.target.value)} type="date" value={reassessmentEndDraft} />
               </label>
               <button className="h-10 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/65 transition hover:bg-panel" onClick={() => { onClose(); onEditEntry(latestEntry, latestEntry.originalIndex); }} type="button">Configurar test</button>
               <button className="h-10 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/65 transition hover:bg-panel" onClick={() => document.getElementById(`assessment-history-${group.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">Consultar historial</button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <p className={`text-xs font-medium ${hasInvalidReassessmentRange ? "text-coral" : "text-ink/45"}`}>
+                {hasInvalidReassessmentRange ? "La fecha final no puede ser anterior a la inicial." : reassessmentDate ? `Periodo guardado: ${formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}` : "Sin programación guardada."}
+              </p>
+              <div className="flex gap-2">
+                {reassessmentDate ? <button className="rounded-md border border-coral/30 bg-white px-3 py-1.5 text-xs font-semibold text-coral" onClick={() => { setReassessmentStartDraft(""); setReassessmentEndDraft(""); onUpdateReassessmentSchedule("", ""); }} type="button">Eliminar programación</button> : null}
+                <button className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!reassessmentStartDraft || hasInvalidReassessmentRange || !hasReassessmentChanges} onClick={() => onUpdateReassessmentSchedule(reassessmentStartDraft, reassessmentEndDraft)} type="button">Guardar programación</button>
+              </div>
             </div>
           </section>
 
