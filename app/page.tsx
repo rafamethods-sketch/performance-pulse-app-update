@@ -262,6 +262,7 @@ export default function ClientsPage() {
   const [targetTrainingSession, setTargetTrainingSession] = useState<TargetTrainingSession | null>(null);
   const [ankleAssessmentClientId, setAnkleAssessmentClientId] = useState("");
   const [kneeAssessmentClientId, setKneeAssessmentClientId] = useState("");
+  const [assessmentFocusRequest, setAssessmentFocusRequest] = useState<AssessmentFocusRequest | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [coachDataHydrated, setCoachDataHydrated] = useState(false);
   const [resources, setResources] = useState<ResourceLink[]>([]);
@@ -465,7 +466,10 @@ export default function ClientsPage() {
     setActiveSheet("management");
   }
 
-  function openClientSheet(clientId: string, sheet: SheetId) {
+  function openClientSheet(clientId: string, sheet: SheetId, assessmentGroupKeys: string[] = []) {
+    setAssessmentFocusRequest(sheet === "assessments" && assessmentGroupKeys.length > 0
+      ? { clientId, groupKeys: [...new Set(assessmentGroupKeys)], nonce: Date.now() }
+      : null);
     setScopedClientId(clientId);
     setActiveSheet(sheet);
   }
@@ -962,7 +966,7 @@ export default function ClientsPage() {
                 clients={clients}
                 onOpenAnkleAssessment={openAnkleAssessment}
                 onOpenKneeAssessment={openKneeAssessment}
-                onOpenClientAssessments={(clientId) => openClientSheet(clientId, "assessments")}
+                onOpenClientAssessments={(clientId, groupKeys) => openClientSheet(clientId, "assessments", groupKeys)}
                 onOpenClientDetails={(clientId) => openClientPanel(clientId, "details")}
                 onOpenClientProgress={(clientId) => openClientSheet(clientId, "clientProgress")}
                 onOpenTrainingSession={openTrainingSession}
@@ -973,6 +977,7 @@ export default function ClientsPage() {
           ) : activeSheet === "assessments" ? (
             <AssessmentsView
               client={role === "coach" ? scopedClient : null}
+              focusRequest={scopedClient && assessmentFocusRequest?.clientId === scopedClient.id ? assessmentFocusRequest : null}
               onConsumeAnkleRequest={() => setAnkleAssessmentClientId("")}
               onConsumeKneeRequest={() => setKneeAssessmentClientId("")}
               openAnkleOnLoad={Boolean(scopedClient && ankleAssessmentClientId === scopedClient.id)}
@@ -989,7 +994,7 @@ export default function ClientsPage() {
             role === "coach" ? (
               <ClientProgressView
                 client={scopedClient}
-                onOpenAssessments={(clientId) => openClientSheet(clientId, "assessments")}
+                onOpenAssessments={(clientId, groupKeys) => openClientSheet(clientId, "assessments", groupKeys)}
                 onOpenTraining={(clientId) => openClientSheet(clientId, "training")}
                 onOpenWellness={(clientId) => openClientSheet(clientId, "clientWellness")}
               />
@@ -1509,6 +1514,12 @@ type AssessmentPreferences = {
   favoriteTests?: string[];
   reassessmentDates?: Record<string, string>;
   reassessmentEndDates?: Record<string, string>;
+};
+
+type AssessmentFocusRequest = {
+  clientId: string;
+  groupKeys: string[];
+  nonce: number;
 };
 
 type ClientBusinessStatus = "active" | "paused" | "inactive";
@@ -2757,7 +2768,7 @@ function ClientQuickNav({
 }: {
   activeSheet: SheetId;
   client: CoachClient;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   trainerClientPanel: TrainerClientPanel;
@@ -2832,7 +2843,7 @@ function ActiveClientBar({
   activeSheet: SheetId;
   client: CoachClient;
   onBack: () => void;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   trainerClientPanel: TrainerClientPanel;
@@ -2927,7 +2938,7 @@ function CoachManagementView({
   clients: CoachClient[];
   onBack: () => void;
   onLoadDemoData: () => void;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
@@ -3065,7 +3076,7 @@ function CoachClientsView({
   clients: CoachClient[];
   onBack: () => void;
   onLoadDemoData: () => void;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDashboard: (clientId: string) => void;
   onOpenDetails: (clientId: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
@@ -3941,9 +3952,9 @@ function CoachClientsView({
 
 function ClientInfoCard({ className = "", label, value }: { className?: string; label: string; value: string }) {
   return (
-    <article className={`coach-metric-card rounded-md px-3.5 py-3 ${className}`}>
+    <article className={`coach-metric-card min-w-0 rounded-md px-3.5 py-3 ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-ink">{value}</p>
     </article>
   );
 }
@@ -5728,7 +5739,7 @@ function ClientProgressView({
   onOpenWellness
 }: {
   client?: CoachClient | null;
-  onOpenAssessments: (clientId: string) => void;
+  onOpenAssessments: (clientId: string, assessmentGroupKeys?: string[]) => void;
   onOpenTraining: (clientId: string) => void;
   onOpenWellness: (clientId: string) => void;
 }) {
@@ -5811,7 +5822,7 @@ function ClientProgressView({
     ...dueReassessments.map((item) => ({
       action: "Ir a Valoraciones",
       date: item.targetDate,
-      onClick: () => client && onOpenAssessments(client.id),
+      onClick: () => client && onOpenAssessments(client.id, [item.group.key]),
       text: `${item.group.name}: ${item.state.label.toLowerCase()}.`,
       type: "Reevaluación"
     })),
@@ -10959,6 +10970,7 @@ function buildAssessmentGroups(assessments: AssessmentEntry[]) {
 }
 function AssessmentsView({
   client,
+  focusRequest,
   onConsumeAnkleRequest,
   onConsumeKneeRequest,
   openAnkleOnLoad,
@@ -10966,6 +10978,7 @@ function AssessmentsView({
   onUpdateClient
 }: {
   client?: CoachClient | null;
+  focusRequest?: AssessmentFocusRequest | null;
   onConsumeAnkleRequest?: () => void;
   onConsumeKneeRequest?: () => void;
   openAnkleOnLoad?: boolean;
@@ -10989,8 +11002,8 @@ function AssessmentsView({
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
   const [assessmentHistoryQuery, setAssessmentHistoryQuery] = useState("");
   const [selectedHistoryKey, setSelectedHistoryKey] = useState<string | null>(null);
-  const assessments: AssessmentEntry[] = client?.assessments ?? [];
-  const assessmentGroups = buildAssessmentGroups(assessments);
+  const assessments = useMemo<AssessmentEntry[]>(() => client?.assessments ?? [], [client?.assessments]);
+  const assessmentGroups = useMemo(() => buildAssessmentGroups(assessments), [assessments]);
   const isEditingAssessment = editingAssessmentIndex !== null;
   const favoriteTests = client?.assessmentPreferences?.favoriteTests ?? [];
   const reassessmentDates = client?.assessmentPreferences?.reassessmentDates ?? {};
@@ -11440,10 +11453,14 @@ function AssessmentsView({
       left: kneeAssessment.performance.left as number
     } : null;
   })();
-  const recentAssessmentResults = assessmentGroups
+  const recentAssessmentResults = useMemo(() => assessmentGroups
     .map((group) => ({ group, latest: group.entries[group.entries.length - 1] }))
     .sort((left, right) => getAssessmentDateValue(right.latest.date) - getAssessmentDateValue(left.latest.date))
-    .slice(0, 6);
+    .slice(0, 6), [assessmentGroups]);
+  const focusedAssessmentKeys = useMemo(() => new Set(focusRequest?.groupKeys ?? []), [focusRequest]);
+  const recentAssessmentKeys = useMemo(() => new Set(recentAssessmentResults.map(({ group }) => group.key)), [recentAssessmentResults]);
+  const focusedHistoryKey = focusRequest?.groupKeys.find((key) => assessmentGroups.some((group) => group.key === key) && !recentAssessmentKeys.has(key)) ?? null;
+  const hasMissingFocusedAssessment = Boolean(focusRequest?.groupKeys.some((key) => !assessmentGroups.some((group) => group.key === key)));
   const normalizedAssessmentHistoryQuery = normalizeAssessmentKey(assessmentHistoryQuery);
   const assessmentHistoryMatches = normalizedAssessmentHistoryQuery && !selectedHistoryKey
     ? assessmentGroups
@@ -11451,6 +11468,20 @@ function AssessmentsView({
         .sort((left, right) => left.name.localeCompare(right.name, "es"))
     : [];
   const selectedHistoryGroup = assessmentGroups.find((group) => group.key === selectedHistoryKey) ?? null;
+
+  useEffect(() => {
+    if (!focusRequest || focusRequest.clientId !== client?.id) return;
+    if (focusedHistoryKey) {
+      const focusedGroup = assessmentGroups.find((group) => group.key === focusedHistoryKey);
+      setAssessmentHistoryQuery(focusedGroup?.name ?? "");
+      setSelectedHistoryKey(focusedHistoryKey);
+    }
+    const recentFocusKey = focusRequest.groupKeys.find((key) => recentAssessmentKeys.has(key));
+    const targetId = focusedHistoryKey ? "assessment-history-section" : recentFocusKey ? `assessment-result-${recentFocusKey}` : "assessment-history-section";
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+    });
+  }, [assessmentGroups, client?.id, focusRequest, focusedHistoryKey, recentAssessmentKeys]);
   const functionalAssessmentItems = [
     {
       count: client?.hipAssessments?.length ?? 0,
@@ -11494,7 +11525,7 @@ function AssessmentsView({
         </div>
       </section>
 
-      <section className="coach-surface min-w-0 rounded-md p-4">
+      <section className="coach-surface min-w-0 rounded-md p-4" id="assessment-recent-results">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-ink">Resultados recientes</h3>
@@ -11505,7 +11536,11 @@ function AssessmentsView({
         {recentAssessmentResults.length > 0 ? (
           <div className="mt-3 divide-y divide-line rounded-md border border-line bg-panel/20">
             {recentAssessmentResults.map(({ group, latest }) => (
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-2.5" key={group.key}>
+              <div
+                className={`flex min-w-0 scroll-mt-24 flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${focusedAssessmentKeys.has(group.key) ? "border-l-2 border-blue-300 bg-blue-50/70" : ""}`}
+                id={`assessment-result-${group.key}`}
+                key={group.key}
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-semibold text-ink">{group.name}</p>
@@ -11652,11 +11687,15 @@ function AssessmentsView({
         </div>
       </section>
 
-      <section className="coach-surface rounded-md p-4">
+      <section
+        className={`coach-surface scroll-mt-24 rounded-md p-4 ${focusedHistoryKey || hasMissingFocusedAssessment ? "border-blue-300 bg-blue-50/35" : ""}`}
+        id="assessment-history-section"
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold text-ink">Historial</h3>
             <p className="mt-1 text-sm text-ink/55">Busca cualquier test para consultar sus registros.</p>
+            {focusRequest && focusRequest.groupKeys.length > 1 ? <p className="mt-1 text-xs font-semibold text-blue-700">{focusRequest.groupKeys.length} tests requieren revisión.</p> : null}
           </div>
           <span className="text-xs font-semibold text-ink/40">{assessmentGroups.length} disponibles</span>
         </div>
@@ -11700,7 +11739,7 @@ function AssessmentsView({
                     }}
                     type="button"
                   >
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate text-sm font-semibold text-ink/70">{group.name}</span>
                         <AssessmentReassessmentBadge endDate={reassessmentEndDates[group.key]} startDate={reassessmentDates[group.key]} />
@@ -11716,7 +11755,7 @@ function AssessmentsView({
             ) : null}
 
             {selectedHistoryGroup ? (
-              <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-panel/25 px-3 py-2.5">
+              <div className={`mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2.5 ${focusedAssessmentKeys.has(selectedHistoryGroup.key) ? "border-blue-300 bg-blue-50/70" : "border-line bg-panel/25"}`}>
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <p className="truncate text-sm font-semibold text-ink">{selectedHistoryGroup.name}</p>
@@ -12113,7 +12152,7 @@ function AssessmentEvolutionChart({ entries, unit }: { entries: AssessmentGroup[
   const points = chartEntries.map((entry, index) => `${getX(index)},${getY(entry.parsedValue as number)}`).join(" ");
 
   return (
-    <div className="overflow-x-auto rounded-md border border-line bg-white/65 p-2 sm:p-3">
+    <div className="max-w-full overscroll-x-contain overflow-x-auto rounded-md border border-line bg-white/65 p-2 sm:p-3">
       <svg aria-label={`Evolución de las últimas ${chartEntries.length} valoraciones`} className="h-auto min-w-[34rem] w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
         {[0, 0.5, 1].map((position) => {
           const y = padding.top + position * plotHeight;
@@ -12192,10 +12231,10 @@ function AssessmentEvolutionModal({
   return (
     <div aria-modal="true" className="assessment-modal-overlay" onClick={onClose} role="dialog">
       <div className="assessment-modal-panel" onClick={(event) => event.stopPropagation()}>
-        <header className="assessment-modal-header flex items-start justify-between gap-4 px-5 py-4">
-          <div>
+        <header className="assessment-modal-header flex min-w-0 items-start justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-5">
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-moss">Evolución</p>
-            <h3 className="text-xl font-semibold text-ink">{group.name}</h3>
+            <h3 className="break-words text-xl font-semibold text-ink">{group.name}</h3>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-sm text-ink/55">{group.category} · {assessmentImprovementDirectionLabels[group.direction]}</p>
               <AssessmentReassessmentBadge endDate={reassessmentEndDate} startDate={reassessmentDate} />
@@ -12205,8 +12244,8 @@ function AssessmentEvolutionModal({
             <X size={18} />
           </button>
         </header>
-        <div className="assessment-modal-body grid gap-4 px-4 py-4 sm:px-5 sm:py-5">
-          <section>
+        <div className="assessment-modal-body grid min-w-0 gap-4 px-3 py-4 sm:px-5 sm:py-5">
+          <section className="min-w-0">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h4 className="font-semibold text-ink">Evolución</h4>
@@ -12217,7 +12256,7 @@ function AssessmentEvolutionModal({
             <AssessmentEvolutionChart entries={comparableEntries} unit={group.unit} />
           </section>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 lg:grid-cols-5">
             <ClientInfoCard label={isLoadVelocity ? "Último perfil" : "Último valor"} value={latestEntry.result} />
             <ClientInfoCard label="Mejor resultado" value={isLoadVelocity || isBilateral || group.direction === "neutral" || comparableEntries.length === 0 ? "—" : bestEntry.result} />
             <ClientInfoCard label="Cambio anterior" value={isLoadVelocity || isBilateral ? "—" : getAssessmentChangeLabel(previousComparableEntry?.parsedValue ?? null, comparableEntries.at(-1)?.parsedValue ?? null, group.unit)} />
@@ -12225,7 +12264,7 @@ function AssessmentEvolutionModal({
             <ClientInfoCard label="Próxima reevaluación" value={formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)} />
           </div>
 
-          <section className="rounded-md border border-line bg-panel/30 p-3">
+          <section className="min-w-0 rounded-md border border-line bg-panel/30 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="font-semibold text-ink">Acciones del test</h4>
               {reassessmentState.label ? <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
@@ -12249,15 +12288,15 @@ function AssessmentEvolutionModal({
               <p className={`text-xs font-medium ${hasInvalidReassessmentRange ? "text-coral" : "text-ink/45"}`}>
                 {hasInvalidReassessmentRange ? "La fecha final no puede ser anterior a la inicial." : reassessmentDate ? `Periodo guardado: ${formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}` : "Sin programación guardada."}
               </p>
-              <div className="flex gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 {reassessmentDate ? <button className="rounded-md border border-coral/30 bg-white px-3 py-1.5 text-xs font-semibold text-coral" onClick={() => { setReassessmentStartDraft(""); setReassessmentEndDraft(""); onUpdateReassessmentSchedule("", ""); }} type="button">Eliminar programación</button> : null}
                 <button className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!reassessmentStartDraft || hasInvalidReassessmentRange || !hasReassessmentChanges} onClick={() => onUpdateReassessmentSchedule(reassessmentStartDraft, reassessmentEndDraft)} type="button">Guardar programación</button>
               </div>
             </div>
           </section>
 
-          <section className="rounded-md border border-line bg-panel/35 p-4" id={`assessment-history-${group.key}`}>
-            <div className="flex items-center justify-between gap-3">
+          <section className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" id={`assessment-history-${group.key}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h4 className="font-semibold text-ink">Historial detallado</h4>
               <span className="text-xs font-semibold text-ink/40">{group.entries.length} registros</span>
             </div>

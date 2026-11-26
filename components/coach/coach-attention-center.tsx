@@ -153,6 +153,7 @@ type CoachClient = {
 
 type CoachAttentionItem = {
   action: "session" | "details" | "progress" | "assessments";
+  assessmentGroupKey?: string;
   ankleRelated?: boolean;
   kneeRelated?: boolean;
   badge?: string;
@@ -801,6 +802,7 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
 
       items.push({
         action: "assessments",
+        assessmentGroupKey: assessmentKey,
         badge: reassessmentState.label,
         clientId: client.id,
         clientName: client.name,
@@ -882,7 +884,7 @@ export function CoachAttentionCenter({
   clients: CoachClient[];
   onOpenAnkleAssessment: (clientId: string) => void;
   onOpenKneeAssessment: (clientId: string) => void;
-  onOpenClientAssessments: (clientId: string) => void;
+  onOpenClientAssessments: (clientId: string, assessmentGroupKeys: string[]) => void;
   onOpenClientDetails: (clientId: string) => void;
   onOpenClientProgress: (clientId: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
@@ -929,7 +931,7 @@ export function CoachAttentionCenter({
     }
 
     if (item.action === "assessments") {
-      onOpenClientAssessments(item.clientId);
+      onOpenClientAssessments(item.clientId, item.assessmentGroupKey ? [item.assessmentGroupKey] : []);
       return;
     }
 
@@ -1071,7 +1073,11 @@ export function CoachAttentionCenter({
                       <span className={`w-fit rounded-md px-2 py-0.5 text-xs font-semibold ${compatibilityStyle?.badgeClassName ?? "border border-line bg-white text-ink/65"}`}>{countLabel}</span>
                       <button
                         className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-panel"
-                        onClick={() => section === "pendingSessions" ? onOpenTrainingSession(item.clientId) : openItem(item)}
+                        onClick={() => section === "pendingSessions"
+                          ? onOpenTrainingSession(item.clientId)
+                          : section === "reassessmentDue"
+                            ? onOpenClientAssessments(item.clientId, group.items.flatMap((groupItem) => groupItem.assessmentGroupKey ? [groupItem.assessmentGroupKey] : []))
+                            : openItem(item)}
                         type="button"
                       >
                         {actionLabel}

@@ -132,7 +132,7 @@ type ClientDashboardViewProps = {
   client: CoachClient;
   onBack: () => void;
   onDeleteDecision: (decisionId: string) => void;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDetails: () => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   onSaveDecision: (entry: CoachDecisionLogEntry) => void;
@@ -140,6 +140,7 @@ type ClientDashboardViewProps = {
 
 type DashboardWatchSignal = {
   action: SheetId;
+  assessmentGroupKeys?: string[];
   label: string;
   meta: string;
   targetTrainingSession?: TargetTrainingSession;
@@ -536,10 +537,11 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     meta: string,
     action: SheetId,
     tone: "calm" | "warning" | "danger" = "warning",
-    targetTrainingSession?: TargetTrainingSession
+    targetTrainingSession?: TargetTrainingSession,
+    assessmentGroupKeys?: string[]
   ) => {
     if (watchSignals.some((signal) => signal.label === label)) return;
-    watchSignals.push({ action, label, meta, targetTrainingSession, tone });
+    watchSignals.push({ action, assessmentGroupKeys, label, meta, targetTrainingSession, tone });
   };
 
   if (latestRpe !== null && latestRpe >= 8) {
@@ -607,7 +609,7 @@ function getClientDashboardData(client: CoachClient, loadData: ReturnType<typeof
     addWatchSignal("Feedback negativo", `${negativeFeedback.length} respuesta(s) recientes`, "training", "warning");
   }
   if (dueReassessments.length > 0) {
-    addWatchSignal("Reevaluación próxima", `${dueReassessments.length} valoración(es)`, "assessments", "calm");
+    addWatchSignal("Reevaluación próxima", `${dueReassessments.length} valoración(es)`, "assessments", "calm", undefined, dueReassessments.map(([assessmentKey]) => assessmentKey));
   }
   if (client.injuries && !client.injuries.toLowerCase().includes("sin lesiones")) {
     alerts.push("Lesiones o limitaciones registradas. Revisar antes de progresar.");
@@ -965,7 +967,7 @@ function DashboardRelevantChanges({ dashboardData }: { dashboardData: ReturnType
 function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, onOpenTrainingSession, review }: {
   clientId: string;
   dashboardData: ReturnType<typeof getClientDashboardData>;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
   review: WeeklyCoachReview;
 }) {
@@ -987,7 +989,7 @@ function DashboardAttention({ clientId, dashboardData, onOpenClientSheet, onOpen
                 <p className="font-semibold text-ink">{signal.label}</p>
                 <p className="mt-0.5 break-words text-xs text-ink/55">{signal.meta}</p>
               </div>
-              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action)} type="button">Revisar</button>
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-xs font-semibold text-ink" onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action, signal.assessmentGroupKeys)} type="button">Revisar</button>
             </article>
           ))}
         </div>
@@ -1002,7 +1004,7 @@ function WeeklyDecisionBlock({
   summary
 }: {
   clientId: string;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   summary: ReturnType<typeof getRacReviewWeeklySummary>;
 }) {
   const indicators = [
@@ -1635,7 +1637,7 @@ function DashboardWatchSignalsBlock({
 }: {
   clientId: string;
   dashboardData: ReturnType<typeof getClientDashboardData>;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
 }) {
   const toneClass = {
@@ -1668,7 +1670,7 @@ function DashboardWatchSignalsBlock({
                   </div>
                   <button
                     className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                    onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action)}
+                    onClick={() => signal.targetTrainingSession ? onOpenTrainingSession(clientId, signal.targetTrainingSession) : onOpenClientSheet(clientId, signal.action, signal.assessmentGroupKeys)}
                     type="button"
                   >
                     Revisar
@@ -1693,7 +1695,7 @@ function ClientHeader({
 }: {
   client: CoachClient;
   onBack: () => void;
-  onOpenClientSheet: (clientId: string, sheet: SheetId) => void;
+  onOpenClientSheet: (clientId: string, sheet: SheetId, assessmentGroupKeys?: string[]) => void;
   onOpenDetails: () => void;
 }) {
   return (
