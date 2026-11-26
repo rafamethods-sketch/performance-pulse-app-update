@@ -11002,6 +11002,7 @@ function AssessmentsView({
   const [selectedEvolutionKey, setSelectedEvolutionKey] = useState<string | null>(null);
   const [assessmentHistoryQuery, setAssessmentHistoryQuery] = useState("");
   const [selectedHistoryKey, setSelectedHistoryKey] = useState<string | null>(null);
+  const [isContextHighlightVisible, setIsContextHighlightVisible] = useState(false);
   const assessments = useMemo<AssessmentEntry[]>(() => client?.assessments ?? [], [client?.assessments]);
   const assessmentGroups = useMemo(() => buildAssessmentGroups(assessments), [assessments]);
   const isEditingAssessment = editingAssessmentIndex !== null;
@@ -11096,7 +11097,7 @@ function AssessmentsView({
     setAssessmentFlowStep("manual");
   }
 
-  function selectCatalogTest(test: AssessmentCatalogTest) {
+  function selectCatalogTest(test: AssessmentCatalogTest, categoryId = assessmentFlowCategory) {
     if (test.mode === "ankle") {
       resetAssessmentForm();
       setSelectedAnkleAssessment(null);
@@ -11121,7 +11122,7 @@ function AssessmentsView({
       setStructuredMetricValues({});
       setAssessmentDraft((currentDraft) => ({
         ...currentDraft,
-        category: getAssessmentCatalogCategory(assessmentFlowCategory)?.label ?? "Otro",
+        category: getAssessmentCatalogCategory(categoryId)?.label ?? "Otro",
         name: test.label
       }));
       setAssessmentFlowStep("structured");
@@ -11133,15 +11134,37 @@ function AssessmentsView({
       setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
       setAssessmentDraft((currentDraft) => ({
         ...currentDraft,
-        category: getAssessmentCatalogCategory(assessmentFlowCategory)?.label ?? "Fuerza",
+        category: getAssessmentCatalogCategory(categoryId)?.label ?? "Fuerza",
         name: test.label
       }));
       setAssessmentFlowStep("loadVelocity");
       return;
     }
 
-    const category = getAssessmentCatalogCategory(assessmentFlowCategory);
+    const category = getAssessmentCatalogCategory(categoryId);
     openManualAssessment(category?.label ?? "Otro", test.label);
+  }
+
+  function openNewMeasurement(group: AssessmentGroup) {
+    const latestEntry = group.entries[group.entries.length - 1];
+    const catalogTest = getAssessmentCatalogTest(latestEntry.protocolId);
+    setAssessmentDraft(emptyAssessmentDraft);
+    setStructuredMetricValues({});
+    setLoadVelocityProfile({ exercise: "", loads: [createLoadVelocityPoint()] });
+    setEditingAssessmentIndex(null);
+    setSelectedCatalogTest(null);
+    setSelectedEvolutionKey(null);
+    setShowNewAssessmentForm(true);
+
+    if (!catalogTest) {
+      setAssessmentFlowCategory(null);
+      openManualAssessment(group.category, group.name);
+      return;
+    }
+
+    const category = assessmentCatalog.find((catalogCategory) => catalogCategory.subcategories.some((subcategory) => subcategory.tests.some((test) => test.id === catalogTest.id)));
+    setAssessmentFlowCategory(category?.id ?? null);
+    selectCatalogTest(catalogTest, category?.id ?? null);
   }
 
   function updateAssessmentPreferences(nextPreferences: AssessmentPreferences) {
@@ -11482,6 +11505,16 @@ function AssessmentsView({
       window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" }));
     });
   }, [assessmentGroups, client?.id, focusRequest, focusedHistoryKey, recentAssessmentKeys]);
+
+  useEffect(() => {
+    if (!focusRequest || focusRequest.clientId !== client?.id) {
+      setIsContextHighlightVisible(false);
+      return;
+    }
+    setIsContextHighlightVisible(true);
+    const timeoutId = window.setTimeout(() => setIsContextHighlightVisible(false), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [client?.id, focusRequest]);
   const functionalAssessmentItems = [
     {
       count: client?.hipAssessments?.length ?? 0,
@@ -11537,7 +11570,7 @@ function AssessmentsView({
           <div className="mt-3 divide-y divide-line rounded-md border border-line bg-panel/20">
             {recentAssessmentResults.map(({ group, latest }) => (
               <div
-                className={`flex min-w-0 scroll-mt-24 flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${focusedAssessmentKeys.has(group.key) ? "border-l-2 border-blue-300 bg-blue-50/70" : ""}`}
+                className={`assessment-context-target flex min-w-0 scroll-mt-24 flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${isContextHighlightVisible && focusedAssessmentKeys.has(group.key) ? "assessment-context-highlight border-l-2" : ""}`}
                 id={`assessment-result-${group.key}`}
                 key={group.key}
               >
@@ -11688,7 +11721,7 @@ function AssessmentsView({
       </section>
 
       <section
-        className={`coach-surface scroll-mt-24 rounded-md p-4 ${focusedHistoryKey || hasMissingFocusedAssessment ? "border-blue-300 bg-blue-50/35" : ""}`}
+        className={`assessment-context-target coach-surface scroll-mt-24 rounded-md p-4 ${isContextHighlightVisible && (focusedHistoryKey || hasMissingFocusedAssessment) ? "assessment-context-highlight" : ""}`}
         id="assessment-history-section"
       >
         <div className="flex items-center justify-between gap-3">
@@ -11755,7 +11788,7 @@ function AssessmentsView({
             ) : null}
 
             {selectedHistoryGroup ? (
-              <div className={`mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2.5 ${focusedAssessmentKeys.has(selectedHistoryGroup.key) ? "border-blue-300 bg-blue-50/70" : "border-line bg-panel/25"}`}>
+              <div className={`assessment-context-target mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2.5 ${isContextHighlightVisible && focusedAssessmentKeys.has(selectedHistoryGroup.key) ? "assessment-context-highlight" : "border-line bg-panel/25"}`}>
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <p className="truncate text-sm font-semibold text-ink">{selectedHistoryGroup.name}</p>
@@ -12120,6 +12153,7 @@ function AssessmentsView({
           onClose={() => setSelectedEvolutionKey(null)}
           onDeleteEntry={handleDeleteAssessment}
           onEditEntry={handleEditAssessment}
+          onNewMeasurement={() => openNewMeasurement(selectedEvolutionGroup)}
           onToggleFavorite={() => toggleFavoriteAssessment(selectedEvolutionGroup.key)}
           onUpdateReassessmentSchedule={(startDate, endDate) => updateReassessmentSchedule(selectedEvolutionGroup.key, startDate, endDate)}
           reassessmentDate={reassessmentDates[selectedEvolutionGroup.key] ?? ""}
@@ -12152,7 +12186,7 @@ function AssessmentEvolutionChart({ entries, unit }: { entries: AssessmentGroup[
   const points = chartEntries.map((entry, index) => `${getX(index)},${getY(entry.parsedValue as number)}`).join(" ");
 
   return (
-    <div className="max-w-full overscroll-x-contain overflow-x-auto rounded-md border border-line bg-white/65 p-2 sm:p-3">
+    <div className="max-w-full overscroll-x-contain overflow-x-auto rounded-md border border-line bg-panel/40 p-2 sm:p-3">
       <svg aria-label={`Evolución de las últimas ${chartEntries.length} valoraciones`} className="h-auto min-w-[34rem] w-full" role="img" viewBox={`0 0 ${width} ${height}`}>
         {[0, 0.5, 1].map((position) => {
           const y = padding.top + position * plotHeight;
@@ -12189,6 +12223,7 @@ function AssessmentEvolutionModal({
   onClose,
   onDeleteEntry,
   onEditEntry,
+  onNewMeasurement,
   onToggleFavorite,
   onUpdateReassessmentSchedule,
   reassessmentDate,
@@ -12199,6 +12234,7 @@ function AssessmentEvolutionModal({
   onClose: () => void;
   onDeleteEntry: (index: number) => void;
   onEditEntry: (assessment: AssessmentEntry, index: number) => void;
+  onNewMeasurement: () => void;
   onToggleFavorite: () => void;
   onUpdateReassessmentSchedule: (startDate: string, endDate: string) => void;
   reassessmentDate: string;
@@ -12266,39 +12302,49 @@ function AssessmentEvolutionModal({
 
           <section className="min-w-0 rounded-md border border-line bg-panel/30 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="font-semibold text-ink">Acciones del test</h4>
+              <div>
+                <h4 className="font-semibold text-ink">Reevaluación</h4>
+                <p className="mt-0.5 text-xs text-ink/50">Programa una fecha concreta o un periodo.</p>
+              </div>
               {reassessmentState.label ? <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${reassessmentState.tone}`}>{reassessmentState.label}</span> : null}
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[auto_minmax(9rem,1fr)_minmax(9rem,1fr)_auto_auto] lg:items-end">
-              <button className={`h-10 rounded-md border px-3 text-sm font-semibold transition ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/65 hover:bg-panel"}`} onClick={onToggleFavorite} type="button">
-                {isFavorite ? "Quitar de referencias" : "Marcar como referencia"}
-              </button>
-              <label className="text-xs font-semibold text-ink/55">
-                Inicio
-                <input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss" onChange={(event) => setReassessmentStartDraft(event.target.value)} type="date" value={reassessmentStartDraft} />
+            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="min-w-0 text-xs font-semibold text-ink/55">
+                Fecha de inicio
+                <input className="mt-1 h-11 w-full min-w-0 rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" onChange={(event) => setReassessmentStartDraft(event.target.value)} type="date" value={reassessmentStartDraft} />
               </label>
-              <label className="text-xs font-semibold text-ink/55">
-                Fin opcional
-                <input className="mt-1 h-10 w-full rounded-md border border-line bg-white px-2 text-sm text-ink outline-none focus:border-moss" min={reassessmentStartDraft || undefined} onChange={(event) => setReassessmentEndDraft(event.target.value)} type="date" value={reassessmentEndDraft} />
+              <label className="min-w-0 text-xs font-semibold text-ink/55">
+                Fecha final opcional
+                <input className="mt-1 h-11 w-full min-w-0 rounded-md border border-line bg-white px-3 text-sm text-ink outline-none focus:border-moss" min={reassessmentStartDraft || undefined} onChange={(event) => setReassessmentEndDraft(event.target.value)} type="date" value={reassessmentEndDraft} />
               </label>
-              <button className="h-10 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/65 transition hover:bg-panel" onClick={() => { onClose(); onEditEntry(latestEntry, latestEntry.originalIndex); }} type="button">Configurar test</button>
-              <button className="h-10 rounded-md border border-line bg-white px-3 text-sm font-semibold text-ink/65 transition hover:bg-panel" onClick={() => document.getElementById(`assessment-history-${group.key}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} type="button">Consultar historial</button>
             </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className={`text-xs font-medium ${hasInvalidReassessmentRange ? "text-coral" : "text-ink/45"}`}>
                 {hasInvalidReassessmentRange ? "La fecha final no puede ser anterior a la inicial." : reassessmentDate ? `Periodo guardado: ${formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}` : "Sin programación guardada."}
               </p>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 {reassessmentDate ? <button className="rounded-md border border-coral/30 bg-white px-3 py-1.5 text-xs font-semibold text-coral" onClick={() => { setReassessmentStartDraft(""); setReassessmentEndDraft(""); onUpdateReassessmentSchedule("", ""); }} type="button">Eliminar programación</button> : null}
-                <button className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!reassessmentStartDraft || hasInvalidReassessmentRange || !hasReassessmentChanges} onClick={() => onUpdateReassessmentSchedule(reassessmentStartDraft, reassessmentEndDraft)} type="button">Guardar programación</button>
+                <button className="rounded-md bg-ink px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45" disabled={!reassessmentStartDraft || hasInvalidReassessmentRange || !hasReassessmentChanges} onClick={() => onUpdateReassessmentSchedule(reassessmentStartDraft, reassessmentEndDraft)} type="button">Guardar programación</button>
               </div>
             </div>
+            <details className="mt-3 border-t border-line pt-3">
+              <summary className="w-fit cursor-pointer text-xs font-semibold text-ink/55">Más acciones</summary>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <button className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${isFavorite ? "border-moss bg-mint text-moss" : "border-line bg-white text-ink/65 hover:bg-panel"}`} onClick={onToggleFavorite} type="button">
+                  {isFavorite ? "Quitar de referencias" : "Marcar como referencia"}
+                </button>
+                <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-ink/65 transition hover:bg-panel" onClick={() => { onClose(); onEditEntry(latestEntry, latestEntry.originalIndex); }} type="button">Configurar test</button>
+              </div>
+            </details>
           </section>
 
           <section className="min-w-0 rounded-md border border-line bg-panel/35 p-3 sm:p-4" id={`assessment-history-${group.key}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h4 className="font-semibold text-ink">Historial detallado</h4>
-              <span className="text-xs font-semibold text-ink/40">{group.entries.length} registros</span>
+              <div>
+                <h4 className="font-semibold text-ink">Historial detallado</h4>
+                <span className="text-xs font-semibold text-ink/40">{group.entries.length} registros</span>
+              </div>
+              <button className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-moss transition hover:bg-panel" onClick={onNewMeasurement} type="button">+ Nueva medición</button>
             </div>
             <div className="mt-3 grid gap-2">
               {[...group.entries].reverse().map((entry) => (
