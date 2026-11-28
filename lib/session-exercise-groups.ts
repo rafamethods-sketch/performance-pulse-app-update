@@ -1,6 +1,6 @@
 export type ExerciseGroupSessionBlock = "activation" | "main" | "complementary";
 
-export type ExerciseGroupMethod = "alternating" | "superset" | "contrast" | "circuit";
+export type ExerciseGroupMethod = "alternating" | "superset" | "contrast" | "circuit" | "series";
 
 export type ExerciseGroupRestSource = "default" | "custom";
 
@@ -24,10 +24,16 @@ const groupMethodLabels: Record<ExerciseGroupMethod, string> = {
   alternating: "Alternado",
   circuit: "Circuito",
   contrast: "Contraste",
+  series: "Agrupación",
   superset: "Biserie"
 };
 
 export function getExerciseGroupMethodLabel(method: ExerciseGroupMethod, exerciseCount?: number) {
+  if (method === "series") {
+    if (exerciseCount === 2) return "Biserie";
+    if (exerciseCount === 3) return "Triserie";
+    if (exerciseCount !== undefined && exerciseCount >= 4) return "Circuito";
+  }
   if (method === "superset" && exerciseCount !== undefined && exerciseCount !== 2) return "Superserie";
   return groupMethodLabels[method];
 }

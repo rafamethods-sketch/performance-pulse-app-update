@@ -6,6 +6,7 @@ import { CalendarDays, Clock3, Dumbbell, Gauge, Sparkles } from "lucide-react";
 import { AthleteIntakeQuestionnaire } from "@/components/athlete/athlete-intake-questionnaire";
 import { AthleteSessionPlan } from "@/components/shared/athlete-session-plan";
 import {
+  getExerciseGroupMethodLabel,
   getExerciseGroupPosition,
   getGroupLabel,
   type ExerciseGroup
@@ -1400,6 +1401,9 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                     const plannedRestOverride = explicitGroup
                                       ? (explicitGroupPosition === explicitGroupMembers.length ? explicitGroup.restBetweenRounds : explicitGroup.restBetweenExercises)
                                       : undefined;
+                                    const groupMethodLabel = explicitGroup && explicitGroupPosition === 1
+                                      ? getExerciseGroupMethodLabel(explicitGroup.method, explicitGroupMembers.length)
+                                      : undefined;
                                     return (
                                     <AthleteExerciseCard
                                       exercise={exercise}
@@ -1407,6 +1411,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                       isFinished={finishedExerciseKeys.has(exerciseKey)}
                                       isOpen={openExerciseKey === exerciseKey}
                                       key={exerciseKey}
+                                      groupMethodLabel={groupMethodLabel}
                                       navigationLabel={explicitGroup && explicitGroupPosition ? `${explicitGroupLabel}${explicitGroupPosition}` : undefined}
                                       plannedRestOverride={plannedRestOverride}
                                       onFinish={() => finishExercise(index)}
@@ -2053,9 +2058,10 @@ function getUpdatedExerciseFromSetDetails(exercise: AthleteExercise, setDetails:
   return updates;
 }
 
-function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLabel, plannedRestOverride, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
+function AthleteExerciseCard({ exercise, index, groupMethodLabel, isFinished, isOpen, navigationLabel, plannedRestOverride, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
   exercise: AthleteExercise;
   index: number;
+  groupMethodLabel?: string;
   isFinished: boolean;
   isOpen: boolean;
   navigationLabel?: string;
@@ -2277,6 +2283,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLa
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-ink">{navigationLabel ? <span className="mr-2 text-xs text-moss">{navigationLabel}</span> : null}{exerciseName}</span>
+          {groupMethodLabel ? <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-moss">{groupMethodLabel}</span> : null}
           <span className="mt-0.5 block text-xs text-ink/50">
             {completionOnly ? exerciseStatus : `${resolvedPlannedSets}/${plannedSetCount} series · ${exercise.exerciseEffort ? `${exercise.exerciseEffort.type.toUpperCase()} ${exercise.exerciseEffort.value}` : "RPE —"}`}
           </span>

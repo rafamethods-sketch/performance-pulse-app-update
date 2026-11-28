@@ -13697,7 +13697,7 @@ function CoachTrainingPlanner({
   };
   const createExerciseGroup = (sessionBlock: SessionExerciseBlock) => {
     const selectedIds = groupSelectionByBlock[sessionBlock] ?? [];
-    const method = groupMethodByBlock[sessionBlock] ?? "superset";
+    const method = groupMethodByBlock[sessionBlock] ?? "series";
     if (!isExerciseGroupCardinalityValid(method, selectedIds.length)) return;
     const selectedExercises = strengthExercises.filter((exercise) => selectedIds.includes(exercise.id));
     const restDefaults = getExerciseGroupRestDefaults(selectedExercises.map((exercise) => exercise.rest));
@@ -13714,7 +13714,7 @@ function CoachTrainingPlanner({
     setStrengthExercises(next.exercises);
     setExerciseGroups(next.groups);
     setGroupSelectionByBlock((current) => ({ ...current, [sessionBlock]: [] }));
-    setGroupMethodByBlock((current) => ({ ...current, [sessionBlock]: "superset" }));
+    setGroupMethodByBlock((current) => ({ ...current, [sessionBlock]: "series" }));
     setGroupPickerBlock(null);
   };
   const updateExerciseGroup = (groupId: string, updates: Partial<ExerciseGroup>) => {
@@ -14104,7 +14104,7 @@ function CoachTrainingPlanner({
     const blockSummary = `${exerciseCountLabel}${hasReliableSeriesTotal ? ` · ${validSeries.reduce((total, sets) => total + sets, 0)} series` : ""}`;
     const sectionGroups = sessionBlock === "unclassified" ? [] : getExplicitGroupsForSection(exerciseGroups, sessionBlock, blockExercises);
     const groupSelection = sessionBlock === "unclassified" ? [] : groupSelectionByBlock[sessionBlock] ?? [];
-    const groupPickerMethod = sessionBlock === "unclassified" ? "superset" : groupMethodByBlock[sessionBlock] ?? "superset";
+    const groupPickerMethod = sessionBlock === "unclassified" ? "series" : groupMethodByBlock[sessionBlock] ?? "series";
 
     return (
       <section className="mt-5 rounded-md border border-line bg-panel/35 p-4">
@@ -14141,15 +14141,15 @@ function CoachTrainingPlanner({
               {(getExerciseById(exercise.exerciseId)?.name ?? exercise.exerciseSearch) || "Ejercicio sin especificar"}
             </label>)}
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <select className="h-8 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink" onChange={(event) => setGroupMethodByBlock((current) => ({ ...current, [sessionBlock]: event.target.value as ExerciseGroupMethod }))} value={groupPickerMethod}>
+              <option value="series">Agrupación normal · {groupSelection.length >= 2 ? getExerciseGroupMethodLabel("series", groupSelection.length) : "automática"}</option>
               <option value="alternating">Alternado</option>
-              <option disabled={groupSelection.length !== 2} value="superset">Biserie</option>
               <option disabled={groupSelection.length !== 2} value="contrast">Contraste</option>
-              <option value="circuit">Circuito</option>
             </select>
             <button className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40" disabled={!isExerciseGroupCardinalityValid(groupPickerMethod, groupSelection.length)} onClick={() => createExerciseGroup(sessionBlock)} type="button">Crear grupo</button>
             <button className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink/60" onClick={() => setGroupPickerBlock(null)} type="button">Cancelar</button>
+            {!isExerciseGroupCardinalityValid(groupPickerMethod, groupSelection.length) && groupSelection.length >= 2 ? <p className="basis-full text-xs font-semibold text-coral">{groupPickerMethod === "contrast" ? "Contraste requiere exactamente dos ejercicios." : "La selección no es compatible con este método."}</p> : null}
           </div>
         </div> : null}
         <div className="mt-4 grid gap-3">
@@ -14192,7 +14192,10 @@ function CoachTrainingPlanner({
                 <p className="text-xs font-bold uppercase tracking-wide text-moss">{groupLabel} · {getExerciseGroupMethodLabel(group.method, groupMembers.length)}</p>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <select className="h-8 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink" onChange={(event) => updateExerciseGroup(group.id, { method: event.target.value as ExerciseGroupMethod })} value={group.method}>
-                    <option value="alternating">Alternado</option><option disabled={groupMembers.length !== 2} value="superset">Biserie</option><option disabled={groupMembers.length !== 2} value="contrast">Contraste</option><option value="circuit">Circuito</option>
+                    {group.method === "superset" || group.method === "circuit" ? <option value={group.method}>{getExerciseGroupMethodLabel(group.method, groupMembers.length)} · histórico</option> : null}
+                    <option value="series">Agrupación normal · {getExerciseGroupMethodLabel("series", groupMembers.length)}</option>
+                    <option value="alternating">Alternado</option>
+                    <option disabled={groupMembers.length !== 2} value="contrast">Contraste</option>
                   </select>
                   <button className="text-xs font-semibold text-steel" onClick={() => restoreExerciseGroupRestDefaults(group.id)} type="button">Restaurar descansos</button>
                   <button className="text-xs font-semibold text-clay" onClick={() => removeExerciseGroup(group.id)} type="button">Desagrupar</button>
