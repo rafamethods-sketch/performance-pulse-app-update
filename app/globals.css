@@ -241,6 +241,31 @@ textarea::placeholder {
   background: rgb(var(--color-surface-subtle) / 0.46);
 }
 
+.assessment-context-target {
+  transition:
+    background 700ms ease,
+    border-color 700ms ease,
+    box-shadow 700ms ease;
+}
+
+.assessment-context-highlight {
+  border-color: rgb(96 165 250 / 0.72) !important;
+  background: rgb(219 234 254 / 0.72) !important;
+  box-shadow: inset 0 0 0 1px rgb(96 165 250 / 0.18);
+}
+
+[data-theme="dark"] .assessment-context-highlight {
+  border-color: rgb(96 165 250 / 0.58) !important;
+  background: rgb(30 64 175 / 0.3) !important;
+  box-shadow: inset 0 0 0 1px rgb(125 160 236 / 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assessment-context-target {
+    transition: none;
+  }
+}
+
 .highlight-summary-card {
   border: 1px solid rgb(96 165 250 / 0.2);
   background:

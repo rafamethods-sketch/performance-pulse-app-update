@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import type { TargetTrainingSession } from "@/components/coach/types";
 import { getExerciseById } from "@/lib/exercises";
 import type { IntakeQuestionnaire } from "@/lib/intake-questionnaire";
+import { formatAssessmentReassessmentPeriod, getAssessmentReassessmentState, isAssessmentReassessmentDue } from "@/lib/assessment-reassessment";
 
 type AttentionFilter = "all" | "alerts" | "sessions" | "technique" | "wellness" | "management";
 type AttentionPeriod = 7 | 14 | 30 | 90;
@@ -119,6 +120,7 @@ type CoachClient = {
   assessmentPreferences?: {
     favoriteTests?: string[];
     reassessmentDates?: Record<string, string>;
+    reassessmentEndDates?: Record<string, string>;
   };
   assessments?: Array<{
     date?: string;
@@ -151,6 +153,7 @@ type CoachClient = {
 
 type CoachAttentionItem = {
   action: "session" | "details" | "progress" | "assessments";
+  assessmentGroupKey?: string;
   ankleRelated?: boolean;
   kneeRelated?: boolean;
   badge?: string;
@@ -793,18 +796,18 @@ function buildCoachAttentionItems(clients: CoachClient[], period: AttentionPerio
     }
 
     Object.entries(client.assessmentPreferences?.reassessmentDates ?? {}).forEach(([assessmentKey, reassessmentDate]) => {
-      const parsedDate = parseAccessDate(reassessmentDate);
-      if (!parsedDate) return;
-      const daysUntilReassessment = Math.ceil((parsedDate.getTime() - today.getTime()) / 86400000);
-      if (daysUntilReassessment > 7) return;
+      const reassessmentEndDate = client.assessmentPreferences?.reassessmentEndDates?.[assessmentKey];
+      if (!isAssessmentReassessmentDue(reassessmentDate, reassessmentEndDate, today)) return;
+      const reassessmentState = getAssessmentReassessmentState(reassessmentDate, reassessmentEndDate, today);
 
       items.push({
         action: "assessments",
-        badge: daysUntilReassessment < 0 ? "Reevaluación pendiente" : "Reevaluar pronto",
+        assessmentGroupKey: assessmentKey,
+        badge: reassessmentState.label,
         clientId: client.id,
         clientName: client.name,
         date: reassessmentDate,
-        detail: `Fecha objetivo: ${formatDisplayDate(reassessmentDate)}`,
+        detail: `Periodo objetivo: ${formatAssessmentReassessmentPeriod(reassessmentDate, reassessmentEndDate, formatDisplayDate)}`,
         id: `reassessment-${client.id}-${assessmentKey}`,
         meta: client.sport || client.modality || undefined,
         section: "reassessmentDue",
@@ -881,7 +884,7 @@ export function CoachAttentionCenter({
   clients: CoachClient[];
   onOpenAnkleAssessment: (clientId: string) => void;
   onOpenKneeAssessment: (clientId: string) => void;
-  onOpenClientAssessments: (clientId: string) => void;
+  onOpenClientAssessments: (clientId: string, assessmentGroupKeys: string[]) => void;
   onOpenClientDetails: (clientId: string) => void;
   onOpenClientProgress: (clientId: string) => void;
   onOpenTrainingSession: (clientId: string, target?: TargetTrainingSession) => void;
@@ -928,7 +931,7 @@ export function CoachAttentionCenter({
     }
 
     if (item.action === "assessments") {
-      onOpenClientAssessments(item.clientId);
+      onOpenClientAssessments(item.clientId, item.assessmentGroupKey ? [item.assessmentGroupKey] : []);
       return;
     }
 
@@ -1070,7 +1073,11 @@ export function CoachAttentionCenter({
                       <span className={`w-fit rounded-md px-2 py-0.5 text-xs font-semibold ${compatibilityStyle?.badgeClassName ?? "border border-line bg-white text-ink/65"}`}>{countLabel}</span>
                       <button
                         className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-panel"
-                        onClick={() => section === "pendingSessions" ? onOpenTrainingSession(item.clientId) : openItem(item)}
+                        onClick={() => section === "pendingSessions"
+                          ? onOpenTrainingSession(item.clientId)
+                          : section === "reassessmentDue"
+                            ? onOpenClientAssessments(item.clientId, group.items.flatMap((groupItem) => groupItem.assessmentGroupKey ? [groupItem.assessmentGroupKey] : []))
+                            : openItem(item)}
                         type="button"
                       >
                         {actionLabel}
