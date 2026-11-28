@@ -82,6 +82,7 @@ import { groupSessionsByBlockAndWeek } from "@/lib/session-grouping";
 import { formatRepetitionTotal, getPlannedRepetitionTotal, type ClusterConfig, type SetMethod } from "@/lib/training-prescription";
 import { formatExerciseTempo, isCompleteExerciseTempo, normalizeExerciseTempo, type ExerciseTempo } from "@/lib/exercise-tempo";
 import { formatPrescriptionRest, getContextualPrescriptionRules, isContextualPrescriptionComplete, isPrescriptionIntensityInputAllowed } from "@/lib/session-prescription";
+import { getExerciseGroupRestDefaults, resolveSessionRest, type SessionRestSource } from "@/lib/session-rest-defaults";
 import {
   cleanupOrphanGroups,
   getExerciseGroupMethodLabel,
@@ -1356,6 +1357,7 @@ type ConnectedSessionExercise = SessionExerciseInput & {
   plannedRpe?: number | string | null;
   planningSlotId?: string | null;
   rest?: number | string | null;
+  restSource?: SessionRestSource | null;
   rir?: number | string | null;
   section?: string | null;
   sessionBlock?: "activation" | "main" | "complementary" | null;
@@ -7425,6 +7427,7 @@ function PlanningView({
           ...exercise,
           plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
           plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds),
+          restSource: "default" as const,
           plannedRir: (defaults.effortScale ?? "rir") === "rir" ? getPrescriptionRange(defaults.rirMin, defaults.rirMax) : undefined,
           plannedRpe: defaults.effortScale === "rpe" ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "") : undefined,
           plannedSets: defaults.sets
@@ -7600,6 +7603,7 @@ function PlanningView({
         setMethod: "straight",
         plannedReps: getPrescriptionRange(defaults.repsMin, defaults.repsMax) || undefined,
         plannedRest: getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds) || undefined,
+        restSource: "default" as const,
         plannedRir: (defaults.effortScale ?? "rir") === "rir" ? getPrescriptionRange(defaults.rirMin, defaults.rirMax) || undefined : undefined,
         plannedRpe: defaults.effortScale === "rpe" ? getPrescriptionRange(defaults.rpeMin ?? "", defaults.rpeMax ?? "") || undefined : undefined,
         plannedSets: defaults.sets || undefined,
@@ -12678,6 +12682,7 @@ type PlannedStrengthExerciseDraft = {
   sessionBlock?: SessionExerciseBlock;
   reps: string;
   rest: string;
+  restSource?: SessionRestSource;
   selectedEquipment?: string;
   selectedVariantId?: string;
   selectedVariantName?: string;
@@ -13432,6 +13437,7 @@ function CoachTrainingPlanner({
         tempo: exercise.tempo ?? undefined,
         reps: String(exercise.plannedReps ?? ""),
         rest: formatPrescriptionRest(String(exercise.plannedRest ?? "")),
+        restSource: exercise.restSource ?? (exercise.prescriptionSource === "default" ? "default" : "legacy"),
         selectedEquipment: exercise.selectedEquipment ?? "",
         selectedVariantId: exercise.selectedVariantId ?? "",
         selectedVariantName: exercise.selectedVariantName ?? "",
@@ -13558,6 +13564,7 @@ function CoachTrainingPlanner({
         prescriptionSource: "custom",
         reps: "",
         rest: "",
+        restSource: undefined,
         sessionBlock,
         setMethod: "straight",
         plannedSetReps: [],
@@ -13588,6 +13595,12 @@ function CoachTrainingPlanner({
       prescriptionSource: exercise.prescriptionSource === "default" ? "custom" : exercise.prescriptionSource ?? "legacy"
     } : exercise));
   };
+  const updateStrengthExerciseRest = (exerciseId: string, value: string, shouldFormat = false) => {
+    updateStrengthPrescription(exerciseId, {
+      rest: shouldFormat ? formatPrescriptionRest(value) : value,
+      restSource: "custom"
+    });
+  };
   const changeStrengthSetMethod = (exerciseId: string, setMethod: SetMethod) => {
     const exercise = strengthExercises.find((candidate) => candidate.id === exerciseId);
     if (!exercise || (exercise.setMethod ?? "straight") === setMethod) return;
@@ -13605,9 +13618,19 @@ function CoachTrainingPlanner({
     updateStrengthPrescription(exerciseId, { plannedSetReps: sequence });
   };
   const applyStrengthExerciseRole = (exerciseId: string, role: PlanningPrescriptionRole | "") => {
+    const exercise = strengthExercises.find((candidate) => candidate.id === exerciseId);
+    const defaults = role ? getBlockPrescriptionDefault(selectedSessionPlanningBlock, role) : null;
+    const defaultRest = defaults
+      ? formatPrescriptionRest(getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds))
+      : "";
+    const shouldApplyDefaultRest = Boolean(role && exercise && exercise.restSource !== "custom" && exercise.restSource !== "legacy");
     updateStrengthExercise(exerciseId, {
       prescriptionRole: role || undefined,
-      prescriptionSource: strengthExercises.find((exercise) => exercise.id === exerciseId)?.prescriptionSource ?? "legacy"
+      prescriptionSource: exercise?.prescriptionSource ?? "legacy",
+      ...(shouldApplyDefaultRest ? {
+        rest: resolveSessionRest({ defaultRest, existingRest: exercise?.rest }),
+        restSource: defaultRest ? "default" : exercise?.restSource
+      } : {})
     });
   };
   const restoreStrengthExerciseDefault = (exerciseId: string) => {
@@ -13621,6 +13644,7 @@ function CoachTrainingPlanner({
       prescriptionSource: "default",
       reps: getPrescriptionRange(defaults.repsMin, defaults.repsMax),
       rest: formatPrescriptionRest(getPrescriptionRange(defaults.restMinSeconds, defaults.restMaxSeconds)),
+      restSource: "default",
       sets: defaults.sets,
       tempo: undefined,
       targetRir: defaults.effortScale === "rpe" ? "" : getPrescriptionRange(defaults.rirMin, defaults.rirMax),
@@ -13675,9 +13699,15 @@ function CoachTrainingPlanner({
     const selectedIds = groupSelectionByBlock[sessionBlock] ?? [];
     const method = groupMethodByBlock[sessionBlock] ?? "superset";
     if (!isExerciseGroupCardinalityValid(method, selectedIds.length)) return;
+    const selectedExercises = strengthExercises.filter((exercise) => selectedIds.includes(exercise.id));
+    const restDefaults = getExerciseGroupRestDefaults(selectedExercises.map((exercise) => exercise.rest));
     const group: ExerciseGroup = {
       id: `exercise-group-${Date.now()}`,
       method,
+      restBetweenExercises: restDefaults.restBetweenExercises,
+      restBetweenExercisesSource: restDefaults.restBetweenExercises ? "default" : undefined,
+      restBetweenRounds: restDefaults.restBetweenRounds,
+      restBetweenRoundsSource: restDefaults.restBetweenRounds ? "default" : undefined,
       sessionBlock
     };
     const next = groupExercises(strengthExercises, exerciseGroups, group, selectedIds);
@@ -13693,6 +13723,16 @@ function CoachTrainingPlanner({
       if (updates.method && !isExerciseGroupCardinalityValid(updates.method, getExercisesForGroup(strengthExercises, groupId).length)) return group;
       return { ...group, ...updates };
     }));
+  };
+  const restoreExerciseGroupRestDefaults = (groupId: string) => {
+    const members = getExercisesForGroup(strengthExercises, groupId);
+    const defaults = getExerciseGroupRestDefaults(members.map((exercise) => exercise.rest));
+    updateExerciseGroup(groupId, {
+      restBetweenExercises: defaults.restBetweenExercises,
+      restBetweenExercisesSource: defaults.restBetweenExercises ? "default" : undefined,
+      restBetweenRounds: defaults.restBetweenRounds,
+      restBetweenRoundsSource: defaults.restBetweenRounds ? "default" : undefined
+    });
   };
   const removeExerciseGroup = (groupId: string) => {
     const next = ungroupExercises(strengthExercises, exerciseGroups, groupId);
@@ -13775,6 +13815,7 @@ function CoachTrainingPlanner({
     tempo: exercise.tempo,
     reps: exercise.reps,
     rest: exercise.rest,
+    restSource: exercise.restSource,
     selectedEquipment: exercise.selectedEquipment || undefined,
     selectedVariantId: exercise.selectedVariantId || undefined,
     selectedVariantName: exercise.selectedVariantName || undefined,
@@ -13848,6 +13889,7 @@ function CoachTrainingPlanner({
       plannedLoad: exercise.load,
       plannedReps: exercise.reps,
       plannedRest: exercise.rest,
+      restSource: exercise.restSource,
       plannedRir: exercise.targetRir,
       plannedRpe: exercise.targetRpe,
       plannedSets: exercise.sets,
@@ -13978,6 +14020,7 @@ function CoachTrainingPlanner({
           prescriptionBlockId: undefined,
           prescriptionSource,
           rest: formatPrescriptionRest(exercise.rest ?? ""),
+          restSource: exercise.restSource ?? (exercise.rest ? "legacy" : undefined),
           selectedEquipment: exercise.selectedEquipment ?? "",
           selectedVariantId: exercise.selectedVariantId ?? "",
           selectedVariantName: exercise.selectedVariantName ?? "",
@@ -14147,16 +14190,17 @@ function CoachTrainingPlanner({
             {group && isFirstGroupMember ? <div className="mb-2 rounded-md border border-line bg-white p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-bold uppercase tracking-wide text-moss">{groupLabel} · {getExerciseGroupMethodLabel(group.method, groupMembers.length)}</p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <select className="h-8 rounded-md border border-line bg-panel/35 px-2 text-xs font-semibold text-ink" onChange={(event) => updateExerciseGroup(group.id, { method: event.target.value as ExerciseGroupMethod })} value={group.method}>
                     <option value="alternating">Alternado</option><option disabled={groupMembers.length !== 2} value="superset">Biserie</option><option disabled={groupMembers.length !== 2} value="contrast">Contraste</option><option value="circuit">Circuito</option>
                   </select>
+                  <button className="text-xs font-semibold text-steel" onClick={() => restoreExerciseGroupRestDefaults(group.id)} type="button">Restaurar descansos</button>
                   <button className="text-xs font-semibold text-clay" onClick={() => removeExerciseGroup(group.id)} type="button">Desagrupar</button>
                 </div>
               </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <label className="text-[11px] font-semibold text-ink/55">Entre ejercicios<input className="mt-1 h-9 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink" inputMode="numeric" onBlur={(event) => updateExerciseGroup(group.id, { restBetweenExercises: formatPrescriptionRest(event.target.value), restBetweenExercisesSource: event.target.value.trim() ? "custom" : undefined })} onChange={(event) => updateExerciseGroup(group.id, { restBetweenExercises: event.target.value, restBetweenExercisesSource: event.target.value.trim() ? "custom" : undefined })} placeholder="MM:SS" value={group.restBetweenExercises ?? ""} /></label>
-                <label className="text-[11px] font-semibold text-ink/55">Entre rondas<input className="mt-1 h-9 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink" inputMode="numeric" onBlur={(event) => updateExerciseGroup(group.id, { restBetweenRounds: formatPrescriptionRest(event.target.value), restBetweenRoundsSource: event.target.value.trim() ? "custom" : undefined })} onChange={(event) => updateExerciseGroup(group.id, { restBetweenRounds: event.target.value, restBetweenRoundsSource: event.target.value.trim() ? "custom" : undefined })} placeholder="MM:SS" value={group.restBetweenRounds ?? ""} /></label>
+                <label className="text-[11px] font-semibold text-ink/55">Entre ejercicios {group.restBetweenExercisesSource ? <span className="font-normal text-ink/35">· {group.restBetweenExercisesSource === "default" ? "Default" : "Personalizado"}</span> : null}<input className="mt-1 h-9 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink" inputMode="numeric" onBlur={(event) => updateExerciseGroup(group.id, { restBetweenExercises: formatPrescriptionRest(event.target.value), restBetweenExercisesSource: "custom" })} onChange={(event) => updateExerciseGroup(group.id, { restBetweenExercises: event.target.value, restBetweenExercisesSource: "custom" })} placeholder="MM:SS" value={group.restBetweenExercises ?? ""} /></label>
+                <label className="text-[11px] font-semibold text-ink/55">Entre rondas {group.restBetweenRoundsSource ? <span className="font-normal text-ink/35">· {group.restBetweenRoundsSource === "default" ? "Default" : "Personalizado"}</span> : null}<input className="mt-1 h-9 w-full rounded-md border border-line bg-panel/35 px-2 text-sm font-semibold text-ink" inputMode="numeric" onBlur={(event) => updateExerciseGroup(group.id, { restBetweenRounds: formatPrescriptionRest(event.target.value), restBetweenRoundsSource: "custom" })} onChange={(event) => updateExerciseGroup(group.id, { restBetweenRounds: event.target.value, restBetweenRoundsSource: "custom" })} placeholder="MM:SS" value={group.restBetweenRounds ?? ""} /></label>
               </div>
             </div> : null}
             <article className="rounded-md border border-line bg-white p-3">
@@ -14360,12 +14404,12 @@ function CoachTrainingPlanner({
                   </div>
                 </label>
                 {!group ? <label className="space-y-1 text-xs font-semibold text-ink/55">
-                  Descanso
+                  Descanso {exercise.restSource ? <span className="font-normal text-ink/35">· {exercise.restSource === "default" ? "Default" : exercise.restSource === "custom" ? "Personalizado" : "Existente"}</span> : null}
                   <input
                     className="h-10 w-full rounded-md border border-line bg-panel/35 px-3 text-sm font-semibold text-ink outline-none focus:border-moss"
                     data-planner-field={`${exercise.id}-rest`}
-                    onChange={(event) => updateStrengthPrescription(exercise.id, { rest: event.target.value })}
-                    onBlur={(event) => updateStrengthPrescription(exercise.id, { rest: formatPrescriptionRest(event.target.value) })}
+                    onChange={(event) => updateStrengthExerciseRest(exercise.id, event.target.value)}
+                    onBlur={(event) => updateStrengthExerciseRest(exercise.id, event.target.value, true)}
                     onKeyDown={(event) => moveExerciseFieldFocus(event, exercise.id, "rest")}
                     inputMode="numeric"
                     placeholder="MM:SS"

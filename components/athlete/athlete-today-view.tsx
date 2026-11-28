@@ -431,7 +431,7 @@ function hasAthleteDisplayValue(value?: number | string | null) {
   return value !== undefined && value !== null && `${value}`.trim() !== "";
 }
 
-function getAthleteExercisePrescription(exercise: AthleteExercise) {
+function getAthleteExercisePrescription(exercise: AthleteExercise, plannedRestOverride?: number | string | null) {
   const targetRpe = exercise.plannedRpe ?? exercise.targetRpe;
   const volume = hasAthleteDisplayValue(exercise.plannedSets) && hasAthleteDisplayValue(exercise.plannedReps)
     ? `${exercise.plannedSets}x${exercise.plannedReps}`
@@ -451,7 +451,7 @@ function getAthleteExercisePrescription(exercise: AthleteExercise) {
       : hasAthleteDisplayValue(exercise.percent1RM) ? `${exercise.percent1RM}% 1RM`
       : "";
   const load = hasAthleteDisplayValue(exercise.plannedLoad) ? `${exercise.plannedLoad} kg` : "";
-  const restValue = formatAthleteRestDuration(exercise.plannedRest ?? exercise.rest);
+  const restValue = formatAthleteRestDuration(plannedRestOverride ?? exercise.plannedRest ?? exercise.rest);
   const rest = restValue ? restValue : "";
 
   return [volume, load, rest, intensity].filter(Boolean);
@@ -1396,6 +1396,10 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                     const explicitGroup = exercise.exerciseGroupId ? session.exerciseGroups?.find((candidate) => candidate.id === exercise.exerciseGroupId) : undefined;
                                     const explicitGroupLabel = explicitGroup ? getGroupLabel(session.exerciseGroups, explicitGroup.id, explicitGroup.sessionBlock, performedExercises) : "";
                                     const explicitGroupPosition = explicitGroup ? getExerciseGroupPosition(performedExercises, exercise) : null;
+                                    const explicitGroupMembers = explicitGroup ? performedExercises.filter((candidate) => candidate.exerciseGroupId === explicitGroup.id) : [];
+                                    const plannedRestOverride = explicitGroup
+                                      ? (explicitGroupPosition === explicitGroupMembers.length ? explicitGroup.restBetweenRounds : explicitGroup.restBetweenExercises)
+                                      : undefined;
                                     return (
                                     <AthleteExerciseCard
                                       exercise={exercise}
@@ -1404,6 +1408,7 @@ export function AthleteTodayView<TClient extends AthleteClient>({
                                       isOpen={openExerciseKey === exerciseKey}
                                       key={exerciseKey}
                                       navigationLabel={explicitGroup && explicitGroupPosition ? `${explicitGroupLabel}${explicitGroupPosition}` : undefined}
+                                      plannedRestOverride={plannedRestOverride}
                                       onFinish={() => finishExercise(index)}
                                       onOpen={() => setOpenExerciseKey((current) => current === exerciseKey ? null : exerciseKey)}
                                       onUpdateExecution={persistExerciseExecution}
@@ -2048,12 +2053,13 @@ function getUpdatedExerciseFromSetDetails(exercise: AthleteExercise, setDetails:
   return updates;
 }
 
-function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLabel, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
+function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLabel, plannedRestOverride, onFinish, onOpen, onToggleCompletion, onUpdate, onUpdateExecution }: {
   exercise: AthleteExercise;
   index: number;
   isFinished: boolean;
   isOpen: boolean;
   navigationLabel?: string;
+  plannedRestOverride?: number | string | null;
   onFinish: () => void;
   onOpen: () => void;
   onToggleCompletion: (index: number, completed: boolean) => void;
@@ -2063,7 +2069,7 @@ function AthleteExerciseCard({ exercise, index, isFinished, isOpen, navigationLa
   const exerciseName = exercise.exerciseName || getExerciseById(exercise.exerciseId || "")?.name || "Ejercicio sin especificar";
   const setDetails = normalizeSetDetails(exercise);
   const materialVariant = getAthleteExerciseMaterialVariant(exercise);
-  const prescription = getAthleteExercisePrescription(exercise);
+  const prescription = getAthleteExercisePrescription(exercise, plannedRestOverride);
   const intensityMethod = getAthleteExerciseIntensityMethod(exercise);
   const exerciseKey = `${exercise.id || exercise.exerciseId || exerciseName}-${index}`;
   const plannedSequence = (exercise.plannedSetReps ?? []).filter(hasAthleteDisplayValue);

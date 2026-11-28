@@ -166,7 +166,7 @@ export function AthleteSessionPlan({ exerciseGroups = [], exercises }: { exercis
               {blockExercises.map((exercise, index) => {
                 const method = exercise.setMethod ?? "straight";
                 const sequence = (exercise.plannedSetReps ?? []).filter((value) => hasValue(value));
-                const rest = formatRest(exercise.plannedRest ?? exercise.rest);
+                const exerciseRest = exercise.plannedRest ?? exercise.rest;
                 const load = exercise.plannedLoad ?? exercise.load;
                 const intensity = getIntensity(exercise);
                 const tempo = formatExerciseTempo(exercise.tempo);
@@ -183,6 +183,10 @@ export function AthleteSessionPlan({ exerciseGroups = [], exercises }: { exercis
                 const groupMembers = group ? getExercisesForGroup(blockExercises, group.id) : [];
                 const groupLabel = group ? getGroupLabel(exerciseGroups, group.id, group.sessionBlock, blockExercises) : "";
                 const groupPosition = group ? getExerciseGroupPosition(blockExercises, exercise) : null;
+                const effectiveRest = group
+                  ? (groupPosition === groupMembers.length ? group.restBetweenRounds : group.restBetweenExercises) ?? exerciseRest
+                  : exerciseRest;
+                const rest = formatRest(effectiveRest);
                 const isFirstGroupMember = groupMembers[0] === exercise;
                 return (
                   <div className={group ? "rounded-xl border border-moss/20 bg-mint/20 p-2" : ""} key={exercise.id || `${getExerciseName(exercise)}-${index}`}>
